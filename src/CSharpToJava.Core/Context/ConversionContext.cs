@@ -1,0 +1,445 @@
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using CSharpToJava.Core.Java;
+using CSharpToJava.Core.PartialType;
+
+namespace CSharpToJava.Core.Context;
+
+/// <summary>
+/// 转换选项
+/// </summary>
+public class ConversionOptions
+{
+    /// <summary>
+    /// 目标 Java 版本
+    /// </summary>
+    public JavaVersion TargetJavaVersion { get; set; } = JavaVersion.Java17;
+
+    /// <summary>
+    /// 类型映射配置文件路径
+    /// </summary>
+    public string? TypeMappingConfigPath { get; set; }
+
+    /// <summary>
+    /// 是否生成 JavaDoc 注释
+    /// </summary>
+    public bool GenerateJavaDoc { get; set; } = true;
+
+    /// <summary>
+    /// 是否使用 Java Record（对于 C# record）
+    /// </summary>
+    public bool UseRecords { get; set; } = true;
+
+    /// <summary>
+    /// 是否使用 Optional 替代 nullable
+    /// </summary>
+    public bool UseOptionalForNullable { get; set; } = false;
+
+    /// <summary>
+    /// 命名空间到包的映射规则
+    /// </summary>
+    public Dictionary<string, string> NamespaceMappings { get; set; } = new();
+
+    /// <summary>
+    /// 是否启用 LINQ 预处理（将 LINQ 转换为过程化代码）
+    /// </summary>
+    public bool EnableLinqRewrite { get; set; } = true;
+}
+
+/// <summary>
+/// Java 版本枚举
+/// </summary>
+public enum JavaVersion
+{
+    Java8 = 8,
+    Java11 = 11,
+    Java17 = 17,
+    Java21 = 21,
+}
+
+/// <summary>
+/// 转换上下文 - 存储转换过程中的状态信息
+/// </summary>
+public class ConversionContext
+{
+    private readonly Stack<string> _namespaceStack = new();
+    private readonly Stack<JavaTypeDeclaration> _typeStack = new();
+    private readonly Stack<IMethodSymbol?> _methodStack = new();
+
+    public ConversionOptions Options { get; }
+    public SemanticModel? SemanticModel { get; set; }
+    public TypeMapping.TypeMappingRegistry TypeMappings { get; }
+    public DiagnosticCollector Diagnostics { get; } = new();
+
+    /// <summary>
+    /// 当前命名空间
+    /// </summary>
+    public string CurrentNamespace => _namespaceStack.Count > 0 ? _namespaceStack.Peek() : string.Empty;
+
+    /// <summary>
+    /// 当前类型
+    /// </summary>
+    public JavaTypeDeclaration? CurrentType => _typeStack.Count > 0 ? _typeStack.Peek() : null;
+
+    /// <summary>
+    /// 当前方法符号
+    /// </summary>
+    public IMethodSymbol? CurrentMethod => _methodStack.Count > 0 ? _methodStack.Peek() : null;
+
+    /// <summary>
+    /// 是否在 async 上下文中
+    /// </summary>
+    public bool IsInAsyncContext { get; set; }
+
+    /// <summary>
+    /// 是否在 lambda 表达式中
+    /// </summary>
+    public bool IsInLambdaContext { get; set; }
+
+    /// <summary>
+    /// 收集的导入语句
+    /// </summary>
+    public HashSet<string> ImportedTypes { get; } = new();
+
+    /// <summary>
+    /// 类型符号到 Java 类型的缓存
+    /// </summary>
+    public Dictionary<ITypeSymbol, string> TypeCache { get; } = new();
+
+    /// <summary>
+    /// 需要合成的唯一名称计数器
+    /// </summary>
+    private Dictionary<string, int> _syntheticNameCounters = new();
+
+    /// <summary>
+    /// 跟踪已合并的 partial 类型
+    /// Key: Type name, Value: MergedTypeDeclaration
+    /// </summary>
+    private Dictionary<string, MergedTypeDeclaration> _mergedPartialTypes = new();
+
+    /// <summary>
+    /// 跟踪哪些语法节点是 partial 类型的一部分
+    /// Key: Syntax node span, Value: merged type name
+    /// </summary>
+    private Dictionary<string, string> _partialSyntaxNodeMap = new();
+
+    /// <summary>
+    /// 完整的项目编译，用于跨文件语义分析
+    /// </summary>
+    public CSharpCompilation? ProjectCompilation { get; set; }
+
+    public ConversionContext(ConversionOptions options, TypeMapping.TypeMappingRegistry typeMappings)
+    {
+        Options = options;
+        TypeMappings = typeMappings;
+    }
+
+    /// <summary>
+    /// 进入命名空间
+    /// </summary>
+    public void EnterNamespace(string ns)
+    {
+        _namespaceStack.Push(ns);
+    }
+
+    /// <summary>
+    /// 离开命名空间
+    /// </summary>
+    public void LeaveNamespace()
+    {
+        if (_namespaceStack.Count > 0)
+            _namespaceStack.Pop();
+    }
+
+    /// <summary>
+    /// 进入类型
+    /// </summary>
+    public void EnterType(JavaTypeDeclaration type)
+    {
+        _typeStack.Push(type);
+    }
+
+    /// <summary>
+    /// 离开类型
+    /// </summary>
+    public void LeaveType()
+    {
+        if (_typeStack.Count > 0)
+            _typeStack.Pop();
+    }
+
+    /// <summary>
+    /// 进入方法
+    /// </summary>
+    public void EnterMethod(IMethodSymbol? method)
+    {
+        _methodStack.Push(method);
+    }
+
+    /// <summary>
+    /// 离开方法
+    /// </summary>
+    public void LeaveMethod()
+    {
+        if (_methodStack.Count > 0)
+            _methodStack.Pop();
+    }
+
+    /// <summary>
+    /// 生成唯一的合成名称
+    /// </summary>
+    public string GenerateSyntheticName(string prefix)
+    {
+        if (!_syntheticNameCounters.ContainsKey(prefix))
+        {
+            _syntheticNameCounters[prefix] = 0;
+        }
+
+        return $"{prefix}{++_syntheticNameCounters[prefix]}";
+    }
+
+    /// <summary>
+    /// 添加导入
+    /// </summary>
+    public void AddImport(string typeName)
+    {
+        // 跳过 java.lang 包下的类型
+        if (!typeName.StartsWith("java.lang."))
+        {
+            ImportedTypes.Add(typeName);
+        }
+    }
+
+    /// <summary>
+    /// 将 C# 命名空间转换为 Java 包名
+    /// </summary>
+    public string NamespaceToPackage(string ns)
+    {
+        // 检查是否有自定义映射
+        foreach (var (pattern, replacement) in Options.NamespaceMappings)
+        {
+            if (ns.StartsWith(pattern))
+            {
+                return ns.Replace(pattern, replacement);
+            }
+        }
+
+        // 默认转换：替换 . 为 /
+        return ns;
+    }
+
+    /// <summary>
+    /// 映射 C# 类型到 Java 类型
+    /// </summary>
+    public string MapType(ITypeSymbol typeSymbol)
+    {
+        if (TypeCache.TryGetValue(typeSymbol, out var cached))
+        {
+            return cached;
+        }
+
+        var result = MapTypeInternal(typeSymbol);
+        TypeCache[typeSymbol] = result;
+        return result;
+    }
+
+    private string MapTypeInternal(ITypeSymbol typeSymbol)
+    {
+        // 处理特殊类型
+        var fullyQualifiedName = typeSymbol.ToDisplayString();
+
+        // 先检查配置映射
+        var mapped = TypeMappings.MapType(fullyQualifiedName);
+        if (mapped != fullyQualifiedName)
+        {
+            // 添加需要的导入
+            foreach (var import in TypeMappings.GetRequiredImports(fullyQualifiedName))
+            {
+                AddImport(import);
+            }
+            return MapSimpleTypeName(mapped);
+        }
+
+        // 处理数组类型
+        if (typeSymbol is IArrayTypeSymbol arrayType)
+        {
+            var elementType = MapType(arrayType.ElementType);
+            return elementType + "[]";
+        }
+
+        // 处理泛型类型
+        if (typeSymbol is INamedTypeSymbol namedType && namedType.TypeArguments.Count > 0)
+        {
+            var baseType = MapSimpleTypeName(namedType.Name);
+            var typeArgs = string.Join(", ", namedType.TypeArguments.Select(MapType));
+            return $"{baseType}<{typeArgs}>";
+        }
+
+        // 处理可空值类型
+        if (typeSymbol.OriginalDefinition?.ToDisplayString() == "System.Nullable")
+        {
+            var underlyingType = ((INamedTypeSymbol)typeSymbol).TypeArguments[0];
+            var javaType = MapType(underlyingType);
+
+            if (Options.UseOptionalForNullable)
+            {
+                AddImport("java.util.Optional");
+                return $"Optional<{javaType}>";
+            }
+
+            // 默认：使用装箱类型
+            return javaType;
+        }
+
+        // 处理动态类型
+        if (typeSymbol is IDynamicTypeSymbol)
+        {
+            Diagnostics.Warning("Dynamic type converted to Object");
+            return "Object";
+        }
+
+        return MapSimpleTypeName(typeSymbol.Name);
+    }
+
+    private string MapSimpleTypeName(string typeName)
+    {
+        // 基础类型映射
+        return typeName switch
+        {
+            "String" => "String",
+            "Int32" => "int",
+            "Int64" => "long",
+            "Int16" => "short",
+            "Byte" => "byte",
+            "SByte" => "byte",
+            "UInt32" => "int",  // Java 没有 unsigned
+            "UInt64" => "long",
+            "UInt16" => "short",
+            "Single" => "float",
+            "Double" => "double",
+            "Boolean" => "boolean",
+            "Char" => "char",
+            "Object" => "Object",
+            "Void" => "void",
+            "var" => "var",  // Java 10+ 支持 var
+            _ => typeName
+        };
+    }
+
+    /// <summary>
+    /// 注册一个已合并的 partial 类型
+    /// </summary>
+    public void RegisterMergedPartialType(MergedTypeDeclaration mergedType)
+    {
+        _mergedPartialTypes[mergedType.TypeSymbol.Name] = mergedType;
+
+        // 标记所有原始语法节点为已合并
+        foreach (var syntaxNode in mergedType.OriginalSyntaxNodes)
+        {
+            var key = GetSyntaxNodeKey(syntaxNode);
+            _partialSyntaxNodeMap[key] = mergedType.TypeSymbol.Name;
+        }
+    }
+
+    /// <summary>
+    /// 检查一个语法节点是否是已合并的 partial 类型的一部分
+    /// </summary>
+    public bool IsMergedPartialType(TypeDeclarationSyntax syntaxNode)
+    {
+        var key = GetSyntaxNodeKey(syntaxNode);
+        return _partialSyntaxNodeMap.ContainsKey(key);
+    }
+
+    /// <summary>
+    /// 获取已合并的类型声明
+    /// </summary>
+    public MergedTypeDeclaration? GetMergedType(string typeName)
+    {
+        return _mergedPartialTypes.GetValueOrDefault(typeName);
+    }
+
+    /// <summary>
+    /// 获取所有已合并的类型
+    /// </summary>
+    public IReadOnlyList<MergedTypeDeclaration> GetAllMergedTypes()
+    {
+        return _mergedPartialTypes.Values.ToList();
+    }
+
+    /// <summary>
+    /// 清除所有已合并的 partial 类型记录
+    /// </summary>
+    public void ClearMergedTypes()
+    {
+        _mergedPartialTypes.Clear();
+        _partialSyntaxNodeMap.Clear();
+    }
+
+    /// <summary>
+    /// 为语法节点生成唯一键
+    /// </summary>
+    private static string GetSyntaxNodeKey(TypeDeclarationSyntax syntaxNode)
+    {
+        var location = syntaxNode.SyntaxTree.FilePath;
+        var span = syntaxNode.Span;
+        return $"{location}:{span.Start}:{span.Length}";
+    }
+
+    /// <summary>
+    /// 获取用于跨文件分析的语义模型
+    /// 如果有项目编译，使用它；否则使用当前语法树的语义模型
+    /// </summary>
+    public SemanticModel? GetSemanticModelForTree(SyntaxTree syntaxTree)
+    {
+        if (ProjectCompilation != null)
+        {
+            return ProjectCompilation.GetSemanticModel(syntaxTree);
+        }
+        return SemanticModel;
+    }
+}
+
+/// <summary>
+/// 诊断收集器
+/// </summary>
+public class DiagnosticCollector
+{
+    private readonly List<DiagnosticMessage> _messages = new();
+
+    public IReadOnlyList<DiagnosticMessage> Messages => _messages;
+
+    public void Error(string message, Location? location = null)
+    {
+        _messages.Add(new DiagnosticMessage(DiagnosticSeverity.Error, message, location));
+    }
+
+    public void Warning(string message, Location? location = null)
+    {
+        _messages.Add(new DiagnosticMessage(DiagnosticSeverity.Warning, message, location));
+    }
+
+    public void Info(string message, Location? location = null)
+    {
+        _messages.Add(new DiagnosticMessage(DiagnosticSeverity.Info, message, location));
+    }
+}
+
+/// <summary>
+/// 诊断消息
+/// </summary>
+public record DiagnosticMessage(
+    DiagnosticSeverity Severity,
+    string Message,
+    Location? Location
+);
+
+/// <summary>
+/// 诊断严重程度
+/// </summary>
+public enum DiagnosticSeverity
+{
+    Info,
+    Warning,
+    Error,
+}

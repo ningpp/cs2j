@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\CSharpToJava.Core\CSharpToJava.Core.csproj" />
+    <ProjectReference Include="..\CSharpToJava.TypeMapping\CSharpToJava.TypeMapping.csproj" />
+    <ProjectReference Include="..\CSharpToJava.LINQ\CSharpToJava.LINQ.csproj" />
+    <ProjectReference Include="..\CSharpToJava.Async\CSharpToJava.Async.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommandLineParser" Version="2.9.1" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

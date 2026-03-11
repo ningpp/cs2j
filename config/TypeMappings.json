@@ -1,0 +1,360 @@
+{
+  "typeMappings": [
+    {
+      "csharp": "System.String",
+      "java": "String",
+      "imports": []
+    },
+    {
+      "csharp": "System.Int32",
+      "java": "int",
+      "imports": []
+    },
+    {
+      "csharp": "System.Int64",
+      "java": "long",
+      "imports": []
+    },
+    {
+      "csharp": "System.Int16",
+      "java": "short",
+      "imports": []
+    },
+    {
+      "csharp": "System.Byte",
+      "java": "byte",
+      "imports": []
+    },
+    {
+      "csharp": "System.SByte",
+      "java": "byte",
+      "imports": []
+    },
+    {
+      "csharp": "System.UInt32",
+      "java": "int",
+      "imports": []
+    },
+    {
+      "csharp": "System.UInt64",
+      "java": "long",
+      "imports": []
+    },
+    {
+      "csharp": "System.UInt16",
+      "java": "short",
+      "imports": []
+    },
+    {
+      "csharp": "System.Single",
+      "java": "float",
+      "imports": []
+    },
+    {
+      "csharp": "System.Double",
+      "java": "double",
+      "imports": []
+    },
+    {
+      "csharp": "System.Boolean",
+      "java": "boolean",
+      "imports": []
+    },
+    {
+      "csharp": "System.Char",
+      "java": "char",
+      "imports": []
+    },
+    {
+      "csharp": "System.Object",
+      "java": "Object",
+      "imports": []
+    },
+    {
+      "csharp": "System.Void",
+      "java": "void",
+      "imports": []
+    },
+    {
+      "csharp": "System.Collections.Generic.List`1",
+      "java": "ArrayList",
+      "imports": ["java.util.ArrayList"]
+    },
+    {
+      "csharp": "System.Collections.Generic.IList`1",
+      "java": "List",
+      "imports": ["java.util.List"]
+    },
+    {
+      "csharp": "System.Collections.Generic.Dictionary`2",
+      "java": "HashMap",
+      "imports": ["java.util.HashMap"]
+    },
+    {
+      "csharp": "System.Collections.Generic.IDictionary`2",
+      "java": "Map",
+      "imports": ["java.util.Map"]
+    },
+    {
+      "csharp": "System.Collections.Generic.HashSet`1",
+      "java": "HashSet",
+      "imports": ["java.util.HashSet"]
+    },
+    {
+      "csharp": "System.Collections.Generic.IEnumerable`1",
+      "java": "Iterable",
+      "imports": ["java.lang.Iterable"]
+    },
+    {
+      "csharp": "System.Collections.Generic.IEnumerator`1",
+      "java": "Iterator",
+      "imports": ["java.util.Iterator"]
+    },
+    {
+      "csharp": "System.Threading.Tasks.Task`1",
+      "java": "CompletableFuture",
+      "imports": ["java.util.concurrent.CompletableFuture"]
+    },
+    {
+      "csharp": "System.Threading.Tasks.Task",
+      "java": "CompletableFuture",
+      "imports": ["java.util.concurrent.CompletableFuture"]
+    },
+    {
+      "csharp": "System.Threading.Tasks.ValueTask`1",
+      "java": "CompletableFuture",
+      "imports": ["java.util.concurrent.CompletableFuture"]
+    },
+    {
+      "csharp": "System.DateTime",
+      "java": "LocalDateTime",
+      "imports": ["java.time.LocalDateTime"]
+    },
+    {
+      "csharp": "System.DateTimeOffset",
+      "java": "OffsetDateTime",
+      "imports": ["java.time.OffsetDateTime"]
+    },
+    {
+      "csharp": "System.TimeSpan",
+      "java": "Duration",
+      "imports": ["java.time.Duration"]
+    },
+    {
+      "csharp": "System.DateOnly",
+      "java": "LocalDate",
+      "imports": ["java.time.LocalDate"]
+    },
+    {
+      "csharp": "System.TimeOnly",
+      "java": "LocalTime",
+      "imports": ["java.time.LocalTime"]
+    },
+    {
+      "csharp": "System.Guid",
+      "java": "UUID",
+      "imports": ["java.util.UUID"]
+    },
+    {
+      "csharp": "System.Uri",
+      "java": "URI",
+      "imports": ["java.net.URI"]
+    },
+    {
+      "csharp": "System.Text.StringBuilder",
+      "java": "StringBuilder",
+      "imports": ["java.lang.StringBuilder"]
+    },
+    {
+      "csharp": "System.Exception",
+      "java": "Exception",
+      "imports": ["java.lang.Exception"]
+    },
+    {
+      "csharp": "System.ArgumentException",
+      "java": "IllegalArgumentException",
+      "imports": ["java.lang.IllegalArgumentException"]
+    },
+    {
+      "csharp": "System.ArgumentNullException",
+      "java": "NullPointerException",
+      "imports": ["java.lang.NullPointerException"]
+    },
+    {
+      "csharp": "System.InvalidOperationException",
+      "java": "IllegalStateException",
+      "imports": ["java.lang.IllegalStateException"]
+    },
+    {
+      "csharp": "System.NotImplementedException",
+      "java": "UnsupportedOperationException",
+      "imports": ["java.lang.UnsupportedOperationException"]
+    },
+    {
+      "csharp": "System.IDisposable",
+      "java": "AutoCloseable",
+      "imports": ["java.lang.AutoCloseable"]
+    },
+    {
+      "csharp": "System.Linq.ILookup`2",
+      "java": "Map",
+      "imports": ["java.util.Map"]
+    },
+    {
+      "csharp": "System.Linq.IGrouping`2",
+      "java": "Map.Entry",
+      "imports": ["java.util.Map"]
+    }
+  ],
+  "methodMappings": [
+    {
+      "type": "System.Collections.Generic.Dictionary",
+      "method": "Add",
+      "javaMethod": "put"
+    },
+    {
+      "type": "System.Collections.Generic.IDictionary",
+      "method": "Add",
+      "javaMethod": "put"
+    },
+    {
+      "type": "System.Collections.Generic.List",
+      "method": "Add",
+      "javaMethod": "add"
+    },
+    {
+      "type": "System.Collections.Generic.IList",
+      "method": "Add",
+      "javaMethod": "add"
+    },
+    {
+      "type": "System.Collections.Generic.List",
+      "method": "Remove",
+      "javaMethod": "remove"
+    },
+    {
+      "type": "System.Collections.Generic.IList",
+      "method": "Remove",
+      "javaMethod": "remove"
+    },
+    {
+      "type": "System.Collections.Generic.List",
+      "method": "Contains",
+      "javaMethod": "contains"
+    },
+    {
+      "type": "System.Collections.Generic.IList",
+      "method": "Contains",
+      "javaMethod": "contains"
+    },
+    {
+      "type": "System.Collections.Generic.Dictionary",
+      "method": "ContainsKey",
+      "javaMethod": "containsKey"
+    },
+    {
+      "type": "System.Collections.Generic.IDictionary",
+      "method": "ContainsKey",
+      "javaMethod": "containsKey"
+    },
+    {
+      "type": "System.Collections.Generic.Dictionary",
+      "method": "TryGetValue",
+      "javaMethod": "get"
+    },
+    {
+      "type": "System.Collections.Generic.IDictionary",
+      "method": "TryGetValue",
+      "javaMethod": "get"
+    },
+    {
+      "type": "System.String",
+      "method": "Equals",
+      "javaMethod": "equals"
+    },
+    {
+      "type": "System.String",
+      "method": "Substring",
+      "javaMethod": "substring"
+    },
+    {
+      "type": "System.String",
+      "method": "IndexOf",
+      "javaMethod": "indexOf"
+    },
+    {
+      "type": "System.String",
+      "method": "LastIndexOf",
+      "javaMethod": "lastIndexOf"
+    },
+    {
+      "type": "System.String",
+      "method": "Replace",
+      "javaMethod": "replace"
+    },
+    {
+      "type": "System.String",
+      "method": "Split",
+      "javaMethod": "split"
+    },
+    {
+      "type": "System.String",
+      "method": "Trim",
+      "javaMethod": "trim"
+    },
+    {
+      "type": "System.String",
+      "method": "ToLower",
+      "javaMethod": "toLowerCase"
+    },
+    {
+      "type": "System.String",
+      "method": "ToUpper",
+      "javaMethod": "toUpperCase"
+    },
+    {
+      "type": "System.String",
+      "method": "StartsWith",
+      "javaMethod": "startsWith"
+    },
+    {
+      "type": "System.String",
+      "method": "EndsWith",
+      "javaMethod": "endsWith"
+    }
+  ],
+  "namespaceMappings": [
+    {
+      "csharp": "System",
+      "java": "java.lang"
+    },
+    {
+      "csharp": "System.Collections.Generic",
+      "java": "java.util"
+    },
+    {
+      "csharp": "System.Linq",
+      "java": "java.util.stream"
+    },
+    {
+      "csharp": "System.Threading.Tasks",
+      "java": "java.util.concurrent"
+    },
+    {
+      "csharp": "System.Text",
+      "java": "java.lang"
+    },
+    {
+      "csharp": "System.IO",
+      "java": "java.io"
+    },
+    {
+      "csharp": "System.Net",
+      "java": "java.net"
+    },
+    {
+      "csharp": "System.Time",
+      "java": "java.time"
+    }
+  ]
+}

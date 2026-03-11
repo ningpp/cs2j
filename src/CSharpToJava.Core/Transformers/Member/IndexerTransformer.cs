@@ -1,0 +1,139 @@
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using CSharpToJava.Core.Abstractions;
+using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Java;
+
+namespace CSharpToJava.Core.Transformers.Member;
+
+/// <summary>
+/// 索引器转换器 - 将 C# 索引器转换为 Java 方法
+/// </summary>
+public class IndexerTransformer : IMemberTransformer
+{
+    public JavaSyntaxNode Transform(MemberDeclarationSyntax node, ConversionContext context)
+    {
+        if (node is not IndexerDeclarationSyntax indexerDecl)
+        {
+            throw new ArgumentException($"Expected IndexerDeclarationSyntax, got {node.GetType()}");
+        }
+
+        var results = new List<JavaMethodDeclaration>();
+
+        var returnType = context.MapType(context.SemanticModel!.GetTypeInfo(indexerDecl.Type).Type!);
+
+        // 获取参数列表
+        var parameters = new List<JavaParameter>();
+        foreach (var param in indexerDecl.ParameterList?.Parameters ?? Enumerable.Empty<ParameterSyntax>())
+        {
+            var typeInfo = context.SemanticModel?.GetTypeInfo(param.Type!);
+            var javaType = typeInfo?.Type != null ? context.MapType(typeInfo.Type) : "Object";
+            parameters.Add(new JavaParameter(javaType, param.Identifier.Text));
+        }
+
+        // 生成 getter 方法
+        var getAccessor = indexerDecl.AccessorList?.Accessors
+            .FirstOrDefault(a => a.IsKind(SyntaxKind.GetAccessorDeclaration));
+
+        if (getAccessor != null || indexerDecl.AccessorList == null)
+        {
+            var getter = new JavaMethodDeclaration
+            {
+                Name = "get",
+                ReturnType = returnType,
+                Modifiers = GetAccessorModifiers(getAccessor, indexerDecl.Modifiers) | JavaModifiers.Public,
+                Parameters = new List<JavaParameter>(parameters)
+            };
+
+            if (getAccessor?.Body != null)
+            {
+                var statementTransformer = new Transformers.StatementTransformer();
+                getter.Body = statementTransformer.TransformBlock(getAccessor.Body, context);
+            }
+            else if (getAccessor?.ExpressionBody != null)
+            {
+                var exprTransformer = new Transformers.ExpressionTransformer();
+                getter.Body = exprTransformer.Transform(getAccessor.ExpressionBody.Expression, context);
+                getter.IsBodyExpression = true;
+            }
+
+            results.Add(getter);
+        }
+
+        // 生成 setter 方法
+        var setAccessor = indexerDecl.AccessorList?.Accessors
+            .FirstOrDefault(a => a.IsKind(SyntaxKind.SetAccessorDeclaration));
+
+        if (setAccessor != null)
+        {
+            var setterParams = new List<JavaParameter>(parameters)
+            {
+                new JavaParameter(returnType, "value")
+            };
+
+            var setter = new JavaMethodDeclaration
+            {
+                Name = "set",
+                ReturnType = "void",
+                Modifiers = GetAccessorModifiers(setAccessor, indexerDecl.Modifiers) | JavaModifiers.Public,
+                Parameters = setterParams
+            };
+
+            if (setAccessor?.Body != null)
+            {
+                var statementTransformer = new Transformers.StatementTransformer();
+                setter.Body = statementTransformer.TransformBlock(setAccessor.Body, context);
+            }
+            else if (setAccessor?.ExpressionBody != null)
+            {
+                var exprTransformer = new Transformers.ExpressionTransformer();
+                setter.Body = exprTransformer.Transform(setAccessor.ExpressionBody.Expression, context);
+                setter.IsBodyExpression = true;
+            }
+
+            results.Add(setter);
+        }
+
+        return results;
+    }
+
+    private JavaModifiers GetAccessorModifiers(AccessorDeclarationSyntax? accessor, SyntaxTokenList modifiers)
+    {
+        JavaModifiers result = JavaModifiers.None;
+
+        // 检查访问器上的修饰符
+        if (accessor != null)
+        {
+            foreach (var modifier in accessor.Modifiers)
+            {
+                result |= modifier.Kind() switch
+                {
+                    SyntaxKind.PublicKeyword => JavaModifiers.Public,
+                    SyntaxKind.ProtectedKeyword => JavaModifiers.Protected,
+                    SyntaxKind.PrivateKeyword => JavaModifiers.Private,
+                    SyntaxKind.InternalKeyword => JavaModifiers.Public,
+                    _ => JavaModifiers.None
+                };
+            }
+        }
+
+        // 如果访问器没有修饰符，使用索引器的修饰符
+        if (result == JavaModifiers.None)
+        {
+            foreach (var modifier in modifiers)
+            {
+                result |= modifier.Kind() switch
+                {
+                    SyntaxKind.PublicKeyword => JavaModifiers.Public,
+                    SyntaxKind.ProtectedKeyword => JavaModifiers.Protected,
+                    SyntaxKind.PrivateKeyword => JavaModifiers.Private,
+                    SyntaxKind.InternalKeyword => JavaModifiers.Public,
+                    _ => JavaModifiers.None
+                };
+            }
+        }
+
+        return result;
+    }
+}
