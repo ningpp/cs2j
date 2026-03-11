@@ -328,8 +328,19 @@ namespace CSharpToJava.Core.LinqRewrite
         {
             return attributeLists.Any(x => x.Attributes.Any(y =>
             {
-                var symbol = ((IMethodSymbol)semantic.GetSymbolInfo(y).Symbol).ContainingType;
-                return symbol.ToDisplayString() == "Shaman.Runtime.NoLinqRewriteAttribute";
+                var symbolInfo = semantic.GetSymbolInfo(y);
+                if (symbolInfo.Symbol == null)
+                    return false;
+
+                var methodSymbol = symbolInfo.Symbol as IMethodSymbol;
+                if (methodSymbol == null)
+                    return false;
+
+                var containingType = methodSymbol.ContainingType;
+                if (containingType == null)
+                    return false;
+
+                return containingType.ToDisplayString() == "Shaman.Runtime.NoLinqRewriteAttribute";
             }));
         }
 

@@ -105,17 +105,25 @@ public class ConversionPipeline
             // LINQ 预处理：将 LINQ 转换为过程化代码
             if (request.Options.EnableLinqRewrite)
             {
-                var rewriter = new LinqRewriter(context.SemanticModel);
-                var rewrittenRoot = (CompilationUnitSyntax)rewriter.Visit(syntaxTree.GetRoot());
-                syntaxTree = syntaxTree.WithRootAndOptions(rewrittenRoot, syntaxTree.Options);
+                try
+                {
+                    var rewriter = new LinqRewriter(context.SemanticModel);
+                    var rewrittenRoot = (CompilationUnitSyntax)rewriter.Visit(syntaxTree.GetRoot());
+                    syntaxTree = syntaxTree.WithRootAndOptions(rewrittenRoot, syntaxTree.Options);
 
-                // 重新创建编译和语义模型
-                compilation = CSharpCompilation.Create(
-                    "TempAssembly",
-                    new[] { syntaxTree },
-                    compilation.References
-                );
-                context.SemanticModel = compilation.GetSemanticModel(syntaxTree);
+                    // 重新创建编译和语义模型
+                    compilation = CSharpCompilation.Create(
+                        "TempAssembly",
+                        new[] { syntaxTree },
+                        compilation.References
+                    );
+                    context.SemanticModel = compilation.GetSemanticModel(syntaxTree);
+                }
+                catch (Exception ex)
+                {
+                    // Log LINQ rewrite failure but continue with original syntax tree
+                    context.Diagnostics.Warning($"LINQ rewrite skipped due to error: {ex.Message}");
+                }
             }
 
             // 转换阶段
@@ -124,7 +132,20 @@ public class ConversionPipeline
 
             if (compilationUnit is Java.JavaCompilationUnit javaCompilation)
             {
-                return CreateSuccessResult(javaCompilation.ToString(""), context, request.FileName);
+                // Files with only attributes produce empty compilation units
+                // Treat them as successful but with minimal output
+                var code = javaCompilation.ToString("");
+                if (string.IsNullOrWhiteSpace(code) && request.FileName != null)
+                {
+                    // Check if the original file had only attributes/usings (no type declarations)
+                    var root = syntaxTree.GetRoot() as CompilationUnitSyntax;
+                    if (root != null && root.Members.Count == 0)
+                    {
+                        return CreateSuccessResult("// " + Path.GetFileName(request.FileName) + " - contains no convertible code", context, request.FileName);
+                    }
+                }
+
+                return CreateSuccessResult(code, context, request.FileName);
             }
 
             return CreateFailureResult(context, request.FileName);
