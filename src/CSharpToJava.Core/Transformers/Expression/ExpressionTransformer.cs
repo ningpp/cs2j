@@ -187,6 +187,23 @@ public class ExpressionTransformer : IExpressionTransformer
     {
         var name = node.Identifier.Text;
 
+        // 检查是否是别名
+        if (context.IsAlias(name))
+        {
+            var targetType = context.ResolveAlias(name);
+            if (targetType != null)
+            {
+                // 将别名替换为实际类型
+                return context.MapType(targetType);
+            }
+
+            // 别名解析失败，使用原始名称并警告
+            context.Diagnostics.Warning(
+                $"Could not resolve alias '{name}'",
+                node.GetLocation()
+            );
+        }
+
         // 处理 C# 关键字作为标识符的情况
         if (IsJavaKeyword(name))
         {
@@ -207,6 +224,16 @@ public class ExpressionTransformer : IExpressionTransformer
     {
         var typeName = node.Identifier.Text;
 
+        // 检查是否是泛型别名
+        if (context.IsAlias(typeName))
+        {
+            var targetType = context.ResolveAlias(typeName);
+            if (targetType != null)
+            {
+                return context.MapType(targetType);
+            }
+        }
+
         // 处理泛型类型参数
         var typeArgs = node.TypeArgumentList?.Arguments.Select(arg =>
         {
@@ -219,6 +246,22 @@ public class ExpressionTransformer : IExpressionTransformer
 
     private string TransformMemberAccess(MemberAccessExpressionSyntax node, ConversionContext context)
     {
+        // 检查左侧是否是别名（如 P2.SubType）
+        if (node.Expression is IdentifierNameSyntax identifierExpr)
+        {
+            var leftName = identifierExpr.Identifier.Text;
+            if (context.IsAlias(leftName))
+            {
+                var targetType = context.ResolveAlias(leftName);
+                if (targetType != null)
+                {
+                    var left = context.MapType(targetType);
+                    var right = node.Name.Identifier.Text;
+                    return $"{left}.{right}";
+                }
+            }
+        }
+
         var left = Transform(node.Expression, context);
         var right = node.Name.Identifier.Text;
 

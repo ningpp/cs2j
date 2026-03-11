@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.PartialType;
+using System.Text;
 
 namespace CSharpToJava.Core.Context;
 
@@ -397,6 +398,165 @@ public class ConversionContext
             return ProjectCompilation.GetSemanticModel(syntaxTree);
         }
         return SemanticModel;
+    }
+
+    /// <summary>
+    /// C# using 别名信息
+    /// </summary>
+    public class UsingAliasInfo
+    {
+        /// <summary>
+        /// 别名名称（如 P2）
+        /// </summary>
+        public string AliasName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// 目标类型符号
+        /// </summary>
+        public ITypeSymbol? TargetType { get; set; }
+
+        /// <summary>
+        /// 别名在源代码中的位置（用于诊断）
+        /// </summary>
+        public Location? Location { get; set; }
+
+        /// <summary>
+        /// 是否是泛型别名
+        /// </summary>
+        public bool IsGeneric => TargetType is INamedTypeSymbol named &&
+                                  named.TypeArguments.Count > 0;
+    }
+
+    /// <summary>
+    /// 文件级别名映射表
+    /// Key: 别名名称, Value: 别名信息
+    /// </summary>
+    private Dictionary<string, UsingAliasInfo> _usingAliases = new();
+
+    /// <summary>
+    /// 当前文件的别名集合（公开访问）
+    /// </summary>
+    public IReadOnlyDictionary<string, UsingAliasInfo> UsingAliases => _usingAliases;
+
+    /// <summary>
+    /// 注册 using 别名
+    /// </summary>
+    public bool RegisterUsingAlias(string aliasName, ITypeSymbol targetType, Location? location)
+    {
+        // 检测重复别名定义
+        if (_usingAliases.ContainsKey(aliasName))
+        {
+            Diagnostics.Error($"Duplicate alias '{aliasName}' in this file", location);
+            return false;
+        }
+
+        // 检查别名是否是 Java 关键字
+        if (IsJavaKeyword(aliasName))
+        {
+            Diagnostics.Error($"Alias '{aliasName}' is a Java keyword and cannot be used", location);
+            return false;
+        }
+
+        // 检查别名是否与类型系统中的类型冲突
+        foreach (var cachedType in TypeCache.Values)
+        {
+            if (cachedType == aliasName)
+            {
+                Diagnostics.Warning($"Alias '{aliasName}' conflicts with existing type", location);
+                break;
+            }
+        }
+
+        // 检查别名指向的简单名称与别名是否相同（无意义别名）
+        if (targetType.Name == aliasName)
+        {
+            Diagnostics.Warning($"Alias '{aliasName}' has the same name as the target type '{targetType.Name}'", location);
+        }
+
+        // 检查别名与当前命名空间类型的冲突
+        if (!string.IsNullOrEmpty(CurrentNamespace))
+        {
+            var currentNs = GlobalNamespace?.GetMembers(CurrentNamespace);
+            if (currentNs != null)
+            {
+                foreach (var member in currentNs)
+                {
+                    if (member is ITypeSymbol type && type.Name == aliasName)
+                    {
+                        Diagnostics.Warning($"Alias '{aliasName}' conflicts with type '{type.Name}' in current namespace", location);
+                        break;
+                    }
+                }
+            }
+        }
+
+        _usingAliases[aliasName] = new UsingAliasInfo
+        {
+            AliasName = aliasName,
+            TargetType = targetType,
+            Location = location
+        };
+
+        return true;
+    }
+
+    /// <summary>
+    /// 检查标识符是否是别名
+    /// </summary>
+    public bool IsAlias(string identifier)
+    {
+        return _usingAliases.ContainsKey(identifier);
+    }
+
+    /// <summary>
+    /// 解析别名到实际类型
+    /// </summary>
+    public ITypeSymbol? ResolveAlias(string aliasName)
+    {
+        return _usingAliases.GetValueOrDefault(aliasName)?.TargetType;
+    }
+
+    /// <summary>
+    /// 清除当前文件的别名（处理新文件时调用）
+    /// </summary>
+    public void ClearAliases()
+    {
+        _usingAliases.Clear();
+    }
+
+    /// <summary>
+    /// 获取别名的 Java 类型表示
+    /// </summary>
+    public string? MapAliasToJavaType(string aliasName)
+    {
+        var alias = _usingAliases.GetValueOrDefault(aliasName);
+        if (alias?.TargetType == null) return null;
+
+        return MapType(alias.TargetType);
+    }
+
+    /// <summary>
+    /// 获取全局命名空间（用于冲突检测）
+    /// </summary>
+    private INamespaceSymbol? GlobalNamespace => SemanticModel?.Compilation?.GlobalNamespace;
+
+    /// <summary>
+    /// 检查是否是 Java 关键字
+    /// </summary>
+    private static bool IsJavaKeyword(string word)
+    {
+        return word switch
+        {
+            "abstract" or "assert" or "boolean" or "break" or "byte" or "case" or "catch" or
+            "char" or "class" or "const" or "continue" or "default" or "do" or "double" or
+            "else" or "enum" or "extends" or "final" or "finally" or "float" or "for" or
+            "goto" or "if" or "implements" or "import" or "instanceof" or "int" or
+            "interface" or "long" or "native" or "new" or "package" or "private" or
+            "protected" or "public" or "return" or "short" or "static" or "strictfp" or
+            "super" or "switch" or "synchronized" or "this" or "throw" or "throws" or
+            "transient" or "try" or "void" or "volatile" or "while" => true,
+            _ => false
+        };
     }
 }
 

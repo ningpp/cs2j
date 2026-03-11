@@ -57,32 +57,12 @@ public class CSharpToJavaVisitor : CSharpSyntaxVisitor<JavaSyntaxNode?>
     /// </summary>
     private void ProcessUsings(SyntaxList<UsingDirectiveSyntax> usings, JavaCompilationUnit compilation)
     {
+        // 清除之前的别名（每个文件独立）
+        _context.ClearAliases();
+
         foreach (var usingDirective in usings)
         {
-            if (usingDirective.Name != null)
-            {
-                var name = usingDirective.Name.ToString();
-
-                // 静态导入转换
-                if (usingDirective.StaticKeyword.IsKind(SyntaxKind.StaticKeyword))
-                {
-                    // 处理静态导入，如 using static System.Math;
-                    var javaType = MapUsingToJava(name);
-                    if (!string.IsNullOrEmpty(javaType))
-                    {
-                        compilation.Imports.Add(new JavaImport(javaType, isStatic: true));
-                    }
-                }
-                else
-                {
-                    // 处理普通导入
-                    var javaType = MapUsingToJava(name);
-                    if (!string.IsNullOrEmpty(javaType))
-                    {
-                        compilation.Imports.Add(new JavaImport(javaType));
-                    }
-                }
-            }
+            ProcessUsingDirective(usingDirective, compilation);
         }
 
         // 添加类型映射所需的导入
@@ -91,6 +71,116 @@ public class CSharpToJavaVisitor : CSharpSyntaxVisitor<JavaSyntaxNode?>
             if (!compilation.Imports.Any(i => i.Name == import))
             {
                 compilation.Imports.Add(new JavaImport(import));
+            }
+        }
+    }
+
+    /// <summary>
+    /// 处理单个 using 指令
+    /// </summary>
+    private void ProcessUsingDirective(UsingDirectiveSyntax usingDirective, JavaCompilationUnit compilation)
+    {
+        if (usingDirective.Name == null) return;
+
+        // 处理别名：using P2 = Core.Geometry.Point;
+        if (usingDirective.Alias != null)
+        {
+            ProcessUsingAlias(usingDirective);
+            return;
+        }
+
+        var name = usingDirective.Name.ToString();
+
+        // 静态导入转换：using static System.Math;
+        if (usingDirective.StaticKeyword.IsKind(SyntaxKind.StaticKeyword))
+        {
+            var javaType = MapUsingToJava(name);
+            if (!string.IsNullOrEmpty(javaType))
+            {
+                compilation.Imports.Add(new JavaImport(javaType, isStatic: true));
+            }
+        }
+        else
+        {
+            // 处理普通导入
+            var javaType = MapUsingToJava(name);
+            if (!string.IsNullOrEmpty(javaType))
+            {
+                compilation.Imports.Add(new JavaImport(javaType));
+            }
+        }
+    }
+
+    /// <summary>
+    /// 处理 using 别名
+    /// </summary>
+    private void ProcessUsingAlias(UsingDirectiveSyntax usingDirective)
+    {
+        if (usingDirective.Alias == null || usingDirective.Name == null) return;
+
+        var aliasName = usingDirective.Alias.Name.Identifier.Text;
+        var location = usingDirective.Alias.Name.GetLocation();
+
+        // 获取语义信息
+        var semanticModel = _context.GetSemanticModelForTree(usingDirective.SyntaxTree);
+        if (semanticModel == null) return;
+
+        // 获取别名指向的符号
+        var symbolInfo = semanticModel.GetSymbolInfo(usingDirective.Name);
+        var aliasSymbol = symbolInfo.Symbol;
+
+        // 如果直接获取失败，尝试通过别名符号获取
+        if (aliasSymbol == null && symbolInfo.CandidateSymbols.Length > 0)
+        {
+            aliasSymbol = symbolInfo.CandidateSymbols[0];
+        }
+
+        if (aliasSymbol == null)
+        {
+            _context.Diagnostics.Warning(
+                $"Could not resolve alias '{aliasName}' to a type",
+                location
+            );
+            return;
+        }
+
+        // 处理 IAliasSymbol（Roslyn 的别名符号）
+        ITypeSymbol? typeSymbol = null;
+        if (aliasSymbol is IAliasSymbol aliasSym)
+        {
+            typeSymbol = aliasSym.Target as ITypeSymbol;
+        }
+        else if (aliasSymbol is ITypeSymbol ts)
+        {
+            typeSymbol = ts;
+        }
+
+        if (typeSymbol == null)
+        {
+            _context.Diagnostics.Error(
+                $"Alias '{aliasName}' must refer to a type, not a {aliasSymbol.Kind}",
+                location
+            );
+            return;
+        }
+
+        // 注册别名
+        if (_context.RegisterUsingAlias(aliasName, typeSymbol, location))
+        {
+            // 为目标类型添加必要的导入
+            var javaType = _context.MapType(typeSymbol);
+
+            // 从完全限定类型名提取包名（如果需要）
+            var lastDotIndex = javaType.LastIndexOf('.');
+            if (lastDotIndex > 0)
+            {
+                var packageName = javaType.Substring(0, lastDotIndex);
+
+                // 检查是否需要添加导入（排除 java.lang）
+                if (!packageName.StartsWith("java.lang"))
+                {
+                    _context.AddImport(javaType);
+                }
             }
         }
     }
