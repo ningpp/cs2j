@@ -6,6 +6,7 @@ using CSharpToJava.Core.LinqRewrite;
 using CSharpToJava.Core.Visitors;
 using CSharpToJava.Core.PartialType;
 using CSharpToJava.TypeMapping;
+using DiagSeverity = Microsoft.CodeAnalysis.DiagnosticSeverity;
 
 namespace CSharpToJava.Core.Pipeline;
 
@@ -63,14 +64,25 @@ public class ConversionPipeline
     /// </summary>
     public ConversionResult Convert(ConversionRequest request)
     {
-        var typeMappings = new TypeMapping.TypeMappingRegistry(request.Options.TypeMappingConfigPath);
+        TypeMappingRegistry typeMappings;
+        try
+        {
+            typeMappings = new TypeMappingRegistry(request.Options.TypeMappingConfigPath);
+        }
+        catch (TypeMapping.TypeMappingConfigurationException ex)
+        {
+            var errorContext = new ConversionContext(request.Options, new TypeMappingRegistry(new TypeMapping.TypeMappingConfig()));
+            errorContext.Diagnostics.Error($"Configuration error: {ex.Message}", null);
+            return CreateFailureResult(errorContext, request.FileName);
+        }
+
         var context = new ConversionContext(request.Options, typeMappings);
 
         try
         {
             // 解析阶段
             var syntaxTree = CSharpSyntaxTree.ParseText(request.SourceCode);
-            if (syntaxTree.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error))
+            if (syntaxTree.GetDiagnostics().Any(d => d.Severity == DiagSeverity.Error))
             {
                 foreach (var diag in syntaxTree.GetDiagnostics())
                 {
@@ -79,8 +91,7 @@ public class ConversionPipeline
                 return CreateFailureResult(context, request.FileName);
             }
 
-            context.SyntaxTree = syntaxTree;
-            context.Compilation = CSharpCompilation.Create(
+            var compilation = CSharpCompilation.Create(
                 "TempAssembly",
                 new[] { syntaxTree },
                 references: new[]
@@ -89,7 +100,7 @@ public class ConversionPipeline
                     MetadataReference.CreateFromFile(typeof(System.Collections.Generic.List<>).Assembly.Location),
                 }
             );
-            context.SemanticModel = context.Compilation.GetSemanticModel(syntaxTree);
+            context.SemanticModel = compilation.GetSemanticModel(syntaxTree);
 
             // LINQ 预处理：将 LINQ 转换为过程化代码
             if (request.Options.EnableLinqRewrite)
@@ -99,12 +110,12 @@ public class ConversionPipeline
                 syntaxTree = syntaxTree.WithRootAndOptions(rewrittenRoot, syntaxTree.Options);
 
                 // 重新创建编译和语义模型
-                context.Compilation = CSharpCompilation.Create(
+                compilation = CSharpCompilation.Create(
                     "TempAssembly",
                     new[] { syntaxTree },
-                    context.Compilation.References
+                    compilation.References
                 );
-                context.SemanticModel = context.Compilation.GetSemanticModel(syntaxTree);
+                context.SemanticModel = compilation.GetSemanticModel(syntaxTree);
             }
 
             // 转换阶段
@@ -157,7 +168,7 @@ public class ConversionPipeline
                     FileName = file,
                     Diagnostics = new List<DiagnosticMessage>
                     {
-                        new(DiagnosticSeverity.Error, $"File processing failed: {ex.Message}", null)
+                        new(Context.DiagnosticSeverity.Error, $"File processing failed: {ex.Message}", null)
                     }
                 });
             }
@@ -200,7 +211,7 @@ public class ConversionPipeline
                         FileName = file,
                         Diagnostics = new List<DiagnosticMessage>
                         {
-                            new(DiagnosticSeverity.Error, $"File read failed: {ex.Message}", null)
+                            new(Context.DiagnosticSeverity.Error, $"File read failed: {ex.Message}", null)
                         }
                     }
                 };
@@ -216,7 +227,7 @@ public class ConversionPipeline
     {
         return new ConversionResult
         {
-            Success = context.Diagnostics.Messages.All(m => m.Severity != DiagnosticSeverity.Error),
+            Success = context.Diagnostics.Messages.All(m => m.Severity != Context.DiagnosticSeverity.Error),
             GeneratedCode = code,
             Diagnostics = context.Diagnostics.Messages.ToList(),
             FileName = fileName

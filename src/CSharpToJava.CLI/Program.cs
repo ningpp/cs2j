@@ -196,7 +196,17 @@ class Program
                 return 1;
             }
 
-            var registry = new TypeMappingRegistry(opts.MappingConfig);
+            TypeMappingRegistry registry;
+            try
+            {
+                registry = new TypeMappingRegistry(opts.MappingConfig);
+            }
+            catch (TypeMappingConfigurationException ex)
+            {
+                Console.Error.WriteLine($"Configuration Error: {ex.Message}");
+                Console.Error.WriteLine($"Expected location: {ex.ConfigPath}");
+                return 1;
+            }
 
             // 分析项目
             var csFiles = Directory.GetFiles(opts.Source, "*.cs", SearchOption.AllDirectories);

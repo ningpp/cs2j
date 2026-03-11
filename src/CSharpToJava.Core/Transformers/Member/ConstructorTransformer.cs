@@ -31,7 +31,7 @@ public class ConstructorTransformer : IMemberTransformer
         foreach (var param in ctorDecl.ParameterList?.Parameters ?? Enumerable.Empty<ParameterSyntax>())
         {
             var typeInfo = context.SemanticModel?.GetTypeInfo(param.Type!);
-            var javaType = typeInfo?.Type != null ? context.MapType(typeInfo.Type) : "Object";
+            var javaType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Object";
 
             var javaParam = new JavaParameter(javaType, param.Identifier.Text);
 
@@ -73,12 +73,12 @@ public class ConstructorTransformer : IMemberTransformer
 
         if (ctorDecl.Body != null)
         {
-            var statementTransformer = new Transformers.StatementTransformer();
+            var statementTransformer = new Transformers.Statement.StatementTransformer();
             bodyStatements.AddRange(statementTransformer.TransformStatements(ctorDecl.Body.Statements, context));
         }
         else if (ctorDecl.ExpressionBody != null)
         {
-            var exprTransformer = new Transformers.ExpressionTransformer();
+            var exprTransformer = new Transformers.Expression.ExpressionTransformer();
             bodyStatements.Add(exprTransformer.Transform(ctorDecl.ExpressionBody.Expression, context) + ";");
         }
 

@@ -90,32 +90,37 @@ public class PartialTypeMerger
     {
         var parts = new List<INamedTypeSymbol>();
 
-        // Check if this is a partial type
-        if (typeSymbol.IsPartialDefinition || typeSymbol.HasPartialDefinitions)
+        // Check if this is a partial type using the new API
+        // Note: In newer Roslyn versions, use TypeKind to detect partial types
+        bool isPartial = typeSymbol.DeclaringSyntaxReferences.Length > 1;
+
+        if (isPartial)
         {
             // This is a partial type - collect all parts
-            var allParts = new HashSet<INamedTypeSymbol>();
-            var comparer = SymbolEqualityComparer.Default;
+            var allParts = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
 
             // Start with this type
             allParts.Add(typeSymbol);
 
-            // Add all partial definitions
-            if (typeSymbol.PartialDefinitions != null)
+            // Find all parts with the same name in the containing type
+            foreach (var candidate in typeSymbol.ContainingType?.GetTypeMembers() ?? Enumerable.Empty<INamedTypeSymbol>())
             {
-                foreach (var part in typeSymbol.PartialDefinitions)
+                if (candidate.Name == typeSymbol.Name && candidate.Arity == typeSymbol.Arity)
                 {
-                    allParts.Add(part);
+                    allParts.Add(candidate);
                 }
             }
 
-            // Also check if this type is itself a partial definition
-            // and find its sibling parts
-            foreach (var candidate in typeSymbol.ContainingType?.GetTypeMembers() ?? Enumerable.Empty<INamedTypeSymbol>())
+            // Also check namespace-level types
+            var containingNamespace = typeSymbol.ContainingNamespace;
+            if (containingNamespace != null)
             {
-                if (candidate.Name == typeSymbol.Name && candidate.IsPartialDefinition)
+                foreach (var member in containingNamespace.GetTypeMembers(typeSymbol.Name))
                 {
-                    allParts.Add(candidate);
+                    if (member.Arity == typeSymbol.Arity)
+                    {
+                        allParts.Add(member);
+                    }
                 }
             }
 

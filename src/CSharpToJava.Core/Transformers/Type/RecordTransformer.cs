@@ -1,4 +1,5 @@
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
@@ -48,7 +49,7 @@ public class RecordTransformer : ITypeTransformer
             // Java record 参数直接在声明中，不需要额外处理
             // 记录参数类型以便后续使用
             var typeInfo = context.SemanticModel?.GetTypeInfo(param.Type!);
-            if (typeInfo?.Type != null)
+            if (typeInfo.HasValue && typeInfo.Value.Type != null)
             {
                 // 可以在这里记录类型信息
             }
@@ -60,9 +61,9 @@ public class RecordTransformer : ITypeTransformer
             foreach (var baseType in recordDecl.BaseList.Types)
             {
                 var typeInfo = context.SemanticModel?.GetTypeInfo(baseType.Type);
-                if (typeInfo?.Type?.TypeKind == TypeKind.Interface)
+                if (typeInfo.HasValue && typeInfo.Value.Type?.TypeKind == TypeKind.Interface)
                 {
-                    javaRecord.ImplementedTypes.Add(context.MapType(typeInfo.Type));
+                    javaRecord.ImplementedTypes.Add(context.MapType(typeInfo.Value.Type));
                 }
             }
         }
@@ -97,7 +98,7 @@ public class RecordTransformer : ITypeTransformer
         foreach (var param in recordDecl.ParameterList?.Parameters ?? Enumerable.Empty<ParameterSyntax>())
         {
             var typeInfo = context.SemanticModel?.GetTypeInfo(param.Type!);
-            var javaType = typeInfo?.Type != null ? context.MapType(typeInfo.Type) : "Object";
+            var javaType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Object";
             var paramName = param.Identifier.Text;
 
             // 创建 final 字段
@@ -120,9 +121,13 @@ public class RecordTransformer : ITypeTransformer
             {
                 ClassName = javaClass.Name,
                 Modifiers = JavaModifiers.Public,
-                Parameters = constructorParams,
                 Body = GenerateConstructorBody(fields.Select(f => f.Name).ToList())
             };
+            // 添加参数到只读集合
+            foreach (var param in constructorParams)
+            {
+                ctor.Parameters.Add(param);
+            }
             javaClass.Constructors.Add(ctor);
         }
 
@@ -151,13 +156,15 @@ public class RecordTransformer : ITypeTransformer
 
         foreach (var modifier in modifiers)
         {
-            result |= modifier.Kind() switch
+            // 使用 RawKind 来避免命名空间冲突
+            var kind = (Microsoft.CodeAnalysis.CSharp.SyntaxKind)modifier.RawKind;
+            result |= kind switch
             {
-                SyntaxKind.PublicKeyword => JavaModifiers.Public,
-                SyntaxKind.InternalKeyword => JavaModifiers.Public,
-                SyntaxKind.AbstractKeyword => JavaModifiers.Abstract,
-                SyntaxKind.SealedKeyword => JavaModifiers.Final,
-                SyntaxKind.UnsafeKeyword => JavaModifiers.None,
+                Microsoft.CodeAnalysis.CSharp.SyntaxKind.PublicKeyword => JavaModifiers.Public,
+                Microsoft.CodeAnalysis.CSharp.SyntaxKind.InternalKeyword => JavaModifiers.Public,
+                Microsoft.CodeAnalysis.CSharp.SyntaxKind.AbstractKeyword => JavaModifiers.Abstract,
+                Microsoft.CodeAnalysis.CSharp.SyntaxKind.SealedKeyword => JavaModifiers.Final,
+                Microsoft.CodeAnalysis.CSharp.SyntaxKind.UnsafeKeyword => JavaModifiers.None,
                 _ => JavaModifiers.None
             };
         }

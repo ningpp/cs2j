@@ -270,7 +270,7 @@ public class ConversionContext
         }
 
         // 处理泛型类型
-        if (typeSymbol is INamedTypeSymbol namedType && namedType.TypeArguments.Count > 0)
+        if (typeSymbol is INamedTypeSymbol namedType && namedType.TypeArguments.Length > 0)
         {
             var baseType = MapSimpleTypeName(namedType.Name);
             var typeArgs = string.Join(", ", namedType.TypeArguments.Select(MapType));
@@ -424,7 +424,7 @@ public class ConversionContext
         /// 是否是泛型别名
         /// </summary>
         public bool IsGeneric => TargetType is INamedTypeSymbol named &&
-                                  named.TypeArguments.Count > 0;
+                                  named.TypeArguments.Length > 0;
     }
 
     /// <summary>

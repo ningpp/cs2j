@@ -130,7 +130,9 @@ public class PartialMethodMerger
 
         // Use symbol-based key that includes return type and parameter types
         var paramTypes = string.Join(",",
-            symbol.Parameters.Select(p => p.Type.ToDisplayString()));
+            symbol is IMethodSymbol methodSymbol
+                ? methodSymbol.Parameters.Select(p => p.Type.ToDisplayString())
+                : Enumerable.Empty<string>());
         return $"{symbol.Name}({paramTypes})";
     }
 

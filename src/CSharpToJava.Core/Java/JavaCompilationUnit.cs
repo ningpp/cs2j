@@ -28,7 +28,7 @@ public class JavaCompilationUnit : JavaSyntaxNode
 
         foreach (var import in Imports)
         {
-            sb.AppendLine(import.ToString(indentation));
+            sb.AppendLine(import.ToCodeString(indentation));
         }
 
         if (Imports.Count > 0)
@@ -61,10 +61,15 @@ public class JavaImport
         IsWildcard = isWildcard;
     }
 
-    public override string ToString(string indentation)
+    public string ToCodeString(string indentation = "")
     {
         var staticPart = IsStatic ? "static " : "";
         var wildcardPart = IsWildcard ? ".*" : "";
-        return $"import {staticPart}{Name}{wildcardPart};";
+        return $"{indentation}import {staticPart}{Name}{wildcardPart};";
+    }
+
+    public override string ToString()
+    {
+        return ToCodeString();
     }
 }

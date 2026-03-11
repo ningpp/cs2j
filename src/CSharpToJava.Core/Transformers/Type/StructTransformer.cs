@@ -38,9 +38,9 @@ public class StructTransformer : ITypeTransformer
             foreach (var baseType in structDecl.BaseList.Types)
             {
                 var typeInfo = context.SemanticModel?.GetTypeInfo(baseType.Type);
-                if (typeInfo?.Type?.TypeKind == TypeKind.Interface)
+                if (typeInfo.HasValue && typeInfo.Value.Type?.TypeKind == TypeKind.Interface)
                 {
-                    javaClass.ImplementedTypes.Add(context.MapType(typeInfo.Type));
+                    javaClass.ImplementedTypes.Add(context.MapType(typeInfo.Value.Type));
                 }
             }
         }
@@ -98,13 +98,21 @@ public class StructTransformer : ITypeTransformer
             case PropertyDeclarationSyntax propDecl:
                 var propTransformer = factory.CreatePropertyTransformer();
                 var props = propTransformer.Transform(propDecl, context);
-                if (props is List<JavaMemberDeclaration> javaProps)
+                if (props is JavaMemberCollection collection)
                 {
-                    foreach (var prop in javaProps)
+                    foreach (var prop in collection.Members)
                     {
                         if (prop is JavaFieldDeclaration jf) javaClass.Fields.Add(jf);
                         if (prop is JavaMethodDeclaration jm) javaClass.Methods.Add(jm);
                     }
+                }
+                else if (props is JavaFieldDeclaration jf)
+                {
+                    javaClass.Fields.Add(jf);
+                }
+                else if (props is JavaMethodDeclaration jm)
+                {
+                    javaClass.Methods.Add(jm);
                 }
                 break;
 

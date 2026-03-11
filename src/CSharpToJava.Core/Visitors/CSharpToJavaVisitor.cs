@@ -5,6 +5,7 @@ using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers;
 using CSharpToJava.Core.Transformers.Type;
+using CSharpToJava.Core.Abstractions;
 
 namespace CSharpToJava.Core.Visitors;
 
@@ -237,7 +238,7 @@ public class CSharpToJavaVisitor : CSharpSyntaxVisitor<JavaSyntaxNode?>
     /// <summary>
     /// 访问类型声明（类、接口、结构体、枚举等）
     /// </summary>
-    public override JavaSyntaxNode? VisitTypeDeclaration(TypeDeclarationSyntax node)
+    public virtual JavaSyntaxNode? VisitTypeDeclaration(TypeDeclarationSyntax node)
     {
         ITypeTransformer? transformer = node.Kind() switch
         {
@@ -287,7 +288,8 @@ public class CSharpToJavaVisitor : CSharpSyntaxVisitor<JavaSyntaxNode?>
     /// </summary>
     public override JavaSyntaxNode? VisitEnumDeclaration(EnumDeclarationSyntax node)
     {
-        return VisitTypeDeclaration(node);
+        var transformer = new Transformers.Type.EnumTransformer();
+        return transformer.TransformEnum(node, _context);
     }
 
     /// <summary>
@@ -328,7 +330,7 @@ public class CSharpToJavaVisitor : CSharpSyntaxVisitor<JavaSyntaxNode?>
     /// <summary>
     /// 访问语句
     /// </summary>
-    public override JavaSyntaxNode? VisitStatement(StatementSyntax node)
+    public virtual JavaSyntaxNode? VisitStatement(StatementSyntax node)
     {
         var transformer = _factory.CreateStatementTransformer();
         return transformer.Transform(node, _context);
@@ -337,7 +339,7 @@ public class CSharpToJavaVisitor : CSharpSyntaxVisitor<JavaSyntaxNode?>
     /// <summary>
     /// 访问表达式
     /// </summary>
-    public override JavaSyntaxNode? VisitExpression(ExpressionSyntax node)
+    public virtual JavaSyntaxNode? VisitExpression(ExpressionSyntax node)
     {
         var transformer = _factory.CreateExpressionTransformer();
         var result = transformer.Transform(node, _context);

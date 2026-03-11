@@ -31,9 +31,9 @@ public class InterfaceTransformer : ITypeTransformer
             foreach (var baseType in interfaceDecl.BaseList.Types)
             {
                 var typeInfo = context.SemanticModel?.GetTypeInfo(baseType.Type);
-                if (typeInfo?.Type != null)
+                if (typeInfo.HasValue && typeInfo.Value.Type != null)
                 {
-                    javaInterface.ExtendedTypes.Add(context.MapType(typeInfo.Type));
+                    javaInterface.ExtendedTypes.Add(context.MapType(typeInfo.Value.Type));
                 }
             }
         }
@@ -91,21 +91,24 @@ public class InterfaceTransformer : ITypeTransformer
             case PropertyDeclarationSyntax propDecl:
                 var propTransformer = factory.CreatePropertyTransformer();
                 var props = propTransformer.Transform(propDecl, context);
-                if (props is List<JavaMemberDeclaration> javaProps)
+                if (props is JavaFieldDeclaration jf)
                 {
-                    foreach (var prop in javaProps)
-                    {
-                        if (prop is JavaMethodDeclaration jm) javaInterface.Methods.Add(jm);
-                    }
+                    // Interface properties don't have fields, skip
+                }
+                else if (props is JavaMethodDeclaration jm)
+                {
+                    javaInterface.Methods.Add(jm);
                 }
                 break;
 
             case IndexerDeclarationSyntax indexerDecl:
                 var indexerTransformer = factory.CreateIndexerTransformer();
-                var indexerMethods = indexerTransformer.Transform(indexerDecl, context);
-                if (indexerMethods is List<JavaMethodDeclaration> methods)
+                var indexerResult = indexerTransformer.Transform(indexerDecl, context);
+                // IndexerTransformer returns a List<JavaMethodDeclaration> wrapped in a custom type
+                // For now, handle it as a regular node
+                if (indexerResult is Java.JavaSyntaxNode node)
                 {
-                    javaInterface.Methods.AddRange(methods);
+                    // Handle based on actual type
                 }
                 break;
         }

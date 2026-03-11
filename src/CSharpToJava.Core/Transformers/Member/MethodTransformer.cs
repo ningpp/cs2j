@@ -41,25 +41,18 @@ public class MethodTransformer : IMemberTransformer
             javaMethod.Parameters.Add(ConvertParameter(param, context));
         }
 
-        // 处理异常
-        foreach (var exception in methodDecl.ThrowsClause?.Exceptions ?? Enumerable.Empty<TypeSyntax>())
-        {
-            var typeInfo = context.SemanticModel?.GetTypeInfo(exception);
-            if (typeInfo?.Type != null)
-            {
-                javaMethod.ThrownExceptions.Add(context.MapType(typeInfo.Type));
-            }
-        }
+        // 注意：C# 异常规范在 Java 中需要通过 throws 子句声明
+        // 这里可以添加对异常的处理逻辑
 
         // 处理方法体
         if (methodDecl.Body != null)
         {
-            var statementTransformer = new Transformers.StatementTransformer();
+            var statementTransformer = new Transformers.Statement.StatementTransformer();
             javaMethod.Body = statementTransformer.TransformBlock(methodDecl.Body, context);
         }
         else if (methodDecl.ExpressionBody != null)
         {
-            var exprTransformer = new Transformers.ExpressionTransformer();
+            var exprTransformer = new Transformers.Expression.ExpressionTransformer();
             javaMethod.Body = exprTransformer.Transform(methodDecl.ExpressionBody.Expression, context);
             javaMethod.IsBodyExpression = true;
         }
@@ -144,20 +137,20 @@ public class MethodTransformer : IMemberTransformer
         }
 
         var typeInfo = context.SemanticModel?.GetTypeInfo(methodDecl.ReturnType);
-        if (typeInfo?.Type != null)
+        if (typeInfo.HasValue && typeInfo.Value.Type != null)
         {
             // 处理 async 方法
             if (methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.AsyncKeyword)))
             {
                 context.IsInAsyncContext = true;
-                var returnType = context.MapType(typeInfo.Type);
+                var returnType = context.MapType(typeInfo.Value.Type);
 
                 // 如果是 Task<T>，返回 CompletableFuture<T>
                 // 如果是 Task，返回 CompletableFuture<Void>
                 return returnType.StartsWith("CompletableFuture") ? returnType : $"CompletableFuture<{returnType}>";
             }
 
-            return context.MapType(typeInfo.Type);
+            return context.MapType(typeInfo.Value.Type);
         }
 
         return "Object";
@@ -166,7 +159,7 @@ public class MethodTransformer : IMemberTransformer
     private JavaParameter ConvertParameter(ParameterSyntax param, ConversionContext context)
     {
         var typeInfo = context.SemanticModel?.GetTypeInfo(param.Type!);
-        var javaType = typeInfo?.Type != null ? context.MapType(typeInfo.Type) : "Object";
+        var javaType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Object";
 
         var javaParam = new JavaParameter(javaType, param.Identifier.Text);
 

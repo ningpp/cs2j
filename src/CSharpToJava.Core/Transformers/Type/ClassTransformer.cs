@@ -123,13 +123,13 @@ public class ClassTransformer : ITypeTransformer
 
                     // 检查是否是基类（第一个通常是基类，后面是接口）
                     var typeInfo = context.SemanticModel?.GetTypeInfo(baseType.Type);
-                    if (typeInfo?.Type?.TypeKind == TypeKind.Class)
+                    if (typeInfo.HasValue && typeInfo.Value.Type?.TypeKind == TypeKind.Class)
                     {
-                        javaClass.ExtendedType = context.MapType(typeInfo.Type);
+                        javaClass.ExtendedType = context.MapType(typeInfo.Value.Type);
                     }
-                    else if (typeInfo?.Type?.TypeKind == TypeKind.Interface)
+                    else if (typeInfo.HasValue && typeInfo.Value.Type?.TypeKind == TypeKind.Interface)
                     {
-                        javaClass.ImplementedTypes.Add(context.MapType(typeInfo.Type));
+                        javaClass.ImplementedTypes.Add(context.MapType(typeInfo.Value.Type));
                     }
                 }
             }
@@ -214,13 +214,21 @@ public class ClassTransformer : ITypeTransformer
             case PropertyDeclarationSyntax propDecl:
                 var propTransformer = factory.CreatePropertyTransformer();
                 var props = propTransformer.Transform(propDecl, context);
-                if (props is List<JavaMemberDeclaration> javaProps)
+                if (props is JavaMemberCollection collection)
                 {
-                    foreach (var prop in javaProps)
+                    foreach (var prop in collection.Members)
                     {
                         if (prop is JavaFieldDeclaration jf) javaClass.Fields.Add(jf);
                         if (prop is JavaMethodDeclaration jm) javaClass.Methods.Add(jm);
                     }
+                }
+                else if (props is JavaFieldDeclaration jf)
+                {
+                    javaClass.Fields.Add(jf);
+                }
+                else if (props is JavaMethodDeclaration jm)
+                {
+                    javaClass.Methods.Add(jm);
                 }
                 break;
 
@@ -244,17 +252,20 @@ public class ClassTransformer : ITypeTransformer
 
             case IndexerDeclarationSyntax indexerDecl:
                 var indexerTransformer = factory.CreateIndexerTransformer();
-                var indexerMethods = indexerTransformer.Transform(indexerDecl, context);
-                if (indexerMethods is List<JavaMethodDeclaration> methods)
+                var indexerResult = indexerTransformer.Transform(indexerDecl, context);
+                if (indexerResult is JavaMemberCollection indexerCollection)
                 {
-                    javaClass.Methods.AddRange(methods);
+                    foreach (var indexerMember in indexerCollection.Members)
+                    {
+                        if (indexerMember is JavaMethodDeclaration jm) javaClass.Methods.Add(jm);
+                    }
                 }
                 break;
 
             case ClassDeclarationSyntax nestedClass:
                 var nestedTransformer = factory.CreateClassTransformer();
-                var nestedClass = nestedTransformer.Transform(nestedClass, context);
-                if (nestedClass is JavaClassDeclaration jc)
+                var nestedResult = nestedTransformer.Transform(nestedClass, context);
+                if (nestedResult is JavaClassDeclaration jc)
                 {
                     javaClass.NestedTypes.Add(jc);
                 }
@@ -270,9 +281,10 @@ public class ClassTransformer : ITypeTransformer
                 break;
 
             case EnumDeclarationSyntax nestedEnum:
-                var enumTransformer = factory.CreateEnumTransformer();
-                var nestedEnumDecl = enumTransformer.Transform(nestedEnum, context);
-                if (nestedEnumDecl is JavaEnumDeclaration je)
+                // EnumTransformer 需要 EnumDeclarationSyntax
+                var enumTransformer = new Transformers.Type.EnumTransformer();
+                var nestedEnumResult = enumTransformer.TransformEnum(nestedEnum, context);
+                if (nestedEnumResult is JavaEnumDeclaration je)
                 {
                     javaClass.NestedTypes.Add(je);
                 }

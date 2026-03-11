@@ -21,14 +21,19 @@ public class IndexerTransformer : IMemberTransformer
 
         var results = new List<JavaMethodDeclaration>();
 
-        var returnType = context.MapType(context.SemanticModel!.GetTypeInfo(indexerDecl.Type).Type!);
+        var typeInfo = context.SemanticModel?.GetTypeInfo(indexerDecl.Type);
+        var returnType = typeInfo.HasValue && typeInfo.Value.Type != null
+            ? context.MapType(typeInfo.Value.Type)
+            : "Object";
 
         // 获取参数列表
         var parameters = new List<JavaParameter>();
         foreach (var param in indexerDecl.ParameterList?.Parameters ?? Enumerable.Empty<ParameterSyntax>())
         {
-            var typeInfo = context.SemanticModel?.GetTypeInfo(param.Type!);
-            var javaType = typeInfo?.Type != null ? context.MapType(typeInfo.Type) : "Object";
+            var paramTypeInfo = context.SemanticModel?.GetTypeInfo(param.Type!);
+            var javaType = paramTypeInfo.HasValue && paramTypeInfo.Value.Type != null
+                ? context.MapType(paramTypeInfo.Value.Type)
+                : "Object";
             parameters.Add(new JavaParameter(javaType, param.Identifier.Text));
         }
 
@@ -42,18 +47,23 @@ public class IndexerTransformer : IMemberTransformer
             {
                 Name = "get",
                 ReturnType = returnType,
-                Modifiers = GetAccessorModifiers(getAccessor, indexerDecl.Modifiers) | JavaModifiers.Public,
-                Parameters = new List<JavaParameter>(parameters)
+                Modifiers = GetAccessorModifiers(getAccessor, indexerDecl.Modifiers) | JavaModifiers.Public
             };
+
+            // 添加参数
+            foreach (var param in parameters)
+            {
+                getter.Parameters.Add(param);
+            }
 
             if (getAccessor?.Body != null)
             {
-                var statementTransformer = new Transformers.StatementTransformer();
+                var statementTransformer = new Transformers.Statement.StatementTransformer();
                 getter.Body = statementTransformer.TransformBlock(getAccessor.Body, context);
             }
             else if (getAccessor?.ExpressionBody != null)
             {
-                var exprTransformer = new Transformers.ExpressionTransformer();
+                var exprTransformer = new Transformers.Expression.ExpressionTransformer();
                 getter.Body = exprTransformer.Transform(getAccessor.ExpressionBody.Expression, context);
                 getter.IsBodyExpression = true;
             }
@@ -67,27 +77,28 @@ public class IndexerTransformer : IMemberTransformer
 
         if (setAccessor != null)
         {
-            var setterParams = new List<JavaParameter>(parameters)
-            {
-                new JavaParameter(returnType, "value")
-            };
-
             var setter = new JavaMethodDeclaration
             {
                 Name = "set",
                 ReturnType = "void",
-                Modifiers = GetAccessorModifiers(setAccessor, indexerDecl.Modifiers) | JavaModifiers.Public,
-                Parameters = setterParams
+                Modifiers = GetAccessorModifiers(setAccessor, indexerDecl.Modifiers) | JavaModifiers.Public
             };
+
+            // 添加参数
+            foreach (var param in parameters)
+            {
+                setter.Parameters.Add(param);
+            }
+            setter.Parameters.Add(new JavaParameter(returnType, "value"));
 
             if (setAccessor?.Body != null)
             {
-                var statementTransformer = new Transformers.StatementTransformer();
+                var statementTransformer = new Transformers.Statement.StatementTransformer();
                 setter.Body = statementTransformer.TransformBlock(setAccessor.Body, context);
             }
             else if (setAccessor?.ExpressionBody != null)
             {
-                var exprTransformer = new Transformers.ExpressionTransformer();
+                var exprTransformer = new Transformers.Expression.ExpressionTransformer();
                 setter.Body = exprTransformer.Transform(setAccessor.ExpressionBody.Expression, context);
                 setter.IsBodyExpression = true;
             }
@@ -95,7 +106,7 @@ public class IndexerTransformer : IMemberTransformer
             results.Add(setter);
         }
 
-        return results;
+        return new Java.JavaMemberCollection(results.Cast<Java.JavaSyntaxNode>().ToList());
     }
 
     private JavaModifiers GetAccessorModifiers(AccessorDeclarationSyntax? accessor, SyntaxTokenList modifiers)

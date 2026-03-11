@@ -7,6 +7,7 @@ using CSharpToJava.Core.PartialType;
 using CSharpToJava.Core.Transformers.Type;
 using CSharpToJava.Core.Visitors;
 using CSharpToJava.TypeMapping;
+using DiagSeverity = Microsoft.CodeAnalysis.DiagnosticSeverity;
 
 namespace CSharpToJava.Core.Pipeline;
 
@@ -19,6 +20,10 @@ public class ProjectConversionPipeline
     private readonly ConversionOptions _options;
     private readonly TypeMappingRegistry _typeMappings;
 
+    /// <summary>
+    /// 创建项目转换管道
+    /// </summary>
+    /// <exception cref="TypeMappingConfigurationException">配置文件不存在或格式错误</exception>
     public ProjectConversionPipeline(ConversionOptions options)
     {
         _options = options;
@@ -91,7 +96,7 @@ public class ProjectConversionPipeline
             var diagnostics = syntaxTree.GetDiagnostics();
             foreach (var diagnostic in diagnostics)
             {
-                if (diagnostic.Severity == DiagnosticSeverity.Error)
+                if (diagnostic.Severity == DiagSeverity.Error)
                 {
                     context.Diagnostics.Error(
                         diagnostic.GetMessage(),
@@ -102,7 +107,7 @@ public class ProjectConversionPipeline
             syntaxTrees.Add(syntaxTree);
         }
 
-        if (context.Diagnostics.Messages.Any(m => m.Severity == DiagnosticSeverity.Error))
+        if (context.Diagnostics.Messages.Any(m => m.Severity == Context.DiagnosticSeverity.Error))
         {
             return null;
         }
@@ -205,7 +210,7 @@ public class ProjectConversionPipeline
             {
                 return new ConversionResult
                 {
-                    Success = context.Diagnostics.Messages.All(m => m.Severity != DiagnosticSeverity.Error),
+                    Success = context.Diagnostics.Messages.All(m => m.Severity != Context.DiagnosticSeverity.Error),
                     GeneratedCode = javaClass.ToString(""),
                     Diagnostics = context.Diagnostics.Messages.ToList(),
                     FileName = mergedDeclaration.OutputFileName

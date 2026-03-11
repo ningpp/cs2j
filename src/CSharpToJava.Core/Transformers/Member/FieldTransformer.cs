@@ -20,7 +20,7 @@ public class FieldTransformer : IMemberTransformer
         }
 
         var typeInfo = context.SemanticModel?.GetTypeInfo(fieldDecl.Declaration.Type);
-        var javaType = typeInfo?.Type != null ? context.MapType(typeInfo.Type) : "Object";
+        var javaType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Object";
 
         // 每个变量声明可能有多个声明符
         // 处理第一个（主要的）声明符
@@ -40,7 +40,7 @@ public class FieldTransformer : IMemberTransformer
         // 处理初始化器
         if (firstVariable.Initializer != null)
         {
-            var exprTransformer = new Transformers.ExpressionTransformer();
+            var exprTransformer = new Transformers.Expression.ExpressionTransformer();
             javaField.Initializer = exprTransformer.Transform(firstVariable.Initializer.Value, context);
         }
 

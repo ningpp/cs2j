@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.Transformers.Expression;
 
 namespace CSharpToJava.Core.Transformers.Statement;
 
@@ -16,7 +17,7 @@ public class StatementTransformer : IStatementTransformer
     {
         return node.Kind() switch
         {
-            SyntaxKind.BlockStatement => TransformBlock(node as BlockSyntax, context),
+            SyntaxKind.Block => new JavaStatementNode(TransformBlock(node as BlockSyntax, context)),
             SyntaxKind.ExpressionStatement => TransformExpressionStatement(node as ExpressionStatementSyntax, context),
             SyntaxKind.ReturnStatement => TransformReturnStatement(node as ReturnStatementSyntax, context),
             SyntaxKind.IfStatement => TransformIfStatement(node as IfStatementSyntax, context),
@@ -94,14 +95,14 @@ public class StatementTransformer : IStatementTransformer
             ? $"{{\n        {TransformBlock(block, context)}\n    }}"
             : $"{{\n        {stmtTransformer.Transform(stmt.Statement, context).ToString("")};\n    }}";
 
-        var result = new StringBuilder();
+        var result = new System.Text.StringBuilder();
         result.Append($"if ({condition}) {thenBlock}");
 
         if (stmt.Else != null)
         {
             var elseBlock = stmt.Else.Statement is BlockSyntax elseBlockSyntax
                 ? $"{{\n        {TransformBlock(elseBlockSyntax, context)}\n    }}"
-                : $"{{\n        {stmtTransformer.Transform(stmt.Else.Statement, context).ToString("")};\n    }}";
+                : $"{{\n        {stmtTransformer.Transform(stmt.Else.Statement, context).ToString("")}\n    }}";
             result.Append($" else {elseBlock}");
         }
 
@@ -129,7 +130,7 @@ public class StatementTransformer : IStatementTransformer
         var initializers = string.Join(", ", stmt.Declaration?.Variables.Select(v =>
         {
             var typeInfo = context.SemanticModel?.GetTypeInfo(stmt.Declaration!.Type);
-            var javaType = typeInfo?.Type != null ? context.MapType(typeInfo.Type) : "var";
+            var javaType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "var";
             var init = v.Initializer != null ? $" = {exprTransformer.Transform(v.Initializer.Value, context)}" : "";
             return $"{javaType} {v.Identifier}{init}";
         }) ?? Enumerable.Empty<string>());
@@ -155,7 +156,7 @@ public class StatementTransformer : IStatementTransformer
     {
         var exprTransformer = new ExpressionTransformer();
         var typeInfo = context.SemanticModel?.GetTypeInfo(stmt.Type);
-        var javaType = typeInfo?.Type != null ? context.MapType(typeInfo.Type) : "var";
+        var javaType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "var";
         var identifier = stmt.Identifier.Text;
         var expression = exprTransformer.Transform(stmt.Expression, context);
 
@@ -241,7 +242,7 @@ public class StatementTransformer : IStatementTransformer
     private JavaSyntaxNode TransformTryStatement(TryStatementSyntax stmt, ConversionContext context)
     {
         var stmtTransformer = new StatementTransformer();
-        var sb = new StringBuilder();
+        var sb = new System.Text.StringBuilder();
 
         sb.Append("try ");
         sb.Append(stmt.Block is BlockSyntax block
@@ -252,7 +253,7 @@ public class StatementTransformer : IStatementTransformer
         foreach (var catchClause in stmt.Catches)
         {
             var typeInfo = context.SemanticModel?.GetTypeInfo(catchClause.Declaration.Type);
-            var javaType = typeInfo?.Type != null ? context.MapType(typeInfo.Type) : "Exception";
+            var javaType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Exception";
             var varName = catchClause.Declaration.Identifier.Text;
 
             sb.Append($" catch ({javaType} {varName}) ");
@@ -295,7 +296,7 @@ public class StatementTransformer : IStatementTransformer
         if (stmt.Declaration != null)
         {
             var typeInfo = context.SemanticModel?.GetTypeInfo(stmt.Declaration.Type);
-            var javaType = typeInfo?.Type != null ? context.MapType(typeInfo.Type) : "AutoCloseable";
+            var javaType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "AutoCloseable";
 
             foreach (var variable in stmt.Declaration.Variables)
             {
@@ -347,7 +348,7 @@ public class StatementTransformer : IStatementTransformer
     private JavaSyntaxNode TransformLocalDeclaration(LocalDeclarationStatementSyntax stmt, ConversionContext context)
     {
         var typeInfo = context.SemanticModel?.GetTypeInfo(stmt.Declaration.Type);
-        var javaType = typeInfo?.Type != null ? context.MapType(typeInfo.Type) : "var";
+        var javaType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "var";
 
         var exprTransformer = new ExpressionTransformer();
         var declarations = string.Join(", ", stmt.Declaration.Variables.Select(v =>

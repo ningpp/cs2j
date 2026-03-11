@@ -13,11 +13,14 @@ public class EnumTransformer : ITypeTransformer
 {
     public JavaTypeDeclaration Transform(TypeDeclarationSyntax node, ConversionContext context)
     {
-        if (node is not EnumDeclarationSyntax enumDecl)
-        {
-            throw new ArgumentException($"Expected EnumDeclarationSyntax, got {node.GetType()}");
-        }
+        // 由于 EnumDeclarationSyntax 不是 TypeDeclarationSyntax 的子类
+        // 这个方法只会在类型推断匹配时被调用
+        // 实际使用应该直接调用 TransformEnum
+        throw new ArgumentException("Use TransformEnum method with EnumDeclarationSyntax");
+    }
 
+    public JavaTypeDeclaration TransformEnum(EnumDeclarationSyntax enumDecl, ConversionContext context)
+    {
         var javaEnum = new JavaEnumDeclaration
         {
             Name = enumDecl.Identifier.Text

@@ -1,5 +1,6 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using CSharpToJava.Core.Context;
 
 namespace CSharpToJava.Core.Abstractions;
 
@@ -10,7 +11,6 @@ namespace CSharpToJava.Core.Abstractions;
 /// <typeparam name="TOutput">输出 Java 节点类型</typeparam>
 public interface ITransformer<in TInput, out TOutput>
     where TInput : SyntaxNode
-    where TOutput : Java.JavaSyntaxNode
 {
     /// <summary>
     /// 转换 C# 语法节点到 Java 节点

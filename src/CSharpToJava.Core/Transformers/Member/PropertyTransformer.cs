@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using System.Collections.Generic;
 
 namespace CSharpToJava.Core.Transformers.Member;
 
@@ -19,8 +20,9 @@ public class PropertyTransformer : IMemberTransformer
             throw new ArgumentException($"Expected PropertyDeclarationSyntax, got {node.GetType()}");
         }
 
-        var results = new List<JavaMemberDeclaration>();
-        var propType = context.MapType(context.SemanticModel!.GetTypeInfo(propDecl.Type).Type!);
+        var results = new List<JavaSyntaxNode>();
+        var typeInfo = context.SemanticModel?.GetTypeInfo(propDecl.Type);
+        var propType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Object";
         var propName = propDecl.Identifier.Text;
         var fieldName = ToCamelCase(propName);
         var isStatic = propDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword));
@@ -62,7 +64,7 @@ public class PropertyTransformer : IMemberTransformer
         // 如果有默认值
         if (propDecl.Initializer != null)
         {
-            var exprTransformer = new Transformers.ExpressionTransformer();
+            var exprTransformer = new Transformers.Expression.ExpressionTransformer();
             field.Initializer = exprTransformer.Transform(propDecl.Initializer.Value, context);
         }
 
@@ -87,7 +89,7 @@ public class PropertyTransformer : IMemberTransformer
                 ReturnType = propType,
                 Modifiers = getterModifiers,
                 Body = getAccessor?.ExpressionBody != null
-                    ? new Transformers.ExpressionTransformer().Transform(getAccessor.ExpressionBody.Expression, context)
+                    ? new Transformers.Expression.ExpressionTransformer().Transform(getAccessor.ExpressionBody.Expression, context)
                     : $"return {fieldName};",
                 IsBodyExpression = getAccessor?.ExpressionBody != null
             };
@@ -95,7 +97,7 @@ public class PropertyTransformer : IMemberTransformer
             // 处理显式 getter 主体
             if (getAccessor?.Body != null)
             {
-                var statementTransformer = new Transformers.StatementTransformer();
+                var statementTransformer = new Transformers.Statement.StatementTransformer();
                 getter.Body = statementTransformer.TransformBlock(getAccessor.Body, context);
                 getter.IsBodyExpression = false;
             }
@@ -123,7 +125,7 @@ public class PropertyTransformer : IMemberTransformer
                 Modifiers = setterModifiers,
                 Parameters = { new JavaParameter(propType, "value") },
                 Body = setAccessor?.ExpressionBody != null
-                    ? new Transformers.ExpressionTransformer().Transform(setAccessor.ExpressionBody.Expression, context)
+                    ? new Transformers.Expression.ExpressionTransformer().Transform(setAccessor.ExpressionBody.Expression, context)
                     : $"this.{fieldName} = value;",
                 IsBodyExpression = setAccessor?.ExpressionBody != null
             };
@@ -131,7 +133,7 @@ public class PropertyTransformer : IMemberTransformer
             // 处理显式 setter 主体
             if (setAccessor?.Body != null)
             {
-                var statementTransformer = new Transformers.StatementTransformer();
+                var statementTransformer = new Transformers.Statement.StatementTransformer();
                 setter.Body = statementTransformer.TransformBlock(setAccessor.Body, context);
                 setter.IsBodyExpression = false;
             }
@@ -139,7 +141,8 @@ public class PropertyTransformer : IMemberTransformer
             results.Add(setter);
         }
 
-        return results;
+        // 返回包装的结果
+        return new JavaMemberCollection(results);
     }
 
     private JavaModifiers ConvertModifiers(SyntaxTokenList modifiers, bool isStatic)
@@ -148,19 +151,21 @@ public class PropertyTransformer : IMemberTransformer
 
         foreach (var modifier in modifiers)
         {
-            result |= modifier.Kind() switch
+            // 使用 RawKind 而不是 Kind 属性来避免命名空间冲突
+            var kind = (Microsoft.CodeAnalysis.CSharp.SyntaxKind)modifier.RawKind;
+            result |= kind switch
             {
-                SyntaxKind.PublicKeyword => JavaModifiers.Public,
-                SyntaxKind.ProtectedKeyword => JavaModifiers.Protected,
-                SyntaxKind.PrivateKeyword => JavaModifiers.Private,
-                SyntaxKind.InternalKeyword => JavaModifiers.Public,
-                SyntaxKind.StaticKeyword => JavaModifiers.Static,
-                SyntaxKind.VirtualKeyword => JavaModifiers.None,  // Java 默认 virtual
-                SyntaxKind.OverrideKeyword => JavaModifiers.Override,
-                SyntaxKind.NewKeyword => JavaModifiers.Override,
-                SyntaxKind.AbstractKeyword => JavaModifiers.Abstract,
-                SyntaxKind.SealedKeyword => JavaModifiers.Final,
-                SyntaxKind.UnsafeKeyword => JavaModifiers.None,
+                Microsoft.CodeAnalysis.CSharp.SyntaxKind.PublicKeyword => JavaModifiers.Public,
+                Microsoft.CodeAnalysis.CSharp.SyntaxKind.ProtectedKeyword => JavaModifiers.Protected,
+                Microsoft.CodeAnalysis.CSharp.SyntaxKind.PrivateKeyword => JavaModifiers.Private,
+                Microsoft.CodeAnalysis.CSharp.SyntaxKind.InternalKeyword => JavaModifiers.Public,
+                Microsoft.CodeAnalysis.CSharp.SyntaxKind.StaticKeyword => JavaModifiers.Static,
+                Microsoft.CodeAnalysis.CSharp.SyntaxKind.VirtualKeyword => JavaModifiers.None,  // Java 默认 virtual
+                Microsoft.CodeAnalysis.CSharp.SyntaxKind.OverrideKeyword => JavaModifiers.Override,
+                Microsoft.CodeAnalysis.CSharp.SyntaxKind.NewKeyword => JavaModifiers.Override,
+                Microsoft.CodeAnalysis.CSharp.SyntaxKind.AbstractKeyword => JavaModifiers.Abstract,
+                Microsoft.CodeAnalysis.CSharp.SyntaxKind.SealedKeyword => JavaModifiers.Final,
+                Microsoft.CodeAnalysis.CSharp.SyntaxKind.UnsafeKeyword => JavaModifiers.None,
                 _ => JavaModifiers.None
             };
         }

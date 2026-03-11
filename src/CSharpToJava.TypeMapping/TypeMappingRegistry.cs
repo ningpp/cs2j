@@ -67,22 +67,65 @@ public class NamespaceMappingEntry
 }
 
 /// <summary>
+/// 类型映射配置异常
+/// </summary>
+public class TypeMappingConfigurationException : Exception
+{
+    public string? ConfigPath { get; }
+
+    public TypeMappingConfigurationException(string message, string? configPath = null)
+        : base(message)
+    {
+        ConfigPath = configPath;
+    }
+
+    public TypeMappingConfigurationException(string message, string configPath, Exception innerException)
+        : base(message, innerException)
+    {
+        ConfigPath = configPath;
+    }
+}
+
+/// <summary>
 /// 类型映射注册表
 /// </summary>
 public class TypeMappingRegistry
 {
+    private const string DefaultConfigFileName = "TypeMappings.json";
+    private const string DefaultConfigSubDirectory = "config";
+
     private readonly Dictionary<string, TypeMappingEntry> _typeMappings = new();
     private readonly Dictionary<(string TypeName, string MethodName), MethodMappingEntry> _methodMappings = new();
     private readonly Dictionary<string, string> _namespaceMappings = new();
 
+    /// <summary>
+    /// 解析配置文件路径，处理相对路径和默认路径
+    /// </summary>
+    private static string ResolveConfigPath(string? configPath)
+    {
+        if (!string.IsNullOrEmpty(configPath))
+        {
+            if (Path.IsPathRooted(configPath))
+                return configPath;
+            return Path.Combine(Directory.GetCurrentDirectory(), configPath);
+        }
+
+        // 默认路径: ./config/TypeMappings.json
+        return Path.Combine(Directory.GetCurrentDirectory(), DefaultConfigSubDirectory, DefaultConfigFileName);
+    }
+
     public TypeMappingRegistry(string? configPath = null)
     {
-        LoadDefaultMappings();
+        var resolvedPath = ResolveConfigPath(configPath);
 
-        if (!string.IsNullOrEmpty(configPath) && File.Exists(configPath))
+        if (!File.Exists(resolvedPath))
         {
-            LoadMappings(configPath);
+            throw new TypeMappingConfigurationException(
+                $"Type mapping configuration file not found: {resolvedPath}",
+                resolvedPath);
         }
+
+        LoadMappings(resolvedPath);
     }
 
     public TypeMappingRegistry(TypeMappingConfig config)
@@ -90,112 +133,38 @@ public class TypeMappingRegistry
         LoadMappings(config);
     }
 
-    private void LoadDefaultMappings()
-    {
-        var config = new TypeMappingConfig
-        {
-            TypeMappings = new List<TypeMappingEntry>
-            {
-                // 基础类型
-                new() { CSharpType = "System.String", JavaType = "String", Imports = new() },
-                new() { CSharpType = "System.Int32", JavaType = "int", Imports = new() },
-                new() { CSharpType = "System.Int64", JavaType = "long", Imports = new() },
-                new() { CSharpType = "System.Int16", JavaType = "short", Imports = new() },
-                new() { CSharpType = "System.Byte", JavaType = "byte", Imports = new() },
-                new() { CSharpType = "System.SByte", JavaType = "byte", Imports = new() },
-                new() { CSharpType = "System.UInt32", JavaType = "int", Imports = new() },
-                new() { CSharpType = "System.UInt64", JavaType = "long", Imports = new() },
-                new() { CSharpType = "System.UInt16", JavaType = "short", Imports = new() },
-                new() { CSharpType = "System.Single", JavaType = "float", Imports = new() },
-                new() { CSharpType = "System.Double", JavaType = "double", Imports = new() },
-                new() { CSharpType = "System.Boolean", JavaType = "boolean", Imports = new() },
-                new() { CSharpType = "System.Char", JavaType = "char", Imports = new() },
-                new() { CSharpType = "System.Object", JavaType = "Object", Imports = new() },
-                new() { CSharpType = "System.Void", JavaType = "void", Imports = new() },
-
-                // 集合类型
-                new() { CSharpType = "System.Collections.Generic.List`1", JavaType = "ArrayList", Imports = new() { "java.util.ArrayList" } },
-                new() { CSharpType = "System.Collections.Generic.IList`1", JavaType = "List", Imports = new() { "java.util.List" } },
-                new() { CSharpType = "System.Collections.Generic.Dictionary`2", JavaType = "HashMap", Imports = new() { "java.util.HashMap" } },
-                new() { CSharpType = "System.Collections.Generic.IDictionary`2", JavaType = "Map", Imports = new() { "java.util.Map" } },
-                new() { CSharpType = "System.Collections.Generic.HashSet`1", JavaType = "HashSet", Imports = new() { "java.util.HashSet" } },
-                new() { CSharpType = "System.Collections.Generic.IEnumerable`1", JavaType = "Iterable", Imports = new() { "java.lang.Iterable" } },
-                new() { CSharpType = "System.Collections.Generic.IEnumerator`1", JavaType = "Iterator", Imports = new() { "java.util.Iterator" } },
-
-                // 异步类型
-                new() { CSharpType = "System.Threading.Tasks.Task`1", JavaType = "CompletableFuture", Imports = new() { "java.util.concurrent.CompletableFuture" } },
-                new() { CSharpType = "System.Threading.Tasks.Task", JavaType = "CompletableFuture", Imports = new() { "java.util.concurrent.CompletableFuture" } },
-                new() { CSharpType = "System.Threading.Tasks.ValueTask`1", JavaType = "CompletableFuture", Imports = new() { "java.util.concurrent.CompletableFuture" } },
-
-                // 日期时间类型
-                new() { CSharpType = "System.DateTime", JavaType = "LocalDateTime", Imports = new() { "java.time.LocalDateTime" } },
-                new() { CSharpType = "System.DateTimeOffset", JavaType = "OffsetDateTime", Imports = new() { "java.time.OffsetDateTime" } },
-                new() { CSharpType = "System.TimeSpan", JavaType = "Duration", Imports = new() { "java.time.Duration" } },
-                new() { CSharpType = "System.DateOnly", JavaType = "LocalDate", Imports = new() { "java.time.LocalDate" } },
-                new() { CSharpType = "System.TimeOnly", JavaType = "LocalTime", Imports = new() { "java.time.LocalTime" } },
-
-                // 其他常用类型
-                new() { CSharpType = "System.Guid", JavaType = "UUID", Imports = new() { "java.util.UUID" } },
-                new() { CSharpType = "System.Uri", JavaType = "URI", Imports = new() { "java.net.URI" } },
-                new() { CSharpType = "System.Text.StringBuilder", JavaType = "StringBuilder", Imports = new() { "java.lang.StringBuilder" } },
-                new() { CSharpType = "System.Exception", JavaType = "Exception", Imports = new() { "java.lang.Exception" } },
-                new() { CSharpType = "System.ArgumentException", JavaType = "IllegalArgumentException", Imports = new() { "java.lang.IllegalArgumentException" } },
-                new() { CSharpType = "System.ArgumentNullException", JavaType = "NullPointerException", Imports = new() { "java.lang.NullPointerException" } },
-                new() { CSharpType = "System.InvalidOperationException", JavaType = "IllegalStateException", Imports = new() { "java.lang.IllegalStateException" } },
-                new() { CSharpType = "System.NotImplementedException", JavaType = "UnsupportedOperationException", Imports = new() { "java.lang.UnsupportedOperationException" } },
-                new() { CSharpType = "System IDisposable", JavaType = "AutoCloseable", Imports = new() { "java.lang.AutoCloseable" } },
-
-                // LINQ 相关
-                new() { CSharpType = "System.Linq.ILookup`2", JavaType = "Map", Imports = new() { "java.util.Map" } },
-                new() { CSharpType = "System.Linq.IGrouping`2", JavaType = "Map.Entry", Imports = new() { "java.util.Map" } },
-            },
-            MethodMappings = new List<MethodMappingEntry>
-            {
-                // 集合方法映射
-                new() { TypeName = "System.Collections.Generic.Dictionary", MethodName = "Add", JavaMethodName = "put" },
-                new() { TypeName = "System.Collections.Generic.IDictionary", MethodName = "Add", JavaMethodName = "put" },
-                new() { TypeName = "System.Collections.Generic.List", MethodName = "Add", JavaMethodName = "add" },
-                new() { TypeName = "System.Collections.Generic.IList", MethodName = "Add", JavaMethodName = "add" },
-                new() { TypeName = "System.Collections.Generic.List", MethodName = "Remove", JavaMethodName = "remove" },
-                new() { TypeName = "System.Collections.Generic.IList", MethodName = "Remove", JavaMethodName = "remove" },
-                new() { TypeName = "System.Collections.Generic.List", MethodName = "Contains", JavaMethodName = "contains" },
-                new() { TypeName = "System.Collections.Generic.IList", MethodName = "Contains", JavaMethodName = "contains" },
-                new() { TypeName = "System.Collections.Generic.Dictionary", MethodName = "ContainsKey", JavaMethodName = "containsKey" },
-                new() { TypeName = "System.Collections.Generic.IDictionary", MethodName = "ContainsKey", JavaMethodName = "containsKey" },
-                new() { TypeName = "System.Collections.Generic.Dictionary", MethodName = "TryGetValue", JavaMethodName = "get" },
-                new() { TypeName = "System.Collections.Generic.IDictionary", MethodName = "TryGetValue", JavaMethodName = "get" },
-
-                // 字符串方法映射
-                new() { TypeName = "System.String", MethodName = "Equals", JavaMethodName = "equals" },
-                new() { TypeName = "System.String", MethodName = "Substring", JavaMethodName = "substring" },
-                new() { TypeName = "System.String", MethodName = "IndexOf", JavaMethodName = "indexOf" },
-                new() { TypeName = "System.String", MethodName = "LastIndexOf", JavaMethodName = "lastIndexOf" },
-                new() { TypeName = "System.String", MethodName = "Replace", JavaMethodName = "replace" },
-                new() { TypeName = "System.String", MethodName = "Split", JavaMethodName = "split" },
-                new() { TypeName = "System.String", MethodName = "Trim", JavaMethodName = "trim" },
-                new() { TypeName = "System.String", MethodName = "ToLower", JavaMethodName = "toLowerCase" },
-                new() { TypeName = "System.String", MethodName = "ToUpper", JavaMethodName = "toUpperCase" },
-                new() { TypeName = "System.String", MethodName = "StartsWith", JavaMethodName = "startsWith" },
-                new() { TypeName = "System.String", MethodName = "EndsWith", JavaMethodName = "endsWith" },
-                new() { TypeName = "System.String", MethodName = "Length", JavaMethodName = "length()" },
-                new() { TypeName = "System.String", MethodName = "IsEmpty", JavaMethodName = "isEmpty" },
-            }
-        };
-
-        LoadMappings(config);
-    }
-
     private void LoadMappings(string configPath)
     {
-        var json = File.ReadAllText(configPath);
-        var config = JsonSerializer.Deserialize<TypeMappingConfig>(json, new JsonSerializerOptions
+        try
         {
-            PropertyNameCaseInsensitive = true
-        });
+            var json = File.ReadAllText(configPath);
+            var config = JsonSerializer.Deserialize<TypeMappingConfig>(json, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
 
-        if (config != null)
-        {
+            if (config == null)
+            {
+                throw new TypeMappingConfigurationException(
+                    $"Failed to deserialize configuration file: {configPath}",
+                    configPath);
+            }
+
             LoadMappings(config);
+        }
+        catch (JsonException ex)
+        {
+            throw new TypeMappingConfigurationException(
+                $"Invalid JSON in configuration file: {configPath}",
+                configPath,
+                ex);
+        }
+        catch (IOException ex)
+        {
+            throw new TypeMappingConfigurationException(
+                $"Error reading configuration file: {configPath}",
+                configPath,
+                ex);
         }
     }
 

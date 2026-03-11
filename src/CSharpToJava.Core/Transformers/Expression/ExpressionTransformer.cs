@@ -27,7 +27,6 @@ public class ExpressionTransformer : IExpressionTransformer
             // 标识符和成员访问
             SyntaxKind.IdentifierName => TransformIdentifier((IdentifierNameSyntax)node, context),
             SyntaxKind.GenericName => TransformGenericName((GenericNameSyntax)node, context),
-            SyntaxKind.MemberAccessExpression => TransformMemberAccess((MemberAccessExpressionSyntax)node, context),
             SyntaxKind.SimpleMemberAccessExpression => TransformMemberAccess((MemberAccessExpressionSyntax)node, context),
             SyntaxKind.PointerMemberAccessExpression => TransformPointerMemberAccess((MemberAccessExpressionSyntax)node, context),
 
@@ -89,28 +88,31 @@ public class ExpressionTransformer : IExpressionTransformer
             SyntaxKind.AsExpression => TransformAs((BinaryExpressionSyntax)node, context),
             SyntaxKind.TypeOfExpression => TransformTypeOf((TypeOfExpressionSyntax)node, context),
             SyntaxKind.DefaultExpression => TransformDefault((DefaultExpressionSyntax)node, context),
-            SyntaxKind.NewExpression => TransformNew((NewExpressionSyntax)node, context),
+            SyntaxKind.ImplicitObjectCreationExpression => TransformNew((ImplicitObjectCreationExpressionSyntax)node, context),
             SyntaxKind.ObjectCreationExpression => TransformObjectCreation((ObjectCreationExpressionSyntax)node, context),
             SyntaxKind.AnonymousObjectCreationExpression => TransformAnonymousObjectCreation((AnonymousObjectCreationExpressionSyntax)node, context),
             SyntaxKind.ArrayCreationExpression => TransformArrayCreation((ArrayCreationExpressionSyntax)node, context),
             SyntaxKind.ImplicitArrayCreationExpression => TransformImplicitArrayCreation((ImplicitArrayCreationExpressionSyntax)node, context),
             SyntaxKind.ArrayInitializerExpression => TransformArrayInitializer((InitializerExpressionSyntax)node, context),
             SyntaxKind.InterpolatedStringExpression => TransformInterpolatedString((InterpolatedStringExpressionSyntax)node, context),
-            SyntaxKind.StringEmptyExpression => "\"\"",
+            // SyntaxKind.StringEmptyExpression was removed in newer Roslyn versions
+            // SyntaxKind.ArgListArgument was removed in newer Roslyn versions
             SyntaxKind.ThisExpression => "this",
             SyntaxKind.BaseExpression => "super",
-            SyntaxKind.ArgListExpression or SyntaxKind.ArgListArgument => "// TODO: __arglist",
+            SyntaxKind.ArgListExpression => "// TODO: __arglist",
             SyntaxKind.MakeRefExpression or SyntaxKind.RefTypeExpression or SyntaxKind.RefValueExpression => "// TODO: ref expression",
             SyntaxKind.CheckedExpression => TransformChecked((CheckedExpressionSyntax)node, context),
             SyntaxKind.UncheckedExpression => TransformUnchecked((CheckedExpressionSyntax)node, context),
             SyntaxKind.AwaitExpression => TransformAwait((AwaitExpressionSyntax)node, context),
             SyntaxKind.QueryExpression => TransformQuery((QueryExpressionSyntax)node, context),
-            SyntaxKind.LambdaExpression => TransformLambda((LambdaExpressionSyntax)node, context),
+            // Lambda expressions can be either ParenthesizedLambdaExpression or SimpleLambdaExpression
+            SyntaxKind.ParenthesizedLambdaExpression => TransformLambda((LambdaExpressionSyntax)node, context),
+            SyntaxKind.SimpleLambdaExpression => TransformLambda((LambdaExpressionSyntax)node, context),
             SyntaxKind.ParenthesizedExpression => $"({Transform(((ParenthesizedExpressionSyntax)node).Expression, context)})",
             SyntaxKind.ThrowExpression => TransformThrowExpression((ThrowExpressionSyntax)node, context),
             SyntaxKind.SwitchExpression => TransformSwitchExpression((SwitchExpressionSyntax)node, context),
             SyntaxKind.WithExpression => "// TODO: with expression",
-            SyntaxKind.IndexExpression => TransformIndexExpression((IndexExpressionSyntax)node, context),
+            SyntaxKind.IndexExpression => TransformIndexExpression((ElementAccessExpressionSyntax)node, context),
             SyntaxKind.RangeExpression => "// TODO: range expression",
 
             _ => $"/* TODO: {node.Kind()} */ {node}"
@@ -212,9 +214,9 @@ public class ExpressionTransformer : IExpressionTransformer
 
         // 检查是否是类型名称
         var typeInfo = context.SemanticModel?.GetTypeInfo(node);
-        if (typeInfo?.Type != null)
+        if (typeInfo.HasValue && typeInfo.Value.Type != null)
         {
-            return context.MapType(typeInfo.Type);
+            return context.MapType(typeInfo.Value.Type);
         }
 
         return name;
@@ -238,7 +240,7 @@ public class ExpressionTransformer : IExpressionTransformer
         var typeArgs = node.TypeArgumentList?.Arguments.Select(arg =>
         {
             var typeInfo = context.SemanticModel?.GetTypeInfo(arg);
-            return typeInfo?.Type != null ? context.MapType(typeInfo.Type) : arg.ToString();
+            return typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : arg.ToString();
         }) ?? Enumerable.Empty<string>();
 
         return $"{typeName}<{string.Join(", ", typeArgs)}>";
@@ -255,19 +257,19 @@ public class ExpressionTransformer : IExpressionTransformer
                 var targetType = context.ResolveAlias(leftName);
                 if (targetType != null)
                 {
-                    var left = context.MapType(targetType);
-                    var right = node.Name.Identifier.Text;
-                    return $"{left}.{right}";
+                    var aliasedLeft = context.MapType(targetType);
+                    var aliasMemberName = node.Name.Identifier.Text;
+                    return $"{aliasedLeft}.{aliasMemberName}";
                 }
             }
         }
 
         var left = Transform(node.Expression, context);
-        var right = node.Name.Identifier.Text;
+        var memberName = node.Name.Identifier.Text;
 
         // 检查是否是方法调用目标（如果有类型信息）
-        var typeInfo = context.SemanticModel?.GetSymbolInfo(node);
-        if (typeInfo?.Symbol != null)
+        var symbolInfo = context.SemanticModel?.GetSymbolInfo(node);
+        if (symbolInfo.HasValue && symbolInfo.Value.Symbol != null)
         {
             // 检查是否是长度属性
             if (node.Name is { Identifier.Text: "Length" } &&
@@ -277,10 +279,10 @@ public class ExpressionTransformer : IExpressionTransformer
             }
 
             // 检查是否是已知的方法/属性映射
-            var containingType = typeInfo.Symbol.ContainingType?.ToDisplayString();
+            var containingType = symbolInfo.Value.Symbol.ContainingType?.ToDisplayString();
             if (!string.IsNullOrEmpty(containingType))
             {
-                var mappedMethod = context.TypeMappings.MapMethod(containingType, right);
+                var mappedMethod = context.TypeMappings.MapMethod(containingType, memberName);
                 if (!string.IsNullOrEmpty(mappedMethod))
                 {
                     return $"{left}.{mappedMethod}";
@@ -288,7 +290,7 @@ public class ExpressionTransformer : IExpressionTransformer
             }
         }
 
-        return $"{left}.{right}";
+        return $"{left}.{memberName}";
     }
 
     private string TransformPointerMemberAccess(MemberAccessExpressionSyntax node, ConversionContext context)
@@ -312,9 +314,9 @@ public class ExpressionTransformer : IExpressionTransformer
 
             // 检查方法映射
             var typeInfo = context.SemanticModel?.GetTypeInfo(memberAccess.Expression);
-            if (typeInfo?.Type != null)
+            if (typeInfo.HasValue && typeInfo.Value.Type != null)
             {
-                var containingType = typeInfo.Type.ToDisplayString();
+                var containingType = typeInfo.Value.Type.ToDisplayString();
                 var mappedMethod = context.TypeMappings.MapMethod(containingType, methodName);
                 if (!string.IsNullOrEmpty(mappedMethod))
                 {
@@ -387,7 +389,10 @@ public class ExpressionTransformer : IExpressionTransformer
     private string TransformElementAccess(ElementAccessExpressionSyntax node, ConversionContext context)
     {
         var target = Transform(node.Expression, context);
-        var args = TransformArgumentList(node.ArgumentList, context);
+        // BracketedArgumentListSyntax 用于索引访问
+        var args = node.ArgumentList != null
+            ? string.Join(", ", node.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)))
+            : "";
         return $"{target}[{args}]";
     }
 
@@ -446,7 +451,7 @@ public class ExpressionTransformer : IExpressionTransformer
     private string TransformCast(CastExpressionSyntax node, ConversionContext context)
     {
         var typeInfo = context.SemanticModel?.GetTypeInfo(node.Type);
-        var targetType = typeInfo?.Type != null ? context.MapType(typeInfo.Type) : "Object";
+        var targetType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Object";
         var expression = Transform(node.Expression, context);
         return $"(({targetType}) {expression})";
     }
@@ -455,7 +460,7 @@ public class ExpressionTransformer : IExpressionTransformer
     {
         var left = Transform(node.Left, context);
         var typeInfo = context.SemanticModel?.GetTypeInfo(node.Right);
-        var rightType = typeInfo?.Type != null ? context.MapType(typeInfo.Type) : "Object";
+        var rightType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Object";
         return $"({left} instanceof {rightType})";
     }
 
@@ -463,14 +468,14 @@ public class ExpressionTransformer : IExpressionTransformer
     {
         var left = Transform(node.Left, context);
         var typeInfo = context.SemanticModel?.GetTypeInfo(node.Right);
-        var rightType = typeInfo?.Type != null ? context.MapType(typeInfo.Type) : "Object";
+        var rightType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Object";
         return $"({rightType}) {left}"; // Java 没有 as，使用强制转换
     }
 
     private string TransformTypeOf(TypeOfExpressionSyntax node, ConversionContext context)
     {
         var typeInfo = context.SemanticModel?.GetTypeInfo(node.Type);
-        var type = typeInfo?.Type != null ? context.MapType(typeInfo.Type) : "Object";
+        var type = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Object";
         return $"{type}.class";
     }
 
@@ -482,7 +487,7 @@ public class ExpressionTransformer : IExpressionTransformer
         }
 
         var typeInfo = context.SemanticModel?.GetTypeInfo(node.Type);
-        var type = typeInfo?.Type != null ? context.MapType(typeInfo.Type) : "Object";
+        var type = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Object";
 
         // 根据类型返回默认值
         return type switch
@@ -494,10 +499,11 @@ public class ExpressionTransformer : IExpressionTransformer
         };
     }
 
-    private string TransformNew(NewExpressionSyntax node, ConversionContext context)
+    private string TransformNew(ImplicitObjectCreationExpressionSyntax node, ConversionContext context)
     {
-        var typeInfo = context.SemanticModel?.GetTypeInfo(node.Type);
-        var type = typeInfo?.Type != null ? context.MapType(typeInfo.Type) : "Object";
+        // ImplicitObjectCreationExpressionSyntax 没有 Type 属性，需要从语义模型获取
+        var typeInfo = context.SemanticModel?.GetTypeInfo(node);
+        var type = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Object";
         var args = TransformArgumentList(node.ArgumentList, context);
         return $"new {type}({args})";
     }
@@ -505,7 +511,7 @@ public class ExpressionTransformer : IExpressionTransformer
     private string TransformObjectCreation(ObjectCreationExpressionSyntax node, ConversionContext context)
     {
         var typeInfo = context.SemanticModel?.GetTypeInfo(node.Type);
-        var type = typeInfo?.Type != null ? context.MapType(typeInfo.Type) : "Object";
+        var type = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Object";
         var args = TransformArgumentList(node.ArgumentList, context);
         return $"new {type}({args})";
     }
@@ -520,7 +526,7 @@ public class ExpressionTransformer : IExpressionTransformer
     private string TransformArrayCreation(ArrayCreationExpressionSyntax node, ConversionContext context)
     {
         var typeInfo = context.SemanticModel?.GetTypeInfo(node.Type.ElementType);
-        var elementType = typeInfo?.Type != null ? context.MapType(typeInfo.Type) : "Object";
+        var elementType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Object";
 
         if (node.Initializer != null)
         {
@@ -602,7 +608,7 @@ public class ExpressionTransformer : IExpressionTransformer
                 parenthesized.ParameterList?.Parameters.Select(p =>
                 {
                     var typeInfo = p.Type != null ? context.SemanticModel?.GetTypeInfo(p.Type) : null;
-                    var type = typeInfo?.Type != null ? context.MapType(typeInfo.Type) : "";
+                    var type = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "";
                     return string.IsNullOrEmpty(type) ? p.Identifier.Text : $"{type} {p.Identifier.Text}";
                 }) ?? Enumerable.Empty<string>()
             ),
@@ -612,7 +618,7 @@ public class ExpressionTransformer : IExpressionTransformer
 
         var body = node.Body switch
         {
-            BlockSyntax block => new StatementTransformer().TransformBlock(block, context),
+            BlockSyntax block => new Transformers.Statement.StatementTransformer().TransformBlock(block, context),
             ExpressionSyntax expr => Transform(expr, context),
             _ => ""
         };
@@ -647,11 +653,12 @@ public class ExpressionTransformer : IExpressionTransformer
         return $"switch ({governingExpr}) {{ {string.Join(", ", arms)} }}";
     }
 
-    private string TransformIndexExpression(IndexExpressionSyntax node, ConversionContext context)
+    private string TransformIndexExpression(ElementAccessExpressionSyntax node, ConversionContext context)
     {
         var target = Transform(node.Expression, context);
-        var arg = Transform(node.Argument, context);
-        return $"{target}[{arg}]";
+        // ArgumentList in ElementAccessExpressionSyntax contains ArgumentSyntax, not ExpressionSyntax
+        var argList = string.Join(", ", node.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)));
+        return $"{target}[{argList}]";
     }
 
     private string TransformPattern(PatternSyntax pattern, ConversionContext context)
@@ -668,7 +675,7 @@ public class ExpressionTransformer : IExpressionTransformer
     private string TransformDeclarationPattern(DeclarationPatternSyntax pattern, ConversionContext context)
     {
         var typeInfo = context.SemanticModel?.GetTypeInfo(pattern.Type);
-        var type = typeInfo?.Type != null ? context.MapType(typeInfo.Type) : "Object";
+        var type = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Object";
         return $"{type} {pattern.Designation}";
     }
 
