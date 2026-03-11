@@ -57,6 +57,7 @@ public enum JavaVersion
     Java11 = 11,
     Java17 = 17,
     Java21 = 21,
+    Java25 = 25,
 }
 
 /// <summary>
@@ -247,21 +248,6 @@ public class ConversionContext
 
     private string MapTypeInternal(ITypeSymbol typeSymbol)
     {
-        // 处理特殊类型
-        var fullyQualifiedName = typeSymbol.ToDisplayString();
-
-        // 先检查配置映射
-        var mapped = TypeMappings.MapType(fullyQualifiedName);
-        if (mapped != fullyQualifiedName)
-        {
-            // 添加需要的导入
-            foreach (var import in TypeMappings.GetRequiredImports(fullyQualifiedName))
-            {
-                AddImport(import);
-            }
-            return MapSimpleTypeName(mapped);
-        }
-
         // 处理数组类型
         if (typeSymbol is IArrayTypeSymbol arrayType)
         {
@@ -272,8 +258,69 @@ public class ConversionContext
         // 处理泛型类型
         if (typeSymbol is INamedTypeSymbol namedType && namedType.TypeArguments.Length > 0)
         {
-            var baseType = MapSimpleTypeName(namedType.Name);
-            var typeArgs = string.Join(", ", namedType.TypeArguments.Select(MapType));
+            var baseType = namedType.Name;
+
+            // 获取未绑定的泛型类型定义，用于查找映射
+            var originalDefinition = namedType.OriginalDefinition ?? namedType.ConstructedFrom;
+
+            // 构建完全限定名（不带类型参数，使用 ` 数字后缀）
+            string fullQualifiedName;
+            if (originalDefinition != null)
+            {
+                // 使用命名空间和类型名 + 泛型参数数量
+                var namespaceStr = originalDefinition.ContainingNamespace?.ToDisplayString() ?? "";
+                if (!string.IsNullOrEmpty(namespaceStr))
+                {
+                    fullQualifiedName = namespaceStr + "." + baseType + "`" + namedType.TypeArguments.Length;
+                }
+                else
+                {
+                    fullQualifiedName = baseType + "`" + namedType.TypeArguments.Length;
+                }
+            }
+            else
+            {
+                fullQualifiedName = baseType + "`" + namedType.TypeArguments.Length;
+            }
+
+            // 移除 global:: 前缀（如果有）
+            if (fullQualifiedName.StartsWith("global::"))
+            {
+                fullQualifiedName = fullQualifiedName.Substring(8);
+            }
+            var mappedBase = TypeMappings.MapType(fullQualifiedName);
+
+            // 如果完全限定名没有匹配，尝试简单名称 + 泛型数量
+            var configKey = fullQualifiedName;
+            if (mappedBase == fullQualifiedName)
+            {
+                configKey = baseType + "`" + namedType.TypeArguments.Length;
+                mappedBase = TypeMappings.MapType(configKey);
+            }
+
+            if (mappedBase != fullQualifiedName)
+            {
+                // 使用映射后的基础类型
+                baseType = MapSimpleTypeName(mappedBase);
+                // 添加导入
+                AddImportsForType(configKey);
+            }
+            else
+            {
+                // 对于未映射的类型，baseType 已经在开头处理过 ` 后缀了
+                // 这里不需要额外处理
+            }
+
+            // 递归映射类型参数（对于泛型类型参数，需要使用装箱类型）
+            var typeArgs = string.Join(", ", namedType.TypeArguments.Select(t => MapTypeForGeneric(t)));
+
+            // 确保基础类型名不包含 ` 后缀
+            var tickIndex = baseType.IndexOf('`');
+            if (tickIndex > 0)
+            {
+                baseType = baseType.Substring(0, tickIndex);
+            }
+
             return $"{baseType}<{typeArgs}>";
         }
 
@@ -300,7 +347,32 @@ public class ConversionContext
             return "Object";
         }
 
-        return MapSimpleTypeName(typeSymbol.Name);
+        // 对于没有类型参数的命名类型，检查配置映射
+        var name = typeSymbol.Name;
+
+        // 首先尝试完全限定名
+        var fullQualifiedNameSimple = typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        if (fullQualifiedNameSimple.StartsWith("global::"))
+        {
+            fullQualifiedNameSimple = fullQualifiedNameSimple.Substring(8);
+        }
+        var mapped = TypeMappings.MapType(fullQualifiedNameSimple);
+
+        // 如果完全限定名没有匹配，尝试简单名称
+        var configKeySimple = fullQualifiedNameSimple;
+        if (mapped == fullQualifiedNameSimple)
+        {
+            configKeySimple = name;
+            mapped = TypeMappings.MapType(name);
+        }
+
+        if (mapped != name && mapped != fullQualifiedNameSimple)
+        {
+            AddImportsForType(configKeySimple);
+            return MapSimpleTypeName(mapped);
+        }
+
+        return MapSimpleTypeName(name);
     }
 
     private string MapSimpleTypeName(string typeName)
@@ -326,6 +398,40 @@ public class ConversionContext
             "var" => "var",  // Java 10+ 支持 var
             _ => typeName
         };
+    }
+
+    /// <summary>
+    /// 映射类型用于泛型参数（需要使用装箱类型）
+    /// </summary>
+    private string MapTypeForGeneric(ITypeSymbol typeSymbol)
+    {
+        var result = MapType(typeSymbol);
+
+        // 对于原始类型，在泛型参数中需要使用装箱类型
+        return result switch
+        {
+            "int" => "Integer",
+            "long" => "Long",
+            "short" => "Short",
+            "byte" => "Byte",
+            "float" => "Float",
+            "double" => "Double",
+            "boolean" => "Boolean",
+            "char" => "Character",
+            _ => result
+        };
+    }
+
+    /// <summary>
+    /// 为类型映射添加必要的导入
+    /// </summary>
+    private void AddImportsForType(string csharpType)
+    {
+        var imports = TypeMappings.GetRequiredImports(csharpType);
+        foreach (var import in imports)
+        {
+            AddImport(import);
+        }
     }
 
     /// <summary>

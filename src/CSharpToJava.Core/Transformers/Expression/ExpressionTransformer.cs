@@ -212,11 +212,11 @@ public class ExpressionTransformer : IExpressionTransformer
             // 可能在 Java 中需要转义
         }
 
-        // 检查是否是类型名称
-        var typeInfo = context.SemanticModel?.GetTypeInfo(node);
-        if (typeInfo.HasValue && typeInfo.Value.Type != null)
+        // 检查是否是类型名称（使用 GetSymbolInfo 而不是 GetTypeInfo）
+        var symbolInfo = context.SemanticModel?.GetSymbolInfo(node);
+        if (symbolInfo.HasValue && symbolInfo.Value.Symbol is INamedTypeSymbol typeSymbol)
         {
-            return context.MapType(typeInfo.Value.Type);
+            return context.MapType(typeSymbol);
         }
 
         return name;
@@ -269,8 +269,33 @@ public class ExpressionTransformer : IExpressionTransformer
 
         // 检查是否是方法调用目标（如果有类型信息）
         var symbolInfo = context.SemanticModel?.GetSymbolInfo(node);
-        if (symbolInfo.HasValue && symbolInfo.Value.Symbol != null)
+        var hasSymbolInfo = symbolInfo.HasValue && symbolInfo.Value.Symbol != null;
+
+        if (hasSymbolInfo)
         {
+            var symbol = symbolInfo.Value.Symbol;
+
+            // 检查是否是属性，需要转换为 getter 方法
+            if (symbol is IPropertySymbol property)
+            {
+                // 跳过索引器属性（索引器由 ElementAccessExpression 处理）
+                if (property.IsIndexer)
+                {
+                    return $"{left}[/* indexer */]";
+                }
+
+                // 将属性名转换为 getter 方法名
+                var getterName = "get" + memberName;
+                return $"{left}.{getterName}()";
+            }
+
+            // 检查是否是字段
+            if (symbol is IFieldSymbol)
+            {
+                // 字段访问保持原样，但需要检查是否是常量
+                return $"{left}.{memberName}";
+            }
+
             // 检查是否是长度属性
             if (node.Name is { Identifier.Text: "Length" } &&
                 context.SemanticModel.GetTypeInfo(node.Expression).Type?.SpecialType == SpecialType.System_String)
@@ -279,7 +304,7 @@ public class ExpressionTransformer : IExpressionTransformer
             }
 
             // 检查是否是已知的方法/属性映射
-            var containingType = symbolInfo.Value.Symbol.ContainingType?.ToDisplayString();
+            var containingType = symbol.ContainingType?.ToDisplayString();
             if (!string.IsNullOrEmpty(containingType))
             {
                 var mappedMethod = context.TypeMappings.MapMethod(containingType, memberName);
@@ -287,6 +312,21 @@ public class ExpressionTransformer : IExpressionTransformer
                 {
                     return $"{left}.{mappedMethod}";
                 }
+            }
+        }
+        else
+        {
+            // 回退：使用启发式检测
+            // 如果成员名以大写字母开头，可能是属性
+            if (!string.IsNullOrEmpty(memberName) && char.IsUpper(memberName[0]))
+            {
+                // 特殊情况：一些已知的字段（即使以大写开头）
+                if (memberName is "Length" && left.EndsWith("String"))
+                {
+                    return $"{left}.length()";
+                }
+                // 其他大写开头的成员名可能是属性
+                return $"{left}.get{memberName}()";
             }
         }
 
@@ -389,18 +429,154 @@ public class ExpressionTransformer : IExpressionTransformer
     private string TransformElementAccess(ElementAccessExpressionSyntax node, ConversionContext context)
     {
         var target = Transform(node.Expression, context);
-        // BracketedArgumentListSyntax 用于索引访问
-        var args = node.ArgumentList != null
+
+        // 检查是否是用户定义的索引器（使用语义模型）
+        var symbolInfo = context.SemanticModel?.GetSymbolInfo(node);
+        if (symbolInfo.HasValue && symbolInfo.Value.Symbol != null)
+        {
+            var symbol = symbolInfo.Value.Symbol;
+            // 如果是属性（C# 的索引器就是属性）
+            if (symbol is IPropertySymbol property && property.IsIndexer)
+            {
+                // 转换为方法调用：get(index1, index2, ...)
+                var args = node.ArgumentList != null
+                    ? string.Join(", ", node.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)))
+                    : "";
+
+                // 使用小写的 get 前缀
+                return $"{target}.get({args})";
+            }
+        }
+
+        // 检查是否是多维数组访问
+        var argCount = node.ArgumentList?.Arguments.Count ?? 0;
+        if (argCount > 1)
+        {
+            // 多维数组访问，转换为方法调用
+            var args = string.Join(", ", node.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)));
+            return $"{target}.get({args})";
+        }
+
+        // 单维数组访问，保持 Java 数组语法
+        var argsSingle = node.ArgumentList != null
             ? string.Join(", ", node.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)))
             : "";
-        return $"{target}[{args}]";
+        return $"{target}[{argsSingle}]";
     }
 
     private string TransformBinaryExpression(BinaryExpressionSyntax node, string op, ConversionContext context)
     {
+        // 检查是否是 null 比较（null 比较不应该转换为操作符重载方法）
+        if ((node.Right is LiteralExpressionSyntax rightLit && rightLit.Token.Text == "null") ||
+            (node.Left is LiteralExpressionSyntax leftLit && leftLit.Token.Text == "null"))
+        {
+            // 对于 null 比较，使用常规运算符
+            var nullLeft = Transform(node.Left, context);
+            var nullRight = Transform(node.Right, context);
+            return $"({nullLeft} {op} {nullRight})";
+        }
+
+        // 检查是否是操作符重载（需要转换为方法调用）
+        var symbolInfo = context.SemanticModel?.GetSymbolInfo(node);
+        if (symbolInfo.HasValue && symbolInfo.Value.Symbol != null)
+        {
+            var symbol = symbolInfo.Value.Symbol;
+            // 如果是方法（操作符重载在 C# 中是静态方法）
+            if (symbol is IMethodSymbol method && method.IsStatic && method.Name.StartsWith("op_"))
+            {
+                // 获取包含类型
+                var containingType = method.ContainingType;
+                if (containingType != null)
+                {
+                    // 检查是否是系统基础类型（这些不需要转换）
+                    var containingTypeName = containingType.ToDisplayString();
+                    if (IsSystemPrimitiveType(containingTypeName))
+                    {
+                        // 对于系统基础类型，使用常规运算符
+                        var primLeft = Transform(node.Left, context);
+                        var primRight = Transform(node.Right, context);
+                        return $"({primLeft} {op} {primRight})";
+                    }
+
+                    var typeName = context.MapType(containingType);
+                    var leftExpr = Transform(node.Left, context);
+                    var rightExpr = Transform(node.Right, context);
+
+                    // 将操作符映射到方法名
+                    var methodName = method.Name switch
+                    {
+                        "op_Addition" => "Add",
+                        "op_Subtraction" => "Subtract",
+                        "op_Multiply" => "Multiply",
+                        "op_Division" => "Divide",
+                        "op_Modulus" => "Modulus",
+                        "op_BitwiseAnd" => "BitwiseAnd",
+                        "op_BitwiseOr" => "BitwiseOr",
+                        "op_ExclusiveOr" => "Xor",
+                        "op_LogicalAnd" => "LogicalAnd",
+                        "op_LogicalOr" => "LogicalOr",
+                        "op_LeftShift" => "LeftShift",
+                        "op_RightShift" => "RightShift",
+                        "op_Equality" => "Equals",
+                        "op_Inequality" => "NotEquals",
+                        "op_GreaterThan" => "CompareTo",
+                        "op_GreaterThanOrEqual" => "CompareTo",
+                        "op_LessThan" => "CompareTo",
+                        "op_LessThanOrEqual" => "CompareTo",
+                        "op_Increment" => "Increment",
+                        "op_Decrement" => "Decrement",
+                        "op_UnaryNegation" => "Negate",
+                        "op_UnaryPlus" => "Plus",
+                        "op_OnesComplement" => "OnesComplement",
+                        _ => method.Name.Substring(3) // 移除 op_ 前缀
+                    };
+
+                    // 对于比较操作符，返回比较结果
+                    if (method.Name is "op_Equality" or "op_Inequality")
+                    {
+                        return $"{typeName}.{methodName}({leftExpr}, {rightExpr})"; // 返回 boolean
+                    }
+
+                    // 对于关系操作符
+                    if (method.Name is "op_GreaterThan" or "op_GreaterThanOrEqual" or "op_LessThan" or "op_LessThanOrEqual")
+                    {
+                        // CompareTo 返回 int，需要比较
+                        var compareOp = method.Name switch
+                        {
+                            "op_GreaterThan" => ">",
+                            "op_GreaterThanOrEqual" => ">=",
+                            "op_LessThan" => "<",
+                            "op_LessThanOrEqual" => "<=",
+                            _ => op
+                        };
+                        return $"({typeName}.{methodName}({leftExpr}, {rightExpr}) {compareOp} 0)";
+                    }
+
+                    // 默认：调用静态方法
+                    return $"{typeName}.{methodName}({leftExpr}, {rightExpr})";
+                }
+            }
+        }
+
         var left = Transform(node.Left, context);
         var right = Transform(node.Right, context);
         return $"({left} {op} {right})";
+    }
+
+    private static bool IsSystemPrimitiveType(string typeName)
+    {
+        // 检查是否是 .NET 系统基础类型（这些不需要转换为方法调用）
+        return typeName switch
+        {
+            "System.Int32" or "int" or "System.Int64" or "long" or
+            "System.Int16" or "short" or "System.Byte" or "byte" or
+            "System.SByte" or "System.UInt32" or "System.UInt64" or
+            "System.UInt16" or "System.Single" or "float" or
+            "System.Double" or "double" or "System.Boolean" or "bool" or
+            "System.Char" or "char" or "System.String" or "string" or
+            "System.Object" or "object" => true,
+            _ => false
+        };
     }
 
     private string TransformUnaryExpression(PrefixUnaryExpressionSyntax node, string op, ConversionContext context)
@@ -423,6 +599,92 @@ public class ExpressionTransformer : IExpressionTransformer
 
     private string TransformAssignment(AssignmentExpressionSyntax node, string op, ConversionContext context)
     {
+        // 检查是否是索引器赋值（如 this[0, 0] = 1）
+        if (node.Left is ElementAccessExpressionSyntax elementAccess)
+        {
+            var target = Transform(elementAccess.Expression, context);
+
+            // 检查是否是用户定义的索引器
+            var symbolInfo = context.SemanticModel?.GetSymbolInfo(elementAccess);
+            if (symbolInfo.HasValue && symbolInfo.Value.Symbol is IPropertySymbol property && property.IsIndexer)
+            {
+                // 转换为 set 方法调用：target.set(i1, i2, value)
+                var indexArgs = elementAccess.ArgumentList != null
+                    ? string.Join(", ", elementAccess.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)))
+                    : "";
+                var value = Transform(node.Right, context);
+                return $"{target}.set({indexArgs}, {value})";
+            }
+
+            // 检查是否是多维数组赋值
+            var argCount = elementAccess.ArgumentList?.Arguments.Count ?? 0;
+            if (argCount > 1)
+            {
+                var indexArgs = string.Join(", ", elementAccess.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)));
+                var value = Transform(node.Right, context);
+                return $"{target}.set({indexArgs}, {value})";
+            }
+        }
+
+        // 检查是否是属性赋值（如 obj.Property = value）
+        if (node.Left is MemberAccessExpressionSyntax memberAccess)
+        {
+            var symbolInfo = context.SemanticModel?.GetSymbolInfo(memberAccess);
+
+            // 检查是否是事件（C# 事件使用 +=/-= 进行订阅）
+            if (symbolInfo.HasValue && symbolInfo.Value.Symbol is IEventSymbol)
+            {
+                // Java 不支持 C# 风格的事件，需要转换为监听器模式
+                // 这里暂时生成注释，用户需要手动实现
+                var target = Transform(memberAccess.Expression, context);
+                var eventName = memberAccess.Name.Identifier.Text;
+                var handler = Transform(node.Right, context);
+                var operation = op == "+=" ? "add" : "remove";
+                return $"/* TODO: Event subscription: {target}.{operation}{eventName}({handler}) */";
+            }
+
+            var isProperty = symbolInfo.HasValue && symbolInfo.Value.Symbol is IPropertySymbol property && !property.IsIndexer;
+
+            // 如果语义模型检测到是属性，或者使用启发式检测（名称以大写字母开头）
+            // 但是跳过 += 和 -= 操作，因为它们可能是事件订阅
+            if ((isProperty || char.IsUpper(memberAccess.Name.Identifier.Text[0])) && (op == "=" || op == "&&=" || op == "||="))
+            {
+                var target = Transform(memberAccess.Expression, context);
+                var propertyName = memberAccess.Name.Identifier.Text;
+                var setterName = "set" + propertyName;
+                var value = Transform(node.Right, context);
+
+                // 对于简单赋值，转换为 setter 调用
+                return $"{target}.{setterName}({value})";
+            }
+
+            // 对于 +=/-= 的情况，可能是事件订阅或复合赋值
+            // 如果不确定，生成注释
+            if (op == "+=" || op == "-=")
+            {
+                var target = Transform(memberAccess.Expression, context);
+                var propertyName = memberAccess.Name.Identifier.Text;
+                var value = Transform(node.Right, context);
+                return $"/* TODO: Event or compound assignment: {target}.{propertyName} {op} {value} */ {target}.{propertyName} = {value}";
+            }
+        }
+
+        // 复合赋值操作符（如 +=, -= 等）需要特殊处理
+        if (op != "=" && node.Left is ElementAccessExpressionSyntax)
+        {
+            // 对于复合赋值，我们需要生成完整的表达式
+            // 例如：arr[i] += 1  =>  arr[i] = arr[i] + 1
+            var rightValue = Transform(node.Right, context);
+            var elemAccess = node.Left as ElementAccessExpressionSyntax;
+            var targetObj = Transform(elemAccess.Expression, context);
+            var indexArgs = elemAccess.ArgumentList != null
+                ? string.Join(", ", elemAccess.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)))
+                : "";
+
+            // 生成读取-修改-写入序列
+            return $"{targetObj}.set({indexArgs}, {targetObj}.get({indexArgs}) {op} {rightValue})";
+        }
+
         var left = Transform(node.Left, context);
         var right = Transform(node.Right, context);
         return $"{left} {op} {right}";
@@ -431,13 +693,13 @@ public class ExpressionTransformer : IExpressionTransformer
     private string TransformPostfix(PostfixUnaryExpressionSyntax node, string op, ConversionContext context)
     {
         var operand = Transform(node.Operand, context);
-        return $"({operand}{op})";
+        return $"{operand}{op}";
     }
 
     private string TransformPrefix(PrefixUnaryExpressionSyntax node, string op, ConversionContext context)
     {
         var operand = Transform(node.Operand, context);
-        return $"({op}{operand})";
+        return $"{op}{operand}";
     }
 
     private string TransformConditional(ConditionalExpressionSyntax node, ConversionContext context)
@@ -510,10 +772,79 @@ public class ExpressionTransformer : IExpressionTransformer
 
     private string TransformObjectCreation(ObjectCreationExpressionSyntax node, ConversionContext context)
     {
+        string type;
         var typeInfo = context.SemanticModel?.GetTypeInfo(node.Type);
-        var type = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Object";
+
+        if (typeInfo.HasValue && typeInfo.Value.Type != null)
+        {
+            // 使用语义模型获取类型
+            type = context.MapType(typeInfo.Value.Type);
+        }
+        else
+        {
+            // 回退：从语法获取类型名
+            // 尝试从类型语法中提取类型名
+            var typeName = ExtractTypeName(node.Type, context);
+            if (!string.IsNullOrEmpty(typeName))
+            {
+                type = typeName;
+            }
+            else
+            {
+                type = "Object";
+            }
+        }
+
         var args = TransformArgumentList(node.ArgumentList, context);
         return $"new {type}({args})";
+    }
+
+    private string ExtractTypeName(TypeSyntax typeSyntax, ConversionContext context)
+    {
+        // 处理简单类型名
+        if (typeSyntax is IdentifierNameSyntax identifierName)
+        {
+            var name = identifierName.Identifier.Text;
+            // 尝试通过类型映射获取
+            var mapped = context.TypeMappings.MapType(name);
+            return mapped != name ? mapped : name;
+        }
+
+        // 处理泛型类型
+        if (typeSyntax is GenericNameSyntax genericName)
+        {
+            var name = genericName.Identifier.Text;
+            var typeArgs = string.Join(", ", genericName.TypeArgumentList.Arguments.Select(t => ExtractTypeName(t, context)));
+            return $"{name}<{typeArgs}>";
+        }
+
+        // 处理限定名（如 System.Point）
+        if (typeSyntax is QualifiedNameSyntax qualifiedName)
+        {
+            var left = ExtractTypeName(qualifiedName.Left, context);
+            var right = qualifiedName.Right.Identifier.Text;
+            return $"{left}.{right}";
+        }
+
+        // 处理预定义类型
+        if (typeSyntax is PredefinedTypeSyntax predefinedType)
+        {
+            return predefinedType.Keyword.Text switch
+            {
+                "int" => "int",
+                "long" => "long",
+                "float" => "float",
+                "double" => "double",
+                "bool" => "boolean",
+                "char" => "char",
+                "string" => "String",
+                "object" => "Object",
+                "void" => "void",
+                _ => "Object"
+            };
+        }
+
+        return null;
     }
 
     private string TransformAnonymousObjectCreation(AnonymousObjectCreationExpressionSyntax node, ConversionContext context)
@@ -656,7 +987,17 @@ public class ExpressionTransformer : IExpressionTransformer
     private string TransformIndexExpression(ElementAccessExpressionSyntax node, ConversionContext context)
     {
         var target = Transform(node.Expression, context);
-        // ArgumentList in ElementAccessExpressionSyntax contains ArgumentSyntax, not ExpressionSyntax
+
+        // 检查是否是用户定义的索引器（C# 8+ index 表达式）
+        var symbolInfo = context.SemanticModel?.GetSymbolInfo(node);
+        if (symbolInfo.HasValue && symbolInfo.Value.Symbol is IPropertySymbol property && property.IsIndexer)
+        {
+            // 转换为方法调用：get(index)
+            var args = string.Join(", ", node.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)));
+            return $"{target}.get({args})";
+        }
+
+        // 默认情况：使用数组语法
         var argList = string.Join(", ", node.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)));
         return $"{target}[{argList}]";
     }

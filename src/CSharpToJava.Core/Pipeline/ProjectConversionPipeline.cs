@@ -194,6 +194,7 @@ public class ProjectConversionPipeline
 
             // Get semantic model for the first syntax tree
             var semanticModel = compilation.GetSemanticModel(typeGroup.SyntaxNodes[0].SyntaxTree);
+            context.SemanticModel = semanticModel;
 
             // Create merged declaration
             var mergedDeclaration = MergedTypeDeclaration.FromPartialTypeGroup(typeGroup, semanticModel);

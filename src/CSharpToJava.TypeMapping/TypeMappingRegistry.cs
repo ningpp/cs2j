@@ -203,10 +203,19 @@ public class TypeMappingRegistry
         // 处理泛型类型（如 System.Collections.Generic.List`1）
         if (csharpType.Contains('`'))
         {
-            var baseTypeName = csharpType.Split('`')[0];
-            if (_typeMappings.TryGetValue(baseTypeName + "`1", out var genericMapping))
+            var parts = csharpType.Split('`');
+            var baseTypeName = parts[0];
+            // 检查是否有泛型参数数量后缀
+            if (parts.Length > 1)
             {
-                return genericMapping.JavaType;
+                // 尝试找到正确的泛型参数数量映射
+                foreach (var kvp in _typeMappings)
+                {
+                    if (kvp.Key.StartsWith(baseTypeName + "`"))
+                    {
+                        return kvp.Value.JavaType;
+                    }
+                }
             }
         }
 

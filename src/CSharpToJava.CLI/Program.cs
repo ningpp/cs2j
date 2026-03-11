@@ -127,6 +127,17 @@ class Program
                 EnableLinqRewrite = opts.EnableLinqRewrite
             };
 
+            // 确定输出根目录（Maven 标准目录结构）
+            var outputRoot = opts.GeneratePom
+                ? Path.Combine(opts.Destination, "src", "main", "java")
+                : opts.Destination;
+
+            // 创建输出目录
+            if (!Directory.Exists(outputRoot))
+            {
+                Directory.CreateDirectory(outputRoot);
+            }
+
             // 执行项目转换
             var pipeline = new ConversionPipeline();
             var results = await pipeline.ConvertProjectAsync(opts.Source, options);
@@ -140,7 +151,7 @@ class Program
                 if (result.FileName == null) continue;
 
                 var relativePath = Path.GetRelativePath(opts.Source, result.FileName);
-                var outputPath = Path.Combine(opts.Destination, Path.ChangeExtension(relativePath, ".java"));
+                var outputPath = Path.Combine(outputRoot, Path.ChangeExtension(relativePath, ".java"));
 
                 // 创建输出目录
                 var outputDir = Path.GetDirectoryName(outputPath);
@@ -168,6 +179,16 @@ class Program
                         Console.Error.WriteLine($"  [{diag.Severity}] {diag.Message}");
                     }
                 }
+            }
+
+            // 生成 Maven pom.xml
+            if (opts.GeneratePom)
+            {
+                var artifactId = new DirectoryInfo(opts.Destination).Name;
+                var pomContent = GenerateMavenPom(artifactId, opts.MavenGroupId, opts.MavenVersion, opts.JavaVersion);
+                var pomPath = Path.Combine(opts.Destination, "pom.xml");
+                await File.WriteAllTextAsync(pomPath, pomContent);
+                Console.WriteLine($"Generated Maven pom.xml: {pomPath}");
             }
 
             Console.WriteLine();
@@ -310,6 +331,45 @@ class Program
             return 1;
         }
     }
+
+    private static string GenerateMavenPom(string artifactId, string groupId, string version, string javaVersion)
+    {
+        int javaVer = int.Parse(javaVersion.Replace("Java", ""));
+        return $@"<?xml version=""1.0"" encoding=""UTF-8""?>
+<project xmlns=""http://maven.apache.org/POM/4.0.0""
+    xmlns:xsi=""http://www.w3.org/2001/XMLSchema-instance""
+    xsi:schemaLocation=""http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"">
+
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>{groupId}</groupId>
+    <artifactId>{artifactId}</artifactId>
+    <version>{version}</version>
+    <packaging>jar</packaging>
+
+    <properties>
+        <java.version>{javaVer}</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.source>${{java.version}}</maven.compiler.source>
+        <maven.compiler.target>${{java.version}}</maven.compiler.target>
+    </properties>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>${{java.version}}</source>
+                    <target>${{java.version}}</target>
+                    <encoding>UTF-8</encoding>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
+";
+    }
 }
 
 // 命令行选项
@@ -361,8 +421,8 @@ class ConvertProjectOptions
     [Option('m', "mapping", Required = false, HelpText = "Path to type mapping configuration file")]
     public string? MappingConfig { get; set; }
 
-    [Option('j', "java-version", Default = "Java17", HelpText = "Target Java version")]
-    public string JavaVersion { get; set; } = "Java17";
+    [Option('j', "java-version", Default = "Java25", HelpText = "Target Java version")]
+    public string JavaVersion { get; set; } = "Java25";
 
     [Option('f', "force", Default = false, HelpText = "Overwrite existing files")]
     public bool Force { get; set; }
@@ -381,6 +441,15 @@ class ConvertProjectOptions
 
     [Option("no-linq-rewrite", Default = false, HelpText = "Don't pre-process LINQ to procedural code")]
     public bool NoLinqRewrite { get; set; }
+
+    [Option("generate-pom", Default = true, HelpText = "Generate Maven pom.xml file with standard project structure")]
+    public bool GeneratePom { get; set; } = true;
+
+    [Option("maven-group-id", Default = "io.github.ningpp", HelpText = "Maven groupId")]
+    public string MavenGroupId { get; set; } = "io.github.ningpp";
+
+    [Option("maven-version", Default = "0.0.1-SNAPSHOT", HelpText = "Maven version")]
+    public string MavenVersion { get; set; } = "0.0.1-SNAPSHOT";
 
     public bool UseRecords => !NoRecords;
     public bool GenerateJavaDoc => !NoJavaDoc;

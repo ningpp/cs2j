@@ -181,7 +181,7 @@ public class JavaInterfaceDeclaration : JavaTypeDeclaration
         // 方法（默认 public abstract）
         foreach (var method in Methods)
         {
-            sb.Append(innerIndentation).AppendLine(method.ToString());
+            sb.Append(innerIndentation).AppendLine(method.ToString(innerIndentation));
         }
 
         sb.AppendLine("}");
@@ -236,7 +236,7 @@ public class JavaEnumDeclaration : JavaTypeDeclaration
 
             foreach (var method in Methods)
             {
-                sb.Append(innerIndentation).AppendLine(method.ToString());
+                sb.Append(innerIndentation).AppendLine(method.ToString(innerIndentation));
             }
         }
 

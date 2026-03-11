@@ -46,11 +46,11 @@ public class PropertyTransformer : IMemberTransformer
         // 检查是否是只写属性（只有 setter）
         var isWriteOnly = hasSetter && !hasGetter;
 
-        // Java 字段修饰符
-        var fieldModifiers = modifiers;
-        if (isReadOnly || (!isWriteOnly && !isStatic))
+        // Java 字段修饰符 - 字段应该是 private，除非是 static
+        var fieldModifiers = JavaModifiers.Private;
+        if (isStatic)
         {
-            fieldModifiers |= JavaModifiers.Private;
+            fieldModifiers |= JavaModifiers.Static;
         }
 
         // 创建后备字段
@@ -73,15 +73,17 @@ public class PropertyTransformer : IMemberTransformer
         // 创建 getter
         if (hasGetter || propDecl.AccessorList == null)  // 默认有 getter
         {
-            var getterModifiers = modifiers & ~JavaModifiers.Private;
-            if ((propDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.PrivateKeyword))))
+            var getterModifiers = modifiers;
+            // 如果属性本身没有访问修饰符，默认为 public
+            if (!propDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword) ||
+                                          m.IsKind(SyntaxKind.ProtectedKeyword) ||
+                                          m.IsKind(SyntaxKind.PrivateKeyword) ||
+                                          m.IsKind(SyntaxKind.InternalKeyword)))
             {
-                getterModifiers = JavaModifiers.Private;
+                getterModifiers = JavaModifiers.Public;
             }
-            else
-            {
-                getterModifiers |= JavaModifiers.Public;
-            }
+            // 确保只有一个访问修饰符
+            getterModifiers = GetSingleAccessModifier(getterModifiers);
 
             var getter = new JavaMethodDeclaration
             {
@@ -108,15 +110,17 @@ public class PropertyTransformer : IMemberTransformer
         // 创建 setter
         if (hasSetter)
         {
-            var setterModifiers = modifiers & ~JavaModifiers.Private;
-            if (propDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.PrivateKeyword)))
+            var setterModifiers = modifiers;
+            // 如果属性本身没有访问修饰符，默认为 public
+            if (!propDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword) ||
+                                          m.IsKind(SyntaxKind.ProtectedKeyword) ||
+                                          m.IsKind(SyntaxKind.PrivateKeyword) ||
+                                          m.IsKind(SyntaxKind.InternalKeyword)))
             {
-                setterModifiers = JavaModifiers.Private;
+                setterModifiers = JavaModifiers.Public;
             }
-            else
-            {
-                setterModifiers |= JavaModifiers.Public;
-            }
+            // 确保只有一个访问修饰符
+            setterModifiers = GetSingleAccessModifier(setterModifiers);
 
             var setter = new JavaMethodDeclaration
             {
@@ -176,6 +180,17 @@ public class PropertyTransformer : IMemberTransformer
         }
 
         return result;
+    }
+
+    private JavaModifiers GetSingleAccessModifier(JavaModifiers modifiers)
+    {
+        // 确保只有一个访问修饰符（public, protected, private）
+        // 优先级：private > protected > public
+        if ((modifiers & JavaModifiers.Private) != 0)
+            return (modifiers & ~JavaModifiers.Public & ~JavaModifiers.Protected);
+        if ((modifiers & JavaModifiers.Protected) != 0)
+            return (modifiers & ~JavaModifiers.Public);
+        return modifiers;
     }
 
     private string ToCamelCase(string name)

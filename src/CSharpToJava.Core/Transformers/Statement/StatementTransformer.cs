@@ -55,7 +55,10 @@ public class StatementTransformer : IStatementTransformer
             if (result is JavaStatementNode stmt)
             {
                 var stmtText = stmt.ToString("");
-                if (!string.IsNullOrWhiteSpace(stmtText))
+                // 过滤掉空语句和 C# 预处理器指令残留
+                if (!string.IsNullOrWhiteSpace(stmtText) &&
+                    !stmtText.TrimStart().StartsWith("#") &&
+                    !stmtText.TrimStart().StartsWith("// TODO: UncheckedStatement"))
                 {
                     results.Add(stmtText);
                 }
@@ -93,7 +96,7 @@ public class StatementTransformer : IStatementTransformer
 
         var thenBlock = stmt.Statement is BlockSyntax block
             ? $"{{\n        {TransformBlock(block, context)}\n    }}"
-            : $"{{\n        {stmtTransformer.Transform(stmt.Statement, context).ToString("")};\n    }}";
+            : $"{{\n        {stmtTransformer.Transform(stmt.Statement, context).ToString("")}\n    }}";
 
         var result = new System.Text.StringBuilder();
         result.Append($"if ({condition}) {thenBlock}");
