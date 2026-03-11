@@ -80,14 +80,6 @@ public class JavaClassDeclaration : JavaTypeDeclaration
         {
             sb.Append("record ");
         }
-        else if ((Modifiers & JavaModifiers.Abstract) != 0)
-        {
-            sb.Append("abstract class ");
-        }
-        else if ((Modifiers & JavaModifiers.Final) != 0)
-        {
-            sb.Append("final class ");
-        }
         else
         {
             sb.Append("class ");
@@ -111,7 +103,7 @@ public class JavaClassDeclaration : JavaTypeDeclaration
         // 字段
         foreach (var field in Fields)
         {
-            sb.Append(innerIndentation).AppendLine(field.ToString());
+            sb.Append(innerIndentation).AppendLine(field.ToString(innerIndentation));
         }
 
         if (Fields.Count > 0 && (Constructors.Count > 0 || Methods.Count > 0))
@@ -122,7 +114,7 @@ public class JavaClassDeclaration : JavaTypeDeclaration
         // 构造函数
         foreach (var ctor in Constructors)
         {
-            sb.Append(innerIndentation).AppendLine(ctor.ToString());
+            sb.Append(innerIndentation).AppendLine(ctor.ToString(innerIndentation));
         }
 
         if (Constructors.Count > 0 && Methods.Count > 0)
@@ -133,7 +125,7 @@ public class JavaClassDeclaration : JavaTypeDeclaration
         // 方法
         foreach (var method in Methods)
         {
-            sb.Append(innerIndentation).AppendLine(method.ToString());
+            sb.Append(innerIndentation).AppendLine(method.ToString(innerIndentation));
         }
 
         // 嵌套类型
