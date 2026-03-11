@@ -925,8 +925,78 @@ public class ExpressionTransformer : IExpressionTransformer
     private string TransformQuery(QueryExpressionSyntax node, ConversionContext context)
     {
         // LINQ 查询语法转换为方法调用
-        context.Diagnostics.Info("LINQ query syntax converted to method calls", node.GetLocation());
-        return "/* TODO: LINQ query syntax */";
+        // 处理 from-where-select 和 from-from-select (SelectMany) 模式
+
+        var fromClause = node.FromClause;
+        var source = Transform(fromClause.Expression, context);
+        var identifier = fromClause.Identifier.ValueText;
+
+        // 首先转换为流
+        var result = $"{source}.stream()";
+
+        // 处理查询主体
+        result = TransformQueryBodyRecursive(node.Body, identifier, result, context);
+
+        // 收集为列表
+        result = $"{result}.collect(Collectors.toList())";
+
+        return result;
+    }
+
+    private string TransformQueryBodyRecursive(QueryBodySyntax body, string identifier, string expression, ConversionContext context)
+    {
+        var result = expression;
+        var currentIdentifier = identifier;
+
+        // 处理中间子句
+        foreach (var clause in body.Clauses)
+        {
+            if (clause is WhereClauseSyntax whereClause)
+            {
+                var condition = Transform(whereClause.Condition, context);
+                result = $"{result}.filter({currentIdentifier} -> {condition})";
+            }
+            else if (clause is FromClauseSyntax fromClause)
+            {
+                // 处理嵌套 from (SelectMany)
+                var newSource = Transform(fromClause.Expression, context);
+                var newIdentifier = fromClause.Identifier.ValueText;
+                result = $"{result}.flatMap({currentIdentifier} -> {newSource}.map({newIdentifier} -> {newIdentifier})";
+                currentIdentifier = newIdentifier;
+            }
+            else if (clause is JoinClauseSyntax joinClause)
+            {
+                result = $"{result} /* TODO: join */";
+            }
+            else if (clause is LetClauseSyntax)
+            {
+                result = $"{result} /* TODO: let */";
+            }
+            else if (clause is OrderByClauseSyntax)
+            {
+                result = $"{result} /* TODO: orderby */";
+            }
+        }
+
+        // 处理 select 或 groupby
+        var selectOrGroup = body.SelectOrGroup;
+        if (selectOrGroup is SelectClauseSyntax selectClause)
+        {
+            var selector = Transform(selectClause.Expression, context);
+            result = $"{result}.map({currentIdentifier} -> {selector})";
+        }
+        else if (selectOrGroup is GroupClauseSyntax groupClause)
+        {
+            result = $"{result} /* TODO: groupBy */";
+        }
+
+        // 如果没有 select，默认选择标识符
+        if (selectOrGroup == null)
+        {
+            result = $"{result}.map({currentIdentifier} -> {currentIdentifier})";
+        }
+
+        return result;
     }
 
     private string TransformLambda(LambdaExpressionSyntax node, ConversionContext context)
