@@ -95,7 +95,16 @@ public class JavaClassDeclaration : JavaTypeDeclaration
 
         if (ImplementedTypes.Count > 0)
         {
-            sb.Append(" implements ").Append(string.Join(", ", ImplementedTypes));
+            // 去重：按擦除类型名过滤，保留最具体的（有泛型参数的优先）
+            var seen = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var iface in ImplementedTypes)
+            {
+                var dot = iface.IndexOf('<');
+                var erasedName = dot >= 0 ? iface.Substring(0, dot).TrimEnd() : iface;
+                if (!seen.ContainsKey(erasedName) || dot >= 0)
+                    seen[erasedName] = iface;
+            }
+            sb.Append(" implements ").Append(string.Join(", ", seen.Values));
         }
 
         sb.AppendLine(" {");
@@ -155,6 +164,7 @@ public class JavaInterfaceDeclaration : JavaTypeDeclaration
         var innerIndentation = indentation + "    ";
 
         WriteAnnotations(sb);
+        WriteModifiers(sb);
         sb.Append("interface ");
 
         sb.Append(Name);
@@ -205,7 +215,9 @@ public class JavaEnumDeclaration : JavaTypeDeclaration
         var innerIndentation = indentation + "    ";
 
         WriteAnnotations(sb);
-        sb.Append("enum ").AppendLine(Name);
+        WriteModifiers(sb);
+        sb.Append("enum ");
+        sb.Append(Name);
         sb.AppendLine(" {");
 
         // 枚举值

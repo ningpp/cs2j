@@ -19,53 +19,45 @@ public class FieldTransformer : IMemberTransformer
             throw new ArgumentException($"Expected FieldDeclarationSyntax, got {node.GetType()}");
         }
 
+        // Use TransformAll and return first result (for interface compatibility)
+        var all = TransformAll(fieldDecl, context).ToList();
+        return all.Count > 0 ? all[0] : throw new InvalidOperationException("Field declaration has no variables");
+    }
+
+    /// <summary>
+    /// Transforms all variables in a field declaration (handles multi-variable declarations like: int x, y, z;)
+    /// </summary>
+    public IEnumerable<JavaFieldDeclaration> TransformAll(FieldDeclarationSyntax fieldDecl, ConversionContext context)
+    {
         var typeInfo = context.SemanticModel?.GetTypeInfo(fieldDecl.Declaration.Type);
         var javaType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Object";
+        var modifiers = ConvertModifiers(fieldDecl.Modifiers);
 
-        // 每个变量声明可能有多个声明符
-        // 处理第一个（主要的）声明符
-        var firstVariable = fieldDecl.Declaration.Variables.FirstOrDefault();
-        if (firstVariable == null)
-        {
-            throw new InvalidOperationException("Field declaration has no variables");
-        }
-
-        var javaField = new JavaFieldDeclaration
-        {
-            Type = javaType,
-            Name = firstVariable.Identifier.Text,
-            Modifiers = ConvertModifiers(fieldDecl.Modifiers)
-        };
-
-        // 处理初始化器
-        if (firstVariable.Initializer != null)
-        {
-            var exprTransformer = new Transformers.Expression.ExpressionTransformer();
-            javaField.Initializer = exprTransformer.Transform(firstVariable.Initializer.Value, context);
-        }
-
-        // 处理 const 字段
+        // Handle const/readonly modifiers
         if (fieldDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.ConstKeyword)))
-        {
-            javaField.Modifiers |= JavaModifiers.Static | JavaModifiers.Final;
-        }
-
-        // 处理 readonly 字段
+            modifiers |= JavaModifiers.Static | JavaModifiers.Final;
         if (fieldDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.ReadOnlyKeyword)))
-        {
-            javaField.Modifiers |= JavaModifiers.Final;
-        }
-
-        // 处理 fixed 字段（固定大小缓冲区）
+            modifiers |= JavaModifiers.Final;
         if (fieldDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.FixedKeyword)))
-        {
-            context.Diagnostics.Error(
-                "Java doesn't support fixed-size buffers. Field needs manual conversion.",
-                fieldDecl.GetLocation()
-            );
-        }
+            context.Diagnostics.Error("Java doesn't support fixed-size buffers. Field needs manual conversion.", fieldDecl.GetLocation());
 
-        return javaField;
+        foreach (var variable in fieldDecl.Declaration.Variables)
+        {
+            var javaField = new JavaFieldDeclaration
+            {
+                Type = javaType,
+                Name = ConversionContext.EscapeJavaKeyword(variable.Identifier.Text),
+                Modifiers = modifiers
+            };
+
+            if (variable.Initializer != null)
+            {
+                var exprTransformer = new Transformers.Expression.ExpressionTransformer();
+                javaField.Initializer = exprTransformer.Transform(variable.Initializer.Value, context);
+            }
+
+            yield return javaField;
+        }
     }
 
     private JavaModifiers ConvertModifiers(SyntaxTokenList modifiers)
@@ -89,6 +81,11 @@ public class FieldTransformer : IMemberTransformer
                 _ => JavaModifiers.None
             };
         }
+
+        // C# "protected internal" maps to Protected | Public via individual keyword rules.
+        // Java doesn't allow both; "protected" is the most restrictive useful choice.
+        if ((result & JavaModifiers.Protected) != 0 && (result & JavaModifiers.Public) != 0)
+            result &= ~JavaModifiers.Public;
 
         return result;
     }

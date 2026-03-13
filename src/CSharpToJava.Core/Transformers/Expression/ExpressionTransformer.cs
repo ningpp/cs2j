@@ -26,6 +26,9 @@ public class ExpressionTransformer : IExpressionTransformer
 
             // 标识符和成员访问
             SyntaxKind.IdentifierName => TransformIdentifier((IdentifierNameSyntax)node, context),
+            // PredefinedType in expression context means static class access (e.g. bool.TryParse, int.Parse)
+            // Java primitives can't have static methods, so map to wrapper types
+            SyntaxKind.PredefinedType => BoxedTypeName((PredefinedTypeSyntax)node),
             SyntaxKind.GenericName => TransformGenericName((GenericNameSyntax)node, context),
             SyntaxKind.SimpleMemberAccessExpression => TransformMemberAccess((MemberAccessExpressionSyntax)node, context),
             SyntaxKind.PointerMemberAccessExpression => TransformPointerMemberAccess((MemberAccessExpressionSyntax)node, context),
@@ -48,6 +51,7 @@ public class ExpressionTransformer : IExpressionTransformer
             SyntaxKind.NotEqualsExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, "!=", context),
             SyntaxKind.LogicalAndExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, "&&", context),
             SyntaxKind.LogicalOrExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, "||", context),
+            SyntaxKind.CoalesceExpression => TransformCoalesceExpression((BinaryExpressionSyntax)node, context),
             SyntaxKind.BitwiseAndExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, "&", context),
             SyntaxKind.BitwiseOrExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, "|", context),
             SyntaxKind.ExclusiveOrExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, "^", context),
@@ -99,8 +103,8 @@ public class ExpressionTransformer : IExpressionTransformer
             // SyntaxKind.ArgListArgument was removed in newer Roslyn versions
             SyntaxKind.ThisExpression => "this",
             SyntaxKind.BaseExpression => "super",
-            SyntaxKind.ArgListExpression => "// TODO: __arglist",
-            SyntaxKind.MakeRefExpression or SyntaxKind.RefTypeExpression or SyntaxKind.RefValueExpression => "// TODO: ref expression",
+            SyntaxKind.ArgListExpression => "/* TODO: __arglist */",
+            SyntaxKind.MakeRefExpression or SyntaxKind.RefTypeExpression or SyntaxKind.RefValueExpression => "/* TODO: ref expression */",
             SyntaxKind.CheckedExpression => TransformChecked((CheckedExpressionSyntax)node, context),
             SyntaxKind.UncheckedExpression => TransformUnchecked((CheckedExpressionSyntax)node, context),
             SyntaxKind.AwaitExpression => TransformAwait((AwaitExpressionSyntax)node, context),
@@ -108,12 +112,14 @@ public class ExpressionTransformer : IExpressionTransformer
             // Lambda expressions can be either ParenthesizedLambdaExpression or SimpleLambdaExpression
             SyntaxKind.ParenthesizedLambdaExpression => TransformLambda((LambdaExpressionSyntax)node, context),
             SyntaxKind.SimpleLambdaExpression => TransformLambda((LambdaExpressionSyntax)node, context),
+            SyntaxKind.AnonymousMethodExpression => TransformAnonymousMethod((AnonymousMethodExpressionSyntax)node, context),
+            SyntaxKind.ConditionalAccessExpression => TransformConditionalAccess((ConditionalAccessExpressionSyntax)node, context),
             SyntaxKind.ParenthesizedExpression => $"({Transform(((ParenthesizedExpressionSyntax)node).Expression, context)})",
             SyntaxKind.ThrowExpression => TransformThrowExpression((ThrowExpressionSyntax)node, context),
             SyntaxKind.SwitchExpression => TransformSwitchExpression((SwitchExpressionSyntax)node, context),
-            SyntaxKind.WithExpression => "// TODO: with expression",
+            SyntaxKind.WithExpression => "/* TODO: with expression */",
             SyntaxKind.IndexExpression => TransformIndexExpression((ElementAccessExpressionSyntax)node, context),
-            SyntaxKind.RangeExpression => "// TODO: range expression",
+            SyntaxKind.RangeExpression => "/* TODO: range expression */",
 
             _ => $"/* TODO: {node.Kind()} */ {node}"
         };
@@ -206,20 +212,68 @@ public class ExpressionTransformer : IExpressionTransformer
             );
         }
 
-        // 处理 C# 关键字作为标识符的情况
-        if (IsJavaKeyword(name))
+        // 处理 C# 基本类型名称作为静态成员访问目标的情况
+        // 例如：double.IsNaN() -> Double.isNaN()
+        if (IsCSharpPrimitiveType(name))
         {
-            // 可能在 Java 中需要转义
+            return GetJavaWrapperType(name);
         }
 
         // 检查是否是类型名称（使用 GetSymbolInfo 而不是 GetTypeInfo）
         var symbolInfo = context.SemanticModel?.GetSymbolInfo(node);
         if (symbolInfo.HasValue && symbolInfo.Value.Symbol is INamedTypeSymbol typeSymbol)
         {
+            // For [Flags] enums used as a static member access qualifier (Direction.North),
+            // return the original class name, not "int" — the class still exists in Java with static int fields.
+            if (typeSymbol.TypeKind == TypeKind.Enum
+                && node.Parent is MemberAccessExpressionSyntax parentMaExpr && parentMaExpr.Expression == node)
+            {
+                bool isFlagsEnum = context.IsFlagsEnum(typeSymbol.Name)
+                    || typeSymbol.GetAttributes().Any(a => a.AttributeClass?.Name is "FlagsAttribute" or "Flags");
+                if (isFlagsEnum)
+                {
+                    context.RegisterFlagsEnum(typeSymbol.Name);
+                    return typeSymbol.Name;
+                }
+            }
             return context.MapType(typeSymbol);
         }
 
-        return name;
+        // 检查是否是属性引用（隐式 this.Property 的读取 → get{Property}()）
+        if (symbolInfo.HasValue && symbolInfo.Value.Symbol is IPropertySymbol propSym && !propSym.IsIndexer)
+        {
+            // Don't apply getter if we're on the LHS of an assignment - TransformAssignment handles that
+            if (node.Parent is AssignmentExpressionSyntax parentAssign && parentAssign.Left == node)
+                return ConversionContext.EscapeJavaKeyword(name);
+            return $"get{name}()";
+        }
+
+        // Check if this is a ref/out parameter (translated to a Holder type in Java).
+        // When used in a regular expression context, dereference with .value field.
+        if (symbolInfo.HasValue && symbolInfo.Value.Symbol is IParameterSymbol paramSym
+            && (paramSym.RefKind == RefKind.Out || paramSym.RefKind == RefKind.Ref))
+        {
+            var escapedName = ConversionContext.EscapeJavaKeyword(name);
+            // If the parent is an ArgumentSyntax with out/ref keyword, pass the holder itself (no .value)
+            if (node.Parent is ArgumentSyntax argParent
+                && (argParent.RefKindKeyword.IsKind(SyntaxKind.OutKeyword) || argParent.RefKindKeyword.IsKind(SyntaxKind.RefKeyword)))
+                return escapedName;
+            // If the parent is the LHS of an assignment, let TransformAssignment handle the .value =
+            if (node.Parent is AssignmentExpressionSyntax parentAssign2 && parentAssign2.Left == node)
+                return escapedName;
+            // In all other read contexts, dereference the holder via .value
+            return $"{escapedName}.value";
+        }
+
+        // If this is a method symbol used as an invocation target, camelCase it to match Java convention
+        if (symbolInfo.HasValue && symbolInfo.Value.Symbol is IMethodSymbol && char.IsUpper(name[0]))
+        {
+            var camelName2 = name == "GetHashCode" ? "hashCode"
+                : char.ToLower(name[0]) + name.Substring(1);
+            return ConversionContext.EscapeJavaKeyword(camelName2);
+        }
+
+        return ConversionContext.EscapeJavaKeyword(name);
     }
 
     private string TransformGenericName(GenericNameSyntax node, ConversionContext context)
@@ -232,18 +286,14 @@ public class ExpressionTransformer : IExpressionTransformer
             var targetType = context.ResolveAlias(typeName);
             if (targetType != null)
             {
-                return context.MapType(targetType);
+                var mapped = context.MapType(targetType);
+                var idx = mapped.IndexOf('<');
+                if (idx > 0) return mapped.Substring(0, idx);
+                return mapped;
             }
         }
 
-        // 处理泛型类型参数
-        var typeArgs = node.TypeArgumentList?.Arguments.Select(arg =>
-        {
-            var typeInfo = context.SemanticModel?.GetTypeInfo(arg);
-            return typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : arg.ToString();
-        }) ?? Enumerable.Empty<string>();
-
-        return $"{typeName}<{string.Join(", ", typeArgs)}>";
+        return typeName;
     }
 
     private string TransformMemberAccess(MemberAccessExpressionSyntax node, ConversionContext context)
@@ -284,16 +334,136 @@ public class ExpressionTransformer : IExpressionTransformer
                     return $"{left}[/* indexer */]";
                 }
 
+                // Array.Length → .length (Java array field)
+                if (memberName is "Length" or "Count")
+                {
+                    var exprType = context.SemanticModel?.GetTypeInfo(node.Expression).Type;
+                    if (exprType is IArrayTypeSymbol)
+                        return $"{left}.length";
+
+                    // For collection types implementing ICollection<T>: Count → size()
+                    if (memberName == "Count" && exprType is INamedTypeSymbol namedExprType)
+                    {
+                        // Check TypeMappings first for explicit overrides
+                        var exprTypeName = namedExprType.ToDisplayString();
+                        var mappedCount = context.TypeMappings.MapMethod(exprTypeName, "Count");
+                        if (!string.IsNullOrEmpty(mappedCount))
+                            return $"{left}.{mappedCount}()";
+
+                        // Fall back: any type implementing ICollection<T> → size()
+                        bool implementsICollection = namedExprType.AllInterfaces.Any(i =>
+                            i.SpecialType == SpecialType.System_Collections_Generic_ICollection_T ||
+                            i.Name is "ICollection" or "IList" or "ISet");
+                        if (implementsICollection)
+                            return $"{left}.size()";
+                    }
+
+                    // For type parameters bounded by ICollection<T>: Count → size()
+                    if (memberName == "Count" && exprType is ITypeParameterSymbol typeParamSym)
+                    {
+                        bool constrainedByCollection = typeParamSym.ConstraintTypes.Any(c =>
+                            c is INamedTypeSymbol cn && (cn.Name is "ICollection" or "IList" or "ISet" or
+                            "Collection" or "List" || cn.SpecialType == SpecialType.System_Collections_Generic_ICollection_T));
+                        if (constrainedByCollection)
+                            return $"{left}.size()";
+                    }
+                }
+
+                // List<T>.Capacity getter → size() (Java ArrayList manages capacity automatically)
+                if (memberName == "Capacity")
+                {
+                    var capExprType = context.SemanticModel?.GetTypeInfo(node.Expression).Type;
+                    if (capExprType is INamedTypeSymbol namedCapType)
+                    {
+                        bool isListType = namedCapType.AllInterfaces.Any(i =>
+                            i.SpecialType == SpecialType.System_Collections_Generic_IList_T ||
+                            i.Name is "IList" or "ICollection") ||
+                            namedCapType.Name is "List" or "ArrayList";
+                        if (isListType)
+                            return $"{left}.size()"; // approximate: Java ArrayList auto-manages capacity
+                    }
+                }
+
+                // Check TypeMappings for property-level method name overrides (e.g. Keys→keySet, Values→values)
+                var propContainingType = property.ContainingType?.ToDisplayString();
+                if (!string.IsNullOrEmpty(propContainingType))
+                {
+                    var propMapped = context.TypeMappings.MapMethod(propContainingType, memberName);
+                    if (!string.IsNullOrEmpty(propMapped))
+                    {
+                        // If the mapping is a qualified static field reference (e.g. "Locale.ROOT"),
+                        // emit it directly rather than as a method call on the receiver.
+                        if (propMapped.Contains('.'))
+                        {
+                            // Add imports for the containing type so the referenced class is imported
+                            context.AddImportsForTypePublic(propContainingType);
+                            return propMapped;
+                        }
+                        return $"{left}.{propMapped}()";
+                    }
+                }
+
+                // For dictionary-like types: Keys → keySet(), Values → values()
+                // Handle all types implementing IDictionary, including SortedDictionary, etc.
+                if (memberName is "Keys" or "Values")
+                {
+                    var keysExprType = context.SemanticModel?.GetTypeInfo(node.Expression).Type;
+                    if (keysExprType is INamedTypeSymbol keysNamedType)
+                    {
+                        bool isDictLike = keysNamedType.AllInterfaces.Any(i =>
+                            i.Name is "IDictionary" or "IReadOnlyDictionary")
+                            || keysNamedType.Name is "Dictionary" or "SortedDictionary" or "TreeMap"
+                                or "HashMap" or "ConcurrentDictionary" or "ConcurrentHashMap";
+                        if (isDictLike)
+                            return memberName == "Keys" ? $"{left}.keySet()" : $"{left}.values()";
+                    }
+                }
+
                 // 将属性名转换为 getter 方法名
+                // Special case: IEnumerator<T>.Current → iterate with next()
+                if (memberName == "Current")
+                {
+                    var currExprType = context.SemanticModel?.GetTypeInfo(node.Expression).Type;
+                    if (currExprType != null)
+                    {
+                        var currFq = currExprType.ToDisplayString();
+                        if (currFq.StartsWith("System.Collections.Generic.IEnumerator") ||
+                            currFq == "System.Collections.IEnumerator" ||
+                            currFq.StartsWith("System.Collections.Generic.IEnumerator`"))
+                            return $"{left}.next()";
+                    }
+                }
                 var getterName = "get" + memberName;
                 return $"{left}.{getterName}()";
             }
 
             // 检查是否是字段
-            if (symbol is IFieldSymbol)
+            if (symbol is IFieldSymbol fieldSymbol)
             {
+                var specialType = fieldSymbol.ContainingType?.SpecialType;
+                if (specialType == SpecialType.System_Double || specialType == SpecialType.System_Single) {
+                    var wrapper = specialType == SpecialType.System_Double ? "Double" : "Float";
+                    if (memberName == "MaxValue") return $"{wrapper}.MAX_VALUE";
+                    if (memberName == "MinValue") return $"-{wrapper}.MAX_VALUE";
+                    if (memberName == "NaN") return $"{wrapper}.NaN";
+                    if (memberName == "PositiveInfinity") return $"{wrapper}.POSITIVE_INFINITY";
+                    if (memberName == "NegativeInfinity") return $"{wrapper}.NEGATIVE_INFINITY";
+                    if (memberName == "Epsilon") return $"{wrapper}.MIN_VALUE";
+                }
+                if (specialType == SpecialType.System_Int32) {
+                    if (memberName == "MaxValue") return "Integer.MAX_VALUE";
+                    if (memberName == "MinValue") return "Integer.MIN_VALUE";
+                }
+                if (specialType == SpecialType.System_Int64) {
+                    if (memberName == "MaxValue") return "Long.MAX_VALUE";
+                    if (memberName == "MinValue") return "Long.MIN_VALUE";
+                }
+                if (specialType == SpecialType.System_Int16) {
+                    if (memberName == "MaxValue") return "Short.MAX_VALUE";
+                    if (memberName == "MinValue") return "Short.MIN_VALUE";
+                }
                 // 字段访问保持原样，但需要检查是否是常量
-                return $"{left}.{memberName}";
+                return $"{left}.{ConversionContext.EscapeJavaKeyword(memberName)}";
             }
 
             // 检查是否是长度属性
@@ -325,12 +495,17 @@ public class ExpressionTransformer : IExpressionTransformer
                 {
                     return $"{left}.length()";
                 }
+                // Array length heuristic: if member is Length and expression looks like an array
+                if (memberName is "Length")
+                {
+                    return $"{left}.length";
+                }
                 // 其他大写开头的成员名可能是属性
                 return $"{left}.get{memberName}()";
             }
         }
 
-        return $"{left}.{memberName}";
+        return $"{left}.{ConversionContext.EscapeJavaKeyword(memberName)}";
     }
 
     private string TransformPointerMemberAccess(MemberAccessExpressionSyntax node, ConversionContext context)
@@ -341,15 +516,330 @@ public class ExpressionTransformer : IExpressionTransformer
 
     private string TransformInvocation(InvocationExpressionSyntax node, ConversionContext context)
     {
+        // Detect direct invocation of a C# event field: eventName(sender, args) → fireEventName(sender, args)
+        // In C#, event delegates can be invoked as functions. In Java they become listener lists + fire method.
+        if (node.Expression is IdentifierNameSyntax eventIdentifier && context.SemanticModel != null)
+        {
+            var eventSymbolInfo = context.SemanticModel.GetSymbolInfo(eventIdentifier);
+            if (eventSymbolInfo.Symbol is IEventSymbol eventSymbol)
+            {
+                var eName = eventSymbol.Name;
+                var fireMethodName = "fire" + char.ToUpper(eName[0]) + eName.Substring(1);
+                var fireArgs = TransformArgumentList(node.ArgumentList, context);
+                return $"{fireMethodName}({fireArgs})";
+            }
+        }
+
         if (node.Expression is MemberAccessExpressionSyntax memberAccess)
         {
             var target = Transform(memberAccess.Expression, context);
             var methodName = memberAccess.Name.Identifier.Text;
 
-            // 检查是否是 LINQ 方法
+            // Capture the original (pre-mapping) target identifier to use in Array.* checks
+            var originalTargetName = memberAccess.Expression switch {
+                IdentifierNameSyntax oIdns => oIdns.Identifier.Text,
+                MemberAccessExpressionSyntax oMa => oMa.Name.Identifier.Text,
+                _ => (string?)null
+            };
+
+            // Special case: GC.SuppressFinalize(x) → no-op in Java
+            if (target == "GC" && methodName is "SuppressFinalize" or "Collect" or "KeepAlive")
+                return $"/* GC.{methodName} */";
+
+            // Special case: dict.TryGetValue(key, out value) → (value = dict.get(key)) != null
+            if (methodName == "TryGetValue" && node.ArgumentList.Arguments.Count == 2)
+            {
+                var tvKey = Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var tvArg = node.ArgumentList.Arguments[1];
+                string tvOut;
+                if (tvArg.Expression is DeclarationExpressionSyntax tvDecl)
+                {
+                    // out var x or out Type x — just grab the variable name from the designation
+                    tvOut = tvDecl.Designation is SingleVariableDesignationSyntax tvSv
+                        ? tvSv.Identifier.Text
+                        : "_outVar";
+                }
+                else
+                {
+                    tvOut = Transform(tvArg.Expression, context);
+                }
+                return $"(({tvOut} = {target}.get({tvKey})) != null)";
+            }
+
+            // Special case: Object.ReferenceEquals(a, b) → (a == b) in Java (reference equality)
+            if (methodName == "ReferenceEquals" && node.ArgumentList.Arguments.Count == 2)
+            {
+                var refA = Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var refB = Transform(node.ArgumentList.Arguments[1].Expression, context);
+                return $"({refA} == {refB})";
+            }
+
+            // Special case: Array.Copy(src, si, dst, di, len) → System.arraycopy(src, si, dst, di, len)
+            if (methodName == "Copy" && (target == "Array" || target == "Object[]" || originalTargetName == "Array"))
+            {
+                var copyArgs = TransformArgumentList(node.ArgumentList, context);
+                return $"System.arraycopy({copyArgs})";
+            }
+
+            // Special case: Array.Sort(arr) / Array.Sort(arr, comparer) → Arrays.sort(arr) / Arrays.sort(arr, comparer)
+            if (methodName == "Sort" && (target == "Array" || originalTargetName == "Array"))
+            {
+                context.AddImport("java.util.Arrays");
+                var sortArgs = TransformArgumentList(node.ArgumentList, context);
+                return $"Arrays.sort({sortArgs})";
+            }
+
+            // Special case: Array.CreateInstance(type, len) → Array.newInstance(type, len) [java.lang.reflect.Array]
+            if (methodName is "CreateInstance" && (target == "Array" || target == "System.Array" || originalTargetName == "Array"))
+            {
+                context.AddImport("java.lang.reflect.Array");
+                var refArgs = TransformArgumentList(node.ArgumentList, context);
+                return $"Array.newInstance({refArgs})";
+            }
+            // Special case: array.SetValue(val, idx) → Array.set(array, idx, val) [java.lang.reflect.Array]
+            if (methodName is "SetValue" or "setValue" && node.ArgumentList.Arguments.Count == 2)
+            {
+                var svaType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                if (svaType != null && (svaType.SpecialType == SpecialType.System_Array ||
+                    svaType.Name == "Array"))
+                {
+                    var sval = Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    var sidx = Transform(node.ArgumentList.Arguments[1].Expression, context);
+                    context.AddImport("java.lang.reflect.Array");
+                    return $"Array.set({target}, {sidx}, {sval})";
+                }
+            }
+            // Special case: array.GetValue(idx) → Array.get(array, idx) [java.lang.reflect.Array]
+            if (methodName is "GetValue" or "getValue" && node.ArgumentList.Arguments.Count == 1)
+            {
+                var gvaType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                if (gvaType != null && (gvaType.SpecialType == SpecialType.System_Array ||
+                    gvaType.Name == "Array"))
+                {
+                    var gidx = Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    context.AddImport("java.lang.reflect.Array");
+                    return $"Array.get({target}, {gidx})";
+                }
+            }
+
+            // Special case: str.Split(separators, StringSplitOptions) → str.split("\\s+") / filtered split
+            if (methodName == "Split" && node.ArgumentList.Arguments.Count == 2)
+            {
+                var strTypeInfo = context.SemanticModel?.GetTypeInfo(memberAccess.Expression);
+                bool isStringType = strTypeInfo.HasValue && strTypeInfo.Value.Type?.SpecialType == SpecialType.System_String;
+                if (isStringType)
+                {
+                    // Check if second arg is StringSplitOptions (any value)
+                    var arg2Sym = context.SemanticModel?.GetTypeInfo(node.ArgumentList.Arguments[1].Expression);
+                    bool isStringSplitOpts = arg2Sym.HasValue && arg2Sym.Value.Type?.Name == "StringSplitOptions";
+                    if (isStringSplitOpts)
+                    {
+                        // str.Split(seps, RemoveEmptyEntries) → str.split("\\s+") for whitespace,
+                        // or use Arrays.stream filter for other separators
+                        return $"Arrays.stream({target}.split(\"\\\\s+\")).filter(s -> !s.isEmpty()).toArray(String[]::new)";
+                    }
+                }
+            }
+
+            // Special case: Debug.Assert(...) → assert condition; in Java
+            if (methodName == "Assert")
+            {
+                var assertSym = context.SemanticModel?.GetSymbolInfo(memberAccess).Symbol as IMethodSymbol;
+                if (assertSym?.ContainingType.ToDisplayString() == "System.Diagnostics.Debug")
+                {
+                    var assertArgs = node.ArgumentList.Arguments;
+                    if (assertArgs.Count > 0)
+                    {
+                        var condition = Transform(assertArgs[0].Expression, context);
+                        if (assertArgs.Count > 1)
+                        {
+                            var message = Transform(assertArgs[1].Expression, context);
+                            return $"assert {condition} : {message}";
+                        }
+                        return $"assert {condition}";
+                    }
+                    return "assert true /* Debug.Assert removed */";
+                }
+            }
+
+            // Special case: System.Diagnostics.Debug.WriteLine/Write → System.err.println
+            if (methodName is "WriteLine" or "writeLine" or "Write" or "write" or "WriteLineIf" or "writeLineIf"
+                or "WriteIf" or "writeIf" or "Print" or "print" or "Fail" or "fail")
+            {
+                // Check via target string (covers fully-qualified System.Diagnostics.Debug.*)
+                bool isDebugCall = target is "Debug" or "System.Diagnostics.Debug" || target.EndsWith(".Debug");
+                if (!isDebugCall && context.SemanticModel != null)
+                {
+                    var diagSym = context.SemanticModel.GetSymbolInfo(memberAccess).Symbol as IMethodSymbol;
+                    isDebugCall = diagSym?.ContainingType?.ToDisplayString() == "System.Diagnostics.Debug";
+                }
+                if (isDebugCall)
+                {
+                    if (node.ArgumentList.Arguments.Count == 0)
+                        return "/* Debug.WriteLine() */";
+                    var printArg = Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    return $"System.err.println({printArg})";
+                }
+            }
+
+            // Special case: Math.Round(x, digits) → Java Math.round() only takes 1 arg
+            // Use: Math.round(x * 10^digits) / 10^digits
+            if ((methodName == "Round") && target == "Math" && node.ArgumentList.Arguments.Count == 2)
+            {
+                var val = Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var digits = Transform(node.ArgumentList.Arguments[1].Expression, context);
+                return $"(Math.round({val} * Math.pow(10, {digits})) / Math.pow(10, {digits}))";
+            }
+
+            // Special case: Math.Log(x, base) → Java Math.log only takes 1 arg
+            // C# Math.Log(x, base) = log₍base₎(x) → Java: Math.log(x) / Math.log(base)
+            if ((methodName == "Log") && target == "Math" && node.ArgumentList.Arguments.Count == 2)
+            {
+                var logVal = Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var logBase = Transform(node.ArgumentList.Arguments[1].Expression, context);
+                return $"(Math.log({logVal}) / Math.log({logBase}))";
+            }
+
+            // Special case: {collection}.CopyTo(destArray, startIndex) → System.arraycopy
+            if (methodName == "CopyTo" && node.ArgumentList.Arguments.Count == 2)
+            {
+                var destArr = Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var startIdx = Transform(node.ArgumentList.Arguments[1].Expression, context);
+                // Determine source length: for arrays use .length, for collections use .size()
+                var srcTypeInfo = context.SemanticModel?.GetTypeInfo(memberAccess.Expression);
+                bool isArray = srcTypeInfo.HasValue && srcTypeInfo.Value.Type is IArrayTypeSymbol;
+                string srcLen = isArray ? $"{target}.length" : $"{target}.size()";
+                string srcArr = isArray ? target : $"{target}.toArray(new Object[0])";
+                return $"System.arraycopy({srcArr}, 0, {destArr}, {startIdx}, {(isArray ? srcLen : $"{target}.size()")})";
+            }
+
+            // 检查是否是 LINQ 方法（必须在 extension method 检查之前）
+            // BUT first check if the containing type has a specific method mapping —
+            // if so, don't treat it as LINQ (e.g. HashSet.Contains → contains, not anyMatch).
+            // Also, only apply LINQ translation when the method is actually a System.Linq extension.
             if (IsLinqMethod(methodName))
             {
-                return TransformLinqInvocation(node, target, methodName, context);
+                var linqTypeInfo = context.SemanticModel?.GetTypeInfo(memberAccess.Expression);
+                bool hasSpecificMapping = false;
+                if (linqTypeInfo.HasValue && linqTypeInfo.Value.Type != null)
+                {
+                    var linqContainingType = linqTypeInfo.Value.Type.ToDisplayString();
+                    var linqMapped = context.TypeMappings.MapMethod(linqContainingType, methodName);
+                    if (!string.IsNullOrEmpty(linqMapped))
+                    {
+                        methodName = linqMapped;
+                        hasSpecificMapping = true;
+                    }
+                }
+                if (!hasSpecificMapping)
+                {
+                    // Only use LINQ translation for actual System.Linq extension methods.
+                    // Instance methods on custom types (e.g. Set<T>.Contains) should NOT use LINQ translation.
+                    var mInfoLinq = context.SemanticModel?.GetSymbolInfo(node);
+                    bool isLinqExtension = mInfoLinq.HasValue && mInfoLinq.Value.Symbol is IMethodSymbol msLinq
+                        && msLinq.IsExtensionMethod
+                        && (msLinq.ContainingType?.ContainingNamespace?.ToDisplayString()?.StartsWith("System.Linq") == true);
+                    if (isLinqExtension)
+                    {
+                        // Special shortcut: Count() with no args on a type that has a Count property
+                        // → use size() or getCount() directly (both return int, not long as Stream.count())
+                        if (methodName == "Count" && node.ArgumentList.Arguments.Count == 0)
+                        {
+                            var rcvTypeSym = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                            bool hasCountProp = rcvTypeSym != null && rcvTypeSym.GetMembers("Count")
+                                .OfType<IPropertySymbol>().Any(p => !p.IsStatic);
+                            bool hasSizeMethod = rcvTypeSym != null && rcvTypeSym.GetMembers("size")
+                                .OfType<IMethodSymbol>().Any(m => m.Parameters.IsEmpty);
+                            if (hasCountProp)
+                            {
+                                // Standard C# collection types map to Java, whose size is .size().
+                                // Custom types with Count property keep getCount() (converter generates this getter).
+                                bool isMappedCollection = rcvTypeSym is INamedTypeSymbol rcvNmd2 &&
+                                    (rcvNmd2.AllInterfaces.Any(i => i.Name is "ICollection" or "IList" or "ISet") ||
+                                     rcvNmd2.Name is "List" or "Stack" or "Queue" or "HashSet" or "SortedSet" or "ArrayList" or "LinkedList");
+                                return isMappedCollection ? $"{target}.size()" : $"{target}.getCount()";
+                            }
+                            if (hasSizeMethod)
+                                return $"{target}.size()";
+                            // Has ICollection interface → has Count property via interface
+                            bool isCollection = rcvTypeSym is INamedTypeSymbol rcvNm &&
+                                rcvNm.AllInterfaces.Any(i => i.Name is "ICollection" or "IList");
+                            if (isCollection)
+                                return $"{target}.size()";
+                        }
+
+                        // Wrap receiver in a Java Stream if it's not already a stream.
+                        // C# IEnumerable<T> → Java Iterable<T>, which has no .map()/.filter() etc.
+                        // Only IOrderedEnumerable (LINQ chain result) and IQueryable stay as streams.
+                        string linqTarget = target;
+                        var receiverType2 = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                        if (receiverType2 != null)
+                        {
+                            // Only treat as "already stream" if the receiver is a LINQ ordered result or IQueryable.
+                            // Plain IEnumerable<T> must be wrapped via StreamSupport.stream().
+                            bool isAlreadyLinqResult = receiverType2 is INamedTypeSymbol rn2
+                                && (rn2.Name is "IOrderedEnumerable"
+                                    || rn2.ContainingNamespace?.ToDisplayString().StartsWith("System.Linq") == true);
+                            if (!isAlreadyLinqResult)
+                            {
+                                if (receiverType2 is IArrayTypeSymbol)
+                                {
+                                    context.AddImport("java.util.Arrays");
+                                    linqTarget = $"Arrays.stream({target})";
+                                }
+                                else
+                                {
+                                    context.AddImport("java.util.stream.StreamSupport");
+                                    linqTarget = $"StreamSupport.stream({target}.spliterator(), false)";
+                                }
+                            }
+                        }
+                        return TransformLinqInvocation(node, linqTarget, methodName, context);
+                    }
+                    // Not a LINQ extension method — fall through to regular method handling with camelCase
+                    methodName = char.ToLower(methodName[0]) + methodName.Substring(1);
+                }
+            }
+
+            // Check if this is a non-LINQ extension method call (receiver.ExtMethod(args) -> ExtClass.ExtMethod(receiver, args))
+            var methodSymInfo = context.SemanticModel?.GetSymbolInfo(node);
+            if (methodSymInfo.HasValue && methodSymInfo.Value.Symbol is IMethodSymbol mSym && mSym.IsExtensionMethod)
+            {
+                var extMethodName = mSym.Name;
+                var extContainingType = mSym.ContainingType.ToDisplayString();
+
+                // System.Linq extension methods must go through the LINQ translator, not the static call path.
+                // They are sometimes missed by the isLinqExtension check above (e.g. inside constructor
+                // initializers where the semantic context is reduced). Handle them here as a fallback.
+                if (extContainingType == "System.Linq.Enumerable" || extContainingType.StartsWith("System.Linq."))
+                {
+                    if (IsLinqMethod(extMethodName))
+                    {
+                        // Determine if the receiver is a Collection (supports .stream()) or bare Iterable
+                        var rcvrType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                        bool isCollection = rcvrType is INamedTypeSymbol rcvrNamed &&
+                            (rcvrNamed.AllInterfaces.Any(i => i.Name is "ICollection" or "IList") ||
+                             rcvrNamed.Name is "List" or "ArrayList" or "LinkedList" or "HashSet" or "TreeSet");
+                        string streamTarget = isCollection
+                            ? $"{target}.stream()"
+                            : $"StreamSupport.stream({target}.spliterator(), false)";
+                        context.AddImport("java.util.stream.StreamSupport");
+                        context.AddImport("java.util.stream.Collectors");
+                        var extLinqArgs = string.Join(", ", node.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)));
+                        return TransformLinqInvocation(node, streamTarget, extMethodName, context);
+                    }
+                }
+
+                var extClassName = context.MapType(mSym.ContainingType);
+                // Build args without receiver
+                var extArgs = node.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)).ToList();
+                var allArgs = new List<string> { target };
+                allArgs.AddRange(extArgs);
+                // Only add Java-style imports (lowercase first segment), skip C# namespace imports
+                var firstSegment = extContainingType.Split('.')[0];
+                if (extContainingType.Length > 0 && char.IsLower(firstSegment[0]))
+                    context.AddImport(extContainingType);
+                return $"{extClassName}.{extMethodName}({string.Join(", ", allArgs)})";
             }
 
             // 检查方法映射
@@ -362,41 +852,271 @@ public class ExpressionTransformer : IExpressionTransformer
                 {
                     methodName = mappedMethod;
                 }
+                // e.g., X.GetHashCode() where X is double → Double.hashCode(X)
+                var primitiveWrapper = containingType switch
+                {
+                    "double" or "System.Double" => "Double",
+                    "float" or "System.Single" => "Float",
+                    "int" or "System.Int32" => "Integer",
+                    "long" or "System.Int64" => "Long",
+                    "short" or "System.Int16" => "Short",
+                    "byte" or "System.Byte" => "Byte",
+                    "bool" or "System.Boolean" => "Boolean",
+                    "char" or "System.Char" => "Character",
+                    "uint" or "System.UInt32" => "Integer",
+                    "ulong" or "System.UInt64" => "Long",
+                    "ushort" or "System.UInt16" => "Short",
+                    _ => null
+                };
+                if (primitiveWrapper != null && target != primitiveWrapper && target != containingType)
+                {
+                    // Instance method on primitive → convert to static wrapper call or special form
+                    var args0 = TransformArgumentList(node.ArgumentList, context);
+                    var javaMethodName0 = methodName switch
+                    {
+                        "GetHashCode" or "getHashCode" => $"{primitiveWrapper}.hashCode({target})",
+                        "ToString" or "toString" => $"String.valueOf({target})",
+                        "CompareTo" or "compareTo" => $"{primitiveWrapper}.compare({target}, {args0})",
+                        "Equals" or "equals" => $"({target} == {args0})",
+                        _ => null
+                    };
+                    if (javaMethodName0 != null)
+                        return javaMethodName0;
+                }
+
+                // 对于 Java 包装类型（Double, Integer 等），方法名需要转换为 camelCase
+                // 例如：double.IsNaN() -> Double.isNaN()
+                if (IsJavaWrapperType(containingType) && char.IsUpper(methodName[0]))
+                {
+                    // First check the type mapping for a specific override (e.g., IsInfinity → isInfinite)
+                    var wrapperMapped = context.TypeMappings.MapMethod(containingType, methodName);
+                    if (string.IsNullOrEmpty(wrapperMapped))
+                    {
+                        // Try fully-qualified name too (e.g., System.Double)
+                        var primitiveToFq = containingType switch
+                        {
+                            "double" => "System.Double",
+                            "float" => "System.Single",
+                            "int" => "System.Int32",
+                            "long" => "System.Int64",
+                            "short" => "System.Int16",
+                            "byte" => "System.Byte",
+                            "bool" => "System.Boolean",
+                            "char" => "System.Char",
+                            _ => null
+                        };
+                        if (primitiveToFq != null)
+                            wrapperMapped = context.TypeMappings.MapMethod(primitiveToFq, methodName);
+                    }
+                    methodName = !string.IsNullOrEmpty(wrapperMapped)
+                        ? wrapperMapped
+                        : char.ToLower(methodName[0]) + methodName.Substring(1);
+                    if (target == "double") target = "Double";
+                    else if (target == "float") target = "Float";
+                    else if (target == "int") target = "Integer";
+                    else if (target == "long") target = "Long";
+                    else if (target == "short") target = "Short";
+                    else if (target == "byte") target = "Byte";
+                    else if (target == "char") target = "Character";
+                    else if (target == "bool") target = "Boolean";
+                }
+            }
+
+            // Fallback for static method calls where receiver is a type reference (typeInfo.Type is null)
+            // e.g., double.IsInfinity(x) → receiver "double" has no Value.Type, use GetSymbolInfo instead
+            if (typeInfo.HasValue && typeInfo.Value.Type == null && context.SemanticModel != null)
+            {
+                var receiverSym = context.SemanticModel.GetSymbolInfo(memberAccess.Expression).Symbol;
+                if (receiverSym is INamedTypeSymbol receiverNamedType)
+                {
+                    var staticTypeName = receiverNamedType.ToDisplayString();
+                    var staticMapped = context.TypeMappings.MapMethod(staticTypeName, methodName);
+                    if (string.IsNullOrEmpty(staticMapped))
+                    {
+                        // For primitives like "double" → try "System.Double" if the short name didn't match
+                        var ns = receiverNamedType.ContainingNamespace;
+                        if (ns != null && !ns.IsGlobalNamespace)
+                        {
+                            var fqName = ns.ToDisplayString() + "." + receiverNamedType.MetadataName;
+                            staticMapped = context.TypeMappings.MapMethod(fqName, methodName);
+                        }
+                    }
+                    if (!string.IsNullOrEmpty(staticMapped))
+                        methodName = staticMapped;
+                }
             }
 
             var args = TransformArgumentList(node.ArgumentList, context);
+            // Java uses camelCase for all method names
+            if (char.IsUpper(methodName[0]))
+            {
+                var camelMethod = methodName switch
+                {
+                    "GetHashCode" => "hashCode",
+                    "GetEnumerator" => "iterator",
+                    "GetType" => "getClass",
+                    _ => char.ToLower(methodName[0]) + methodName.Substring(1)
+                };
+                methodName = ConversionContext.EscapeJavaKeyword(camelMethod);
+            }
+            // List.Reverse() → Collections.reverse(list) — ArrayList has no instance reverse()
+            if (methodName == "reverse" && node.ArgumentList.Arguments.Count == 0)
+            {
+                var receiverType3 = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                bool isList3 = receiverType3 is IArrayTypeSymbol ||
+                    (receiverType3 is INamedTypeSymbol rn3 &&
+                     (rn3.AllInterfaces.Any(i => i.Name is "IList" or "ICollection") ||
+                      rn3.Name is "List" or "ArrayList" or "LinkedList" or "Stack" or "Queue"));
+                if (isList3)
+                {
+                    context.AddImport("java.util.Collections");
+                    return $"Collections.reverse({target})";
+                }
+            }
+            // List.Sort() with no args → Collections.sort(list)
+            // List.Sort(comparer) → Collections.sort(list, comparator) — needs IComparer → Comparator bridge
+            if (methodName == "sort")
+            {
+                var receiverType4 = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                bool isList4 = receiverType4 is INamedTypeSymbol rn4 &&
+                    (rn4.AllInterfaces.Any(i => i.Name is "IList" or "ICollection") ||
+                     rn4.Name is "List" or "ArrayList" or "LinkedList");
+                if (isList4)
+                {
+                    if (node.ArgumentList.Arguments.Count == 0)
+                    {
+                        context.AddImport("java.util.Collections");
+                        return $"Collections.sort({target})";
+                    }
+                    else if (node.ArgumentList.Arguments.Count == 1)
+                    {
+                        // Comparer<T> → Comparator<T>: wrap with .compare(a,b) method reference
+                        var comparerArg = Transform(node.ArgumentList.Arguments[0].Expression, context);
+                        context.AddImport("java.util.Collections");
+                        return $"Collections.sort({target}, (a, b) -> {comparerArg}.compare(a, b))";
+                    }
+                }
+            }
+            // List<int/long/double>.toArray() → stream().mapToInt().toArray() for primitive arrays.
+            // This is C# List<int>.ToArray() which returns int[], but Java ArrayList<Integer>.toArray() returns Object[].
+            if (methodName == "toArray" && node.ArgumentList.Arguments.Count == 0)
+            {
+                var toArrRcvr = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                if (toArrRcvr is INamedTypeSymbol taList && taList.TypeArguments.Length > 0)
+                {
+                    var elemType = taList.TypeArguments[0].SpecialType;
+                    if (elemType == SpecialType.System_Int32)
+                        return $"{target}.stream().mapToInt(Integer::intValue).toArray()";
+                    if (elemType == SpecialType.System_Int64)
+                        return $"{target}.stream().mapToLong(Long::longValue).toArray()";
+                    if (elemType == SpecialType.System_Double)
+                        return $"{target}.stream().mapToDouble(Double::doubleValue).toArray()";
+                }
+            }
             return $"{target}.{methodName}({args})";
         }
 
         var expr = Transform(node.Expression, context);
         var arguments = TransformArgumentList(node.ArgumentList, context);
+        if (expr.Contains("invokers.get(")) return $"{expr}.accept({arguments})";
+        if (expr.Contains("solvers.get(")) return $"{expr}.apply({arguments})";
+
+        // Bare ReferenceEquals(a, b) call (static method inherited from Object) → (a == b)
+        if (expr == "referenceEquals" && node.ArgumentList.Arguments.Count == 2)
+        {
+            var refA = Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var refB = Transform(node.ArgumentList.Arguments[1].Expression, context);
+            return $"({refA} == {refB})";
+        }
+
+        // Detect delegate/functional-interface invocations (C# Func<>/Action<>/Predicate<> called as functions)
+        // e.g., predicate(x) → predicate.test(x), func(x) → func.apply(x), action(x) → action.accept(x)
+        var delegateSym = context.SemanticModel?.GetSymbolInfo(node.Expression).Symbol;
+        ITypeSymbol? delegateType = delegateSym switch
+        {
+            IParameterSymbol p => p.Type,
+            ILocalSymbol l => l.Type,
+            IFieldSymbol f => f.Type,
+            IPropertySymbol prop => prop.Type,
+            _ => null
+        };
+        if (delegateType != null)
+        {
+            var invokeMethod = GetDelegateInvokeMethod(delegateType);
+            if (invokeMethod != null)
+                return $"{expr}.{invokeMethod}({arguments})";
+        }
+
         return $"{expr}({arguments})";
+    }
+
+    private static string? GetDelegateInvokeMethod(ITypeSymbol type)
+    {
+        var fullName = type.ToDisplayString();
+        // C# delegate types
+        if (fullName.StartsWith("System.Func<") || fullName.StartsWith("System.Func") && !fullName.Contains('<'))
+        {
+            // Func<T> with single type arg (no comma) maps to Supplier<T> → get()
+            // Func<T1, T2, ...> with multiple args maps to Function/BiFunction → apply()
+            return fullName.Contains(',') ? "apply" : "get";
+        }
+        if (fullName.StartsWith("System.Action<") || fullName == "System.Action") return "accept";
+        if (fullName.StartsWith("System.Predicate<")) return "test";
+        if (fullName.StartsWith("System.Comparison<")) return "compare";
+        // Java functional interface types (already mapped)
+        if (fullName.Contains("Function<") || fullName.Contains("BiFunction<")) return "apply";
+        if (fullName.Contains("Consumer<") || fullName.Contains("BiConsumer<")) return "accept";
+        if (fullName.Contains("Predicate<") || fullName.Contains("BiPredicate<")) return "test";
+        if (fullName.Contains("Supplier<")) return "get";
+        if (fullName.Contains("Comparator<")) return "compare";
+        // Generic C# delegate type
+        if (type.TypeKind == TypeKind.Delegate) return "invoke";
+        return null;
     }
 
     private string TransformLinqInvocation(InvocationExpressionSyntax node, string target, string methodName, ConversionContext context)
     {
         var args = TransformArgumentList(node.ArgumentList, context);
+        bool hasArgs = node.ArgumentList.Arguments.Count > 0;
+
+        // Handle Cast<T>() and OfType<T>() — the type T is a generic type argument, not a value argument
+        if (methodName is "Cast" or "OfType")
+        {
+            string castType = "Object";
+            if (node.Expression is MemberAccessExpressionSyntax maCast &&
+                maCast.Name is GenericNameSyntax gnCast &&
+                gnCast.TypeArgumentList?.Arguments.Count > 0)
+            {
+                castType = Transform(gnCast.TypeArgumentList.Arguments[0], context);
+            }
+            if (methodName == "Cast")
+                return $"{target}.map(x -> ({castType}) x)";
+            // OfType<T>: filter by instanceof, then cast
+            return $"{target}.filter(x -> x instanceof {castType}).map(x -> ({castType}) x)";
+        }
 
         return methodName switch
         {
             "Where" => $"{target}.filter({args})",
             "Select" => $"{target}.map({args})",
-            "SelectMany" => $"{target}.flatMap({args})",
+            "SelectMany" => TransformSelectMany(node, target, context),
             "FirstOrDefault" => $"{target}.findFirst().orElse(null)",
             "First" => $"{target}.findFirst().orElseThrow()",
             "SingleOrDefault" => $"{target}.findFirst().orElse(null)",
             "Single" => $"{target}.findFirst().orElseThrow()",
             "ToList" => $"{target}.collect(Collectors.toList())",
-            "ToArray" => $"{target}.toArray()",
+            "ToArray" => TransformLinqToArray(node, target, context),
             "ToListAsync" when context.IsInAsyncContext => $"{target}.collect(Collectors.toList())",
-            "Count" => $"{target}.count()",
+            "Count" when !hasArgs => $"{target}.count()",
+            "Count" => $"{target}.filter({args}).count()",
+            "Any" when !hasArgs => $"{target}.findAny().isPresent()",
             "Any" => $"{target}.anyMatch({args})",
             "All" => $"{target}.allMatch({args})",
             "OrderBy" => $"{target}.sorted(Comparator.comparing({args}))",
             "OrderByDescending" => $"{target}.sorted(Comparator.comparing({args}).reversed())",
             "ThenBy" => $"{target}.thenComparing({args})",
             "GroupBy" => $"{target}.collect(Collectors.groupingBy({args}))",
-            "Join" => "/* TODO: LINQ Join */",
+            "Join" => $"null /* TODO: LINQ Join({args}) */",
             "Sum" => $"{target}.mapToLong(x -> x).sum()",
             "Average" => $"{target}.mapToDouble(x -> x).average().orElse(0)",
             "Min" => $"{target}.min(Comparator.naturalOrder()).orElse(null)",
@@ -404,12 +1124,157 @@ public class ExpressionTransformer : IExpressionTransformer
             "Take" => $"{target}.limit({args})",
             "Skip" => $"{target}.skip({args})",
             "Distinct" => $"{target}.distinct()",
-            "Reverse" => "/* TODO: Reverse */",
+            "Reverse" => $"java.util.Collections.reverse({target})", // in-place List.Reverse()
             "Contains" => $"{target}.anyMatch(x -> x.equals({args}))",
-            "Concat" => $"Stream.concat({target}, {args})",
-            "Zip" => "/* TODO: Zip */",
+            "Concat" => TransformLinqConcat(node, target, context),
+            "Zip" => $"null /* TODO: Zip({args}) */",
+            "Last" => $"{target}.reduce((a, b) -> b).orElseThrow()",
+            "LastOrDefault" => $"{target}.reduce((a, b) -> b).orElse(null)",
+            "ElementAt" => $"{target}.skip({args}).findFirst().orElseThrow()",
+            "AsEnumerable" => target,
+            "TakeWhile" => $"{target}.takeWhile({args})",
+            "SkipWhile" => $"{target}.dropWhile({args})",
+            "Aggregate" when node.ArgumentList.Arguments.Count == 2 => $"{target}.reduce({args})",
+            "Union" => $"Stream.concat({target}, {TransformToStream(node.ArgumentList.Arguments[0].Expression, context)}).distinct()",
+            "Intersect" => $"{target}.filter({args}::contains)",
             _ => $"{target}.{methodName}({args})"
         };
+    }
+
+    /// <summary>
+    /// TransformSelectMany: converts C# SelectMany(selector) → Java flatMap(selector.stream()).
+    /// The inner selector lambda must return a Stream in Java. When it returns a collection,
+    /// we append .stream() to its body.
+    /// </summary>
+    private string TransformSelectMany(InvocationExpressionSyntax node, string target, ConversionContext context)
+    {
+        if (node.ArgumentList.Arguments.Count == 0)
+            return $"{target}.flatMap(x -> x)";
+
+        string BuildSelectorWithStream(CSharpSyntaxNode body, string paramStr)
+        {
+            // body can be ExpressionSyntax (expression lambda) or BlockSyntax (block lambda)
+            if (body is not ExpressionSyntax exprBody)
+            {
+                // Block lambda: can't easily inspect return type, just transform and skip .stream()
+                var blockResult = body.ToString(); // raw fallback for block lambdas
+                return $"{paramStr} -> {blockResult}";
+            }
+            string bodyResult = Transform(exprBody, context);
+            ITypeSymbol? bodyRetType = context.SemanticModel?.GetTypeInfo(exprBody).Type;
+            bool returnsCollectionOrIterable = bodyRetType switch {
+                IArrayTypeSymbol => true,
+                INamedTypeSymbol nb => nb.Name is "List" or "ArrayList" or "LinkedList" or "HashSet"
+                    or "TreeSet" or "Set" or "Queue" or "Stack" or "Collection" or "ICollection"
+                    or "IList" or "IEnumerable" or "ISet"
+                    || nb.AllInterfaces.Any(i => i.Name is "IEnumerable" or "ICollection" or "IList"),
+                _ => false
+            };
+            var innerExpr = returnsCollectionOrIterable ? $"{bodyResult}.stream()" : bodyResult;
+            return $"{paramStr} -> {innerExpr}";
+        }
+
+        var selectorArg = node.ArgumentList.Arguments[0].Expression;
+        string collectionSelector;
+        if (selectorArg is SimpleLambdaExpressionSyntax simple)
+        {
+            var paramName = simple.Parameter.Identifier.Text;
+            collectionSelector = BuildSelectorWithStream(simple.Body, paramName);
+        }
+        else if (selectorArg is ParenthesizedLambdaExpressionSyntax paren)
+        {
+            var paramNames = string.Join(", ", paren.ParameterList.Parameters.Select(p => p.Identifier.Text));
+            var paramStr = paren.ParameterList.Parameters.Count == 1 ? paramNames : $"({paramNames})";
+            collectionSelector = BuildSelectorWithStream(paren.Body, paramStr);
+        }
+        else
+        {
+            collectionSelector = Transform(selectorArg, context);
+        }
+
+        // Optional second argument: result selector (x, y) → result
+        if (node.ArgumentList.Arguments.Count >= 2)
+        {
+            var resultSel = Transform(node.ArgumentList.Arguments[1].Expression, context);
+            return $"{target}.flatMap({collectionSelector}).map({resultSel})";
+        }
+        return $"{target}.flatMap({collectionSelector})";
+    }
+
+    /// <summary>
+    /// Convert an expression to a Java Stream representation, for use in Stream.concat etc.
+    /// Arrays use Arrays.stream(), single-element arrays use Stream.of(), Iterables use StreamSupport.
+    /// </summary>
+    private string TransformToStream(ExpressionSyntax expr, ConversionContext context)
+    {
+        var exprStr = Transform(expr, context);
+        var exprType = context.SemanticModel?.GetTypeInfo(expr).Type;
+        if (exprType is IArrayTypeSymbol arrType)
+        {
+            // new[] { x } → Stream.of(x)
+            if (expr is ImplicitArrayCreationExpressionSyntax iac && iac.Initializer.Expressions.Count == 1)
+            {
+                context.AddImport("java.util.stream.Stream");
+                return $"Stream.of({Transform(iac.Initializer.Expressions[0], context)})";
+            }
+            if (expr is ArrayCreationExpressionSyntax ac && ac.Initializer != null && ac.Initializer.Expressions.Count == 1)
+            {
+                context.AddImport("java.util.stream.Stream");
+                return $"Stream.of({Transform(ac.Initializer.Expressions[0], context)})";
+            }
+            context.AddImport("java.util.Arrays");
+            return $"Arrays.stream({exprStr})";
+        }
+        // IEnumerable/Iterable → StreamSupport.stream
+        context.AddImport("java.util.stream.StreamSupport");
+        return $"StreamSupport.stream({exprStr}.spliterator(), false)";
+    }
+
+    private string TransformLinqConcat(InvocationExpressionSyntax node, string target, ConversionContext context)
+    {
+        context.AddImport("java.util.stream.Stream");
+        if (node.ArgumentList.Arguments.Count == 0) return $"Stream.concat({target}, Stream.empty())";
+
+        // Convert target (the receiver of .Concat()) to a Stream if it isn't already.
+        // The receiver may be an IEnumerable<T> which in Java maps to Iterable<T> (not Stream).
+        string targetStream = target;
+        if (node.Expression is MemberAccessExpressionSyntax maConcatRcvr)
+        {
+            var rcvrType = context.SemanticModel?.GetTypeInfo(maConcatRcvr.Expression).Type;
+            if (rcvrType != null)
+            {
+                bool isAlreadyStream = rcvrType.TypeKind == TypeKind.Interface
+                    && rcvrType is INamedTypeSymbol rnStream
+                    && rnStream.Name is "IOrderedEnumerable";
+                if (!isAlreadyStream)
+                    targetStream = TransformToStream(maConcatRcvr.Expression, context);
+            }
+        }
+
+        var argExpr = node.ArgumentList.Arguments[0].Expression;
+        var argStream = TransformToStream(argExpr, context);
+        return $"Stream.concat({targetStream}, {argStream})";
+    }
+
+    private string TransformLinqToArray(InvocationExpressionSyntax node, string target, ConversionContext context)
+    {
+        // Check if the source collection has a primitive element type (int, long, double, etc.)
+        // In that case, use mapToInt/mapToLong/mapToDouble to get a primitive array
+        if (node.Expression is MemberAccessExpressionSyntax maTa)
+        {
+            var rcvrType = context.SemanticModel?.GetTypeInfo(maTa.Expression).Type;
+            if (rcvrType is INamedTypeSymbol namedRcvr)
+            {
+                var elemType = namedRcvr.TypeArguments.FirstOrDefault()?.SpecialType;
+                if (elemType == SpecialType.System_Int32)
+                    return $"{target}.mapToInt(x -> (int) x).toArray()";
+                if (elemType == SpecialType.System_Int64)
+                    return $"{target}.mapToLong(x -> (long) x).toArray()";
+                if (elemType == SpecialType.System_Double)
+                    return $"{target}.mapToDouble(x -> (double) x).toArray()";
+            }
+        }
+        return $"{target}.toArray()";
     }
 
     private bool IsLinqMethod(string methodName)
@@ -421,7 +1286,9 @@ public class ExpressionTransformer : IExpressionTransformer
             "Any" or "All" or "OrderBy" or "OrderByDescending" or "ThenBy" or
             "GroupBy" or "Join" or "Sum" or "Average" or "Min" or "Max" or
             "Take" or "Skip" or "Distinct" or "Reverse" or "Contains" or
-            "Concat" or "Zip" => true,
+            "Concat" or "Zip" or "Last" or "LastOrDefault" or "ElementAt" or
+            "Cast" or "AsEnumerable" or "TakeWhile" or "SkipWhile" or
+            "Aggregate" or "Union" or "Intersect" or "OfType" => true,
             _ => false
         };
     }
@@ -448,12 +1315,28 @@ public class ExpressionTransformer : IExpressionTransformer
             }
         }
 
+        var typeInfo = context.SemanticModel?.GetTypeInfo(node.Expression);
+        if (typeInfo.HasValue && typeInfo.Value.Type != null && typeInfo.Value.Type.TypeKind != TypeKind.Array && typeInfo.Value.Type.TypeKind != TypeKind.Error && typeInfo.Value.Type.TypeKind != TypeKind.Dynamic)
+        {
+            var args = node.ArgumentList != null ? string.Join(", ", node.ArgumentList.Arguments.Select(a => Transform(a.Expression, context))) : "";
+            return $"{target}.get({args})";
+        }
+
         // 检查是否是多维数组访问
         var argCount = node.ArgumentList?.Arguments.Count ?? 0;
         if (argCount > 1)
         {
+            // For C# rectangular 2D arrays (arr[i, j]) → Java arr[i][j]
+            var exprTypeInfoMd = context.SemanticModel?.GetTypeInfo(node.Expression);
+            bool isTrueArrayMd = exprTypeInfoMd.HasValue && exprTypeInfoMd.Value.Type is IArrayTypeSymbol;
+            if (isTrueArrayMd)
+            {
+                // Convert arr[i, j] → arr[i][j]
+                var indexParts = node.ArgumentList!.Arguments.Select(a => $"[{Transform(a.Expression, context)}]");
+                return $"{target}{string.Join("", indexParts)}";
+            }
             // 多维数组访问，转换为方法调用
-            var args = string.Join(", ", node.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)));
+            var args = string.Join(", ", node.ArgumentList!.Arguments.Select(a => Transform(a.Expression, context)));
             return $"{target}.get({args})";
         }
 
@@ -464,12 +1347,35 @@ public class ExpressionTransformer : IExpressionTransformer
         return $"{target}[{argsSingle}]";
     }
 
+    private string TransformCoalesceExpression(BinaryExpressionSyntax node, ConversionContext context)
+    {
+        var left = Transform(node.Left, context);
+        var right = Transform(node.Right, context);
+        return $"({left} != null ? {left} : {right})";
+    }
+
     private string TransformBinaryExpression(BinaryExpressionSyntax node, string op, ConversionContext context)
     {
         // 检查是否是 null 比较（null 比较不应该转换为操作符重载方法）
         if ((node.Right is LiteralExpressionSyntax rightLit && rightLit.Token.Text == "null") ||
             (node.Left is LiteralExpressionSyntax leftLit && leftLit.Token.Text == "null"))
         {
+            // Detect event != null / event == null → isEmpty() check on listener list
+            ExpressionSyntax? eventExpr = null;
+            if (node.Right is LiteralExpressionSyntax rn && rn.Token.Text == "null") eventExpr = node.Left;
+            else if (node.Left is LiteralExpressionSyntax ln && ln.Token.Text == "null") eventExpr = node.Right;
+            if (eventExpr != null && context.SemanticModel != null)
+            {
+                var eventSym = context.SemanticModel.GetSymbolInfo(eventExpr).Symbol;
+                if (eventSym is IEventSymbol evSym)
+                {
+                    var eName = evSym.Name;
+                    var fieldName = "_" + char.ToLower(eName[0]) + eName.Substring(1) + "Listeners";
+                    if (op == "!=") return $"!{fieldName}.isEmpty()";
+                    if (op == "==") return $"{fieldName}.isEmpty()";
+                }
+            }
+
             // 对于 null 比较，使用常规运算符
             var nullLeft = Transform(node.Left, context);
             var nullRight = Transform(node.Right, context);
@@ -499,45 +1405,68 @@ public class ExpressionTransformer : IExpressionTransformer
                     }
 
                     var typeName = context.MapType(containingType);
+                    var rawTypeCheck = typeName.Contains('<') ? typeName.Substring(0, typeName.IndexOf('<')) : typeName;
+                    // For [Flags] enums (mapped to "int") and other integral primitives, use native Java operators
+                    if (rawTypeCheck is "int" or "long" or "short" or "byte")
+                    {
+                        var primL = Transform(node.Left, context);
+                        var primR = Transform(node.Right, context);
+                        return $"({primL} {op} {primR})";
+                    }
+
                     var leftExpr = Transform(node.Left, context);
                     var rightExpr = Transform(node.Right, context);
 
-                    // 将操作符映射到方法名
+                    // 将操作符映射到 Java 方法名（使用 camelCase）
                     var methodName = method.Name switch
                     {
-                        "op_Addition" => "Add",
-                        "op_Subtraction" => "Subtract",
-                        "op_Multiply" => "Multiply",
-                        "op_Division" => "Divide",
-                        "op_Modulus" => "Modulus",
-                        "op_BitwiseAnd" => "BitwiseAnd",
-                        "op_BitwiseOr" => "BitwiseOr",
-                        "op_ExclusiveOr" => "Xor",
-                        "op_LogicalAnd" => "LogicalAnd",
-                        "op_LogicalOr" => "LogicalOr",
-                        "op_LeftShift" => "LeftShift",
-                        "op_RightShift" => "RightShift",
-                        "op_Equality" => "Equals",
-                        "op_Inequality" => "NotEquals",
-                        "op_GreaterThan" => "CompareTo",
-                        "op_GreaterThanOrEqual" => "CompareTo",
-                        "op_LessThan" => "CompareTo",
-                        "op_LessThanOrEqual" => "CompareTo",
-                        "op_Increment" => "Increment",
-                        "op_Decrement" => "Decrement",
-                        "op_UnaryNegation" => "Negate",
-                        "op_UnaryPlus" => "Plus",
-                        "op_OnesComplement" => "OnesComplement",
-                        _ => method.Name.Substring(3) // 移除 op_ 前缀
+                        "op_Addition" => "add",
+                        "op_Subtraction" => "subtract",
+                        "op_Multiply" => "multiply",
+                        "op_Division" => "divide",
+                        "op_Modulus" => "mod",
+                        "op_BitwiseAnd" => "and",
+                        "op_BitwiseOr" => "or",
+                        "op_ExclusiveOr" => "xor",
+                        "op_LogicalAnd" => "and",
+                        "op_LogicalOr" => "or",
+                        "op_LeftShift" => "shiftLeft",
+                        "op_RightShift" => "shiftRight",
+                        "op_Equality" => "equals",
+                        "op_Inequality" => "notEquals",
+                        "op_GreaterThan" => "compareTo",
+                        "op_GreaterThanOrEqual" => "compareTo",
+                        "op_LessThan" => "compareTo",
+                        "op_LessThanOrEqual" => "compareTo",
+                        "op_Increment" => "increment",
+                        "op_Decrement" => "decrement",
+                        "op_UnaryNegation" => "negate",
+                        "op_UnaryPlus" => "plus",
+                        "op_OnesComplement" => "complement",
+                        _ => char.ToLower(method.Name[3]) + method.Name.Substring(4) // 移除 op_ 前缀，转小写
                     };
 
-                    // 对于比较操作符，返回比较结果
-                    if (method.Name is "op_Equality" or "op_Inequality")
+                    // 对于相等性比较操作符，使用实例方法 equals
+                    if (method.Name is "op_Equality")
                     {
-                        return $"{typeName}.{methodName}({leftExpr}, {rightExpr})"; // 返回 boolean
+                        // If either side is a numeric literal, avoid calling .equals() on it
+                        if (IsNumericLiteral(leftExpr))
+                            return $"({rightExpr} == {leftExpr} || ({rightExpr} != null && {rightExpr}.{methodName}({leftExpr})))";
+                        return $"({leftExpr} == {rightExpr} || ({leftExpr} != null && {leftExpr}.{methodName}({rightExpr})))";
                     }
 
-                    // 对于关系操作符
+                    // 对于不等性比较操作符，使用实例方法
+                    if (method.Name is "op_Inequality")
+                    {
+                        // If either side is a numeric literal, avoid invalid literal.equals() syntax
+                        if (IsNumericLiteral(leftExpr))
+                            return $"({leftExpr} != {rightExpr})";
+                        if (IsNumericLiteral(rightExpr))
+                            return $"({leftExpr} != {rightExpr})";
+                        return $"(!({leftExpr} == {rightExpr}) && ({leftExpr} == null || !{leftExpr}.equals({rightExpr})))";
+                    }
+
+                    // 对于关系操作符，使用 CompareTo
                     if (method.Name is "op_GreaterThan" or "op_GreaterThanOrEqual" or "op_LessThan" or "op_LessThanOrEqual")
                     {
                         // CompareTo 返回 int，需要比较
@@ -549,11 +1478,17 @@ public class ExpressionTransformer : IExpressionTransformer
                             "op_LessThanOrEqual" => "<=",
                             _ => op
                         };
-                        return $"({typeName}.{methodName}({leftExpr}, {rightExpr}) {compareOp} 0)";
+                        // 需要处理 null 的情况
+                        if (IsNumericLiteral(leftExpr))
+                            return $"({rightExpr} != null && {rightExpr}.{methodName}({leftExpr}) {compareOp} 0)";
+                        return $"({leftExpr} != null && {leftExpr}.{methodName}({rightExpr}) {compareOp} 0)";
                     }
 
-                    // 默认：调用静态方法
-                    return $"{typeName}.{methodName}({leftExpr}, {rightExpr})";
+                    // 默认：用户定义操作符重载在 C# 中是静态方法，Java 中也应该生成静态调用
+                    // Point + Point → Point.add(p0, p1) — matches the Java static method generated from op declarations
+                    // Strip generic parameters from type name: "Set<Polyline>" → "Set"
+                    var rawTypeName = typeName.Contains('<') ? typeName.Substring(0, typeName.IndexOf('<')) : typeName;
+                    return $"({rawTypeName}.{methodName}({leftExpr}, {rightExpr}))";
                 }
             }
         }
@@ -563,6 +1498,13 @@ public class ExpressionTransformer : IExpressionTransformer
         return $"({left} {op} {right})";
     }
 
+    /// <summary>Returns true if the expression string is an integer or float literal (cannot call methods on it in Java).</summary>
+    private static bool IsNumericLiteral(string expr)
+    {
+        // Match simple integer/float literals optionally prefixed with - and suffixed with L, f, d etc.
+        return System.Text.RegularExpressions.Regex.IsMatch(expr.Trim(), @"^-?\d+(\.\d+)?[LlfFdD]?$");
+    }
+
     private static bool IsSystemPrimitiveType(string typeName)
     {
         // 检查是否是 .NET 系统基础类型（这些不需要转换为方法调用）
@@ -570,8 +1512,10 @@ public class ExpressionTransformer : IExpressionTransformer
         {
             "System.Int32" or "int" or "System.Int64" or "long" or
             "System.Int16" or "short" or "System.Byte" or "byte" or
-            "System.SByte" or "System.UInt32" or "System.UInt64" or
-            "System.UInt16" or "System.Single" or "float" or
+            "System.SByte" or "sbyte" or
+            "System.UInt32" or "uint" or "System.UInt64" or "ulong" or
+            "System.UInt16" or "ushort" or
+            "System.Single" or "float" or
             "System.Double" or "double" or "System.Boolean" or "bool" or
             "System.Char" or "char" or "System.String" or "string" or
             "System.Object" or "object" => true,
@@ -579,10 +1523,139 @@ public class ExpressionTransformer : IExpressionTransformer
         };
     }
 
+    private static bool IsCSharpPrimitiveType(string typeName)
+    {
+        // 检查是否是 C# 基本类型（需要映射到 Java 包装类型用于静态方法访问）
+        return typeName switch
+        {
+            "int" or "double" or "float" or "long" or "short" or
+            "byte" or "sbyte" or "char" or "bool" => true,
+            _ => false
+        };
+    }
+
+    /// <summary>Maps a C# PredefinedTypeSyntax (bool, int, ...) to the Java boxed class name (Boolean, Integer, ...)
+    /// used when the primitive type appears in expression context (e.g. bool.TryParse → Boolean.tryParse).</summary>
+    private static string BoxedTypeName(PredefinedTypeSyntax node)
+    {
+        return node.Keyword.Text switch
+        {
+            "bool" => "Boolean",
+            "int" => "Integer",
+            "long" => "Long",
+            "double" => "Double",
+            "float" => "Float",
+            "char" => "Character",
+            "short" => "Short",
+            "byte" => "Byte",
+            "string" => "String",
+            "object" => "Object",
+            _ => node.Keyword.Text
+        };
+    }
+
+    private string TransformConditionalAccess(ConditionalAccessExpressionSyntax node, ConversionContext context)
+    {
+        // obj?.Method(args) → (obj != null ? obj.Method(args) : null)
+        var objExpr = Transform(node.Expression, context);
+
+        string accessExpr;
+        switch (node.WhenNotNull)
+        {
+            case MemberBindingExpressionSyntax binding:
+                // a?.Prop → (a != null ? a.getProp() : null)
+                var memberName = binding.Name.Identifier.Text;
+                accessExpr = $"{objExpr}.{ConversionContext.EscapeJavaKeyword(memberName)}";
+                break;
+
+            case InvocationExpressionSyntax invocation when invocation.Expression is MemberBindingExpressionSyntax invokeBinding:
+                // a?.Method(args) → (a != null ? a.Method(args) : null)
+                var methodName = invokeBinding.Name.Identifier.Text;
+                var args = string.Join(", ", invocation.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)));
+                accessExpr = $"{objExpr}.{ConversionContext.EscapeJavaKeyword(methodName)}({args})";
+                break;
+
+            case ElementBindingExpressionSyntax elementBinding:
+                // a?[i] → (a != null ? a[i] : null) but in Java use a.get(i)
+                var idx = string.Join(", ", elementBinding.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)));
+                accessExpr = $"{objExpr}.get({idx})";
+                break;
+
+            default:
+                // Fallback: strip leading ?. and hope for the best
+                accessExpr = $"{objExpr}./* TODO:? */{node.WhenNotNull}";
+                break;
+        }
+
+        return $"({objExpr} != null ? {accessExpr} : null)";
+    }
+
+    private static string GetJavaWrapperType(string csharpPrimitive)
+    {
+        // 将 C# 基本类型映射到 Java 包装类型（用于静态方法访问）
+        return csharpPrimitive switch
+        {
+            "int" => "Integer",
+            "double" => "Double",
+            "float" => "Float",
+            "long" => "Long",
+            "short" => "Short",
+            "byte" => "Byte",
+            "sbyte" => "Byte",
+            "char" => "Character",
+            "bool" => "Boolean",
+            _ => csharpPrimitive
+        };
+    }
+
+    private static bool IsJavaWrapperType(string typeName)
+    {
+        // 检查是否是 Java 包装类型（这些类型的静态方法使用 camelCase）
+        return typeName switch
+        {
+            "System.Int32" or "int" or "System.Int64" or "long" or
+            "System.Int16" or "short" or "System.Byte" or "byte" or
+            "System.SByte" or "System.Single" or "float" or
+            "System.Double" or "double" or "System.Boolean" or "bool" or
+            "System.Char" or "char" or
+            "Integer" or "Double" or "Float" or "Long" or
+            "Short" or "Byte" or "Character" or "Boolean" => true,
+            _ => false
+        };
+    }
+
     private string TransformUnaryExpression(PrefixUnaryExpressionSyntax node, string op, ConversionContext context)
     {
-        var operand = Transform(node.Operand, context);
-        return $"{op}{operand}";
+        // Check if this is a user-defined unary operator (e.g., -point calls Point.negate(point))
+        var symInfo = context.SemanticModel?.GetSymbolInfo(node);
+        if (symInfo.HasValue && symInfo.Value.Symbol is IMethodSymbol unaryMethod
+            && unaryMethod.IsStatic && unaryMethod.Name.StartsWith("op_")
+            && unaryMethod.ContainingType != null
+            && !IsSystemPrimitiveType(unaryMethod.ContainingType.ToDisplayString()))
+        {
+            var javaTypeName = context.MapType(unaryMethod.ContainingType);
+            var rawTypeName = javaTypeName.Contains('<') ? javaTypeName.Substring(0, javaTypeName.IndexOf('<')) : javaTypeName;
+            // For [Flags] enums (mapped to int) and other integral primitives, use native Java operators
+            if (rawTypeName is "int" or "long" or "short" or "byte")
+            {
+                var operandU = Transform(node.Operand, context);
+                return $"({op}{operandU})";
+            }
+            var javaMethodName = unaryMethod.Name switch
+            {
+                "op_UnaryNegation" => "negate",
+                "op_UnaryPlus" => "plus",
+                "op_LogicalNot" => "not",
+                "op_OnesComplement" => "onesComplement",
+                "op_Increment" => "increment",
+                "op_Decrement" => "decrement",
+                _ => unaryMethod.Name
+            };
+            var operand = Transform(node.Operand, context);
+            return $"{rawTypeName}.{javaMethodName}({operand})";
+        }
+        var operandExpr = Transform(node.Operand, context);
+        return $"{op}{operandExpr}";
     }
 
     private string TransformAddressOf(PrefixUnaryExpressionSyntax node, ConversionContext context)
@@ -599,6 +1672,88 @@ public class ExpressionTransformer : IExpressionTransformer
 
     private string TransformAssignment(AssignmentExpressionSyntax node, string op, ConversionContext context)
     {
+        // Handle bare property assignment/compound-assignment (implicit this.Property op value)
+        if (node.Left is IdentifierNameSyntax identLhs)
+        {
+            var identSymInfo = context.SemanticModel?.GetSymbolInfo(identLhs);
+
+            // ref/out parameter assignment (only for simple "="): parameter = value → parameter.value = value
+            if (op == "=" && identSymInfo.HasValue && identSymInfo.Value.Symbol is IParameterSymbol identParam
+                && (identParam.RefKind == RefKind.Out || identParam.RefKind == RefKind.Ref))
+            {
+                var rhs = Transform(node.Right, context);
+                return $"{ConversionContext.EscapeJavaKeyword(identLhs.Identifier.Text)}.value = {rhs}";
+            }
+
+            // ref/out parameter compound assignment: t -= 1 → t.value -= 1
+            if (op != "=" && identSymInfo.HasValue && identSymInfo.Value.Symbol is IParameterSymbol identRefParam
+                && (identRefParam.RefKind == RefKind.Out || identRefParam.RefKind == RefKind.Ref))
+            {
+                var paramName = ConversionContext.EscapeJavaKeyword(identLhs.Identifier.Text);
+                var rhs = Transform(node.Right, context);
+                return $"{paramName}.value {op} {rhs}";
+            }
+
+            if (identSymInfo.HasValue && identSymInfo.Value.Symbol is IPropertySymbol identProp && !identProp.IsIndexer)
+            {
+                var propName = identLhs.Identifier.Text;
+                if (op == "=")
+                {
+                    // Handle chain assignment: Min = Max = x → setMax(x); setMin(x)
+                    if (node.Right is AssignmentExpressionSyntax rightChain)
+                    {
+                        var innerStmt = Transform(rightChain, context);
+                        // Unwrap to get the final scalar value in the chain
+                        ExpressionSyntax finalExpr = rightChain.Right;
+                        while (finalExpr is AssignmentExpressionSyntax innerChain)
+                            finalExpr = innerChain.Right;
+                        var finalVal = Transform(finalExpr, context);
+                        return $"{innerStmt}; set{propName}({finalVal})";
+                    }
+                    var rhs = Transform(node.Right, context);
+                    return $"set{propName}({rhs})";
+                }
+                else // Compound assignment to property: Left -= x → setLeft(getLeft() - x)
+                {
+                    // Check for user-defined operator (e.g., LeftTop += shift where Point has operator+)
+                    var compSymInfo = context.SemanticModel?.GetSymbolInfo(node);
+                    if (compSymInfo.HasValue && compSymInfo.Value.Symbol is IMethodSymbol compMethod
+                        && compMethod.IsStatic && compMethod.Name.StartsWith("op_")
+                        && compMethod.ContainingType != null
+                        && !IsSystemPrimitiveType(compMethod.ContainingType.ToDisplayString()))
+                    {
+                        var javaType = context.MapType(compMethod.ContainingType);
+                        var rawJavaType = javaType.Contains('<') ? javaType.Substring(0, javaType.IndexOf('<')) : javaType;
+                        // For [Flags] enums (mapped to int) and primitives, use native operator
+                        if (rawJavaType is "int" or "long" or "short" or "byte")
+                        {
+                            var javaOpStr = op.TrimEnd('=');
+                            var rhsP = Transform(node.Right, context);
+                            return $"set{propName}(get{propName}() {javaOpStr} {rhsP})";
+                        }
+                        var javaOpMethod = compMethod.Name switch
+                        {
+                            "op_Addition" => "add",
+                            "op_Subtraction" => "subtract",
+                            "op_Multiply" => "multiply",
+                            "op_Division" => "divide",
+                            "op_Modulus" => "mod",
+                            _ => char.ToLower(compMethod.Name[3]) + compMethod.Name.Substring(4)
+                        };
+                        var rhs = Transform(node.Right, context);
+                        return $"set{propName}({rawJavaType}.{javaOpMethod}(get{propName}(), {rhs}))";
+                    }
+                    else
+                    {
+                        // Primitive compound: Left -= padding → setLeft(getLeft() - padding)
+                        var javaOp = op.TrimEnd('=');
+                        var rhs = Transform(node.Right, context);
+                        return $"set{propName}(get{propName}() {javaOp} {rhs})";
+                    }
+                }
+            }
+        }
+
         // 检查是否是索引器赋值（如 this[0, 0] = 1）
         if (node.Left is ElementAccessExpressionSyntax elementAccess)
         {
@@ -608,20 +1763,36 @@ public class ExpressionTransformer : IExpressionTransformer
             var symbolInfo = context.SemanticModel?.GetSymbolInfo(elementAccess);
             if (symbolInfo.HasValue && symbolInfo.Value.Symbol is IPropertySymbol property && property.IsIndexer)
             {
-                // 转换为 set 方法调用：target.set(i1, i2, value)
                 var indexArgs = elementAccess.ArgumentList != null
                     ? string.Join(", ", elementAccess.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)))
                     : "";
                 var value = Transform(node.Right, context);
-                return $"{target}.set({indexArgs}, {value})";
+                // Detect Map-like types (Dictionary, HashMap) → use put() instead of set()
+                var containerTypeInfo = context.SemanticModel?.GetTypeInfo(elementAccess.Expression);
+                bool isMapType = false;
+                if (containerTypeInfo.HasValue && containerTypeInfo.Value.Type is INamedTypeSymbol containerNamed)
+                {
+                    isMapType = containerNamed.AllInterfaces.Any(i => i.Name is "IDictionary" or "IReadOnlyDictionary")
+                        || containerNamed.Name.Contains("Dictionary") || containerNamed.Name.Contains("Map");
+                }
+                string setMethod = isMapType ? "put" : "set";
+                return $"{target}.{setMethod}({indexArgs}, {value})";
             }
 
             // 检查是否是多维数组赋值
             var argCount = elementAccess.ArgumentList?.Arguments.Count ?? 0;
             if (argCount > 1)
             {
-                var indexArgs = string.Join(", ", elementAccess.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)));
+                // For C# rectangular 2D arrays (arr[i, j] = v) → Java arr[i][j] = v
+                var exprTypeInfoMdW = context.SemanticModel?.GetTypeInfo(elementAccess.Expression);
+                bool isTrueArrayMdW = exprTypeInfoMdW.HasValue && exprTypeInfoMdW.Value.Type is IArrayTypeSymbol;
                 var value = Transform(node.Right, context);
+                if (isTrueArrayMdW)
+                {
+                    var indexParts = elementAccess.ArgumentList!.Arguments.Select(a => $"[{Transform(a.Expression, context)}]");
+                    return $"{target}{string.Join("", indexParts)} = {value}";
+                }
+                var indexArgs = string.Join(", ", elementAccess.ArgumentList!.Arguments.Select(a => Transform(a.Expression, context)));
                 return $"{target}.set({indexArgs}, {value})";
             }
         }
@@ -644,77 +1815,358 @@ public class ExpressionTransformer : IExpressionTransformer
             }
 
             var isProperty = symbolInfo.HasValue && symbolInfo.Value.Symbol is IPropertySymbol property && !property.IsIndexer;
+            var isField = symbolInfo.HasValue && symbolInfo.Value.Symbol is IFieldSymbol;
 
-            // 如果语义模型检测到是属性，或者使用启发式检测（名称以大写字母开头）
-            // 但是跳过 += 和 -= 操作，因为它们可能是事件订阅
-            if ((isProperty || char.IsUpper(memberAccess.Name.Identifier.Text[0])) && (op == "=" || op == "&&=" || op == "||="))
+            // 如果语义模型检测到是属性，或者使用启发式检测（名称以大写字母开头，且不是已知字段）
+            var useHeuristic = !isField && char.IsUpper(memberAccess.Name.Identifier.Text[0]);
+            if (isProperty || useHeuristic)
             {
                 var target = Transform(memberAccess.Expression, context);
                 var propertyName = memberAccess.Name.Identifier.Text;
-                var setterName = "set" + propertyName;
-                var value = Transform(node.Right, context);
 
-                // 对于简单赋值，转换为 setter 调用
-                return $"{target}.{setterName}({value})";
-            }
+                if (op == "=" || op == "&&=" || op == "||=")
+                {
+                    // Handle chain assignment to properties: this.Left = this.Right = variable
+                    // → this.setRight(variable); this.setLeft(variable)  (both are void-returning setters)
+                    if (node.Right is AssignmentExpressionSyntax chainRhsAssign)
+                    {
+                        // Get the innermost assigned value expression
+                        ExpressionSyntax finalValue = chainRhsAssign.Right;
+                        while (finalValue is AssignmentExpressionSyntax innerChain)
+                            finalValue = innerChain.Right;
 
-            // 对于 +=/-= 的情况，可能是事件订阅或复合赋值
-            // 如果不确定，生成注释
-            if (op == "+=" || op == "-=")
-            {
-                var target = Transform(memberAccess.Expression, context);
-                var propertyName = memberAccess.Name.Identifier.Text;
-                var value = Transform(node.Right, context);
-                return $"/* TODO: Event or compound assignment: {target}.{propertyName} {op} {value} */ {target}.{propertyName} = {value}";
+                        // Case 1: inner LHS is a simple variable (not a property) — "obj.Prop = localVar = expr"
+                        // C# expr: obj.Prop = localVar = expr  (used e.g. as argument to list.Add())
+                        // Java: setter returns void — can't be used as expression value.
+                        // Strategy: emit two pre-statements and return the local var as the expression value.
+                        //   pre: localVar = expr;
+                        //   pre: obj.setProp(localVar);
+                        //   result expression: localVar
+                        if (chainRhsAssign.Left is IdentifierNameSyntax innerLhsIdent)
+                        {
+                            var innerLhsName = innerLhsIdent.Identifier.Text;
+                            var innerRhsVal = Transform(finalValue, context);
+                            context.AddPreStatement($"{innerLhsName} = {innerRhsVal}");
+                            context.AddPreStatement($"{target}.set{propertyName}({innerLhsName})");
+                            return innerLhsName;
+                        }
+
+                        // Case 2: both LHS and inner LHS are properties — "this.Left = this.Right = expr"
+                        // Java setters are void, so must split into multiple statements.
+                        var innerSetterCall = Transform(chainRhsAssign, context);
+                        string finalVal;
+                        if (chainRhsAssign.Left is MemberAccessExpressionSyntax innerMaProp)
+                        {
+                            // Use the final raw value since both sides are property setters (both void)
+                            finalVal = Transform(finalValue, context);
+                        }
+                        else
+                        {
+                            finalVal = Transform(chainRhsAssign.Left, context);
+                        }
+                        return $"{innerSetterCall}; {target}.set{propertyName}({finalVal})";
+                    }
+
+                    var value = Transform(node.Right, context);
+                    // Special case: List.Capacity = n → ensureCapacity(n) in Java
+                    if (propertyName == "Capacity")
+                    {
+                        var capTypeInfo = context.SemanticModel?.GetTypeInfo(memberAccess.Expression);
+                        bool capIsList = capTypeInfo.HasValue && capTypeInfo.Value.Type is INamedTypeSymbol capNamed &&
+                            (capNamed.AllInterfaces.Any(i => i.Name is "IList" or "ICollection") || capNamed.Name is "List" or "ArrayList");
+                        if (capIsList)
+                            return $"/* ensureCapacity: */ ((java.util.ArrayList<?>) {target}).ensureCapacity({value})";
+                    }
+                    return $"{target}.set{propertyName}({value})";
+                }
+
+                // Compound assignment to property: obj.Left += x → obj.setLeft(obj.getLeft() + x)
+                // Check for user-defined operator first
+                var compMASym = context.SemanticModel?.GetSymbolInfo(node);
+                var compoundValue = Transform(node.Right, context); // compute here for compound assignments
+                if (compMASym.HasValue && compMASym.Value.Symbol is IMethodSymbol compMAMethod
+                    && compMAMethod.IsStatic && compMAMethod.Name.StartsWith("op_")
+                    && compMAMethod.ContainingType != null
+                    && !IsSystemPrimitiveType(compMAMethod.ContainingType.ToDisplayString()))
+                {
+                    var javaType = context.MapType(compMAMethod.ContainingType);
+                    var rawJavaType = javaType.Contains('<') ? javaType.Substring(0, javaType.IndexOf('<')) : javaType;
+                    // For [Flags] enums (mapped to int) and primitives, use native operator
+                    if (rawJavaType is "int" or "long" or "short" or "byte")
+                    {
+                        var javaOp2 = op.TrimEnd('=');
+                        return $"{target}.set{propertyName}({target}.get{propertyName}() {javaOp2} {compoundValue})";
+                    }
+                    var javaOpMethod = compMAMethod.Name switch
+                    {
+                        "op_Addition" => "add",
+                        "op_Subtraction" => "subtract",
+                        "op_Multiply" => "multiply",
+                        "op_Division" => "divide",
+                        "op_Modulus" => "mod",
+                        _ => char.ToLower(compMAMethod.Name[3]) + compMAMethod.Name.Substring(4)
+                    };
+                    return $"{target}.set{propertyName}({rawJavaType}.{javaOpMethod}({target}.get{propertyName}(), {compoundValue}))";
+                }
+
+                // Primitive compound: obj.Left -= x → obj.setLeft(obj.getLeft() - x)
+                var javaOp = op.TrimEnd('=');
+                return $"{target}.set{propertyName}({target}.get{propertyName}() {javaOp} {compoundValue})";
             }
         }
 
         // 复合赋值操作符（如 +=, -= 等）需要特殊处理
         if (op != "=" && node.Left is ElementAccessExpressionSyntax)
         {
-            // 对于复合赋值，我们需要生成完整的表达式
-            // 例如：arr[i] += 1  =>  arr[i] = arr[i] + 1
-            var rightValue = Transform(node.Right, context);
             var elemAccess = node.Left as ElementAccessExpressionSyntax;
-            var targetObj = Transform(elemAccess.Expression, context);
             var indexArgs = elemAccess.ArgumentList != null
                 ? string.Join(", ", elemAccess.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)))
                 : "";
 
-            // 生成读取-修改-写入序列
-            return $"{targetObj}.set({indexArgs}, {targetObj}.get({indexArgs}) {op} {rightValue})";
+            // Check if the container is an array (use direct indexing, not .get/.set)
+            var elemContainerTypeInfo = context.SemanticModel?.GetTypeInfo(elemAccess.Expression);
+            bool isArray = elemContainerTypeInfo.HasValue && elemContainerTypeInfo.Value.Type is IArrayTypeSymbol;
+
+            if (isArray)
+            {
+                var targetObj = Transform(elemAccess.Expression, context);
+                var rightValue = Transform(node.Right, context);
+                // Check for user-defined operator overloads on the element type
+                var compSym = context.SemanticModel?.GetSymbolInfo(node);
+                if (compSym.HasValue && compSym.Value.Symbol is IMethodSymbol compMethod
+                    && compMethod.IsStatic && compMethod.Name.StartsWith("op_")
+                    && !IsSystemPrimitiveType(compMethod.ContainingType?.ToDisplayString() ?? ""))
+                {
+                    var javaType = context.MapType(compMethod.ContainingType!);
+                    var rawJavaType = javaType.Contains('<') ? javaType.Substring(0, javaType.IndexOf('<')) : javaType;
+                    var opMethodName = compMethod.Name switch
+                    {
+                        "op_Addition" => "add",
+                        "op_Subtraction" => "subtract",
+                        "op_Multiply" => "multiply",
+                        "op_Division" => "divide",
+                        "op_Modulus" => "mod",
+                        _ => char.ToLower(compMethod.Name[3]) + compMethod.Name.Substring(4)
+                    };
+                    return $"{targetObj}[{indexArgs}] = {rawJavaType}.{opMethodName}({targetObj}[{indexArgs}], {rightValue})";
+                }
+                return $"{targetObj}[{indexArgs}] {op} {rightValue}";
+            }
+            else
+            {
+                // List-like: use .set(i, .get(i) op value)
+                var targetObj = Transform(elemAccess.Expression, context);
+                var rightValue = Transform(node.Right, context);
+                return $"{targetObj}.set({indexArgs}, {targetObj}.get({indexArgs}) {op} {rightValue})";
+            }
+        }
+
+        // Handle compound assignment with user-defined operator overloads: a op= b → a = TypeName.method(a, b)
+        // e.g., vector0 *= multiplier where Point has operator * → vector0 = Point.multiply(vector0, multiplier)
+        if (op != "=")
+        {
+            var compoundSym = context.SemanticModel?.GetSymbolInfo(node);
+            if (compoundSym.HasValue && compoundSym.Value.Symbol is IMethodSymbol compoundMethod
+                && compoundMethod.IsStatic && compoundMethod.Name.StartsWith("op_"))
+            {
+                var compoundType = compoundMethod.ContainingType;
+                if (compoundType != null && !IsSystemPrimitiveType(compoundType.ToDisplayString()))
+                {
+                    var javaType = context.MapType(compoundType);
+                    // Strip generic params: "Set<T>" → "Set" for static method call
+                    var rawJavaType = javaType.Contains('<') ? javaType.Substring(0, javaType.IndexOf('<')) : javaType;
+                    // For [Flags] enums (mapped to int) and other integral primitives, use native Java operators
+                    if (rawJavaType is "int" or "long" or "short" or "byte")
+                    {
+                        var leftVar = Transform(node.Left, context);
+                        var rightVar = Transform(node.Right, context);
+                        return $"{leftVar} {op} {rightVar}";
+                    }
+                    var javaOpMethod = compoundMethod.Name switch
+                    {
+                        "op_Addition" => "add",
+                        "op_Subtraction" => "subtract",
+                        "op_Multiply" => "multiply",
+                        "op_Division" => "divide",
+                        "op_Modulus" => "mod",
+                        _ => char.ToLower(compoundMethod.Name[3]) + compoundMethod.Name.Substring(4)
+                    };
+                    var leftVarC = Transform(node.Left, context);
+                    var rightVarC = Transform(node.Right, context);
+                    return $"{leftVarC} = {rawJavaType}.{javaOpMethod}({leftVarC}, {rightVarC})";
+                }
+            }
         }
 
         var left = Transform(node.Left, context);
+
+        // Handle chain assignment where RHS is a property setter (returns void in Java).
+        // e.g., r = current.Rectangle = new Rectangle(x, y, z)
+        // → current.setRectangle(new Rectangle(x, y, z)); r = new Rectangle(x, y, z)
+        // (semicolon-separated so must appear as a statement)
+        if (op == "=" && node.Right is AssignmentExpressionSyntax chainAssign)
+        {
+            bool chainRhsIsProperty = false;
+            if (chainAssign.Left is MemberAccessExpressionSyntax chainMa)
+            {
+                var chainSym = context.SemanticModel?.GetSymbolInfo(chainMa);
+                if (chainSym.HasValue && chainSym.Value.Symbol is IPropertySymbol)
+                    chainRhsIsProperty = true;
+            }
+            if (chainRhsIsProperty)
+            {
+                // Extract the final scalar value assigned in the chain
+                ExpressionSyntax finalValue = chainAssign.Right;
+                while (finalValue is AssignmentExpressionSyntax inner)
+                    finalValue = inner.Right;
+                var setterCall = Transform(chainAssign, context);   // e.g. current.setRectangle(...)
+                var finalVal = Transform(finalValue, context);
+                return $"{setterCall}; {left} = {finalVal}";
+            }
+        }
+
         var right = Transform(node.Right, context);
         return $"{left} {op} {right}";
     }
 
     private string TransformPostfix(PostfixUnaryExpressionSyntax node, string op, ConversionContext context)
     {
+        if (op is "++" or "--")
+        {
+            var delta = op == "++" ? "+ 1" : "- 1";
+            // Property access: obj.Prop++ → obj.setProp(obj.getProp() + 1)
+            if (node.Operand is MemberAccessExpressionSyntax maOp)
+            {
+                var sym = context.SemanticModel?.GetSymbolInfo(maOp);
+                if (sym.HasValue && sym.Value.Symbol is IPropertySymbol)
+                {
+                    var target = Transform(maOp.Expression, context);
+                    var propName = ToPascalCase(maOp.Name.Identifier.Text);
+                    return $"{target}.set{propName}({target}.get{propName}() {delta})";
+                }
+            }
+            // Bare property: Prop++ → setProp(getProp() + 1)
+            if (node.Operand is IdentifierNameSyntax identOp)
+            {
+                var sym = context.SemanticModel?.GetSymbolInfo(identOp);
+                if (sym.HasValue && sym.Value.Symbol is IPropertySymbol)
+                {
+                    var propName = ToPascalCase(identOp.Identifier.Text);
+                    return $"set{propName}(get{propName}() {delta})";
+                }
+            }
+        }
         var operand = Transform(node.Operand, context);
         return $"{operand}{op}";
     }
 
     private string TransformPrefix(PrefixUnaryExpressionSyntax node, string op, ConversionContext context)
     {
+        if (op is "++" or "--")
+        {
+            var delta = op == "++" ? "+ 1" : "- 1";
+            // Property access: ++obj.Prop → obj.setProp(obj.getProp() + 1)
+            if (node.Operand is MemberAccessExpressionSyntax maOp)
+            {
+                var sym = context.SemanticModel?.GetSymbolInfo(maOp);
+                if (sym.HasValue && sym.Value.Symbol is IPropertySymbol)
+                {
+                    var target = Transform(maOp.Expression, context);
+                    var propName = ToPascalCase(maOp.Name.Identifier.Text);
+                    return $"{target}.set{propName}({target}.get{propName}() {delta})";
+                }
+            }
+            // Bare property: ++Prop → setProp(getProp() + 1)
+            if (node.Operand is IdentifierNameSyntax identOp)
+            {
+                var sym = context.SemanticModel?.GetSymbolInfo(identOp);
+                if (sym.HasValue && sym.Value.Symbol is IPropertySymbol)
+                {
+                    var propName = ToPascalCase(identOp.Identifier.Text);
+                    return $"set{propName}(get{propName}() {delta})";
+                }
+            }
+        }
         var operand = Transform(node.Operand, context);
         return $"{op}{operand}";
     }
+
+    private static string ToPascalCase(string name) =>
+        string.IsNullOrEmpty(name) ? name : char.ToUpper(name[0]) + name.Substring(1);
 
     private string TransformConditional(ConditionalExpressionSyntax node, ConversionContext context)
     {
         var condition = Transform(node.Condition, context);
         var whenTrue = Transform(node.WhenTrue, context);
         var whenFalse = Transform(node.WhenFalse, context);
+
+        // Fix ternary type mismatch: if one branch returns Iterable<T> and the other is an array (T[]),
+        // Java can't unify them. Replace the array branch with Collections.emptyList().
+        if (context.SemanticModel != null)
+        {
+            var trueType = context.SemanticModel.GetTypeInfo(node.WhenTrue).Type;
+            var falseType = context.SemanticModel.GetTypeInfo(node.WhenFalse).Type;
+            bool trueIsArray = trueType is IArrayTypeSymbol;
+            bool falseIsArray = falseType is IArrayTypeSymbol;
+            bool trueIsEnumerable = trueType is INamedTypeSymbol tn &&
+                (tn.Name is "IEnumerable" or "ICollection" or "IList" or "IOrderedEnumerable" ||
+                 tn.AllInterfaces.Any(i => i.Name is "IEnumerable"));
+            bool falseIsEnumerable = falseType is INamedTypeSymbol fn &&
+                (fn.Name is "IEnumerable" or "ICollection" or "IList" or "IOrderedEnumerable" ||
+                 fn.AllInterfaces.Any(i => i.Name is "IEnumerable"));
+
+            // When branch returns IEnumerable but other returns array (new T[0] for empty)
+            if (trueIsEnumerable && falseIsArray)
+            {
+                // Replace the false branch array with emptyList()
+                context.AddImport("java.util.Collections");
+                whenFalse = "Collections.emptyList()";
+            }
+            else if (falseIsEnumerable && trueIsArray)
+            {
+                context.AddImport("java.util.Collections");
+                whenTrue = "Collections.emptyList()";
+            }
+        }
+
         return $"({condition} ? {whenTrue} : {whenFalse})";
     }
 
     private string TransformCast(CastExpressionSyntax node, ConversionContext context)
     {
         var typeInfo = context.SemanticModel?.GetTypeInfo(node.Type);
-        var targetType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Object";
+        var targetTypeSymbol = typeInfo.HasValue ? typeInfo.Value.Type : null;
+        var targetType = targetTypeSymbol != null ? context.MapType(targetTypeSymbol) : "Object";
         var expression = Transform(node.Expression, context);
+
+        // Cast from enum to int: (int) enumValue → enumValue.ordinal()
+        var sourceTypeInfo2 = context.SemanticModel?.GetTypeInfo(node.Expression);
+        var sourceTypeSymbol = sourceTypeInfo2.HasValue ? sourceTypeInfo2.Value.Type : null;
+        if (sourceTypeSymbol is INamedTypeSymbol namedSource && namedSource.TypeKind == TypeKind.Enum
+            && targetType is "int" or "long" or "Integer" or "Long")
+        {
+            return $"{expression}.ordinal()";
+        }
+
+        // Cast to enum type (e.g. (VertexId)i → VertexId.values()[i])
+        // Only for non-flags enums (flags enums are int already)
+        if (targetTypeSymbol is INamedTypeSymbol namedTarget && namedTarget.TypeKind == TypeKind.Enum
+            && targetType != "int")
+        {
+            return $"{targetType}.values()[{expression}]";
+        }
+
+        // Cast from array to Iterable/IEnumerable/IList/ICollection → Arrays.asList(expression)
+        // Java arrays are not Iterable, so the cast would fail at compile time.
+        if (sourceTypeSymbol is IArrayTypeSymbol &&
+            targetTypeSymbol is INamedTypeSymbol castTarget &&
+            castTarget.Name is "IEnumerable" or "IEnumerable`1" or "IList" or "IList`1"
+                or "ICollection" or "ICollection`1" or "Iterable")
+        {
+            context.AddImport("java.util.Arrays");
+            return $"Arrays.asList({expression})";
+        }
+
         return $"(({targetType}) {expression})";
     }
 
@@ -773,9 +2225,10 @@ public class ExpressionTransformer : IExpressionTransformer
     private string TransformObjectCreation(ObjectCreationExpressionSyntax node, ConversionContext context)
     {
         string type;
-        var typeInfo = context.SemanticModel?.GetTypeInfo(node.Type);
+        // Use GetTypeInfo on the whole expression (not just node.Type) for accurate type resolution
+        var typeInfo = context.SemanticModel?.GetTypeInfo(node);
 
-        if (typeInfo.HasValue && typeInfo.Value.Type != null)
+        if (typeInfo.HasValue && typeInfo.Value.Type != null && typeInfo.Value.Type.TypeKind != TypeKind.Error)
         {
             // 使用语义模型获取类型
             type = context.MapType(typeInfo.Value.Type);
@@ -796,7 +2249,197 @@ public class ExpressionTransformer : IExpressionTransformer
         }
 
         var args = TransformArgumentList(node.ArgumentList, context);
+
+        // Handle exception constructors where C# has (paramName, message) 2-string constructors but Java doesn't:
+        // e.g., new ArgumentOutOfRangeException("param", "message") → new IllegalArgumentException("param: message")
+        if (node.ArgumentList?.Arguments.Count == 2 && type is "IllegalArgumentException" or "IndexOutOfBoundsException" or "NullPointerException")
+        {
+            var a0 = Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var a1 = Transform(node.ArgumentList.Arguments[1].Expression, context);
+            var sym0 = context.SemanticModel?.GetTypeInfo(node.ArgumentList.Arguments[0].Expression);
+            var sym1 = context.SemanticModel?.GetTypeInfo(node.ArgumentList.Arguments[1].Expression);
+            bool a1IsException = sym1.HasValue && sym1.Value.Type?.BaseType?.Name is "Exception" or "SystemException" or "ArgumentException";
+            if (a1IsException)
+                return $"new {type}({a0}, {a1})"; // new Exception(msg, cause) — Java supports this
+            bool a0IsString = sym0.HasValue && sym0.Value.Type?.SpecialType == SpecialType.System_String;
+            bool a1IsString = sym1.HasValue && sym1.Value.Type?.SpecialType == SpecialType.System_String;
+            if (a0IsString && a1IsString)
+                return $"new {type}({a0} + \": \" + {a1})";
+        }
+
+        // C# structs have implicit zero-arg constructors. When called with no args on a struct type
+        // that has no declared parameterless constructor, emit new TypeName() with no args.
+        // StructTransformer adds a public no-arg constructor to all generated struct Java classes.
+        if (string.IsNullOrEmpty(args))
+        {
+            var typeSymbol = typeInfo.HasValue ? typeInfo.Value.Type as INamedTypeSymbol : null;
+            if (typeSymbol?.TypeKind == TypeKind.Struct)
+            {
+                bool hasExplicitParamlessCtor = typeSymbol.Constructors.Any(c =>
+                    c.Parameters.IsDefaultOrEmpty && !c.IsImplicitlyDeclared);
+                if (!hasExplicitParamlessCtor)
+                {
+                    // Just call the no-arg constructor — StructTransformer will add it
+                    return $"new {type}()";
+                }
+            }
+        }
+
+        // new ArrayList<T>(someIterable) fails in Java: ArrayList constructor requires Collection, not Iterable.
+        // Also: constructors taking IEnumerable<T> → Iterable<T> in Java cannot accept Stream<T>.
+        // When there's exactly one argument that is stream-like, collect to List.
+        if (node.ArgumentList?.Arguments.Count == 1)
+        {
+            var singleArg = node.ArgumentList.Arguments[0].Expression;
+            var argType = context.SemanticModel?.GetTypeInfo(singleArg).Type;
+            if (argType != null)
+            {
+                var argFq = argType.ToDisplayString();
+                // If arg is a Java Stream → .collect(Collectors.toList())
+                bool isStream = argFq.StartsWith("System.Linq.IQueryable") ||
+                    (argType is INamedTypeSymbol sn && sn.ContainingNamespace?.ToDisplayString().StartsWith("System.Linq") == true);
+                // Heuristic: check if the arg expression string contains stream-like calls
+                var argExprStr = Transform(singleArg, context);
+                bool argLooksLikeStream = argExprStr.Contains(".map(") || argExprStr.Contains(".filter(") ||
+                    argExprStr.Contains(".flatMap(") || argExprStr.Contains("Stream.concat(") ||
+                    argExprStr.Contains("StreamSupport.stream(") || argExprStr.Contains("Arrays.stream(") ||
+                    argExprStr.Contains(".stream()");
+
+                bool isCollectionType = type.StartsWith("ArrayList") || type.StartsWith("LinkedList") ||
+                    type.StartsWith("HashSet") || type.StartsWith("TreeSet") || type.StartsWith("ArrayDeque");
+
+                if (argLooksLikeStream)
+                {
+                    if (isCollectionType)
+                    {
+                        // Collections can take a List (from collect)
+                        context.AddImport("java.util.stream.Collectors");
+                        return $"new {type}({argExprStr}.collect(Collectors.toList()))";
+                    }
+                    else
+                    {
+                        // Other constructors taking IEnumerable → Iterable: collect first
+                        context.AddImport("java.util.stream.Collectors");
+                        return $"new {type}({argExprStr}.collect(Collectors.toList()))";
+                    }
+                }
+
+                bool isNotCollection = argType is INamedTypeSymbol argNamed &&
+                    !(argNamed.Name is "ICollection" or "IList" or "Collection" or "List" or
+                      "ArrayList" or "HashSet" or "TreeSet" or "LinkedList" ||
+                      argNamed.AllInterfaces.Any(i => i.Name is "ICollection" or "IList")) &&
+                    (argNamed.Name is "IEnumerable" or "Iterable" ||
+                     argNamed.AllInterfaces.Any(i => i.Name is "IEnumerable"));
+                if (isCollectionType && isNotCollection)
+                {
+                    context.AddImport("java.util.stream.StreamSupport");
+                    context.AddImport("java.util.stream.Collectors");
+                    return $"new {type}(StreamSupport.stream({argExprStr}.spliterator(), false).collect(Collectors.toList()))";
+                }
+            }
+        }
+
+        // Check if this constructor call would conflict with another by type erasure and needs to use
+        // a static factory method instead. This applies when the Roslyn symbol resolves to a declared
+        // constructor whose erased param type matches an existing constructor (e.g. Rectangle(IEnumerable<Rectangle>)
+        // conflicts with Rectangle(IEnumerable<Point>) — both become Rectangle(Iterable) after erasure).
+        if (context.SemanticModel != null && node.ArgumentList?.Arguments.Count == 1)
+        {
+            var ctorSymbol = context.SemanticModel.GetSymbolInfo(node).Symbol as IMethodSymbol;
+            if (ctorSymbol != null && ctorSymbol.MethodKind == MethodKind.Constructor)
+            {
+                // Check if there are multiple constructors with the same erased single param type
+                var containingType = ctorSymbol.ContainingType;
+                var thisParamType = ctorSymbol.Parameters.Length == 1 ? ctorSymbol.Parameters[0].Type : null;
+                if (thisParamType is INamedTypeSymbol pnt && thisParamType.Name is "IEnumerable" or "IList" or "ICollection")
+                {
+                    // Find if any other constructor also has a single IEnumerable-family param
+                    bool hasConflict = containingType.Constructors
+                        .Where(c => !c.IsImplicitlyDeclared && c.Parameters.Length == 1)
+                        .Where(c => !SymbolEqualityComparer.Default.Equals(c, ctorSymbol))
+                        .Any(c => c.Parameters[0].Type.Name is "IEnumerable" or "IList" or "ICollection");
+
+                    if (hasConflict)
+                    {
+                        // The constructor conflicts — use factory method based on the CONSTRUCTOR PARAMETER type
+                        // (not the argument type) so it matches the factory name in ClassTransformer.
+                        var mappedParamType = context.MapType(thisParamType);
+                        var factoryName = GetErasureFactoryMethodName(type, mappedParamType);
+                        if (factoryName != null)
+                            return $"{type}.{factoryName}({args})";
+                    }
+                }
+            }
+            else if (ctorSymbol == null)
+            {
+                // Symbol lookup failed — try to determine factory from the ARGUMENT type.
+                // Get the type of the single argument expression.
+                var argExpr = node.ArgumentList!.Arguments[0].Expression;
+                var argTypeInfo = context.SemanticModel.GetTypeInfo(argExpr);
+                var argTypeSymbol = argTypeInfo.Type;
+                if (argTypeSymbol is INamedTypeSymbol argNamed &&
+                    argNamed.Name is "IEnumerable" or "IList" or "ICollection" or "List" or "Collection")
+                {
+                    // Check if the target type has multiple Iterable-family constructors that erase to the same sig
+                    var typeSymbol = context.SemanticModel.GetTypeInfo(node).Type as INamedTypeSymbol;
+                    if (typeSymbol != null)
+                    {
+                        var iterableCtors = typeSymbol.Constructors
+                            .Where(c => !c.IsImplicitlyDeclared && c.Parameters.Length == 1)
+                            .Where(c => c.Parameters[0].Type.Name is "IEnumerable" or "IList" or "ICollection")
+                            .ToList();
+                        if (iterableCtors.Count > 1)
+                        {
+                            // Find the ctor whose type param matches the arg type's type argument
+                            ITypeSymbol? argElem = argNamed.TypeArguments.Length > 0 ? argNamed.TypeArguments[0] : null;
+                            IMethodSymbol? matchCtor = argElem != null
+                                ? iterableCtors.FirstOrDefault(c =>
+                                    c.Parameters[0].Type is INamedTypeSymbol np &&
+                                    np.TypeArguments.Length > 0 &&
+                                    SymbolEqualityComparer.Default.Equals(np.TypeArguments[0], argElem))
+                                : null;
+                            matchCtor ??= iterableCtors[0];
+                            var mappedParamType = context.MapType(matchCtor.Parameters[0].Type);
+                            var factoryName = GetErasureFactoryMethodName(type, mappedParamType);
+                            if (factoryName != null)
+                                return $"{type}.{factoryName}({args})";
+                        }
+                    }
+                }
+            }
+        }
+
         return $"new {type}({args})";
+    }
+
+    /// <summary>
+    /// Computes the factory method name used when a constructor conflicts with another by type erasure.
+    /// Must match the logic in ClassTransformer.AddCtorIfNotDuplicateInternal.
+    /// </summary>
+    internal static string? GetErasureFactoryMethodName(string constructedType, string paramJavaType)
+    {
+        // Only applies to single-param constructors with Iterable/Collection generic param
+        if (!paramJavaType.StartsWith("Iterable<") && !paramJavaType.StartsWith("List<") &&
+            !paramJavaType.StartsWith("Collection<"))
+            return null;
+        // Factory name is based on the param type name, sanitized
+        var suffix = System.Text.RegularExpressions.Regex.Replace(paramJavaType, @"[<>,\s\[\]?]", "_").Trim('_');
+        suffix = System.Text.RegularExpressions.Regex.Replace(suffix, "_+", "_");
+        return $"createFrom_{suffix}";
+    }
+
+    private static string GetStructFieldDefault(ITypeSymbol typeSymbol)
+    {
+        return typeSymbol.SpecialType switch
+        {
+            SpecialType.System_Double or SpecialType.System_Single => "0.0",
+            SpecialType.System_Int32 or SpecialType.System_Int64 or
+            SpecialType.System_Int16 or SpecialType.System_Byte or
+            SpecialType.System_UInt32 or SpecialType.System_UInt64 => "0",
+            SpecialType.System_Boolean => "false",
+            SpecialType.System_Char => "'\\0'",
+            _ => typeSymbol.IsValueType ? "0" : "null"
+        };
     }
 
     private string ExtractTypeName(TypeSyntax typeSyntax, ConversionContext context)
@@ -819,6 +2462,12 @@ public class ExpressionTransformer : IExpressionTransformer
         }
 
         // 处理限定名（如 System.Point）
+        if (typeSyntax is ArrayTypeSyntax arrayType)
+        {
+            var elementType = ExtractTypeName(arrayType.ElementType, context);
+            return elementType != null ? elementType + "[]" : null;
+        }
+
         if (typeSyntax is QualifiedNameSyntax qualifiedName)
         {
             var left = ExtractTypeName(qualifiedName.Left, context);
@@ -857,7 +2506,8 @@ public class ExpressionTransformer : IExpressionTransformer
     private string TransformArrayCreation(ArrayCreationExpressionSyntax node, ConversionContext context)
     {
         var typeInfo = context.SemanticModel?.GetTypeInfo(node.Type.ElementType);
-        var elementType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Object";
+        var elementTypeSymbol = typeInfo.HasValue ? typeInfo.Value.Type : null;
+        var elementType = elementTypeSymbol != null ? context.MapType(elementTypeSymbol) : "Object";
 
         if (node.Initializer != null)
         {
@@ -865,16 +2515,42 @@ public class ExpressionTransformer : IExpressionTransformer
             return $"new {elementType}[]{init}";
         }
 
+        // Build sizes string: OmittedArraySizeExpression → "[]", specified size → "[n]"
         var sizes = string.Join("", node.Type.RankSpecifiers.SelectMany(rs =>
-            rs.Sizes.Select(s => $"[{Transform(s, context)}]")));
+            rs.Sizes.Select(s => s is OmittedArraySizeExpressionSyntax ? "[]" : $"[{Transform(s, context)}]")));
+
+        // Java doesn't allow generic array creation (new T[n] where T is a type parameter).
+        // Use unchecked cast: (T[]) new Object[n]  or  (T[][]) new Object[n][]  for jagged arrays
+        bool requiresCast = elementTypeSymbol is ITypeParameterSymbol ||
+            (elementTypeSymbol is INamedTypeSymbol namedEl &&
+             namedEl.TypeArguments.Any(a => a is ITypeParameterSymbol));
+        if (requiresCast)
+        {
+            // Raw type for cast (erase type params for the cast expression)
+            var rawType = elementType.Contains('<') ? elementType.Substring(0, elementType.IndexOf('<')) : elementType;
+            // For jagged arrays the cast needs extra [] rank suffixes
+            // Count omitted dimensions (they become [] in the cast)
+            var omittedCount = node.Type.RankSpecifiers.Sum(rs => rs.Sizes.Count(s => s is OmittedArraySizeExpressionSyntax));
+            var castSuffix = new string('[', omittedCount + 1) + new string(']', omittedCount + 1);
+            // Build cast: (ElementType[][]) for a 2D jagged array
+            var castBrackets = "[]" + string.Concat(Enumerable.Repeat("[]", omittedCount));
+            return $"({rawType}{castBrackets}) new Object{sizes}";
+        }
 
         return $"new {elementType}{sizes}";
     }
 
     private string TransformImplicitArrayCreation(ImplicitArrayCreationExpressionSyntax node, ConversionContext context)
     {
+        // Roslyn infers the element type for implicit array creation (new[] { ... })
+        var typeInfo = context.SemanticModel?.GetTypeInfo(node);
+        string elementType = "Object";
+        if (typeInfo.HasValue && typeInfo.Value.Type is IArrayTypeSymbol arr)
+        {
+            elementType = context.MapType(arr.ElementType);
+        }
         var init = TransformArrayInitializer(node.Initializer, context);
-        return $"new Object[]{init}";
+        return $"new {elementType}[]{init}";
     }
 
     private string TransformArrayInitializer(InitializerExpressionSyntax node, ConversionContext context)
@@ -931,8 +2607,27 @@ public class ExpressionTransformer : IExpressionTransformer
         var source = Transform(fromClause.Expression, context);
         var identifier = fromClause.Identifier.ValueText;
 
-        // 首先转换为流
-        var result = $"{source}.stream()";
+        // Convert the source to a Stream. For arrays use Arrays.stream(), for Iterables use StreamSupport.
+        var sourceExprType = context.SemanticModel?.GetTypeInfo(fromClause.Expression).Type;
+        string result;
+        if (sourceExprType is IArrayTypeSymbol)
+        {
+            context.AddImport("java.util.Arrays");
+            result = $"Arrays.stream({source})";
+        }
+        else if (sourceExprType is INamedTypeSymbol srcNamed &&
+            (srcNamed.Name is "IOrderedEnumerable" or "IQueryable" ||
+             srcNamed.AllInterfaces.Any(i => i.Name == "IOrderedEnumerable")))
+        {
+            // Already a stream result from a previous LINQ expression
+            result = source;
+        }
+        else
+        {
+            // IEnumerable → StreamSupport.stream(x.spliterator(), false)
+            context.AddImport("java.util.stream.StreamSupport");
+            result = $"StreamSupport.stream({source}.spliterator(), false)";
+        }
 
         // 处理查询主体
         result = TransformQueryBodyRecursive(node.Body, identifier, result, context);
@@ -961,7 +2656,7 @@ public class ExpressionTransformer : IExpressionTransformer
                 // 处理嵌套 from (SelectMany)
                 var newSource = Transform(fromClause.Expression, context);
                 var newIdentifier = fromClause.Identifier.ValueText;
-                result = $"{result}.flatMap({currentIdentifier} -> {newSource}.map({newIdentifier} -> {newIdentifier})";
+                result = $"{result}.flatMap({currentIdentifier} -> {newSource}.stream().map({newIdentifier} -> {newIdentifier}))";
                 currentIdentifier = newIdentifier;
             }
             else if (clause is JoinClauseSyntax joinClause)
@@ -999,6 +2694,29 @@ public class ExpressionTransformer : IExpressionTransformer
         return result;
     }
 
+    private string TransformAnonymousMethod(AnonymousMethodExpressionSyntax node, ConversionContext context)
+    {
+        context.IsInLambdaContext = true;
+
+        var parameters = node.ParameterList?.Parameters.Select(p =>
+        {
+            var typeInfo = p.Type != null ? context.SemanticModel?.GetTypeInfo(p.Type) : null;
+            var type = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "";
+            var paramName = ConversionContext.EscapeJavaKeyword(p.Identifier.Text);
+            return string.IsNullOrEmpty(type) ? paramName : $"{type} {paramName}";
+        }) ?? Enumerable.Empty<string>();
+
+        var paramStr = $"({string.Join(", ", parameters)})";
+
+        var body = node.Block != null
+            ? $"{{\n" + new Transformers.Statement.StatementTransformer().TransformBlock(node.Block, context) + "\n}"
+            : "{}";
+
+        context.IsInLambdaContext = false;
+
+        return $"{paramStr} -> {body}";
+    }
+
     private string TransformLambda(LambdaExpressionSyntax node, ConversionContext context)
     {
         context.IsInLambdaContext = true;
@@ -1010,16 +2728,17 @@ public class ExpressionTransformer : IExpressionTransformer
                 {
                     var typeInfo = p.Type != null ? context.SemanticModel?.GetTypeInfo(p.Type) : null;
                     var type = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "";
-                    return string.IsNullOrEmpty(type) ? p.Identifier.Text : $"{type} {p.Identifier.Text}";
+                    var paramName = ConversionContext.EscapeJavaKeyword(p.Identifier.Text);
+                    return string.IsNullOrEmpty(type) ? paramName : $"{type} {paramName}";
                 }) ?? Enumerable.Empty<string>()
             ),
-            SimpleLambdaExpressionSyntax simple => simple.Parameter.Identifier.Text,
+            SimpleLambdaExpressionSyntax simple => ConversionContext.EscapeJavaKeyword(simple.Parameter.Identifier.Text),
             _ => ""
         };
 
         var body = node.Body switch
         {
-            BlockSyntax block => new Transformers.Statement.StatementTransformer().TransformBlock(block, context),
+            BlockSyntax block => $"{{\n" + new Transformers.Statement.StatementTransformer().TransformBlock(block, context) + "\n}",
             ExpressionSyntax expr => Transform(expr, context),
             _ => ""
         };
@@ -1096,8 +2815,6 @@ public class ExpressionTransformer : IExpressionTransformer
 
         return string.Join(", ", argumentList.Arguments.Select(arg =>
         {
-            var expr = Transform(arg.Expression, context);
-
             // 处理命名参数
             if (arg.NameColon != null)
             {
@@ -1108,14 +2825,100 @@ public class ExpressionTransformer : IExpressionTransformer
                 );
             }
 
-            // 处理 ref/out
+            var expr = Transform(arg.Expression, context);
+
+            // Handle ref/out arguments - wrap in Holder
             if (arg.RefKindKeyword.IsKind(SyntaxKind.RefKeyword) ||
                 arg.RefKindKeyword.IsKind(SyntaxKind.OutKeyword))
             {
-                context.Diagnostics.Warning(
-                    "ref/out parameters not supported in Java",
-                    arg.RefKindKeyword.GetLocation()
-                );
+                // For 'out var x' declarations, we generate a holder variable inline.
+                // For existing vars, we generate a holder that wraps the existing value.
+                if (arg.Expression is DeclarationExpressionSyntax declExpr)
+                {
+                    // out var x -> use a placeholder variable name; don't call Transform on the decl
+                    // (Transform generates "/* TODO: DeclarationExpression */" which nests in our comment)
+                    var varName = "_out_" + (declExpr.Designation is SingleVariableDesignationSyntax sv ? sv.Identifier.Text : "tmp");
+                    return varName;
+                }
+                // For existing variables: check if the variable is already a Holder (ref/out param in caller)
+                var argSymInfo2 = context.SemanticModel?.GetSymbolInfo(arg.Expression);
+                bool isAlreadyHolder = argSymInfo2.HasValue && argSymInfo2.Value.Symbol is IParameterSymbol argParam2
+                    && (argParam2.RefKind == RefKind.Ref || argParam2.RefKind == RefKind.Out);
+                if (isAlreadyHolder)
+                    return $"{expr} /* ref/out holder */";
+
+                // Not already a holder: wrap in the appropriate Holder type
+                var argTypeInfo2 = context.SemanticModel?.GetTypeInfo(arg.Expression);
+                if (argTypeInfo2.HasValue && argTypeInfo2.Value.Type != null)
+                {
+                    var argType2 = argTypeInfo2.Value.Type;
+                    bool isDoubleType = argType2.SpecialType == SpecialType.System_Double
+                        || argType2.SpecialType == SpecialType.System_Single;
+                    if (isDoubleType)
+                    {
+                        var initVal = arg.RefKindKeyword.IsKind(SyntaxKind.OutKeyword) ? "0.0" : expr;
+                        return $"new DoubleHolder({initVal})";
+                    }
+                    else
+                    {
+                        var javaType2 = context.MapType(argType2);
+                        bool isOutArg = arg.RefKindKeyword.IsKind(SyntaxKind.OutKeyword);
+                        // Use specialized holder for primitives (IntHolder, LongHolder etc.) — avoids ObjectHolder<int> which is invalid Java
+                        string holderType, initVal;
+                        switch (javaType2)
+                        {
+                            case "int":    holderType = "IntHolder";    initVal = isOutArg ? "0" : expr; break;
+                            case "long":   holderType = "LongHolder";   initVal = isOutArg ? "0L" : expr; break;
+                            case "float":  holderType = "FloatHolder";  initVal = isOutArg ? "0.0f" : expr; break;
+                            case "boolean":holderType = "BoolHolder";   initVal = isOutArg ? "false" : expr; break;
+                            case "char":   holderType = "CharHolder";   initVal = isOutArg ? "'\\0'" : expr; break;
+                            case "byte":   holderType = "ByteHolder";   initVal = isOutArg ? "(byte)0" : expr; break;
+                            case "short":  holderType = "ShortHolder";  initVal = isOutArg ? "(short)0" : expr; break;
+                            default:       holderType = $"ObjectHolder<{javaType2}>"; initVal = isOutArg ? "null" : expr; break;
+                        }
+                        return $"new {holderType}({initVal})";
+                    }
+                }
+                return $"{expr} /* ref/out holder */";
+            }
+
+            // Handle implicit int→enum conversion (C# allows literal 0 to convert to any enum)
+            // Detect via Roslyn ConvertedType: if arg expression is an integer but ConvertedType is enum
+            if (context.SemanticModel != null)
+            {
+                var argConvInfo = context.SemanticModel.GetTypeInfo(arg.Expression);
+                if (argConvInfo.ConvertedType?.TypeKind == TypeKind.Enum
+                    && (argConvInfo.Type?.SpecialType is SpecialType.System_Int32
+                        or SpecialType.System_Int64 or SpecialType.System_Byte
+                        or SpecialType.System_Int16 or SpecialType.System_UInt32
+                        or SpecialType.System_UInt64))
+                {
+                    var enumType = context.MapType(argConvInfo.ConvertedType);
+                    if (enumType != "int" && enumType != "long") // not a [Flags] enum that maps to int
+                        return $"{enumType}.values()[{expr}]";
+                }
+
+                // Detect stream expression passed to parameter expecting IEnumerable/Iterable:
+                // The C# argument type is IEnumerable<T> but after LINQ transformation it becomes
+                // a Java Stream<T> which doesn't implement Iterable<T>. Add .collect(Collectors.toList()).
+                var argActualInfo = context.SemanticModel.GetTypeInfo(arg.Expression);
+                bool argIsEnumerable = argActualInfo.Type is INamedTypeSymbol argNs &&
+                    (argNs.Name is "IEnumerable" or "IOrderedEnumerable" or "IQueryable" ||
+                     argNs.AllInterfaces.Any(i => i.Name is "IEnumerable"));
+                bool exprIsStream = !expr.Contains(".collect(") && (
+                    expr.Contains("Stream.concat(") ||
+                    expr.Contains("StreamSupport.stream(") ||
+                    expr.Contains("Arrays.stream(") ||
+                    expr.Contains(".map(") ||
+                    expr.Contains(".filter(") ||
+                    expr.Contains(".flatMap(") ||
+                    expr.Contains(".distinct(") ||
+                    expr.Contains(".sorted("));
+                if (argIsEnumerable && exprIsStream)
+                {
+                    context.AddImport("java.util.stream.Collectors");
+                    return $"{expr}.collect(Collectors.toList())";
+                }
             }
 
             return expr;
@@ -1138,3 +2941,10 @@ public class ExpressionTransformer : IExpressionTransformer
         };
     }
 }
+
+
+
+
+
+
+

@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.Transformers.Expression;
 
 namespace CSharpToJava.Core.Transformers.Member;
 
@@ -54,17 +55,22 @@ public class ConstructorTransformer : IMemberTransformer
 
         if (ctorDecl.Initializer != null)
         {
-            if (ctorDecl.Initializer.ThisOrBaseKeyword.IsKind(SyntaxKind.ThisKeyword))
+            var args = GetInitializerArguments(ctorDecl.Initializer, context);
+
+            // 只有当有参数时才生成 this() 或 super() 调用
+            // 空的 this() 调用在 Java 中是无效的（会递归调用自己）
+            if (args.Count > 0 || ctorDecl.Initializer.ThisOrBaseKeyword.IsKind(SyntaxKind.BaseKeyword))
             {
-                // this() 调用
-                var args = GetInitializerArguments(ctorDecl.Initializer);
-                initializerStatements.Add($"this({string.Join(", ", args)});");
-            }
-            else if (ctorDecl.Initializer.ThisOrBaseKeyword.IsKind(SyntaxKind.BaseKeyword))
-            {
-                // base() 调用 - 在 Java 中是 super()
-                var args = GetInitializerArguments(ctorDecl.Initializer);
-                initializerStatements.Add($"super({string.Join(", ", args)});");
+                if (ctorDecl.Initializer.ThisOrBaseKeyword.IsKind(SyntaxKind.ThisKeyword))
+                {
+                    // this() 调用 - 只有在有参数时才生成
+                    initializerStatements.Add($"this({string.Join(", ", args)});");
+                }
+                else if (ctorDecl.Initializer.ThisOrBaseKeyword.IsKind(SyntaxKind.BaseKeyword))
+                {
+                    // base() 调用 - 在 Java 中是 super()
+                    initializerStatements.Add($"super({string.Join(", ", args)});");
+                }
             }
         }
 
@@ -78,7 +84,7 @@ public class ConstructorTransformer : IMemberTransformer
         }
         else if (ctorDecl.ExpressionBody != null)
         {
-            var exprTransformer = new Transformers.Expression.ExpressionTransformer();
+            var exprTransformer = new ExpressionTransformer();
             bodyStatements.Add(exprTransformer.Transform(ctorDecl.ExpressionBody.Expression, context) + ";");
         }
 
@@ -88,21 +94,26 @@ public class ConstructorTransformer : IMemberTransformer
             var allStatements = initializerStatements.Concat(bodyStatements);
             javaCtor.Body = string.Join("\n        ", allStatements);
         }
+        else if (ctorDecl.Body != null)
+        {
+            // Empty block body (e.g., public Set() {}) → generate empty body, not abstract semicolon
+            javaCtor.Body = "";
+        }
 
         return javaCtor;
     }
 
-    private List<string> GetInitializerArguments(ConstructorInitializerSyntax initializer)
+    private List<string> GetInitializerArguments(ConstructorInitializerSyntax initializer, ConversionContext context)
     {
         var args = new List<string>();
 
         if (initializer.ArgumentList != null)
         {
-            // 简化处理 - 实际应该转换表达式
+            var exprTransformer = new ExpressionTransformer();
             foreach (var arg in initializer.ArgumentList.Arguments)
             {
-                // 这里应该使用表达式转换器
-                args.Add(arg.ToString());
+                // ArgumentSyntax 包含 Expression 属性
+                args.Add(exprTransformer.Transform(arg.Expression, context));
             }
         }
 

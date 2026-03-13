@@ -48,6 +48,11 @@ public class PartialTypeMerger
             if (processedSymbols.Contains(typeMember))
                 continue;
 
+            // Skip types from referenced assemblies (metadata-only types)
+            // Only process types that have at least one source-level location
+            if (!typeMember.Locations.Any(l => l.IsInSource))
+                continue;
+
             processedSymbols.Add(typeMember);
 
             // Get the type's unique key (full name including namespace)
@@ -144,22 +149,21 @@ public class PartialTypeMerger
 
         foreach (var part in partialParts)
         {
-            // Try to find the syntax node for this symbol
+            // Collect all syntax declarations for this symbol.
+            // For partial types, the merged symbol has MULTIPLE DeclaringSyntaxReferences (one per file).
             foreach (var syntaxRef in part.DeclaringSyntaxReferences)
             {
                 try
                 {
                     var syntax = syntaxRef.GetSyntax();
-                    if (syntax is TypeDeclarationSyntax typeSyntax)
+                    if (syntax is TypeDeclarationSyntax typeSyntax && !syntaxNodes.Contains(typeSyntax))
                     {
                         syntaxNodes.Add(typeSyntax);
-                        break; // Use the first syntax node for each symbol
                     }
                 }
                 catch
                 {
                     // Ignore syntax references that can't be resolved
-                    // This can happen with generated code or external references
                 }
             }
         }

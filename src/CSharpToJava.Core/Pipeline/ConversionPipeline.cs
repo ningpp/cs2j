@@ -29,6 +29,8 @@ public class ConversionResult
     public string GeneratedCode { get; set; } = string.Empty;
     public IReadOnlyList<DiagnosticMessage> Diagnostics { get; set; } = Array.Empty<DiagnosticMessage>();
     public string? FileName { get; set; }
+    /// <summary>Java package for this output file (used by Holder class generation).</summary>
+    public string? Package { get; set; }
 }
 
 /// <summary>

@@ -32,6 +32,9 @@ public class StructTransformer : ITypeTransformer
             javaClass.TypeParameters.Add(new JavaTypeParameter(typeParam.Identifier.Text));
         }
 
+        // Propagate generic type parameter constraints
+        ClassTransformer.ApplyTypeParameterConstraints(structDecl.ConstraintClauses, javaClass.TypeParameters, context);
+
         // 处理接口实现
         if (structDecl.BaseList != null)
         {
@@ -40,15 +43,35 @@ public class StructTransformer : ITypeTransformer
                 var typeInfo = context.SemanticModel?.GetTypeInfo(baseType.Type);
                 if (typeInfo.HasValue && typeInfo.Value.Type?.TypeKind == TypeKind.Interface)
                 {
-                    javaClass.ImplementedTypes.Add(context.MapType(typeInfo.Value.Type));
+                    var iface = typeInfo.Value.Type;
+                    // Skip MarshalByRefObject - it doesn't exist in Java
+                    if (iface.Name != "MarshalByRefObject" && iface.ToDisplayString() != "System.MarshalByRefObject")
+                    {
+                        javaClass.ImplementedTypes.Add(context.MapType(iface));
+                    }
                 }
             }
         }
 
         // 处理成员
+        context.EnterType(javaClass);
         foreach (var member in structDecl.Members)
         {
             ProcessStructMember(member, javaClass, context);
+        }
+        context.LeaveType();
+
+        // C# structs have implicit zero-arg constructors; add one to Java class if not already present.
+        bool hasNoArgCtor = javaClass.Constructors.Any(c => c.Parameters.Count == 0);
+        if (!hasNoArgCtor)
+        {
+            var defaultCtor = new JavaConstructorDeclaration
+            {
+                ClassName = javaClass.Name,
+                Modifiers = JavaModifiers.Public,
+                Body = ""
+            };
+            javaClass.Constructors.Insert(0, defaultCtor);
         }
 
         return javaClass;
@@ -72,6 +95,15 @@ public class StructTransformer : ITypeTransformer
             };
         }
 
+        // Default to public when no explicit access modifier (C# default = internal)
+        bool hasAccessModifier = modifiers.Any(m =>
+            m.IsKind(SyntaxKind.PublicKeyword) ||
+            m.IsKind(SyntaxKind.PrivateKeyword) ||
+            m.IsKind(SyntaxKind.ProtectedKeyword) ||
+            m.IsKind(SyntaxKind.InternalKeyword));
+        if (!hasAccessModifier)
+            result |= JavaModifiers.Public;
+
         return result;
     }
 
@@ -82,20 +114,22 @@ public class StructTransformer : ITypeTransformer
         switch (member)
         {
             case FieldDeclarationSyntax fieldDecl:
-                var fieldTransformer = factory.CreateFieldTransformer();
-                var field = fieldTransformer.Transform(fieldDecl, context);
-                if (field is JavaFieldDeclaration javaField)
+                var fieldTransformer = new Transformers.Member.FieldTransformer();
+                foreach (var javaField in fieldTransformer.TransformAll(fieldDecl, context))
                 {
-                    // struct 字段默认是 public，在 Java 中也应该是 public final
+                    // struct 字段默认是 public（但不加 final，因为 struct 的属性可能有 setter）
                     if (javaField.Modifiers == JavaModifiers.None)
                     {
-                        javaField.Modifiers = JavaModifiers.Public | JavaModifiers.Final;
+                        javaField.Modifiers = JavaModifiers.Public;
                     }
                     javaClass.Fields.Add(javaField);
                 }
                 break;
 
             case PropertyDeclarationSyntax propDecl:
+                // Skip explicit interface implementations - Java doesn't need them since the
+                // public member already satisfies the interface requirement
+                if (propDecl.ExplicitInterfaceSpecifier != null) break;
                 var propTransformer = factory.CreatePropertyTransformer();
                 var props = propTransformer.Transform(propDecl, context);
                 if (props is JavaMemberCollection collection)
@@ -103,7 +137,7 @@ public class StructTransformer : ITypeTransformer
                     foreach (var prop in collection.Members)
                     {
                         if (prop is JavaFieldDeclaration jf) javaClass.Fields.Add(jf);
-                        if (prop is JavaMethodDeclaration jm) javaClass.Methods.Add(jm);
+                        if (prop is JavaMethodDeclaration jm) ClassTransformer.AddMethodIfNotDuplicateInternal(javaClass, jm);
                     }
                 }
                 else if (props is JavaFieldDeclaration jf)
@@ -112,17 +146,25 @@ public class StructTransformer : ITypeTransformer
                 }
                 else if (props is JavaMethodDeclaration jm)
                 {
-                    javaClass.Methods.Add(jm);
+                    ClassTransformer.AddMethodIfNotDuplicateInternal(javaClass, jm);
                 }
                 break;
 
             case MethodDeclarationSyntax methodDecl:
+                // Explicit interface implementations are generated as public methods (not skipped)
                 var methodTransformer = factory.CreateMethodTransformer();
                 var method = methodTransformer.Transform(methodDecl, context);
                 if (method is JavaMethodDeclaration javaMethod)
                 {
-                    javaClass.Methods.Add(javaMethod);
+                    ClassTransformer.AddMethodIfNotDuplicateInternal(javaClass, javaMethod);
                 }
+                break;
+
+            case OperatorDeclarationSyntax opDecl:
+                var opTransformer = new Transformers.Member.OperatorTransformer();
+                var opMethod = opTransformer.Transform(opDecl, context);
+                if (opMethod != null)
+                    ClassTransformer.AddMethodIfNotDuplicateInternal(javaClass, opMethod);
                 break;
 
             case ConstructorDeclarationSyntax ctorDecl:
@@ -130,7 +172,7 @@ public class StructTransformer : ITypeTransformer
                 var ctor = ctorTransformer.Transform(ctorDecl, context);
                 if (ctor is JavaConstructorDeclaration javaCtor)
                 {
-                    javaClass.Constructors.Add(javaCtor);
+                    ClassTransformer.AddCtorIfNotDuplicateInternal(javaClass, javaCtor);
                 }
                 break;
         }

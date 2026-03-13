@@ -101,6 +101,91 @@
       "imports": ["java.util.HashSet"]
     },
     {
+      "csharp": "System.Collections.ICollection",
+      "java": "Collection",
+      "imports": ["java.util.Collection"]
+    },
+    {
+      "csharp": "System.Xml.XmlReader",
+      "java": "Object",
+      "imports": []
+    },
+    {
+      "csharp": "System.Xml.XmlTextReader",
+      "java": "Object",
+      "imports": []
+    },
+    {
+      "csharp": "System.Xml.XmlWriter",
+      "java": "Object",
+      "imports": []
+    },
+    {
+      "csharp": "System.Xml.XmlReaderSettings",
+      "java": "Object",
+      "imports": []
+    },
+    {
+      "csharp": "XmlReader",
+      "java": "Object",
+      "imports": []
+    },
+    {
+      "csharp": "XmlTextReader",
+      "java": "Object",
+      "imports": []
+    },
+    {
+      "csharp": "XmlWriter",
+      "java": "Object",
+      "imports": []
+    },
+    {
+      "csharp": "XmlReaderSettings",
+      "java": "Object",
+      "imports": []
+    },
+    {
+      "csharp": "InvalidOperationException",
+      "java": "IllegalStateException",
+      "imports": []
+    },
+    {
+      "csharp": "OperationCanceledException",
+      "java": "CancellationException",
+      "imports": ["java.util.concurrent.CancellationException"]
+    },
+    {
+      "csharp": "ParallelOptions",
+      "java": "Object",
+      "imports": []
+    },
+    {
+      "csharp": "System.Collections.IEnumerable",
+      "java": "Iterable",
+      "imports": []
+    },
+    {
+      "csharp": "System.Collections.IEnumerator",
+      "java": "Iterator",
+      "imports": ["java.util.Iterator"]
+    },
+    {
+      "csharp": "System.Array",
+      "java": "Object",
+      "imports": []
+    },
+    {
+      "csharp": "Array",
+      "java": "Object",
+      "imports": []
+    },
+    {
+      "csharp": "Dictionary",
+      "java": "HashMap",
+      "imports": ["java.util.HashMap"]
+    },
+    {
       "csharp": "System.Collections.Generic.IEnumerable`1",
       "java": "Iterable",
       "imports": ["java.lang.Iterable"]
@@ -196,14 +281,49 @@
       "imports": ["java.lang.AutoCloseable"]
     },
     {
+      "csharp": "System.IComparable",
+      "java": "Comparable",
+      "imports": []
+    },
+    {
+      "csharp": "System.IComparable`1",
+      "java": "Comparable",
+      "imports": []
+    },
+    {
+      "csharp": "System.EventArgs",
+      "java": "Object",
+      "imports": []
+    },
+    {
+      "csharp": "System.ICloneable",
+      "java": "Cloneable",
+      "imports": []
+    },
+    {
+      "csharp": "System.Collections.Generic.LinkedListNode`1",
+      "java": "Object",
+      "imports": []
+    },
+    {
+      "csharp": "System.Collections.Generic.LinkedList`1",
+      "java": "LinkedList",
+      "imports": ["java.util.LinkedList"]
+    },
+    {
+      "csharp": "System.Diagnostics.Stopwatch",
+      "java": "StopwatchHelper",
+      "imports": []
+    },
+    {
       "csharp": "System.Linq.ILookup`2",
       "java": "Map",
       "imports": ["java.util.Map"]
     },
     {
       "csharp": "System.Linq.IGrouping`2",
-      "java": "Map.Entry",
-      "imports": ["java.util.Map"]
+      "java": "AbstractMap.SimpleEntry",
+      "imports": ["java.util.AbstractMap"]
     },
     {
       "csharp": "System.Collections.Generic.Queue`1",
@@ -277,13 +397,13 @@
     },
     {
       "csharp": "System.Array",
-      "java": "Array",
-      "imports": ["java.lang.reflect.Array"]
+      "java": "Object",
+      "imports": []
     },
     {
       "csharp": "System.Collections.Generic.KeyValuePair`2",
-      "java": "Map.Entry",
-      "imports": ["java.util.Map"]
+      "java": "AbstractMap.SimpleEntry",
+      "imports": ["java.util.AbstractMap"]
     },
     {
       "csharp": "System.Collections.BitArray",
@@ -387,8 +507,8 @@
     },
     {
       "csharp": "System.ArgumentOutOfRangeException",
-      "java": "IndexOutOfBoundsException",
-      "imports": ["java.lang.IndexOutOfBoundsException"]
+      "java": "IllegalArgumentException",
+      "imports": ["java.lang.IllegalArgumentException"]
     },
     {
       "csharp": "System.RankException",
@@ -662,8 +782,8 @@
     },
     {
       "csharp": "System.Attribute",
-      "java": "Annotation",
-      "imports": ["java.lang.annotation.Annotation"]
+      "java": "Object",
+      "imports": []
     },
     {
       "csharp": "System.AttributeUsageAttribute",
@@ -802,8 +922,8 @@
     },
     {
       "csharp": "System.Tuple`2",
-      "java": "Tuple2",
-      "imports": ["io.vavr.Tuple2"]
+      "java": "AbstractMap.SimpleEntry",
+      "imports": ["java.util.AbstractMap"]
     },
     {
       "csharp": "System.Tuple`3",
@@ -891,11 +1011,6 @@
       "imports": ["java.nio.ByteBuffer"]
     },
     {
-      "csharp": "System.Diagnostics.Stopwatch",
-      "java": "System.nanoTime",
-      "imports": ["java.lang.System"]
-    },
-    {
       "csharp": "System.Console",
       "java": "System",
       "imports": ["java.lang.System"]
@@ -909,9 +1024,99 @@
       "csharp": "System.ComponentModel.INotifyPropertyChanged",
       "java": "ChangeListener",
       "imports": ["javafx.beans.value.ChangeListener"]
+    },
+    {
+      "csharp": "System.MarshalByRefObject",
+      "java": "Object",
+      "imports": []
+    },
+    {
+      "csharp": "System.Threading.CancellationToken",
+      "java": "boolean",
+      "imports": []
+    },
+    {
+      "csharp": "System.Threading.CancellationTokenSource",
+      "java": "java.util.concurrent.atomic.AtomicBoolean",
+      "imports": ["java.util.concurrent.atomic.AtomicBoolean"]
+    },
+    {
+      "csharp": "System.MathF",
+      "java": "Math",
+      "imports": []
+    },
+    {
+      "csharp": "System.Collections.Generic.IReadOnlyList`1",
+      "java": "List",
+      "imports": ["java.util.List"]
+    },
+    {
+      "csharp": "System.Collections.Generic.IReadOnlyDictionary`2",
+      "java": "Map",
+      "imports": ["java.util.Map"]
+    },
+    {
+      "csharp": "System.Collections.Generic.IReadOnlyCollection`1",
+      "java": "Collection",
+      "imports": ["java.util.Collection"]
+    },
+    {
+      "csharp": "System.Collections.ObjectModel.ReadOnlyCollection`1",
+      "java": "List",
+      "imports": ["java.util.List"]
+    },
+    {
+      "csharp": "System.Tuple`3",
+      "java": "Object[]",
+      "imports": []
+    },
+    {
+      "csharp": "System.ValueTuple`3",
+      "java": "Object[]",
+      "imports": []
+    },
+    {
+      "csharp": "System.Diagnostics.Debug",
+      "java": "System",
+      "imports": []
+    },
+    {
+      "csharp": "System.Diagnostics.Contracts.Contract",
+      "java": "Object",
+      "imports": []
+    },
+    {
+      "csharp": "System.Runtime.CompilerServices.MethodImplAttribute",
+      "java": "Object",
+      "imports": []
     }
   ],
   "methodMappings": [
+    {
+      "type": "System.Collections.Generic.IEnumerator`1",
+      "method": "MoveNext",
+      "javaMethod": "hasNext"
+    },
+    {
+      "type": "System.Collections.IEnumerator",
+      "method": "MoveNext",
+      "javaMethod": "hasNext"
+    },
+    {
+      "type": "System.Collections.Generic.IComparer",
+      "method": "Compare",
+      "javaMethod": "compare"
+    },
+    {
+      "type": "System.Collections.IComparer",
+      "method": "Compare",
+      "javaMethod": "compare"
+    },
+    {
+      "type": "System.Collections.Generic.Comparer",
+      "method": "Compare",
+      "javaMethod": "compare"
+    },
     {
       "type": "System.Collections.Generic.Dictionary",
       "method": "Add",
@@ -1318,6 +1523,56 @@
       "javaMethod": "clamp"
     },
     {
+      "type": "System.Math",
+      "method": "Atan2",
+      "javaMethod": "atan2"
+    },
+    {
+      "type": "System.Math",
+      "method": "Atan",
+      "javaMethod": "atan"
+    },
+    {
+      "type": "System.Math",
+      "method": "Asin",
+      "javaMethod": "asin"
+    },
+    {
+      "type": "System.Math",
+      "method": "Acos",
+      "javaMethod": "acos"
+    },
+    {
+      "type": "System.Math",
+      "method": "Sign",
+      "javaMethod": "signum"
+    },
+    {
+      "type": "System.Math",
+      "method": "Exp",
+      "javaMethod": "exp"
+    },
+    {
+      "type": "System.Math",
+      "method": "Truncate",
+      "javaMethod": "truncate"
+    },
+    {
+      "type": "System.Math",
+      "method": "Tanh",
+      "javaMethod": "tanh"
+    },
+    {
+      "type": "System.Math",
+      "method": "Sinh",
+      "javaMethod": "sinh"
+    },
+    {
+      "type": "System.Math",
+      "method": "Cosh",
+      "javaMethod": "cosh"
+    },
+    {
       "type": "System.Console",
       "method": "WriteLine",
       "javaMethod": "out.println"
@@ -1538,6 +1793,81 @@
       "javaMethod": "collect"
     },
     {
+      "type": "System.Collections.Generic.Dictionary`2",
+      "method": "Keys",
+      "javaMethod": "keySet"
+    },
+    {
+      "type": "System.Collections.Generic.IDictionary`2",
+      "method": "Keys",
+      "javaMethod": "keySet"
+    },
+    {
+      "type": "System.Collections.Generic.Dictionary`2",
+      "method": "Values",
+      "javaMethod": "values"
+    },
+    {
+      "type": "System.Collections.Generic.IDictionary`2",
+      "method": "Values",
+      "javaMethod": "values"
+    },
+    {
+      "type": "System.Collections.Generic.List`1",
+      "method": "RemoveAt",
+      "javaMethod": "remove"
+    },
+    {
+      "type": "System.Collections.Generic.IList`1",
+      "method": "RemoveAt",
+      "javaMethod": "remove"
+    },
+    {
+      "type": "System.Globalization.CultureInfo",
+      "method": "InvariantCulture",
+      "javaMethod": "java.util.Locale.ROOT"
+    },
+    {
+      "type": "System.Double",
+      "method": "IsInfinity",
+      "javaMethod": "isInfinite"
+    },
+    {
+      "type": "System.Double",
+      "method": "IsPositiveInfinity",
+      "javaMethod": "isInfinite"
+    },
+    {
+      "type": "System.Double",
+      "method": "IsNegativeInfinity",
+      "javaMethod": "isInfinite"
+    },
+    {
+      "type": "System.Double",
+      "method": "IsNaN",
+      "javaMethod": "isNaN"
+    },
+    {
+      "type": "System.Double",
+      "method": "IsFinite",
+      "javaMethod": "isFinite"
+    },
+    {
+      "type": "System.Tuple`2",
+      "method": "Item1",
+      "javaMethod": "getKey"
+    },
+    {
+      "type": "System.Tuple`2",
+      "method": "Item2",
+      "javaMethod": "getValue"
+    },
+    {
+      "type": "System.Linq.IGrouping`2",
+      "method": "Key",
+      "javaMethod": "getKey"
+    },
+    {
       "type": "System.IO.Stream",
       "method": "Read",
       "javaMethod": "read"
@@ -1559,6 +1889,10 @@
     }
   ],
   "namespaceMappings": [
+    {
+      "csharp": "",
+      "java": "Microsoft.Msagl"
+    },
     {
       "csharp": "System",
       "java": "java.lang"
@@ -1634,6 +1968,11 @@
     {
       "csharp": "System.Security.Cryptography",
       "java": "java.security"
+    },
+    {
+      "csharp": "System.Globalization.CultureInfo",
+      "java": "Locale",
+      "imports": ["java.util.Locale"]
     },
     {
       "csharp": "System.Globalization",

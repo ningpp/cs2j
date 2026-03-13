@@ -23,8 +23,8 @@ public class PropertyTransformer : IMemberTransformer
         var results = new List<JavaSyntaxNode>();
         var typeInfo = context.SemanticModel?.GetTypeInfo(propDecl.Type);
         var propType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Object";
-        var propName = propDecl.Identifier.Text;
-        var fieldName = ToCamelCase(propName);
+        var propName = ConversionContext.EscapeJavaKeyword(propDecl.Identifier.Text);
+        var fieldName = ConversionContext.EscapeJavaKeyword(ToCamelCase(propName));
         var isStatic = propDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword));
         var modifiers = ConvertModifiers(propDecl.Modifiers, isStatic);
 
@@ -53,7 +53,13 @@ public class PropertyTransformer : IMemberTransformer
             fieldModifiers |= JavaModifiers.Static;
         }
 
-        // 创建后备字段
+        // 创建后备字段 - 只有自动属性才需要后备字段
+        // 显式属性（有body的getter/setter）直接在getter/setter中操作现有字段，不需要生成后备字段
+        var hasExplicitGetterBody = getAccessor?.Body != null || getAccessor?.ExpressionBody != null;
+        var hasExplicitSetterBody = setAccessor?.Body != null || setAccessor?.ExpressionBody != null;
+        var needsBackingField = (hasGetter && !hasExplicitGetterBody) || (hasSetter && !hasExplicitSetterBody) ||
+                                (propDecl.Initializer != null);
+
         var field = new JavaFieldDeclaration
         {
             Name = fieldName,
@@ -68,7 +74,10 @@ public class PropertyTransformer : IMemberTransformer
             field.Initializer = exprTransformer.Transform(propDecl.Initializer.Value, context);
         }
 
-        results.Add(field);
+        if (needsBackingField)
+        {
+            results.Add(field);
+        }
 
         // 创建 getter
         if (hasGetter || propDecl.AccessorList == null)  // 默认有 getter
@@ -178,6 +187,10 @@ public class PropertyTransformer : IMemberTransformer
         {
             result |= JavaModifiers.Static;
         }
+
+        // C# "protected internal" maps to Protected | Public — Java doesn't allow both; keep Protected.
+        if ((result & JavaModifiers.Protected) != 0 && (result & JavaModifiers.Public) != 0)
+            result &= ~JavaModifiers.Public;
 
         return result;
     }

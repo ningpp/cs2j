@@ -20,6 +20,7 @@ public class TransformerFactory
     public ITypeTransformer CreateStructTransformer() => new StructTransformer();
     public ITypeTransformer CreateEnumTransformer() => new EnumTransformer();
     public ITypeTransformer CreateRecordTransformer() => new RecordTransformer();
+    public DelegateTransformer CreateDelegateTransformer() => new DelegateTransformer();
 
     // 成员转换器
     public IMemberTransformer CreateMethodTransformer() => new MethodTransformer();
@@ -27,6 +28,7 @@ public class TransformerFactory
     public IMemberTransformer CreateFieldTransformer() => new FieldTransformer();
     public IMemberTransformer CreateConstructorTransformer() => new ConstructorTransformer();
     public IMemberTransformer CreateIndexerTransformer() => new IndexerTransformer();
+    public EventFieldTransformer CreateEventFieldTransformer() => new EventFieldTransformer();
 
     // 语句转换器
     public IStatementTransformer CreateStatementTransformer() => new StatementTransformer();

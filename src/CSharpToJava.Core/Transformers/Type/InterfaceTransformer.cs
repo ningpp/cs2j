@@ -44,6 +44,9 @@ public class InterfaceTransformer : ITypeTransformer
             javaInterface.TypeParameters.Add(new JavaTypeParameter(typeParam.Identifier.Text));
         }
 
+        // Propagate generic type parameter constraints
+        ClassTransformer.ApplyTypeParameterConstraints(interfaceDecl.ConstraintClauses, javaInterface.TypeParameters, context);
+
         // 处理成员
         foreach (var member in interfaceDecl.Members)
         {
@@ -70,6 +73,15 @@ public class InterfaceTransformer : ITypeTransformer
             };
         }
 
+        // Default to public when no explicit access modifier (C# default = internal)
+        bool hasAccessModifier = modifiers.Any(m =>
+            m.IsKind(SyntaxKind.PublicKeyword) ||
+            m.IsKind(SyntaxKind.PrivateKeyword) ||
+            m.IsKind(SyntaxKind.ProtectedKeyword) ||
+            m.IsKind(SyntaxKind.InternalKeyword));
+        if (!hasAccessModifier)
+            result |= JavaModifiers.Public;
+
         return result;
     }
 
@@ -91,12 +103,24 @@ public class InterfaceTransformer : ITypeTransformer
             case PropertyDeclarationSyntax propDecl:
                 var propTransformer = factory.CreatePropertyTransformer();
                 var props = propTransformer.Transform(propDecl, context);
-                if (props is JavaFieldDeclaration jf)
+                if (props is JavaMemberCollection propCollection)
                 {
-                    // Interface properties don't have fields, skip
+                    foreach (var item in propCollection.Members)
+                    {
+                        // Only add method declarations (getters/setters) — skip backing fields
+                        if (item is JavaMethodDeclaration jm)
+                        {
+                            // Interface methods must be abstract (no body)
+                            jm.Body = null;
+                            jm.IsBodyExpression = false;
+                            javaInterface.Methods.Add(jm);
+                        }
+                    }
                 }
                 else if (props is JavaMethodDeclaration jm)
                 {
+                    jm.Body = null;
+                    jm.IsBodyExpression = false;
                     javaInterface.Methods.Add(jm);
                 }
                 break;
@@ -104,11 +128,18 @@ public class InterfaceTransformer : ITypeTransformer
             case IndexerDeclarationSyntax indexerDecl:
                 var indexerTransformer = factory.CreateIndexerTransformer();
                 var indexerResult = indexerTransformer.Transform(indexerDecl, context);
-                // IndexerTransformer returns a List<JavaMethodDeclaration> wrapped in a custom type
-                // For now, handle it as a regular node
-                if (indexerResult is Java.JavaSyntaxNode node)
+                if (indexerResult is JavaMemberCollection indexerCollection)
                 {
-                    // Handle based on actual type
+                    foreach (var item in indexerCollection.Members)
+                    {
+                        if (item is JavaMethodDeclaration jm)
+                        {
+                            // Interface methods must be abstract (no body)
+                            jm.Body = null;
+                            jm.IsBodyExpression = false;
+                            javaInterface.Methods.Add(jm);
+                        }
+                    }
                 }
                 break;
         }

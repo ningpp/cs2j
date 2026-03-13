@@ -142,10 +142,13 @@ public class MergedTypeDeclaration
     /// </summary>
     private static string GetMemberKey(MemberDeclarationSyntax member)
     {
-        // For methods, include the name and parameter count
+        // For methods, include the name and parameter types (not just count, to preserve overloads)
         if (member is MethodDeclarationSyntax method)
         {
-            return $"method:{method.Identifier.Text}:{method.ParameterList?.Parameters.Count ?? 0}";
+            var paramTypes = string.Join(",",
+                method.ParameterList?.Parameters.Select(p => p.Type?.ToString() ?? "?")
+                ?? Enumerable.Empty<string>());
+            return $"method:{method.Identifier.Text}:{paramTypes}";
         }
 
         // For properties, use the identifier
@@ -162,10 +165,13 @@ public class MergedTypeDeclaration
             return $"field:{variables}";
         }
 
-        // For constructors, use parameter count
+        // For constructors, use parameter types (not just count, to preserve overloads)
         if (member is ConstructorDeclarationSyntax ctor)
         {
-            return $"ctor:{ctor.ParameterList?.Parameters.Count ?? 0}";
+            var ctorParamTypes = string.Join(",",
+                ctor.ParameterList?.Parameters.Select(p => p.Type?.ToString() ?? "?")
+                ?? Enumerable.Empty<string>());
+            return $"ctor:{ctorParamTypes}";
         }
 
         // For other members, use the kind and a hash of the syntax

@@ -265,11 +265,23 @@ public class TypeMappingRegistry
         }
 
         // 尝试匹配类型的任何基类型
+        // Handle generic type name format mismatch:
+        //   Roslyn uses angle-bracket format: System.Collections.Generic.HashSet<T>
+        //   JSON config uses backtick format:  System.Collections.Generic.HashSet`1
         foreach (var (key, value) in _methodMappings)
         {
-            if (key.MethodName == methodName && typeName.StartsWith(key.TypeName))
-            {
+            if (key.MethodName != methodName) continue;
+
+            if (typeName.StartsWith(key.TypeName))
                 return value.JavaMethodName;
+
+            // Normalize backtick suffix: "HashSet`1" → "HashSet", then match "HashSet<..."
+            var backtickIdx = key.TypeName.LastIndexOf('`');
+            if (backtickIdx >= 0)
+            {
+                var baseKeyName = key.TypeName.Substring(0, backtickIdx);
+                if (typeName.StartsWith(baseKeyName + "<") || typeName == baseKeyName)
+                    return value.JavaMethodName;
             }
         }
 
@@ -281,9 +293,20 @@ public class TypeMappingRegistry
     /// </summary>
     public string? MapNamespace(string ns)
     {
+        // Handle global namespace (empty string) with exact match only
+        if (string.IsNullOrEmpty(ns))
+        {
+            foreach (var (pattern, replacement) in _namespaceMappings)
+            {
+                if (pattern == "")
+                    return replacement;
+            }
+            return null;
+        }
+
         foreach (var (pattern, replacement) in _namespaceMappings)
         {
-            if (ns.StartsWith(pattern))
+            if (!string.IsNullOrEmpty(pattern) && ns.StartsWith(pattern))
             {
                 return ns.Replace(pattern, replacement);
             }

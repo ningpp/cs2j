@@ -107,7 +107,9 @@ public class JavaMethodDeclaration : JavaSyntaxNode
         }
         else if (IsBodyExpression)
         {
-            sb.Append(" { ").Append(Body).Append(" }");
+            sb.Append(" { ");
+            if (ReturnType != "void") sb.Append("return ");
+            sb.Append(Body).Append("; }");
         }
         else
         {
@@ -227,6 +229,11 @@ public class JavaParameter
 
         if (IsVarArgs)
         {
+            // For C# "params T[] items" → Java "T... items". Strip trailing [] from array type.
+            if (sb.ToString().EndsWith("[]"))
+            {
+                sb.Remove(sb.Length - 2, 2);
+            }
             sb.Append("...");
         }
 
@@ -257,3 +264,4 @@ public enum JavaModifiers
     Default = 1 << 11,  // 接口默认方法
     Native = 1 << 12,
 }
+

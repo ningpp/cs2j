@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.Transformers.Type;
 
 namespace CSharpToJava.Core.Transformers.Member;
 
@@ -29,16 +30,33 @@ public class MethodTransformer : IMemberTransformer
             ReturnType = GetReturnType(methodDecl, context)
         };
 
+        // Explicit interface implementations (e.g., ICurve ICurve.Clone()) have no access modifier in C#,
+        // but interface implementations in Java MUST be public.
+        if (methodDecl.ExplicitInterfaceSpecifier != null && !javaMethod.Modifiers.HasFlag(JavaModifiers.Public))
+            javaMethod.Modifiers |= JavaModifiers.Public;
+
         // 处理类型参数（泛型方法）
         foreach (var typeParam in methodDecl.TypeParameterList?.Parameters ?? Enumerable.Empty<TypeParameterSyntax>())
         {
             javaMethod.TypeParameters.Add(new JavaTypeParameter(typeParam.Identifier.Text));
         }
 
+        // Propagate generic type parameter constraints
+        if (methodDecl.ConstraintClauses.Count > 0)
+        {
+            ClassTransformer.ApplyTypeParameterConstraints(methodDecl.ConstraintClauses, javaMethod.TypeParameters, context);
+        }
+
+        // Check if this is an extension method (has 'this' on first param)
+        bool isExtensionMethod = methodDecl.ParameterList?.Parameters.Count > 0 &&
+            methodDecl.ParameterList.Parameters[0].Modifiers.Any(m => m.IsKind(SyntaxKind.ThisKeyword));
+
         // 处理参数
         foreach (var param in methodDecl.ParameterList?.Parameters ?? Enumerable.Empty<ParameterSyntax>())
         {
-            javaMethod.Parameters.Add(ConvertParameter(param, context));
+            var converted = ConvertParameter(param, context);
+            if (converted != null)
+                javaMethod.Parameters.Add(converted);
         }
 
         // 注意：C# 异常规范在 Java 中需要通过 throws 子句声明
@@ -65,6 +83,30 @@ public class MethodTransformer : IMemberTransformer
 
         context.LeaveMethod();
 
+        // Java 规则：静态方法不能引用外部类的类型参数。
+        // 如果方法为 static 且签名中出现了外部类的类型参数，需将其提升为方法级类型参数。
+        if (javaMethod.Modifiers.HasFlag(JavaModifiers.Static) && context.CurrentType?.TypeParameters.Count > 0)
+        {
+            var methodOwnTypeParamNames = javaMethod.TypeParameters.Select(tp => tp.Name).ToHashSet(StringComparer.Ordinal);
+            // Include the body in the search so that type params used in foreach element types are also promoted
+            var signatureText = javaMethod.ReturnType + " " +
+                string.Join(" ", javaMethod.Parameters.Select(p => p.Type)) + " " +
+                (javaMethod.Body ?? "");
+            var toAdd = new List<JavaTypeParameter>();
+            foreach (var classParam in context.CurrentType.TypeParameters)
+            {
+                if (!methodOwnTypeParamNames.Contains(classParam.Name) &&
+                    System.Text.RegularExpressions.Regex.IsMatch(signatureText,
+                        $@"\b{System.Text.RegularExpressions.Regex.Escape(classParam.Name)}\b"))
+                {
+                    toAdd.Add(classParam);
+                }
+            }
+            // Prepend class type params (in order) before any method-own type params
+            for (int i = toAdd.Count - 1; i >= 0; i--)
+                javaMethod.TypeParameters.Insert(0, toAdd[i]);
+        }
+
         return javaMethod;
     }
 
@@ -84,7 +126,7 @@ public class MethodTransformer : IMemberTransformer
             return char.ToUpper(name[4]) + name.Substring(5);
         }
 
-        // 检查类型映射中的方法名映射
+        // 检查类型映射中的方法名映射（含实现的接口）
         if (methodInfo?.ContainingType != null)
         {
             var containingType = methodInfo.ContainingType.ToDisplayString();
@@ -93,10 +135,26 @@ public class MethodTransformer : IMemberTransformer
             {
                 return mappedName;
             }
+
+            // Also check all interfaces implemented by the containing type
+            foreach (var iface in methodInfo.ContainingType.AllInterfaces)
+            {
+                var ifaceType = iface.ConstructedFrom.ToDisplayString();
+                mappedName = context.TypeMappings.MapMethod(ifaceType, name);
+                if (!string.IsNullOrEmpty(mappedName))
+                    return mappedName;
+            }
         }
 
-        // 将 PascalCase 转换为 camelCase（但方法名在 Java 中通常是 PascalCase）
-        return name;
+        // Java uses camelCase for all method names
+        // Special cases where simple camelCase gives the wrong Java name
+        if (name == "GetHashCode") return "hashCode";
+        if (name == "GetEnumerator") return "iterator";
+        if (name == "GetType") return "getClass";
+
+        var camelName = name.Length > 0 ? char.ToLower(name[0]) + name.Substring(1) : name;
+        // Escape Java keywords (e.g. Assert → assert → assertValue)
+        return ConversionContext.EscapeJavaKeyword(camelName);
     }
 
     private string ConvertOperatorName(string csharpOperator)
@@ -156,12 +214,13 @@ public class MethodTransformer : IMemberTransformer
         return "Object";
     }
 
-    private JavaParameter ConvertParameter(ParameterSyntax param, ConversionContext context)
+    private JavaParameter? ConvertParameter(ParameterSyntax param, ConversionContext context)
     {
         var typeInfo = context.SemanticModel?.GetTypeInfo(param.Type!);
         var javaType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Object";
 
-        var javaParam = new JavaParameter(javaType, param.Identifier.Text);
+        var paramName = ConversionContext.EscapeJavaKeyword(param.Identifier.Text);
+        var javaParam = new JavaParameter(javaType, paramName);
 
         // 处理修饰符
         foreach (var modifier in param.Modifiers)
@@ -170,18 +229,18 @@ public class MethodTransformer : IMemberTransformer
             {
                 case SyntaxKind.RefKeyword:
                 case SyntaxKind.OutKeyword:
-                    // Java 不支持 ref/out 参数
-                    // 可以使用 Holder 模式或返回数组
-                    context.Diagnostics.Warning(
-                        $"Java doesn't support ref/out parameters. Parameter '{param.Identifier.Text}' may need special handling.",
-                        param.GetLocation()
-                    );
+                    // Convert ref/out to Holder pattern
+                    javaParam = new JavaParameter(GetHolderType(javaType), paramName);
+                    // Add import for the holder type if needed (Holder classes are in the project package)
                     break;
                 case SyntaxKind.ParamsKeyword:
                     javaParam.IsVarArgs = true;
                     break;
                 case SyntaxKind.ThisKeyword:
-                    // 扩展方法 - 在 Java 中转换为静态方法
+                    // Extension method first parameter - skip it (the method stays static)
+                    return null;
+                case SyntaxKind.InKeyword:
+                    // 'in' parameter - treat like ref (read-only ref) but just pass by value in Java
                     break;
             }
         }
@@ -197,6 +256,11 @@ public class MethodTransformer : IMemberTransformer
         }
 
         return javaParam;
+    }
+
+    private static string GetHolderType(string javaType)
+    {
+        return CSharpToJava.Core.Transformers.Type.DelegateTransformer.GetHolderType(javaType);
     }
 
     private JavaModifiers ConvertModifiers(SyntaxTokenList modifiers)
@@ -224,6 +288,10 @@ public class MethodTransformer : IMemberTransformer
                 _ => JavaModifiers.None
             };
         }
+
+        // C# "protected internal" maps to Protected | Public — Java doesn't allow both; keep Protected.
+        if ((result & JavaModifiers.Protected) != 0 && (result & JavaModifiers.Public) != 0)
+            result &= ~JavaModifiers.Public;
 
         return result;
     }

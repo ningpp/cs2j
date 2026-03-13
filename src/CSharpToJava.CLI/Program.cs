@@ -54,7 +54,8 @@ class Program
             // 输出结果
             if (opts.Output != null)
             {
-                await File.WriteAllTextAsync(opts.Output, result.GeneratedCode);
+                // 使用 UTF-8 without BOM 编码写入Java文件
+                await File.WriteAllTextAsync(opts.Output, result.GeneratedCode, new System.Text.UTF8Encoding(false));
                 Console.WriteLine($"Successfully converted to: {opts.Output}");
             }
             else
@@ -132,15 +133,21 @@ class Program
                 ? Path.Combine(opts.Destination, "src", "main", "java")
                 : opts.Destination;
 
+            // 当 --force 时清空 Java 源码目录以避免残留旧文件（如 Holder 类）
+            if (opts.Force && Directory.Exists(outputRoot))
+            {
+                Directory.Delete(outputRoot, recursive: true);
+            }
+
             // 创建输出目录
             if (!Directory.Exists(outputRoot))
             {
                 Directory.CreateDirectory(outputRoot);
             }
 
-            // 执行项目转换
+            // 执行项目转换 (uses ProjectConversionPipeline for partial type merging + Holder generation)
             var pipeline = new ConversionPipeline();
-            var results = await pipeline.ConvertProjectAsync(opts.Source, options);
+            var results = await pipeline.ConvertProjectWithPartialMergeAsync(opts.Source, options);
 
             // 保存结果
             int successCount = 0;
@@ -150,8 +157,28 @@ class Program
             {
                 if (result.FileName == null) continue;
 
-                var relativePath = Path.GetRelativePath(opts.Source, result.FileName);
-                var outputPath = Path.Combine(outputRoot, Path.ChangeExtension(relativePath, ".java"));
+                string outputPath;
+
+                // Holder files and other generated files have FileName without a source path prefix
+                // and have a Package set. Use the Package to determine the output directory.
+                bool isGeneratedFile = !string.IsNullOrEmpty(result.Package) &&
+                    !Path.IsPathFullyQualified(result.FileName) &&
+                    !result.FileName.StartsWith(opts.Source);
+
+                if (isGeneratedFile && !string.IsNullOrEmpty(result.Package))
+                {
+                    var packageDir = result.Package.Replace('.', Path.DirectorySeparatorChar);
+                    outputPath = Path.Combine(outputRoot, packageDir, result.FileName);
+                    if (!result.FileName.EndsWith(".java"))
+                        outputPath = Path.ChangeExtension(outputPath, ".java");
+                }
+                else
+                {
+                    var relativePath = Path.IsPathFullyQualified(result.FileName)
+                        ? Path.GetRelativePath(opts.Source, result.FileName)
+                        : result.FileName;
+                    outputPath = Path.Combine(outputRoot, Path.ChangeExtension(relativePath, ".java"));
+                }
 
                 // 创建输出目录
                 var outputDir = Path.GetDirectoryName(outputPath);
@@ -162,18 +189,19 @@ class Program
 
                 if (!string.IsNullOrEmpty(result.GeneratedCode))
                 {
-                    await File.WriteAllTextAsync(outputPath, result.GeneratedCode);
+                    // 使用 UTF-8 without BOM 编码写入Java文件
+                    await File.WriteAllTextAsync(outputPath, result.GeneratedCode, new System.Text.UTF8Encoding(false));
                     successCount++;
 
                     if (opts.Verbose)
                     {
-                        Console.WriteLine($"Converted: {relativePath} -> {Path.ChangeExtension(relativePath, ".java")}");
+                        Console.WriteLine($"Converted: {result.FileName} -> {outputPath}");
                     }
                 }
                 else
                 {
                     failureCount++;
-                    Console.Error.WriteLine($"Failed: {relativePath}");
+                    Console.Error.WriteLine($"Failed: {result.FileName}");
                     foreach (var diag in result.Diagnostics)
                     {
                         Console.Error.WriteLine($"  [{diag.Severity}] {diag.Message}");
@@ -187,7 +215,8 @@ class Program
                 var artifactId = new DirectoryInfo(opts.Destination).Name;
                 var pomContent = GenerateMavenPom(artifactId, opts.MavenGroupId, opts.MavenVersion, opts.JavaVersion);
                 var pomPath = Path.Combine(opts.Destination, "pom.xml");
-                await File.WriteAllTextAsync(pomPath, pomContent);
+                // pom.xml 使用 UTF-8 without BOM
+                await File.WriteAllTextAsync(pomPath, pomContent, new System.Text.UTF8Encoding(false));
                 Console.WriteLine($"Generated Maven pom.xml: {pomPath}");
             }
 
@@ -318,7 +347,7 @@ class Program
                     WriteIndented = true
                 });
 
-                await File.WriteAllTextAsync(opts.Report, json);
+                await File.WriteAllTextAsync(opts.Report, json, new System.Text.UTF8Encoding(false));
                 Console.WriteLine();
                 Console.WriteLine($"Report saved to: {opts.Report}");
             }
@@ -366,6 +395,14 @@ class Program
             </plugin>
         </plugins>
     </build>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.vavr</groupId>
+            <artifactId>vavr</artifactId>
+            <version>0.10.4</version>
+        </dependency>
+    </dependencies>
 
 </project>
 ";

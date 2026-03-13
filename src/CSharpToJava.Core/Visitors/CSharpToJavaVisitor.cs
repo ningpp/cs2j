@@ -230,6 +230,24 @@ public class CSharpToJavaVisitor : CSharpSyntaxVisitor<JavaSyntaxNode?>
                     compilation.TypeDeclarations.Add(typeDeclNode);
                 }
             }
+            else if (member is EnumDeclarationSyntax enumDecl)
+            {
+                // EnumDeclarationSyntax is NOT a TypeDeclarationSyntax in Roslyn
+                var javaEnum = VisitEnumDeclaration(enumDecl);
+                if (javaEnum is JavaTypeDeclaration enumDeclNode)
+                {
+                    compilation.TypeDeclarations.Add(enumDeclNode);
+                }
+            }
+            else if (member is DelegateDeclarationSyntax delegateDecl)
+            {
+                var delegateTransformer = _factory.CreateDelegateTransformer();
+                var javaDelegate = delegateTransformer.TransformDelegate(delegateDecl, _context);
+                if (javaDelegate != null)
+                {
+                    compilation.TypeDeclarations.Add(javaDelegate);
+                }
+            }
         }
 
         _context.LeaveNamespace();

@@ -131,6 +131,41 @@ public class ConversionContext
     /// </summary>
     public CSharpCompilation? ProjectCompilation { get; set; }
 
+    /// <summary>
+    /// Set of [Flags] enum names that should be mapped to int in Java.
+    /// Populated by EnumTransformer when a [Flags] enum is encountered.
+    /// </summary>
+    private static readonly HashSet<string> _flagsEnumNames = new(StringComparer.Ordinal);
+
+    public void RegisterFlagsEnum(string enumName)
+    {
+        _flagsEnumNames.Add(enumName);
+    }
+
+    public bool IsFlagsEnum(string enumName) => _flagsEnumNames.Contains(enumName);
+
+    /// <summary>
+    /// Pre-statements to emit before the current statement being transformed.
+    /// Used when an expression transformation must be split into multiple statements
+    /// (e.g., chain property assignment used as method argument: list.Add(obj.Prop = local = expr)
+    ///  → local = expr; obj.setProp(local); list.add(local))
+    /// </summary>
+    private readonly List<string> _pendingPreStatements = new();
+
+    public void AddPreStatement(string statement)
+    {
+        _pendingPreStatements.Add(statement);
+    }
+
+    public IReadOnlyList<string> DrainPreStatements()
+    {
+        var result = _pendingPreStatements.ToList();
+        _pendingPreStatements.Clear();
+        return result;
+    }
+
+    public bool HasPendingPreStatements => _pendingPreStatements.Count > 0;
+
     public ConversionContext(ConversionOptions options, TypeMapping.TypeMappingRegistry typeMappings)
     {
         Options = options;
@@ -207,10 +242,21 @@ public class ConversionContext
     public void AddImport(string typeName)
     {
         // 跳过 java.lang 包下的类型
-        if (!typeName.StartsWith("java.lang."))
-        {
-            ImportedTypes.Add(typeName);
-        }
+        if (typeName.StartsWith("java.lang.")) return;
+        // 跳过 C# 命名空间风格的导入（首段首字母大写，如 System.*, Microsoft.*）
+        // Java 包名首段必须为全小写 (java.*, com.*, org.* 等)
+        var firstDot = typeName.IndexOf('.');
+        var firstSegment = firstDot >= 0 ? typeName.Substring(0, firstDot) : typeName;
+        if (firstSegment.Length > 0 && char.IsUpper(firstSegment[0])) return;
+        ImportedTypes.Add(typeName);
+    }
+
+    /// <summary>
+    /// 重置每个文件转换前的导入集合（避免跨文件污染）
+    /// </summary>
+    public void ClearImports()
+    {
+        ImportedTypes.Clear();
     }
 
     /// <summary>
@@ -218,17 +264,30 @@ public class ConversionContext
     /// </summary>
     public string NamespaceToPackage(string ns)
     {
-        // 检查是否有自定义映射
+        // Normalize global namespace to empty string
+        var normalizedNs = (string.IsNullOrWhiteSpace(ns) || ns == "<global namespace>") ? "" : ns;
+
+        // 优先检查 TypeMappings.json 中的配置 (supports empty string key for global namespace)
+        var mapped = TypeMappings.MapNamespace(normalizedNs);
+        if (mapped != null)
+        {
+            return mapped;
+        }
+
+        if (string.IsNullOrEmpty(normalizedNs))
+            return string.Empty;
+
+        // 其次检查用户自定义映射
         foreach (var (pattern, replacement) in Options.NamespaceMappings)
         {
-            if (ns.StartsWith(pattern))
+            if (normalizedNs.StartsWith(pattern))
             {
-                return ns.Replace(pattern, replacement);
+                return normalizedNs.Replace(pattern, replacement);
             }
         }
 
-        // 默认转换：替换 . 为 /
-        return ns;
+        // 默认转换：直接使用原始 namespace（适用于非 System 命名空间）
+        return normalizedNs;
     }
 
     /// <summary>
@@ -248,11 +307,19 @@ public class ConversionContext
 
     private string MapTypeInternal(ITypeSymbol typeSymbol)
     {
+        // Anonymous types (e.g. new { x = 1, y = 2 }) have no Java equivalent — use Object
+        if (typeSymbol is INamedTypeSymbol anonymousCheck && anonymousCheck.IsAnonymousType)
+        {
+            return "Object";
+        }
+
         // 处理数组类型
         if (typeSymbol is IArrayTypeSymbol arrayType)
         {
             var elementType = MapType(arrayType.ElementType);
-            return elementType + "[]";
+            // C# int[,] (rank 2) → Java int[][] (two levels of brackets)
+            var brackets = string.Concat(Enumerable.Repeat("[]", arrayType.Rank));
+            return elementType + brackets;
         }
 
         // 处理泛型类型
@@ -321,6 +388,10 @@ public class ConversionContext
                 baseType = baseType.Substring(0, tickIndex);
             }
 
+            // Object doesn't take type parameters in Java - strip them
+            if (baseType == "Object")
+                return "Object";
+
             return $"{baseType}<{typeArgs}>";
         }
 
@@ -345,6 +416,22 @@ public class ConversionContext
         {
             Diagnostics.Warning("Dynamic type converted to Object");
             return "Object";
+        }
+
+        // [Flags] enum types → int (registered by EnumTransformer during project conversion)
+        if (typeSymbol is INamedTypeSymbol namedEnumCheck && namedEnumCheck.TypeKind == TypeKind.Enum)
+        {
+            // Check static registry (populated when EnumTransformer processes [Flags] enums)
+            if (IsFlagsEnum(namedEnumCheck.Name))
+                return "int";
+            // Also check the Roslyn attribute directly for same-compilation flags enums
+            bool hasFlagsAttr = namedEnumCheck.GetAttributes().Any(a =>
+                a.AttributeClass?.Name is "FlagsAttribute" or "Flags");
+            if (hasFlagsAttr)
+            {
+                RegisterFlagsEnum(namedEnumCheck.Name);
+                return "int";
+            }
         }
 
         // 对于没有类型参数的命名类型，检查配置映射
@@ -435,6 +522,11 @@ public class ConversionContext
     }
 
     /// <summary>
+    /// Public wrapper for <see cref="AddImportsForType"/> used by transformers.
+    /// </summary>
+    public void AddImportsForTypePublic(string csharpType) => AddImportsForType(csharpType);
+
+    /// <summary>
     /// 注册一个已合并的 partial 类型
     /// </summary>
     public void RegisterMergedPartialType(MergedTypeDeclaration mergedType)
@@ -501,7 +593,11 @@ public class ConversionContext
     {
         if (ProjectCompilation != null)
         {
-            return ProjectCompilation.GetSemanticModel(syntaxTree);
+            // Synthetic trees (e.g. created by WithMembers) are NOT in the compilation.
+            // Fall back to the current SemanticModel which covers the original tree.
+            if (ProjectCompilation.ContainsSyntaxTree(syntaxTree))
+                return ProjectCompilation.GetSemanticModel(syntaxTree);
+            return SemanticModel;
         }
         return SemanticModel;
     }
@@ -649,7 +745,7 @@ public class ConversionContext
     /// <summary>
     /// 检查是否是 Java 关键字
     /// </summary>
-    private static bool IsJavaKeyword(string word)
+    public static bool IsJavaKeyword(string word)
     {
         return word switch
         {
@@ -663,6 +759,11 @@ public class ConversionContext
             "transient" or "try" or "void" or "volatile" or "while" => true,
             _ => false
         };
+    }
+
+    public static string EscapeJavaKeyword(string word)
+    {
+        return IsJavaKeyword(word) ? word + "Value" : word;
     }
 }
 

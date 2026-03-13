@@ -153,6 +153,7 @@ public class RecordTransformer : ITypeTransformer
     private JavaModifiers ConvertModifiers(SyntaxTokenList modifiers)
     {
         JavaModifiers result = JavaModifiers.None;
+        bool hasAccessModifier = false;
 
         foreach (var modifier in modifiers)
         {
@@ -167,7 +168,16 @@ public class RecordTransformer : ITypeTransformer
                 Microsoft.CodeAnalysis.CSharp.SyntaxKind.UnsafeKeyword => JavaModifiers.None,
                 _ => JavaModifiers.None
             };
+            if (kind == Microsoft.CodeAnalysis.CSharp.SyntaxKind.PublicKeyword ||
+                kind == Microsoft.CodeAnalysis.CSharp.SyntaxKind.PrivateKeyword ||
+                kind == Microsoft.CodeAnalysis.CSharp.SyntaxKind.ProtectedKeyword ||
+                kind == Microsoft.CodeAnalysis.CSharp.SyntaxKind.InternalKeyword)
+                hasAccessModifier = true;
         }
+
+        // Default to public when no explicit access modifier (C# default = internal)
+        if (!hasAccessModifier)
+            result |= JavaModifiers.Public;
 
         return result;
     }
@@ -236,6 +246,13 @@ public class RecordTransformer : ITypeTransformer
                 {
                     javaRecord.Methods.Add(javaMethod);
                 }
+                break;
+
+            case OperatorDeclarationSyntax opDecl:
+                var opTransformer = new Transformers.Member.OperatorTransformer();
+                var opMethod = opTransformer.Transform(opDecl, context);
+                if (opMethod != null)
+                    javaRecord.Methods.Add(opMethod);
                 break;
         }
     }
