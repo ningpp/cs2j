@@ -145,10 +145,12 @@ public class StatementTransformer : IStatementTransformer
         {
             var preStmts = context.DrainPreStatements();
             var preStmtLines = string.Join("\n", preStmts.Select(s => s + ";"));
-            // If the main expression is just a simple variable (from chain-assignment hoisting),
-            // skip it as a statement (it's a no-op). Otherwise include it.
-            bool isSimpleIdentifier = expr.All(c => char.IsLetterOrDigit(c) || c == '_');
-            if (isSimpleIdentifier)
+            // If the main expression is just a simple variable or an out-param holder field access
+            // (from chain-assignment hoisting), skip it as a statement — e.g. "anchors.value;" is
+            // not valid Java. Valid Java statements must be method calls, assignments, etc.
+            bool isNonStatement = expr.All(c => char.IsLetterOrDigit(c) || c == '_')
+                || expr.EndsWith(".value");  // out-param XHolder field access (e.g. anchors.value)
+            if (isNonStatement)
                 return new JavaStatementNode(preStmtLines);
             return new JavaStatementNode(preStmtLines + "\n" + expr + ";");
         }
@@ -240,8 +242,14 @@ public class StatementTransformer : IStatementTransformer
                 }
                 bool enclosingReturnsIterable = enclosingRetType is INamedTypeSymbol mret &&
                     mret.Name is "IEnumerable" or "ICollection" or "IList";
-                // Don't double-collect: if the expression already ends with .toList() it's already a List
-                bool alreadyCollected = expr.EndsWith(".toList())") || expr.EndsWith("toList()))");
+                // Don't double-collect: if the expression already ends with .toList() or ArrayList::new it's already a List
+                bool alreadyCollected = expr.EndsWith(".toList())")
+                    || expr.EndsWith("toList()))")
+                    || expr.EndsWith("ArrayList::new))")
+                    || expr.EndsWith("ArrayList::new)")
+                    || expr.EndsWith(".toArray())")
+                    || System.Text.RegularExpressions.Regex.IsMatch(expr, @"\.toArray\([^)]+\)\)$")
+                    || System.Text.RegularExpressions.Regex.IsMatch(expr, @"\.toArray\([^)]+\)$");
                 if (enclosingReturnsIterable && !alreadyCollected)
                 {
                     context.AddImport("java.util.stream.Collectors");
@@ -395,18 +403,18 @@ public class StatementTransformer : IStatementTransformer
             if (trimExpr.EndsWith(".toArray()") && trimExpr.Contains("StreamSupport.stream("))
             {
                 expression = trimExpr.Substring(0, trimExpr.Length - ".toArray()".Length)
-                             + ".collect(Collectors.toList())";
-                context.AddImport("java.util.stream.Collectors");
+                                 + ".collect(Collectors.toCollection(ArrayList::new))";
+                context.AddImport("java.util.ArrayList");
             }
         }
 
-        // Check if the expression is a Stream (doesn't implement Iterable).
         // Stream.concat(), StreamSupport.stream(), Arrays.stream(), etc.
         // Collect to List to allow break/continue/return in the loop body.
         // Use EndsWith check to avoid double-collecting an already-collected stream:
         // the expression may contain inner .collect() calls (e.g. spliterator wrapping)
         // but we only skip if the OUTERMOST call is already .collect(Collectors.toList()).
         bool isStream = !expression.TrimEnd().EndsWith(".collect(Collectors.toList())")
+            && !expression.TrimEnd().EndsWith(".collect(Collectors.toCollection(ArrayList::new))")
             && !expression.TrimEnd().EndsWith(".toArray()")
             && !System.Text.RegularExpressions.Regex.IsMatch(expression.TrimEnd(), @"\.toArray\([^)]+\)$")
             && (
@@ -445,8 +453,9 @@ public class StatementTransformer : IStatementTransformer
         if (isStream)
         {
             // Collect stream to list so that break/return/continue work in loop body
+            context.AddImport("java.util.ArrayList");
             context.AddImport("java.util.stream.Collectors");
-            expression = $"{expression}.collect(Collectors.toList())";
+            expression = $"{expression}.collect(Collectors.toCollection(ArrayList::new))";
         }
 
         // Iterating a raw (non-generic) IEnumerable with a typed loop variable: in Java, iterating
@@ -458,6 +467,25 @@ public class StatementTransformer : IStatementTransformer
             && rawEnum.Name is "IEnumerable" or "ICollection")
         {
             expression = $"(Iterable<{javaType}>) ({expression})";
+        }
+
+        // Fix L: Downcast in foreach — C# allows implicitly downcasting the element type in foreach
+        // (e.g., foreach (NetworkEdge e in IEnumerable<PolyIntEdge>)) but Java does not.
+        // Detect via Roslyn's ForEachStatementInfo.ElementConversion.IsExplicit.
+        if (!isStream && javaType != "var" && javaType != "Object" && context.SemanticModel != null)
+        {
+            try
+            {
+                var forEachInfo = context.SemanticModel.GetForEachStatementInfo(stmt);
+                if (forEachInfo.ElementConversion.IsExplicit && !forEachInfo.ElementConversion.IsUserDefined
+                    && forEachInfo.ElementType != null)
+                {
+                    // Wrap iterable with a double cast to suppress the type mismatch.
+                    // At runtime the elements are already the correct subtype.
+                    expression = $"(Iterable<{javaType}>)(Iterable<?>)({expression})";
+                }
+            }
+            catch { /* SemanticModel may fail for some edge cases — skip silently */ }
         }
 
         return new JavaStatementNode($"for ({javaType} {identifier} : {expression}) {body}");
@@ -860,10 +888,11 @@ public class StatementTransformer : IStatementTransformer
             }
         }
 
-        // If this is a primitive-typed variable with no initializer, check if it's used as an out-argument
-        // to TryGetValue. In that case, Java can't compare the result of map.get() (Integer) to null
-        // when assigned to a primitive (int). Use the boxed type (Integer, Long, etc.) instead.
-        if (hasNoInitializer)
+        // If this is a primitive-typed variable, check if it's used as an out-argument to TryGetValue.
+        // In that case, Java can't compare the result of map.get() (Integer) to null when assigned to
+        // a primitive (int). Use the boxed type (Integer, Long, etc.) instead.
+        // This applies whether or not the variable has an initializer (e.g. "int x = 0" also needs boxing
+        // when used as out-param to TryGetValue).
         {
             string? boxedType = javaType switch
             {
@@ -975,14 +1004,31 @@ public class StatementTransformer : IStatementTransformer
                 }
                 // ArrayList<T> cannot be directly assigned from Stream.collect(Collectors.toList()) which returns List<T>.
                 // Wrap with new ArrayList<>(...) to produce a concrete ArrayList type.
+                // (Not needed when already using Collectors.toCollection(ArrayList::new) - that already returns ArrayList<T>.)
                 if (javaType.StartsWith("ArrayList<") && initExpr.Contains(".collect(Collectors.toList())"))
                     initExpr = $"new ArrayList<>({initExpr})";
+
+                // Fix K3: When the C# declared type is IEnumerable<T>/ICollection<T>/IList<T> (→ Java Iterable<T>)
+                // but the initializer ends with .toArray(T[]::new), the assignment would fail because
+                // T[] is NOT Iterable<T> in Java. Replace .toArray(T[]::new) with .collect(Collectors.toList()).
+                if ((javaType.StartsWith("Iterable<") || javaType.StartsWith("List<") || javaType.StartsWith("Collection<"))
+                    && System.Text.RegularExpressions.Regex.IsMatch(initExpr.TrimEnd(), @"\.toArray\([^)]+::new\)$"))
+                {
+                    initExpr = System.Text.RegularExpressions.Regex.Replace(
+                        initExpr.TrimEnd(), @"\.toArray\([^)]+::new\)$", ".collect(Collectors.toList())");
+                    context.AddImport("java.util.stream.Collectors");
+                }
 
                 // Track stream-typed local variables for subsequent for-each statements.
                 // When the initializer is a Java stream expression (not already collected), register
                 // the variable name so TransformForEachStatement can detect it.
                 {
                     bool initLooksLikeStream = !initExpr.Contains(".collect(Collectors.toList())")
+                        && !initExpr.Contains(".collect(Collectors.toCollection(ArrayList::new))")
+                        // If it ends with .toArray(...), the stream was already terminated to an array —
+                        // the variable is T[], not a stream, so do NOT register it as a stream variable.
+                        && !initExpr.TrimEnd().EndsWith(".toArray()")
+                        && !System.Text.RegularExpressions.Regex.IsMatch(initExpr.TrimEnd(), @"\.toArray\([^)]*\)$")
                         && (initExpr.Contains(".sorted(") || initExpr.Contains(".filter(") ||
                             initExpr.Contains(".map(") || initExpr.Contains(".flatMap(") ||
                             initExpr.Contains("StreamSupport.stream(") || initExpr.Contains("Arrays.stream(") ||

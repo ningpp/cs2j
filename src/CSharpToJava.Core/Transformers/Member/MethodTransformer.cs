@@ -106,8 +106,23 @@ public class MethodTransformer : IMemberTransformer
         else if (methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.AbstractKeyword)) ||
                  methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.ExternKeyword)))
         {
-            // 抽象方法或外部方法没有主体
-            javaMethod.Body = null;
+            // Special case: abstract C# Clone() maps to Java clone().
+            // Java forbids calling super.clone() when the parent's clone() is abstract.
+            // Make it concrete with a super.clone() body so subclass memberwiseClone() works.
+            if (javaMethod.Name == "clone" &&
+                methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.AbstractKeyword)) &&
+                !methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.ExternKeyword)))
+            {
+                string retType = javaMethod.ReturnType ?? "Object";
+                javaMethod.Body = $"try {{ return ({retType}) super.clone(); }} catch (CloneNotSupportedException __e) {{ throw new RuntimeException(__e); }}";
+                javaMethod.Modifiers &= ~JavaModifiers.Abstract;
+                // Ensure Cloneable is added to the declaring class (done in ClassTransformer)
+            }
+            else
+            {
+                // 抽象方法或外部方法没有主体
+                javaMethod.Body = null;
+            }
         }
 
         context.LeaveMethod();

@@ -196,6 +196,12 @@ public class ExpressionTransformer : IExpressionTransformer
     {
         var name = node.Identifier.Text;
 
+        // Check LINQ query let-alias substitution: if this identifier is a 'let' variable
+        // whose expression has been inlined into the source lambda, substitute the alias.
+        // This avoids variable scoping issues when multiple 'let' clauses are chained.
+        if (context.QueryLetAliases.TryGetValue(name, out var letAlias))
+            return letAlias;
+
         // 检查是否是别名
         if (context.IsAlias(name))
         {
@@ -657,16 +663,20 @@ public class ExpressionTransformer : IExpressionTransformer
                 }
             }
 
-            // Special case: Parallel.ForEach(collection, action) → collection.parallelStream().forEach(action)
+            // Special case: Parallel.ForEach(collection, action) → StreamSupport.stream(collection.spliterator(), true).forEach(action)
             // C# System.Threading.Tasks.Parallel.ForEach does not exist in Java.
+            // Also handles 3-arg form: Parallel.ForEach(collection, parallelOptions, action) - skips ParallelOptions.
             if (methodName is "ForEach" or "forEach"
                 && (target is "Parallel" or "ParallelStream" || originalTargetName is "Parallel"))
             {
                 if (node.ArgumentList.Arguments.Count >= 2)
                 {
                     var pCollection = Transform(node.ArgumentList.Arguments[0].Expression, context);
-                    var pAction = Transform(node.ArgumentList.Arguments[1].Expression, context);
-                    return $"{pCollection}.parallelStream().forEach({pAction})";
+                    // If 3+ args, the action is the LAST arg (middle is ParallelOptions or similar - skip it)
+                    var actionArgIdx = node.ArgumentList.Arguments.Count >= 3 ? node.ArgumentList.Arguments.Count - 1 : 1;
+                    var pAction = Transform(node.ArgumentList.Arguments[actionArgIdx].Expression, context);
+                    context.AddImport("java.util.stream.StreamSupport");
+                    return $"StreamSupport.stream({pCollection}.spliterator(), true).forEach({pAction})";
                 }
             }
 
@@ -718,6 +728,7 @@ public class ExpressionTransformer : IExpressionTransformer
                 var tvKey = Transform(node.ArgumentList.Arguments[0].Expression, context);
                 var tvArg = node.ArgumentList.Arguments[1];
                 string tvOut;
+                bool tvOutIsPrimitiveHolder = false;
                 if (tvArg.Expression is DeclarationExpressionSyntax tvDecl)
                 {
                     // out var x or out Type x — just grab the variable name from the designation
@@ -728,7 +739,33 @@ public class ExpressionTransformer : IExpressionTransformer
                 else
                 {
                     tvOut = Transform(tvArg.Expression, context);
+                    // Fix J: if the out variable is a ref/out parameter (mapped to XHolder), use .value
+                    if (tvArg.Expression is IdentifierNameSyntax tvIdent)
+                    {
+                        var tvSym = context.SemanticModel?.GetSymbolInfo(tvIdent).Symbol;
+                        if (tvSym is IParameterSymbol tvParam
+                            && (tvParam.RefKind == RefKind.Out || tvParam.RefKind == RefKind.Ref))
+                        {
+                            tvOut = $"{tvOut}.value";
+                            // Fix N: Primitive-typed out-params (int, long, etc.) are stored as T in the holder.
+                            // The pattern "(holder.value = map.get(key)) != null" fails to compile when holder.value
+                            // is a primitive (int != null is invalid). Use containsKey + get instead.
+                            tvOutIsPrimitiveHolder = tvParam.Type.SpecialType is
+                                SpecialType.System_Int32 or SpecialType.System_Int64 or
+                                SpecialType.System_Double or SpecialType.System_Single or
+                                SpecialType.System_Boolean or SpecialType.System_Char or
+                                SpecialType.System_Byte or SpecialType.System_SByte or
+                                SpecialType.System_Int16 or SpecialType.System_UInt16 or
+                                SpecialType.System_UInt32 or SpecialType.System_UInt64;
+                        }
+                    }
                 }
+                // Fix N: When tvOut has a primitive type, "(tvOut = map.get(key)) != null" fails to compile
+                // because int != null is invalid in Java. Use containsKey to avoid the NPE and compile error.
+                // containsKey(key) && (tvOut = map.get(key)) == tvOut is always true when key exists,
+                // so the expression correctly evaluates to whether the key was found.
+                if (tvOutIsPrimitiveHolder)
+                    return $"({target}.containsKey({tvKey}) && ({tvOut} = {target}.get({tvKey})) == {tvOut})";
                 return $"(({tvOut} = {target}.get({tvKey})) != null)";
             }
 
@@ -997,9 +1034,7 @@ public class ExpressionTransformer : IExpressionTransformer
                         // Special shortcut: if the target is already a collected List (from a query expression)
                         // and we're calling ToList() on it, return the target directly — no-op.
                         if ((methodName == "ToList" || methodName == "toList") &&
-                            (target.EndsWith(".collect(Collectors.toList())") ||
-                             target.EndsWith("toList()))") ||
-                             target.EndsWith("toList())")))
+                            IsAlreadyCollected(target))
                         {
                             return target;
                         }
@@ -1051,8 +1086,7 @@ public class ExpressionTransformer : IExpressionTransformer
                             // the Select already produced a StreamSupport.stream(...).map(...) and we must not re-wrap.
                             // BUT: if the target already ends with .collect(...) it is a List (not a stream)
                             // and further LINQ operations need to re-wrap it as a stream.
-                            bool targetEndsWithCollect = target.EndsWith(".toList())")
-                                                      || target.EndsWith("toList()))");
+                            bool targetEndsWithCollect = IsAlreadyCollected(target);
                             if (!isAlreadyLinqResult && !targetEndsWithCollect)
                                 isAlreadyLinqResult = target.Contains("StreamSupport.stream(") ||
                                                       target.Contains("Arrays.stream(") ||
@@ -1111,16 +1145,15 @@ public class ExpressionTransformer : IExpressionTransformer
                         if ((extMethodName == "ToList" || extMethodName == "toList") &&
                             (target.EndsWith(".collect(Collectors.toList())") ||
                              target.EndsWith("toList()))") ||
-                             target.EndsWith("toList())")))
+                             target.EndsWith("toList())") ||
+                             IsAlreadyCollected(target)))
                         {
                             return target;
                         }
 
                         // Check if target is already a stream — don't re-wrap
                         bool extTargetIsAlreadyStream =
-                            !target.EndsWith(".collect(Collectors.toList())") &&
-                            !target.EndsWith("toList()))") &&
-                            !target.EndsWith("toList())") &&
+                            !IsAlreadyCollected(target) &&
                             (target.Contains("StreamSupport.stream(") ||
                              target.Contains("Arrays.stream(") ||
                              target.Contains(".stream()") ||
@@ -1336,6 +1369,21 @@ public class ExpressionTransformer : IExpressionTransformer
                 }
             }
 
+            // Special case: String.EndsWith(str, StringComparison) / StartsWith(str, StringComparison)
+            // / Equals(str, StringComparison) → Java accepts only one string argument.
+            // Drop the StringComparison enum argument since Java's string methods are always culture-insensitive.
+            if (methodName is "endsWith" or "startsWith" or "equals"
+                && node.ArgumentList?.Arguments.Count == 2 && context.SemanticModel != null)
+            {
+                var lastArgType = context.SemanticModel.GetTypeInfo(node.ArgumentList.Arguments[1].Expression).Type;
+                if (lastArgType?.Name == "StringComparison" || lastArgType?.OriginalDefinition?.Name == "StringComparison"
+                    || (lastArgType?.TypeKind == TypeKind.Enum && lastArgType.Name.Contains("Comparison")))
+                {
+                    var firstArg = Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    return $"{target}.{methodName}({firstArg})";
+                }
+            }
+
             // Special case: List<T>.remove(primitive_int) must use remove(Integer.valueOf(x)) to call the
             // remove(Object) overload (returns boolean). Java's remove(int) removes by index (returns T).
             if ((methodName == "remove" || methodName == "Remove") && node.ArgumentList?.Arguments.Count == 1
@@ -1433,6 +1481,13 @@ public class ExpressionTransformer : IExpressionTransformer
                         var argExpr4 = node.ArgumentList.Arguments[0].Expression;
                         var argSym4 = context.SemanticModel?.GetSymbolInfo(argExpr4).Symbol;
                         context.AddImport("java.util.Collections");
+                        // Fix D: if the comparator arg is an invocation (e.g. Comparison(inverseToOrder)) returning
+                        // a delegate/Comparator, pass it directly instead of using a method reference.
+                        if (argExpr4 is InvocationExpressionSyntax)
+                        {
+                            var directComparatorArg = Transform(argExpr4, context);
+                            return $"Collections.sort({target}, {directComparatorArg})";
+                        }
                         // If argument is a method group (Comparison<T> delegate), use method reference.
                         // Exclude ObjectCreationExpression (new PointComparer()) — those resolve to constructor IMethodSymbol
                         // but should be passed as-is (they're already IComparer objects).
@@ -1617,10 +1672,11 @@ public class ExpressionTransformer : IExpressionTransformer
         }
 
         // For Contains on primitive int array (IntStream), use == instead of .equals()
+        // Also used to select IntStream-specific terminal ops (max/min use getAsInt not orElse)
         bool receiverIsPrimitiveIntArray = false;
-        if (methodName == "Contains" && node.Expression is MemberAccessExpressionSyntax maContains)
+        if (node.Expression is MemberAccessExpressionSyntax maRcvDetect)
         {
-            var rcvType = context.SemanticModel?.GetTypeInfo(maContains.Expression).Type;
+            var rcvType = context.SemanticModel?.GetTypeInfo(maRcvDetect.Expression).Type;
             receiverIsPrimitiveIntArray = rcvType is IArrayTypeSymbol arrType &&
                 arrType.ElementType.SpecialType == SpecialType.System_Int32;
         }
@@ -1641,37 +1697,50 @@ public class ExpressionTransformer : IExpressionTransformer
             return $"{target}.filter(x -> x instanceof {castType}).map(x -> ({castType}) x)";
         }
 
+        // If the target was already collected into an ArrayList by a LINQ query, strip the .collect()
+        // so that terminal stream operations (max, min, sum, count, any, all) work on the raw stream.
+        // Non-terminal chaining ops (Where, Select, etc.) can't be called on ArrayList anyway,
+        // but those are not handled here — they'd need re-wrapping which is a separate concern.
+        string streamTarget = IsAlreadyCollected(target) ? StripCollect(target) : target;
+
         return methodName switch
         {
             "Where" => $"{target}.filter({args})",
             "Select" => $"{target}.map({args})",
             "SelectMany" => TransformSelectMany(node, target, context),
-            "FirstOrDefault" => $"{target}.findFirst().orElse(null)",
-            "First" => $"{target}.findFirst().orElseThrow()",
-            "SingleOrDefault" => $"{target}.findFirst().orElse(null)",
-            "Single" => $"{target}.findFirst().orElseThrow()",
-            "ToList" => $"{target}.collect(Collectors.toList())",
+            "FirstOrDefault" => $"{streamTarget}.findFirst().orElse(null)",
+            "First" => $"{streamTarget}.findFirst().orElseThrow()",
+            "SingleOrDefault" => $"{streamTarget}.findFirst().orElse(null)",
+            "Single" => $"{streamTarget}.findFirst().orElseThrow()",
+            "ToList" => CollectToArrayList(target, context),
             "ToArray" => TransformLinqToArray(node, target, context),
-            "ToListAsync" when context.IsInAsyncContext => $"{target}.collect(Collectors.toList())",
+            "ToListAsync" when context.IsInAsyncContext => CollectToArrayList(target, context),
             // C# Count() returns int; Java Stream.count() returns long. Cast to int to match C# semantics.
-            "Count" when !hasArgs => $"(int)({target}.count())",
-            "Count" => $"(int)({target}.filter({args}).count())",
-            "Any" when !hasArgs => $"{target}.findAny().isPresent()",
-            "Any" => $"{target}.anyMatch({args})",
-            "All" => $"{target}.allMatch({args})",
+            "Count" when !hasArgs => $"(int)({streamTarget}.count())",
+            "Count" => $"(int)({streamTarget}.filter({args}).count())",
+            "Any" when !hasArgs => $"{streamTarget}.findAny().isPresent()",
+            "Any" => $"{streamTarget}.anyMatch({args})",
+            "All" => $"{streamTarget}.allMatch({args})",
             "OrderBy" => $"{target}.sorted(Comparator.comparing({args}))",
             "OrderByDescending" => $"{target}.sorted(Comparator.comparing({args}).reversed())",
             "ThenBy" => $"{target}.thenComparing({args})",
             "GroupBy" => $"{target}.collect(Collectors.groupingBy({args}))",
             "Join" => $"null /* TODO: LINQ Join({args}) */",
-            "Sum" when hasArgs => $"{target}.mapToDouble({args}).sum()",
-            "Sum" => $"{target}.mapToDouble(x -> ((Number) x).doubleValue()).sum()",
-            "Average" when hasArgs => $"{target}.mapToDouble({args}).average().orElse(0)",
-            "Average" => $"{target}.mapToDouble(x -> x).average().orElse(0)",
-            "Min" when hasArgs => $"{target}.mapToDouble({args}).min().orElse(0.0)",
-            "Min" => $"{target}.min(Comparator.naturalOrder()).orElse(null)",
-            "Max" when hasArgs => $"{target}.mapToDouble({args}).max().orElse(0.0)",
-            "Max" => $"{target}.max(Comparator.naturalOrder()).orElse(null)",
+            // For int arrays (IntStream): use IntStream.map + max/min + getAsInt (avoids double conversion)
+            "Sum" when hasArgs && receiverIsPrimitiveIntArray => $"{target}.map({args}).sum()",
+            "Sum" when receiverIsPrimitiveIntArray => $"{target}.sum()",
+            "Sum" when hasArgs => $"{streamTarget}.mapToDouble({args}).sum()",
+            "Sum" => $"{streamTarget}.mapToDouble(x -> ((Number) x).doubleValue()).sum()",
+            "Average" when hasArgs => $"{streamTarget}.mapToDouble({args}).average().orElse(0)",
+            "Average" => $"{streamTarget}.mapToDouble(x -> x).average().orElse(0)",
+            "Min" when hasArgs && receiverIsPrimitiveIntArray => $"{target}.map({args}).min().getAsInt()",
+            "Min" when receiverIsPrimitiveIntArray => $"{target}.min().getAsInt()",
+            "Min" when hasArgs => $"{streamTarget}.mapToDouble({args}).min().orElse(0.0)",
+            "Min" => $"{streamTarget}.min(Comparator.naturalOrder()).orElse(null)",
+            "Max" when hasArgs && receiverIsPrimitiveIntArray => $"{target}.map({args}).max().getAsInt()",
+            "Max" when receiverIsPrimitiveIntArray => $"{target}.max().getAsInt()",
+            "Max" when hasArgs => $"{streamTarget}.mapToDouble({args}).max().orElse(0.0)",
+            "Max" => $"{streamTarget}.max(Comparator.naturalOrder()).orElse(null)",
             "Take" => $"{target}.limit({args})",
             "Skip" => $"{target}.skip({args})",
             "Distinct" => $"{target}.distinct()",
@@ -1680,8 +1749,8 @@ public class ExpressionTransformer : IExpressionTransformer
             "Contains" => receiverIsPrimitiveIntArray ? $"{target}.anyMatch(x -> x == {args})" : $"{target}.anyMatch(x -> x.equals({args}))",
             "Concat" => TransformLinqConcat(node, target, context),
             "Zip" => $"null /* TODO: Zip({args}) */",
-            "Last" => $"{target}.reduce((a, b) -> b).orElseThrow()",
-            "LastOrDefault" => $"{target}.reduce((a, b) -> b).orElse(null)",
+            "Last" => $"{streamTarget}.reduce((a, b) -> b).orElseThrow()",
+            "LastOrDefault" => $"{streamTarget}.reduce((a, b) -> b).orElse(null)",
             "ElementAt" => $"{target}.skip({args}).findFirst().orElseThrow()",
             "AsEnumerable" => target,
             "TakeWhile" => $"{target}.takeWhile({args})",
@@ -2000,8 +2069,9 @@ public class ExpressionTransformer : IExpressionTransformer
             if (symbol is IPropertySymbol property && property.IsIndexer)
             {
                 // 转换为方法调用：get(index1, index2, ...)
+                // Use implicit-cast helper so int key → Double key gets (double) cast in Java
                 var args = node.ArgumentList != null
-                    ? string.Join(", ", node.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)))
+                    ? string.Join(", ", node.ArgumentList.Arguments.Select(a => TransformWithImplicitNumericCast(a.Expression, context)))
                     : "";
 
                 // 使用小写的 get 前缀
@@ -2039,6 +2109,30 @@ public class ExpressionTransformer : IExpressionTransformer
             ? string.Join(", ", node.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)))
             : "";
         return $"{target}[{argsSingle}]";
+    }
+
+    /// <summary>
+    /// If the C# expression undergoes an implicit numeric widening to double/float
+    /// (e.g. int → double), Java requires an explicit cast for boxed map keys.
+    /// Returns the transformed expression with an explicit cast added when needed.
+    /// </summary>
+    private string TransformWithImplicitNumericCast(ExpressionSyntax expr, ConversionContext context)
+    {
+        var result = Transform(expr, context);
+        if (context.SemanticModel == null) return result;
+        var typeInfo = context.SemanticModel.GetTypeInfo(expr);
+        if (typeInfo.Type == null || typeInfo.ConvertedType == null) return result;
+        if (typeInfo.Type.Equals(typeInfo.ConvertedType, SymbolEqualityComparer.Default)) return result;
+        // Implicit widening: integral → double (Java needs explicit cast for boxed Double)
+        bool actualIsIntegral = typeInfo.Type.SpecialType is
+            SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Int16 or
+            SpecialType.System_Byte or SpecialType.System_SByte or SpecialType.System_UInt32 or
+            SpecialType.System_UInt64 or SpecialType.System_Char;
+        if (actualIsIntegral && typeInfo.ConvertedType.SpecialType == SpecialType.System_Double)
+            return $"(double) {result}";
+        if (actualIsIntegral && typeInfo.ConvertedType.SpecialType == SpecialType.System_Single)
+            return $"(float) {result}";
+        return result;
     }
 
     private string TransformCoalesceExpression(BinaryExpressionSyntax node, ConversionContext context)
@@ -2518,7 +2612,7 @@ public class ExpressionTransformer : IExpressionTransformer
             if (symbolInfo.HasValue && symbolInfo.Value.Symbol is IPropertySymbol property && property.IsIndexer)
             {
                 var indexArgs = elementAccess.ArgumentList != null
-                    ? string.Join(", ", elementAccess.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)))
+                    ? string.Join(", ", elementAccess.ArgumentList.Arguments.Select(a => TransformWithImplicitNumericCast(a.Expression, context)))
                     : "";
                 var value = Transform(node.Right, context);
                 // Detect Map-like types (Dictionary, HashMap) → use put() instead of set()
@@ -2598,11 +2692,24 @@ public class ExpressionTransformer : IExpressionTransformer
                         //   result expression: localVar
                         if (chainRhsAssign.Left is IdentifierNameSyntax innerLhsIdent)
                         {
-                            var innerLhsName = innerLhsIdent.Identifier.Text;
+                            var innerLhsName = ConversionContext.EscapeJavaKeyword(innerLhsIdent.Identifier.Text);
                             var innerRhsVal = Transform(finalValue, context);
-                            context.AddPreStatement($"{innerLhsName} = {innerRhsVal}");
-                            context.AddPreStatement($"{target}.set{propertyName}({innerLhsName})");
-                            return innerLhsName;
+                            // Fix M: When the inner LHS is an out/ref parameter, it maps to an XHolder in Java.
+                            // Must use ".value" suffix for both the assignment and the setter call.
+                            var innerLhsSymInfo = context.SemanticModel?.GetSymbolInfo(innerLhsIdent);
+                            string innerLhsExpr = innerLhsName;
+                            if (innerLhsSymInfo.HasValue
+                                && innerLhsSymInfo.Value.Symbol is IParameterSymbol innerLhsParam
+                                && (innerLhsParam.RefKind == RefKind.Out || innerLhsParam.RefKind == RefKind.Ref))
+                            {
+                                innerLhsExpr = $"{innerLhsName}.value";
+                            }
+                            context.AddPreStatement($"{innerLhsExpr} = {innerRhsVal}");
+                            context.AddPreStatement($"{target}.set{propertyName}({innerLhsExpr})");
+                            // Return the identifier expression. When used in a statement context,
+                            // TransformExpressionStatement detects the simple-identifier pattern
+                            // and suppresses the bare "identifier;" which would be invalid Java.
+                            return innerLhsExpr;
                         }
 
                         // Case 2: both LHS and inner LHS are properties — "this.Left = this.Right = expr"
@@ -2622,6 +2729,25 @@ public class ExpressionTransformer : IExpressionTransformer
                     }
 
                     var value = Transform(node.Right, context);
+                    // Fix G: if property expects IList<T> but value is T[] array, wrap with Arrays.asList
+                    if (isProperty && context.SemanticModel != null)
+                    {
+                        var propSymG = symbolInfo.Value.Symbol as IPropertySymbol;
+                        if (propSymG != null && !propSymG.IsIndexer)
+                        {
+                            bool propIsList = propSymG.Type is INamedTypeSymbol pNamed &&
+                                (pNamed.Name is "IList" or "ICollection" or "IReadOnlyList" or "IReadOnlyCollection" or "IEnumerable" ||
+                                 pNamed.AllInterfaces.Any(i => i.Name is "IList" or "ICollection"));
+                            var rhsTypeInfoG = context.SemanticModel.GetTypeInfo(node.Right);
+                            bool rhsIsObjArray = rhsTypeInfoG.Type is IArrayTypeSymbol rhsArrG &&
+                                !(rhsArrG.ElementType is IArrayTypeSymbol);
+                            if (propIsList && rhsIsObjArray)
+                            {
+                                context.AddImport("java.util.Arrays");
+                                value = $"Arrays.asList({value})";
+                            }
+                        }
+                    }
                     // Special case: List.Capacity = n → ensureCapacity(n) in Java
                     if (propertyName == "Capacity")
                     {
@@ -2780,6 +2906,22 @@ public class ExpressionTransformer : IExpressionTransformer
         }
 
         var right = Transform(node.Right, context);
+        // Fix B: if RHS is a stream expression but LHS field/variable expects IEnumerable, collect it
+        if (op == "=" && context.SemanticModel != null && !IsAlreadyCollected(right)
+            && (right.Contains("StreamSupport.stream(") || right.Contains("Stream.concat(") ||
+                right.Contains("Arrays.stream(") || right.Contains(".filter(") ||
+                right.Contains(".map(") || right.Contains(".flatMap(") || right.Contains(".sorted(")))
+        {
+            var lhsTypeInfo = context.SemanticModel.GetTypeInfo(node.Left);
+            if (lhsTypeInfo.Type is INamedTypeSymbol lhsNamed
+                && lhsNamed.SpecialType != SpecialType.System_String
+                && (lhsNamed.Name is "IEnumerable" or "IOrderedEnumerable" or "IQueryable" or "IList" or "ICollection"
+                    || lhsNamed.AllInterfaces.Any(i => i.Name is "IEnumerable")))
+            {
+                context.AddImport("java.util.stream.Collectors");
+                right = $"{right}.collect(Collectors.toList())";
+            }
+        }
         return $"{left} {op} {right}";
     }
 
@@ -3165,9 +3307,7 @@ public class ExpressionTransformer : IExpressionTransformer
                     argExprStr.Contains("IntStream.range(");
                 // If the expression already ends with .collect(...) it is already a List, not a Stream.
                 // This happens for LINQ query expressions (TransformQuery always appends .collect()).
-                bool argIsAlreadyCollected = argExprStr.EndsWith(".toList())")
-                    || argExprStr.EndsWith("toList()))");
-                if (argIsAlreadyCollected)
+                if (IsAlreadyCollected(argExprStr))
                     argLooksLikeStream = false;
                 // Terminal operations like .count(), .sum(), .max(), .findFirst() — result is NOT a stream
                 bool argIsTerminal = argExprStr.EndsWith(".count()") || argExprStr.EndsWith(".sum()")
@@ -3458,12 +3598,24 @@ public class ExpressionTransformer : IExpressionTransformer
 
     private string TransformArrayCreation(ArrayCreationExpressionSyntax node, ConversionContext context)
     {
-        var typeInfo = context.SemanticModel?.GetTypeInfo(node.Type.ElementType);
-        var elementTypeSymbol = typeInfo.HasValue ? typeInfo.Value.Type : null;
-        var elementType = elementTypeSymbol != null ? context.MapType(elementTypeSymbol) : "Object";
-
         if (node.Initializer != null)
         {
+            // Fix C: for initializer, use semantic element type to correctly handle jagged arrays.
+            // e.g. new Particle[][]{ p1, p2 } needs element type "Particle[]" so we get "new Particle[][]{ p1, p2 }"
+            string elementType;
+            ITypeSymbol? elementTypeSymbol;
+            if (context.SemanticModel?.GetTypeInfo(node).Type is IArrayTypeSymbol fullArrayType)
+            {
+                elementTypeSymbol = fullArrayType.ElementType;
+                elementType = context.MapType(elementTypeSymbol);
+            }
+            else
+            {
+                var typeInfo2 = context.SemanticModel?.GetTypeInfo(node.Type.ElementType);
+                elementTypeSymbol = typeInfo2.HasValue ? typeInfo2.Value.Type : null;
+                elementType = elementTypeSymbol != null ? context.MapType(elementTypeSymbol) : "Object";
+            }
+
             var init = TransformArrayInitializer(node.Initializer, context);
             var result = $"new {elementType}[]{init}";
             // For non-argument contexts (field/local var initializers, property setter assignments etc.),
@@ -3483,33 +3635,40 @@ public class ExpressionTransformer : IExpressionTransformer
             return result;
         }
 
-        // Build sizes string: OmittedArraySizeExpression → "[]", specified size → "[n]"
-        var sizes = string.Join("", node.Type.RankSpecifiers.SelectMany(rs =>
-            rs.Sizes.Select(s => s is OmittedArraySizeExpressionSyntax ? "[]" : $"[{Transform(s, context)}]")));
-
-        // Java doesn't allow generic array creation (new T[n] where T is a type parameter).
-        // Use unchecked cast: (T[]) new Object[n]  or  (T[][]) new Object[n][]  for jagged arrays
-        bool requiresCast = elementTypeSymbol is ITypeParameterSymbol ||
-            (elementTypeSymbol is INamedTypeSymbol namedEl &&
-             namedEl.TypeArguments.Any(a => a is ITypeParameterSymbol));
-        // Also require cast for concrete generic types (e.g. RTree<A, B>[n]):
-        // Java equally forbids creating arrays of any generic type, even with concrete type args.
-        if (!requiresCast && elementTypeSymbol is INamedTypeSymbol namedConcrete && namedConcrete.TypeArguments.Length > 0)
-            requiresCast = true;
-        if (requiresCast)
+        // Non-initializer: use the base element type from the syntax tree (not the semantic element type).
+        // This ensures "new TEdge[n][]" stays "new TEdge[n][]" rather than "new TEdge[][n][]".
         {
-            // Raw type for cast (erase type params for the cast expression)
-            var rawType = elementType.Contains('<') ? elementType.Substring(0, elementType.IndexOf('<')) : elementType;
-            // For jagged arrays the cast needs extra [] rank suffixes
-            // Count omitted dimensions (they become [] in the cast)
-            var omittedCount = node.Type.RankSpecifiers.Sum(rs => rs.Sizes.Count(s => s is OmittedArraySizeExpressionSyntax));
-            var castSuffix = new string('[', omittedCount + 1) + new string(']', omittedCount + 1);
-            // Build cast: (ElementType[][]) for a 2D jagged array
-            var castBrackets = "[]" + string.Concat(Enumerable.Repeat("[]", omittedCount));
-            return $"({rawType}{castBrackets}) new Object{sizes}";
-        }
+            var typeInfo = context.SemanticModel?.GetTypeInfo(node.Type.ElementType);
+            ITypeSymbol? elementTypeSymbol = typeInfo.HasValue ? typeInfo.Value.Type : null;
+            string elementType = elementTypeSymbol != null ? context.MapType(elementTypeSymbol) : "Object";
 
-        return $"new {elementType}{sizes}";
+            // Build sizes string: OmittedArraySizeExpression → "[]", specified size → "[n]"
+            var sizes = string.Join("", node.Type.RankSpecifiers.SelectMany(rs =>
+                rs.Sizes.Select(s => s is OmittedArraySizeExpressionSyntax ? "[]" : $"[{Transform(s, context)}]")));
+
+            // Java doesn't allow generic array creation (new T[n] where T is a type parameter).
+            // Use unchecked cast: (T[]) new Object[n]  or  (T[][]) new Object[n][]  for jagged arrays
+            bool requiresCast = elementTypeSymbol is ITypeParameterSymbol ||
+                (elementTypeSymbol is INamedTypeSymbol namedEl &&
+                 namedEl.TypeArguments.Any(a => a is ITypeParameterSymbol));
+            // Also require cast for concrete generic types (e.g. RTree<A, B>[n]):
+            // Java equally forbids creating arrays of any generic type, even with concrete type args.
+            if (!requiresCast && elementTypeSymbol is INamedTypeSymbol namedConcrete && namedConcrete.TypeArguments.Length > 0)
+                requiresCast = true;
+            if (requiresCast)
+            {
+                // Raw type for cast (erase type params for the cast expression)
+                var rawType = elementType.Contains('<') ? elementType.Substring(0, elementType.IndexOf('<')) : elementType;
+                // For jagged arrays the cast needs extra [] rank suffixes
+                // Count omitted dimensions (they become [] in the cast)
+                var omittedCount = node.Type.RankSpecifiers.Sum(rs => rs.Sizes.Count(s => s is OmittedArraySizeExpressionSyntax));
+                // Build cast: (ElementType[][]) for a 2D jagged array
+                var castBrackets = "[]" + string.Concat(Enumerable.Repeat("[]", omittedCount));
+                return $"({rawType}{castBrackets}) new Object{sizes}";
+            }
+
+            return $"new {elementType}{sizes}";
+        }
     }
 
     private string TransformImplicitArrayCreation(ImplicitArrayCreationExpressionSyntax node, ConversionContext context)
@@ -3596,7 +3755,19 @@ public class ExpressionTransformer : IExpressionTransformer
         // Convert the source to a Stream. For arrays use Arrays.stream(), for Iterables use StreamSupport.
         var sourceExprType = context.SemanticModel?.GetTypeInfo(fromClause.Expression).Type;
         string result;
-        if (sourceExprType is IArrayTypeSymbol)
+        if (sourceExprType is IArrayTypeSymbol arrSrcType &&
+            arrSrcType.ElementType.SpecialType == SpecialType.System_Int32)
+        {
+            // int[] source produces IntStream. If the query body has nested from clauses that produce
+            // object streams (e.g. flatMap with Stream<T>), IntStream.flatMap() would fail because it
+            // expects IntFunction<IntStream>. Convert to Stream<Integer> via .boxed() first.
+            context.AddImport("java.util.Arrays");
+            bool hasNestedFrom = node.Body.Clauses.OfType<FromClauseSyntax>().Any();
+            result = hasNestedFrom
+                ? $"Arrays.stream({source}).boxed()"
+                : $"Arrays.stream({source})";
+        }
+        else if (sourceExprType is IArrayTypeSymbol)
         {
             context.AddImport("java.util.Arrays");
             result = $"Arrays.stream({source})";
@@ -3625,30 +3796,108 @@ public class ExpressionTransformer : IExpressionTransformer
         }
 
         // 处理查询主体
-        result = TransformQueryBodyRecursive(node.Body, identifier, result, context);
+        var allClauses = node.Body.Clauses.ToList();
+        result = TransformQueryBodyRecursive(allClauses, 0, node.Body.SelectOrGroup, node.Body.Continuation, identifier, result, context);
 
         // 收集为列表
-        result = $"{result}.collect(Collectors.toList())";
+        result = CollectToArrayList(result, context);
 
         return result;
     }
 
-    private string TransformQueryBodyRecursive(QueryBodySyntax body, string identifier, string expression, ConversionContext context)
+    private string CollectToArrayList(string target, ConversionContext context)
+    {
+        context.AddImport("java.util.ArrayList");
+        context.AddImport("java.util.stream.Collectors");
+        return $"{target}.collect(Collectors.toCollection(ArrayList::new))";
+    }
+
+    /// <summary>
+    /// Strips the outermost .collect(...) suffix from an already-collected stream expression,
+    /// returning just the stream chain without the terminal collection step.
+    /// Used to recover a stream from a collected ArrayList for terminal operations like max/min/sum.
+    /// </summary>
+    private static string StripCollect(string target)
+    {
+        string t = target.TrimEnd();
+        const string toCollection = ".collect(Collectors.toCollection(ArrayList::new))";
+        const string toList = ".collect(Collectors.toList())";
+        // Direct match
+        if (t.EndsWith(toCollection))
+            return t.Substring(0, t.Length - toCollection.Length);
+        if (t.EndsWith(toList))
+            return t.Substring(0, t.Length - toList.Length);
+        // Paren-wrapped: (inner.collect(...)) → (inner)
+        if (t.StartsWith("(") && t.EndsWith(")"))
+        {
+            var inner = t.Substring(1, t.Length - 2);
+            if (inner.EndsWith(toCollection))
+                return "(" + inner.Substring(0, inner.Length - toCollection.Length) + ")";
+            if (inner.EndsWith(toList))
+                return "(" + inner.Substring(0, inner.Length - toList.Length) + ")";
+        }
+        return t;
+    }
+
+    /// <summary>
+    /// Returns true if the given Java expression string already ends with a .collect(...) call
+    /// that materialises the stream into a List or ArrayList.
+    /// Covers both the old Collectors.toList() and the new Collectors.toCollection(ArrayList::new) patterns.
+    /// Also handles the case where the expression is wrapped in outer parentheses.
+    /// </summary>
+    private static bool IsAlreadyCollected(string target)
+    {
+        string t = target.TrimEnd();
+        if (IsAlreadyCollectedCore(t)) return true;
+        // Also check with one level of outer parentheses stripped (e.g. query expressions wrapped in parens)
+        if (t.StartsWith("(") && t.EndsWith(")"))
+            return IsAlreadyCollectedCore(t.Substring(1, t.Length - 2).TrimEnd());
+        return false;
+    }
+
+    private static bool IsAlreadyCollectedCore(string t)
+    {
+        return t.EndsWith(".collect(Collectors.toList())")
+            || t.EndsWith("toList()))")
+            || t.EndsWith("toList())")
+            || t.EndsWith("ArrayList::new))")
+            || t.EndsWith("ArrayList::new)");
+    }
+
+    private string TransformQueryBodyRecursive(
+        IReadOnlyList<QueryClauseSyntax> clauses,
+        int startIndex,
+        SelectOrGroupClauseSyntax selectOrGroup,
+        QueryContinuationSyntax? continuation,
+        string identifier,
+        string expression,
+        ConversionContext context)
     {
         var result = expression;
         var currentIdentifier = identifier;
 
+        // Save and restore QueryLetAliases around this query body to support nested queries.
+        var savedAliases = context.QueryLetAliases;
+        context.QueryLetAliases = new Dictionary<string, string>();
+
         // 处理中间子句
-        foreach (var clause in body.Clauses)
+        int i = startIndex;
+        while (i < clauses.Count)
         {
+            var clause = clauses[i];
             if (clause is WhereClauseSyntax whereClause)
             {
                 var condition = Transform(whereClause.Condition, context);
                 result = $"{result}.filter({currentIdentifier} -> {condition})";
+                i++;
             }
             else if (clause is FromClauseSyntax fromClause)
             {
                 // 处理嵌套 from (SelectMany)
+                // Collect any pending let-aliases (preceding let clauses) into a block flatMap
+                var pendingLets = context.QueryLetAliases.ToList();
+                context.QueryLetAliases = new Dictionary<string, string>(); // clear for inner scope
+
                 var newSource = Transform(fromClause.Expression, context);
                 var newIdentifier = fromClause.Identifier.ValueText;
                 var newSourceType = context.SemanticModel?.GetTypeInfo(fromClause.Expression).Type;
@@ -3667,31 +3916,59 @@ public class ExpressionTransformer : IExpressionTransformer
                 }
                 else
                     innerStream = $"{newSource}.stream()";
-                // Omit the identity .map(id -> id) — it causes type erasure and is always a no-op
-                result = $"{result}.flatMap({currentIdentifier} -> {innerStream})";
-                currentIdentifier = newIdentifier;
+
+                // Build remaining clauses as an inline chain (recursive call will process select etc.)
+                // We need to emit a block-form flatMap if there are pending let-aliases
+                // so that those variables remain in scope for the inner stream.
+                if (pendingLets.Count > 0)
+                {
+                    // Build let declarations string (e.g. "var left = nodeIndex(p.getKey()); ")
+                    var letDecls = string.Join(" ", pendingLets.Select(kv => $"var {kv.Key} = {kv.Value};"));
+
+                    // Process the rest of the body (remaining clauses + select) as the inner chain
+                    // The inner chain uses newIdentifier and starts at innerStream
+                    // Process remaining clauses directly (no SyntaxFactory) to avoid "node not in tree" error
+                    string innerChain = TransformQueryBodyRecursive(clauses, i + 1, selectOrGroup, continuation, newIdentifier, innerStream, context);
+                    context.AddImport("java.util.stream.Stream");
+                    result = $"{result}.flatMap({currentIdentifier} -> {{ {letDecls} return {innerChain}; }})";
+                    context.QueryLetAliases = savedAliases;
+                    return result;
+                }
+                else
+                {
+                    result = $"{result}.flatMap({currentIdentifier} -> {innerStream})";
+                    currentIdentifier = newIdentifier;
+                }
+                i++;
             }
             else if (clause is JoinClauseSyntax joinClause)
             {
                 result = $"{result} /* TODO: join */";
+                i++;
             }
             else if (clause is LetClauseSyntax letClause)
             {
-                // Translate: let ip = expr(p)  →  .map(p -> expr(p))
-                // Update currentIdentifier to the let variable for subsequent clauses.
+                // Instead of emitting .map(currentId -> letExpr), inline the let as an alias.
+                // This keeps currentIdentifier stable so all subsequent clauses can still access
+                // the source variable. The alias is substituted in TransformIdentifier.
                 var letVar = letClause.Identifier.ValueText;
                 var letExpr = Transform(letClause.Expression, context);
-                result = $"{result}.map({currentIdentifier} -> {letExpr})";
-                currentIdentifier = letVar;
+                context.QueryLetAliases[letVar] = letExpr;
+                // Do NOT change currentIdentifier — keep the original source in scope.
+                i++;
             }
             else if (clause is OrderByClauseSyntax)
             {
                 result = $"{result} /* TODO: orderby */";
+                i++;
+            }
+            else
+            {
+                i++;
             }
         }
 
         // 处理 select 或 groupby
-        var selectOrGroup = body.SelectOrGroup;
         if (selectOrGroup is SelectClauseSyntax selectClause)
         {
             var selector = Transform(selectClause.Expression, context);
@@ -3710,6 +3987,7 @@ public class ExpressionTransformer : IExpressionTransformer
             result = $"{result}.map({currentIdentifier} -> {currentIdentifier})";
         }
 
+        context.QueryLetAliases = savedAliases;
         return result;
     }
 
@@ -3747,6 +4025,14 @@ public class ExpressionTransformer : IExpressionTransformer
                 {
                     var typeInfo = p.Type != null ? context.SemanticModel?.GetTypeInfo(p.Type) : null;
                     var type = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "";
+                    // Fix E: box primitive types in lambda params to match generic functional interfaces
+                    // e.g. (int x) -> incompatible with Comparator<Integer>; use (Integer x) -> instead
+                    type = type switch
+                    {
+                        "int" => "Integer", "long" => "Long", "double" => "Double",
+                        "float" => "Float", "boolean" => "Boolean", "char" => "Character",
+                        "byte" => "Byte", "short" => "Short", _ => type
+                    };
                     var paramName = ConversionContext.EscapeJavaKeyword(p.Identifier.Text);
                     return string.IsNullOrEmpty(type) ? paramName : $"{type} {paramName}";
                 }) ?? Enumerable.Empty<string>()
@@ -3761,6 +4047,29 @@ public class ExpressionTransformer : IExpressionTransformer
             ExpressionSyntax expr => Transform(expr, context),
             _ => ""
         };
+
+        // Fix H: if lambda body is a stream expression but expected return type is IEnumerable/Iterable,
+        // collect the stream (e.g. Supplier<Iterable<Node>> funcOfNodes = () -> stream;)
+        if (node.Body is ExpressionSyntax && context.SemanticModel != null && !IsAlreadyCollected(body)
+            && (body.Contains("StreamSupport.stream(") || body.Contains(".map(") || body.Contains(".filter(") ||
+                body.Contains(".flatMap(") || body.Contains("Arrays.stream(") || body.Contains("Stream.concat(")))
+        {
+            var lambdaConvType = context.SemanticModel.GetTypeInfo(node).ConvertedType;
+            if (lambdaConvType?.TypeKind == TypeKind.Delegate)
+            {
+                var delegateInvoke = (lambdaConvType as INamedTypeSymbol)?.DelegateInvokeMethod;
+                var lambdaRetType = delegateInvoke?.ReturnType;
+                bool retIsIterable = lambdaRetType is INamedTypeSymbol lrNamed
+                    && lrNamed.SpecialType != SpecialType.System_String
+                    && (lrNamed.Name is "IEnumerable" or "IOrderedEnumerable" or "IQueryable" or "IList" or "ICollection"
+                        || lrNamed.AllInterfaces.Any(i => i.Name is "IEnumerable"));
+                if (retIsIterable)
+                {
+                    context.AddImport("java.util.stream.Collectors");
+                    body = $"{body}.collect(Collectors.toList())";
+                }
+            }
+        }
 
         context.IsInLambdaContext = false;
 
@@ -3984,7 +4293,7 @@ public class ExpressionTransformer : IExpressionTransformer
                     argNs.SpecialType != SpecialType.System_String && // String implements IEnumerable<char> but is not a stream
                     (argNs.Name is "IEnumerable" or "IOrderedEnumerable" or "IQueryable" ||
                      argNs.AllInterfaces.Any(i => i.Name is "IEnumerable"));
-                bool exprIsStream = !expr.TrimEnd().EndsWith(".collect(Collectors.toList())") && (
+                bool exprIsStream = !IsAlreadyCollected(expr.TrimEnd()) && (
                     expr.Contains("Stream.concat(") ||
                     expr.Contains("StreamSupport.stream(") ||
                     expr.Contains("Arrays.stream(") ||
@@ -4022,6 +4331,14 @@ public class ExpressionTransformer : IExpressionTransformer
                     && argConvType is SpecialType.System_Byte or SpecialType.System_Int16)
                 {
                     var castType = argConvType == SpecialType.System_Byte ? "byte" : "short";
+                    return $"({castType}) {expr}";
+                }
+                // Fix F: detect implicit int→double/float widening that requires cast in Java
+                // because Java's autoboxing int→Integer doesn't convert to Double.
+                if (argRawType is SpecialType.System_Int32 or SpecialType.System_Int64
+                    && argConvType is SpecialType.System_Double or SpecialType.System_Single)
+                {
+                    var castType = argConvType == SpecialType.System_Single ? "float" : "double";
                     return $"({castType}) {expr}";
                 }
             }

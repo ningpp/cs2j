@@ -113,8 +113,18 @@ public class ConversionContext
     /// Names of local variables whose initializer is a Java Stream expression.
     /// Populated by TransformLocalDeclaration when a stream-typed initializer is detected.
     /// Used by TransformForEachStatement to detect for-each over stream-typed variables.
+    /// Cleared on entering each method to prevent cross-method contamination.
     /// </summary>
     public HashSet<string> StreamLocalVariables { get; } = new();
+
+    /// <summary>
+    /// Maps LINQ query 'let' variable names to their inlined Java expressions.
+    /// Set by TransformQueryBodyRecursive when processing let clauses.
+    /// Used by TransformIdentifier to inline let variables, avoiding variable scoping issues
+    /// when multiple 'let' clauses are chained (e.g. let left = ...; where ...; let right = ...).
+    /// Cleared after the query expression is fully processed.
+    /// </summary>
+    public Dictionary<string, string> QueryLetAliases { get; set; } = new();
 
     /// <summary>
     /// 类型符号到 Java 类型的缓存
@@ -224,6 +234,8 @@ public class ConversionContext
     public void EnterMethod(IMethodSymbol? method)
     {
         _methodStack.Push(method);
+        // Clear stream variable tracking to avoid cross-method contamination
+        StreamLocalVariables.Clear();
     }
 
     /// <summary>
