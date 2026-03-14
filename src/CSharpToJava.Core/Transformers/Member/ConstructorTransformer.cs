@@ -84,7 +84,7 @@ public class ConstructorTransformer : IMemberTransformer
         }
         else if (ctorDecl.ExpressionBody != null)
         {
-            var exprTransformer = new ExpressionTransformer();
+            var exprTransformer = ExpressionTransformerFacade.Instance;
             bodyStatements.Add(exprTransformer.Transform(ctorDecl.ExpressionBody.Expression, context) + ";");
         }
 
@@ -109,7 +109,7 @@ public class ConstructorTransformer : IMemberTransformer
 
         if (initializer.ArgumentList != null)
         {
-            var exprTransformer = new ExpressionTransformer();
+            var exprTransformer = ExpressionTransformerFacade.Instance;
             foreach (var arg in initializer.ArgumentList.Arguments)
             {
                 // ArgumentSyntax 包含 Expression 属性

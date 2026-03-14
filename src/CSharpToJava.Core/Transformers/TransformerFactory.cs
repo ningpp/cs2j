@@ -34,5 +34,5 @@ public class TransformerFactory
     public IStatementTransformer CreateStatementTransformer() => new StatementTransformer();
 
     // 表达式转换器
-    public IExpressionTransformer CreateExpressionTransformer() => new ExpressionTransformer();
+    public IExpressionTransformer CreateExpressionTransformer() => ExpressionTransformerFacade.Instance;
 }

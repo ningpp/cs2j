@@ -88,7 +88,7 @@ public class StatementTransformer : IStatementTransformer
 
     private JavaSyntaxNode TransformExpressionStatement(ExpressionStatementSyntax stmt, ConversionContext context)
     {
-        var exprTransformer = new ExpressionTransformer();
+        var exprTransformer = ExpressionTransformerFacade.Instance;
 
         // ConditionalAccessExpression (obj?.Method()) as a statement cannot be a ternary expression in Java.
         // Java only allows method calls, assignments, and new as expression statements.
@@ -164,7 +164,7 @@ public class StatementTransformer : IStatementTransformer
         {
             return new JavaStatementNode("throw;");
         }
-        var exprTransformer = new ExpressionTransformer();
+        var exprTransformer = ExpressionTransformerFacade.Instance;
         var expr = exprTransformer.Transform(stmt.Expression, context);
         return new JavaStatementNode($"throw {expr};");
     }
@@ -176,7 +176,7 @@ public class StatementTransformer : IStatementTransformer
             return new JavaStatementNode("return;");
         }
 
-        var exprTransformer = new ExpressionTransformer();
+        var exprTransformer = ExpressionTransformerFacade.Instance;
         var expr = exprTransformer.Transform(stmt.Expression, context);
 
         // Detect when a C# array element (from jagged array) is returned where a List<T> is expected.
@@ -263,7 +263,7 @@ public class StatementTransformer : IStatementTransformer
 
     private JavaSyntaxNode TransformIfStatement(IfStatementSyntax stmt, ConversionContext context)
     {
-        var exprTransformer = new ExpressionTransformer();
+        var exprTransformer = ExpressionTransformerFacade.Instance;
         var condition = exprTransformer.Transform(stmt.Condition, context);
 
         var stmtTransformer = new StatementTransformer();
@@ -288,7 +288,7 @@ public class StatementTransformer : IStatementTransformer
 
     private JavaSyntaxNode TransformWhileStatement(WhileStatementSyntax stmt, ConversionContext context)
     {
-        var exprTransformer = new ExpressionTransformer();
+        var exprTransformer = ExpressionTransformerFacade.Instance;
         var condition = exprTransformer.Transform(stmt.Condition, context);
 
         var stmtTransformer = new StatementTransformer();
@@ -301,7 +301,7 @@ public class StatementTransformer : IStatementTransformer
 
     private JavaSyntaxNode TransformForStatement(ForStatementSyntax stmt, ConversionContext context)
     {
-        var exprTransformer = new ExpressionTransformer();
+        var exprTransformer = ExpressionTransformerFacade.Instance;
 
         // 初始值
         var initializers = "";
@@ -339,7 +339,7 @@ public class StatementTransformer : IStatementTransformer
 
     private JavaSyntaxNode TransformForEachStatement(ForEachStatementSyntax stmt, ConversionContext context)
     {
-        var exprTransformer = new ExpressionTransformer();
+        var exprTransformer = ExpressionTransformerFacade.Instance;
 
         // Special case: foreach over a LINQ query with anonymous type select
         // e.g.: foreach (var pair in from A a in src from B b in tgt select new { aV = a, bV = b })
@@ -501,7 +501,7 @@ public class StatementTransformer : IStatementTransformer
         AnonymousObjectCreationExpressionSyntax anonCreate,
         ConversionContext context)
     {
-        var exprTransformer = new ExpressionTransformer();
+        var exprTransformer = ExpressionTransformerFacade.Instance;
 
         // Collect all from-clauses (outer first, inner last)
         var froms = new List<(string varName, string javaType, string sourceExpr)>();
@@ -619,7 +619,7 @@ public class StatementTransformer : IStatementTransformer
 
     private JavaSyntaxNode TransformDoStatement(DoStatementSyntax stmt, ConversionContext context)
     {
-        var exprTransformer = new ExpressionTransformer();
+        var exprTransformer = ExpressionTransformerFacade.Instance;
         var condition = exprTransformer.Transform(stmt.Condition, context);
 
         var stmtTransformer = new StatementTransformer();
@@ -632,7 +632,7 @@ public class StatementTransformer : IStatementTransformer
 
     private JavaSyntaxNode TransformSwitchStatement(SwitchStatementSyntax stmt, ConversionContext context)
     {
-        var exprTransformer = new ExpressionTransformer();
+        var exprTransformer = ExpressionTransformerFacade.Instance;
         var expression = exprTransformer.Transform(stmt.Expression, context);
 
         var sections = new List<string>();
@@ -743,7 +743,7 @@ public class StatementTransformer : IStatementTransformer
             if (catchClause.Filter != null)
             {
                 // Java 不支持 catch 过滤器，需要转换为内部 if
-                var exprTransformer = new ExpressionTransformer();
+                var exprTransformer = ExpressionTransformerFacade.Instance;
                 var filter = exprTransformer.Transform(catchClause.Filter.FilterExpression, context);
                 sb.Append($"{{\n        if ({filter}) {{\n            {TransformBlock(catchClause.Block, context)}\n        }}\n    }}");
             }
@@ -771,7 +771,7 @@ public class StatementTransformer : IStatementTransformer
     {
         // Java 使用 try-with-resources
         var stmtTransformer = new StatementTransformer();
-        var exprTransformer = new ExpressionTransformer();
+        var exprTransformer = ExpressionTransformerFacade.Instance;
 
         var resources = new List<string>();
 
@@ -798,7 +798,7 @@ public class StatementTransformer : IStatementTransformer
 
     private JavaSyntaxNode TransformLockStatement(LockStatementSyntax stmt, ConversionContext context)
     {
-        var exprTransformer = new ExpressionTransformer();
+        var exprTransformer = ExpressionTransformerFacade.Instance;
         var expression = exprTransformer.Transform(stmt.Expression, context);
 
         var stmtTransformer = new StatementTransformer();
@@ -922,7 +922,7 @@ public class StatementTransformer : IStatementTransformer
             }
         }
 
-        var exprTransformer = new ExpressionTransformer();
+        var exprTransformer = ExpressionTransformerFacade.Instance;
 
         // Special case: var x = target.Property = value
         // Property setters return void in Java — split into two statements: "Type x = value; target.setProperty(x);"
@@ -1072,7 +1072,7 @@ public class StatementTransformer : IStatementTransformer
     {
         if (stmt?.Expression == null)
             return new JavaStatementNode("// yield return (empty)");
-        var exprTransformer = new ExpressionTransformer();
+        var exprTransformer = ExpressionTransformerFacade.Instance;
         var expr = exprTransformer.Transform(stmt.Expression, context);
         return new JavaStatementNode($"_yieldResult.add({expr});");
     }
