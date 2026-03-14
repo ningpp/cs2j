@@ -25,10 +25,37 @@ public class DelegateTransformer
         javaInterface.Annotations.Add(new JavaAnnotation("FunctionalInterface"));
 
         // Handle type parameters (generic delegates)
+        var allTypeParams = new List<string>();
+
+        // 1. Enclosing class type parameters
+        var sym = context.SemanticModel?.GetDeclaredSymbol(node) as INamedTypeSymbol;
+        if (sym != null)
+        {
+            var cur = sym.ContainingType;
+            while (cur != null)
+            {
+                foreach (var tp in cur.TypeParameters)
+                {
+                    if (!allTypeParams.Contains(tp.Name))
+                    {
+                        allTypeParams.Insert(0, tp.Name);
+                        var jtp = new JavaTypeParameter(tp.Name);
+                        javaInterface.TypeParameters.Insert(0, jtp);
+                    }
+                }
+                cur = cur.ContainingType;
+            }
+        }
+
+        // 2. Delegate's own type parameters
         foreach (var typeParam in node.TypeParameterList?.Parameters ?? Enumerable.Empty<TypeParameterSyntax>())
         {
-            var jtp = new JavaTypeParameter(typeParam.Identifier.Text);
-            javaInterface.TypeParameters.Add(jtp);
+            if (!allTypeParams.Contains(typeParam.Identifier.Text))
+            {
+                var jtp = new JavaTypeParameter(typeParam.Identifier.Text);
+                javaInterface.TypeParameters.Add(jtp);
+                allTypeParams.Add(typeParam.Identifier.Text);
+            }
         }
 
         // Propagate type parameter constraints

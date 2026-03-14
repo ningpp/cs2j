@@ -466,7 +466,7 @@ class ConvertProjectOptions
     [Option('j', "java-version", Default = "Java25", HelpText = "Target Java version")]
     public string JavaVersion { get; set; } = "Java25";
 
-    [Option('f', "force", Default = false, HelpText = "Overwrite existing files")]
+    [Option('f', "force", Default = true, HelpText = "Overwrite existing files")]
     public bool Force { get; set; }
 
     [Option("no-records", Default = false, HelpText = "Don't use Java records")]

@@ -73,14 +73,15 @@ public class EventFieldTransformer
             Body = $"{fieldName}.remove(handler);",
         });
 
-        result.Add(new JavaMethodDeclaration
+        var fireMethodDecl = new JavaMethodDeclaration
         {
             Name = fireMethod,
             Modifiers = JavaModifiers.Protected,
             ReturnType = "void",
-            Parameters = sig.Parameters,
             Body = $"for (var _handler : {fieldName}) _handler.{sig.InvokeMethodName}({sig.InvokeCallArguments});",
-        });
+        };
+        fireMethodDecl.Parameters.AddRange(sig.Parameters);
+        result.Add(fireMethodDecl);
 
         return result;
     }

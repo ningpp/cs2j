@@ -367,9 +367,54 @@ public class ExpressionTransformer : IExpressionTransformer
         var symbolInfo = context.SemanticModel?.GetSymbolInfo(node);
         var hasSymbolInfo = symbolInfo.HasValue && symbolInfo.Value.Symbol != null;
 
+        if (node.ToString().Contains("trimSeg.B"))
+        {
+            Console.WriteLine($"!!! FOUND trimSeg.B! hasSymbolInfo={hasSymbolInfo} Parent={node.Parent?.GetType().Name}");
+        }
+
         if (hasSymbolInfo)
         {
             var symbol = symbolInfo.Value.Symbol;
+            if (node.ToString().Contains("trimSeg.B"))
+            {
+                Console.WriteLine($"!!! MATCHED trimSeg.B! symbol={symbol?.GetType().Name} method={symbol is IMethodSymbol} Parent={node.Parent?.GetType().Name}");
+            }
+
+            if (symbol is IMethodSymbol methodGroupSym && node.Parent is not InvocationExpressionSyntax)
+            {
+                var methodNameGroup = methodGroupSym.Name;
+
+                // 检查映射
+                var containingTypeString = methodGroupSym.ContainingType?.ToDisplayString();
+                if (!string.IsNullOrEmpty(containingTypeString))
+                {
+                    var mappedMethod = context.TypeMappings.MapMethod(containingTypeString, methodNameGroup);
+                    if (!string.IsNullOrEmpty(mappedMethod))
+                    {
+                        if (mappedMethod.Contains('.'))
+                        {
+                            var parts = mappedMethod.Split('.');
+                            return $"{parts[0]}::{parts[1]}";
+                        }
+                        methodNameGroup = mappedMethod;
+                    }
+                }
+
+                var camelMethod = char.ToLower(methodNameGroup[0]) + methodNameGroup.Substring(1);
+                camelMethod = ConversionContext.EscapeJavaKeyword(camelMethod);
+
+                if (methodGroupSym.IsStatic)
+                {
+                    // Call by class name
+                    var className = context.MapType(methodGroupSym.ContainingType);
+                    var cleanClassName = className.Contains('<') ? className.Substring(0, className.IndexOf('<')) : className;
+                    return $"{cleanClassName}::{camelMethod}";
+                }
+                else
+                {
+                    return $"{left}::{camelMethod}";
+                }
+            }
 
             // 检查是否是属性，需要转换为 getter 方法
             if (symbol is IPropertySymbol property)
@@ -1535,7 +1580,7 @@ public class ExpressionTransformer : IExpressionTransformer
                     }
                 }
             }
-            // Check if the invoked member is actually a property of delegate type
+            // Check if the invoked member is actually a property or field of delegate type
             // e.g., X.DelegateProp(args) where DelegateProp is a property of delegate type
             // → X.getDelegateProp().invoke(args)
             if (context.SemanticModel != null)
@@ -1549,6 +1594,15 @@ public class ExpressionTransformer : IExpressionTransformer
                     {
                         var getterName2 = $"get{char.ToUpper(propSymDelegate.Name[0])}{propSymDelegate.Name.Substring(1)}";
                         return $"{target}.{getterName2}().{invokeMethodName}({args})";
+                    }
+                }
+                else if (maSymDelegate is IFieldSymbol fieldSymDelegate &&
+                         fieldSymDelegate.Type.TypeKind == TypeKind.Delegate)
+                {
+                    var invokeMethodName = GetDelegateInvokeMethod(fieldSymDelegate.Type);
+                    if (invokeMethodName != null)
+                    {
+                        return $"{target}.{methodName}.{invokeMethodName}({args})";
                     }
                 }
             }
@@ -3185,21 +3239,78 @@ public class ExpressionTransformer : IExpressionTransformer
     {
         // ImplicitObjectCreationExpressionSyntax 没有 Type 属性，需要从语义模型获取
         var typeInfo = context.SemanticModel?.GetTypeInfo(node);
-        var type = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Object";
+        string type = "Object";
+        string? castCast = null;
+        if (typeInfo.HasValue && typeInfo.Value.Type != null)
+        {
+            var t = typeInfo.Value.Type;
+            if (t.TypeKind == TypeKind.TypeParameter)
+            {
+                castCast = context.MapType(t);
+                type = "Object";
+                var tp = (ITypeParameterSymbol)t;
+                foreach (var constraint in tp.ConstraintTypes)
+                {
+                    var mapped = context.MapType(constraint);
+                    if (mapped.Contains("Collection") || mapped.Contains("List") || mapped.Contains("Iterable"))
+                    {
+                        type = "java.util.ArrayList<>";
+                        break;
+                    }
+                    if (mapped.Contains("Map") || mapped.Contains("Dictionary"))
+                    {
+                        type = "java.util.HashMap<>";
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                type = context.MapType(t);
+            }
+        }
         var args = TransformArgumentList(node.ArgumentList, context);
+        if (castCast != null)
+            return $"({castCast}) new {type}({args})";
         return $"new {type}({args})";
     }
 
     private string TransformObjectCreation(ObjectCreationExpressionSyntax node, ConversionContext context)
     {
         string type;
+        string? castCast = null;
         // Use GetTypeInfo on the whole expression (not just node.Type) for accurate type resolution
         var typeInfo = context.SemanticModel?.GetTypeInfo(node);
 
         if (typeInfo.HasValue && typeInfo.Value.Type != null && typeInfo.Value.Type.TypeKind != TypeKind.Error)
         {
-            // 使用语义模型获取类型
-            type = context.MapType(typeInfo.Value.Type);
+            var t = typeInfo.Value.Type;
+            if (t.TypeKind == TypeKind.TypeParameter)
+            {
+                castCast = context.MapType(t);
+                // try to find bound
+                var tp = (ITypeParameterSymbol)t;
+                type = "Object";
+                foreach (var constraint in tp.ConstraintTypes)
+                {
+                    var mapped = context.MapType(constraint);
+                    if (mapped.Contains("Collection") || mapped.Contains("List") || mapped.Contains("Iterable"))
+                    {
+                        type = "java.util.ArrayList<>";
+                        break;
+                    }
+                    if (mapped.Contains("Map") || mapped.Contains("Dictionary"))
+                    {
+                        type = "java.util.HashMap<>";
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                // 使用语义模型获取类型
+                type = context.MapType(t);
+            }
         }
         else
         {
@@ -3209,6 +3320,11 @@ public class ExpressionTransformer : IExpressionTransformer
             if (!string.IsNullOrEmpty(typeName))
             {
                 type = typeName;
+                if (context.CurrentMethod?.TypeParameters.Any(p => p.Name == type) == true || context.CurrentType?.TypeParameters.Any(p => p.Name == type) == true)
+                {
+                    castCast = type;
+                    type = "java.util.ArrayList<>"; // default rough fallback if we can't inspect bounds
+                }
             }
             else
             {
@@ -3503,6 +3619,9 @@ public class ExpressionTransformer : IExpressionTransformer
             }
         }
 
+        if (castCast != null)
+            return $"({castCast}) new {type}({args})";
+
         return $"new {type}({args})";
     }
 
@@ -3617,7 +3736,8 @@ public class ExpressionTransformer : IExpressionTransformer
             }
 
             var init = TransformArrayInitializer(node.Initializer, context);
-            var result = $"new {elementType}[]{init}";
+            var rawType = elementType.Contains('<') ? elementType.Substring(0, elementType.IndexOf('<')) : elementType;
+            var result = $"new {rawType}[]{init}";
             // For non-argument contexts (field/local var initializers, property setter assignments etc.),
             // wrap with Arrays.asList() when the Java T[] is used where Iterable<T> is expected.
             // (Argument contexts are handled by TransformArgumentList; return contexts by TransformReturnStatement.)
@@ -3681,7 +3801,8 @@ public class ExpressionTransformer : IExpressionTransformer
             elementType = context.MapType(arr.ElementType);
         }
         var init = TransformArrayInitializer(node.Initializer, context);
-        var result = $"new {elementType}[]{init}";
+        var rawType = elementType.Contains('<') ? elementType.Substring(0, elementType.IndexOf('<')) : elementType;
+        var result = $"new {rawType}[]{init}";
         // Wrap with Arrays.asList() when used in non-argument/non-return IEnumerable context (Java T[] ≠ Iterable<T>)
         // (Argument contexts handled by TransformArgumentList; return contexts by TransformReturnStatement.)
         if (node.Parent is not ArgumentSyntax && node.Parent is not ReturnStatementSyntax && context.SemanticModel != null)

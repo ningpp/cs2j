@@ -331,6 +331,22 @@ public class ConversionContext
 
     private string MapTypeInternal(ITypeSymbol typeSymbol)
     {
+        // 处理可空值类型
+        if (typeSymbol.OriginalDefinition?.SpecialType == SpecialType.System_Nullable_T || typeSymbol.OriginalDefinition?.ToDisplayString() == "System.Nullable")
+        {
+            var underlyingType = ((INamedTypeSymbol)typeSymbol).TypeArguments[0];
+            var javaType = MapType(underlyingType);
+
+            if (Options.UseOptionalForNullable)
+            {
+                AddImport("java.util.Optional");
+                return $"Optional<{javaType}>";
+            }
+
+            // 默认：使用装箱类型
+            return javaType;
+        }
+
         // Anonymous types (e.g. new { x = 1, y = 2 }) have no Java equivalent — use Object
         if (typeSymbol is INamedTypeSymbol anonymousCheck && anonymousCheck.IsAnonymousType)
         {
@@ -419,22 +435,6 @@ public class ConversionContext
             return $"{baseType}<{typeArgs}>";
         }
 
-        // 处理可空值类型
-        if (typeSymbol.OriginalDefinition?.ToDisplayString() == "System.Nullable")
-        {
-            var underlyingType = ((INamedTypeSymbol)typeSymbol).TypeArguments[0];
-            var javaType = MapType(underlyingType);
-
-            if (Options.UseOptionalForNullable)
-            {
-                AddImport("java.util.Optional");
-                return $"Optional<{javaType}>";
-            }
-
-            // 默认：使用装箱类型
-            return javaType;
-        }
-
         // 处理动态类型
         if (typeSymbol is IDynamicTypeSymbol)
         {
@@ -505,7 +505,19 @@ public class ConversionContext
             && typeSymbol.ContainingType is INamedTypeSymbol outerType
             && outerType.TypeKind != TypeKind.Error)
         {
-            return $"{outerType.Name}.{MapSimpleTypeName(name)}";
+            var nestedStr = $"{outerType.Name}.{MapSimpleTypeName(name)}";
+            if (typeSymbol.TypeKind == TypeKind.Delegate) {
+                 var curOuter = outerType;
+                 var allTypeArgs = new List<string>();
+                 while (curOuter != null) {
+                     allTypeArgs.InsertRange(0, curOuter.TypeArguments.Select(t => MapTypeForGeneric(t)));
+                     curOuter = curOuter.ContainingType;
+                 }
+                 if (allTypeArgs.Count > 0) {
+                     nestedStr += "<" + string.Join(", ", allTypeArgs) + ">";
+                 }
+            }
+            return nestedStr;
         }
 
         return MapSimpleTypeName(name);
