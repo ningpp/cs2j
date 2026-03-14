@@ -456,13 +456,27 @@ public class ClassTransformer : ITypeTransformer
         => AddCtorIfNotDuplicateInternal(javaClass, ctor);
 
     /// <summary>
-    /// When a C# class implements ICloneable (mapped to Java Cloneable), add a
-    /// memberwiseClone() helper that wraps super.clone() so that C# MemberwiseClone()
-    /// call sites compile.
+    /// When a C# class implements ICloneable (mapped to Java Cloneable), OR when any method
+    /// body calls memberwiseClone() (translated from C# MemberwiseClone(), which is always
+    /// available even without ICloneable), add a memberwiseClone() helper that wraps
+    /// super.clone() so that call sites compile.
     /// </summary>
     private static void AddCloneableBridgeMethods(JavaClassDeclaration javaClass)
     {
-        if (!javaClass.ImplementedTypes.Any(t => t == "Cloneable")) return;
+        // Also trigger when any method body uses memberwiseClone() — C#'s MemberwiseClone()
+        // is available on all objects, not just ICloneable implementors.
+        bool bodyCallsMemberwiseClone = javaClass.Methods.Any(m =>
+            m.Body != null && m.Body.Contains("memberwiseClone()"));
+
+        bool needsClone = javaClass.ImplementedTypes.Any(t => t == "Cloneable")
+            || bodyCallsMemberwiseClone;
+
+        if (!needsClone) return;
+
+        // Add Cloneable to implements if missing (required for super.clone() to work)
+        if (!javaClass.ImplementedTypes.Contains("Cloneable"))
+            javaClass.ImplementedTypes.Add("Cloneable");
+
         if (javaClass.Methods.Any(m => m.Name == "memberwiseClone")) return;
 
         javaClass.Methods.Add(new JavaMethodDeclaration

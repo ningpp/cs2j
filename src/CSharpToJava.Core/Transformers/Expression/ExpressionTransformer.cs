@@ -515,6 +515,22 @@ public class ExpressionTransformer : IExpressionTransformer
                     if (memberName == "MaxValue") return "Short.MAX_VALUE";
                     if (memberName == "MinValue") return "Short.MIN_VALUE";
                 }
+                // StringComparison enum → integer constants matching C# ordinals.
+                // These are consumed by StringHelper.compare(s1, s2, int) which is generated for the project.
+                if (fieldSymbol.ContainingType?.Name == "StringComparison"
+                    || fieldSymbol.ContainingType?.ToDisplayString() == "System.StringComparison")
+                {
+                    return memberName switch
+                    {
+                        "CurrentCulture"            => "0",
+                        "CurrentCultureIgnoreCase"  => "1",
+                        "InvariantCulture"          => "2",
+                        "InvariantCultureIgnoreCase"=> "3",
+                        "Ordinal"                   => "4",
+                        "OrdinalIgnoreCase"         => "5",
+                        _ => "0"
+                    };
+                }
                 // 字段访问保持原样，但需要检查是否是常量
                 return $"{left}.{ConversionContext.EscapeJavaKeyword(memberName)}";
             }
@@ -599,6 +615,58 @@ public class ExpressionTransformer : IExpressionTransformer
             if (target == "GC" && methodName is "SuppressFinalize" or "Collect" or "KeepAlive")
                 return $"/* GC.{methodName} */";
 
+            // Special case: random.Next([min,] max) → nextInt / min + nextInt(max - min)
+            // Java's Random.next(int bits) is protected; the public API is nextInt(bound).
+            if (methodName is "Next" or "next")
+            {
+                var recvTypeName = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                bool isRandom = recvTypeName?.Name is "Random"
+                    || recvTypeName?.ToDisplayString() is "System.Random" or "java.util.Random";
+                if (isRandom)
+                {
+                    if (node.ArgumentList.Arguments.Count == 0)
+                        return $"{target}.nextInt(Integer.MAX_VALUE)";
+                    if (node.ArgumentList.Arguments.Count == 1)
+                    {
+                        var maxArg = Transform(node.ArgumentList.Arguments[0].Expression, context);
+                        return $"{target}.nextInt({maxArg})";
+                    }
+                    if (node.ArgumentList.Arguments.Count == 2)
+                    {
+                        var minArg = Transform(node.ArgumentList.Arguments[0].Expression, context);
+                        var maxArg = Transform(node.ArgumentList.Arguments[1].Expression, context);
+                        return $"({minArg} + {target}.nextInt({maxArg} - {minArg}))";
+                    }
+                }
+            }
+
+            // Special case: Parallel.ForEach(collection, action) → collection.parallelStream().forEach(action)
+            // C# System.Threading.Tasks.Parallel.ForEach does not exist in Java.
+            if (methodName is "ForEach" or "forEach"
+                && (target is "Parallel" or "ParallelStream" || originalTargetName is "Parallel"))
+            {
+                if (node.ArgumentList.Arguments.Count >= 2)
+                {
+                    var pCollection = Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    var pAction = Transform(node.ArgumentList.Arguments[1].Expression, context);
+                    return $"{pCollection}.parallelStream().forEach({pAction})";
+                }
+            }
+
+            // Special case: Parallel.For(from, to, action) → IntStream.range(from, to).parallel().forEach(action)
+            if (methodName is "For"
+                && (target is "Parallel" or "ParallelStream" || originalTargetName is "Parallel"))
+            {
+                if (node.ArgumentList.Arguments.Count >= 3)
+                {
+                    var pFrom = Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    var pTo   = Transform(node.ArgumentList.Arguments[1].Expression, context);
+                    var pBody = Transform(node.ArgumentList.Arguments[2].Expression, context);
+                    context.AddImport("java.util.stream.IntStream");
+                    return $"IntStream.range({pFrom}, {pTo}).parallel().forEach({pBody})";
+                }
+            }
+
             // Special case: System.Tuple.Create(v1, v2) → new AbstractMap.SimpleEntry<>(v1, v2)
             // (System.Tuple<T1,T2> maps to AbstractMap.SimpleEntry<T1,T2>)
             // System.Tuple.Create(v1, v2, v3) → Tuple.of(v1, v2, v3) (vavr)
@@ -668,9 +736,17 @@ public class ExpressionTransformer : IExpressionTransformer
                 return $"({refA} == {refB})";
             }
 
-            // Special case: Array.Copy(src, si, dst, di, len) → System.arraycopy(src, si, dst, di, len)
+            // Special case: Array.Copy(src, [si,] dst, [di,] len) → System.arraycopy(src, si, dst, di, len)
+            // C# Array.Copy has a 3-arg overload: Copy(src, dst, len) — map srcPos/dstPos to 0.
             if (methodName == "Copy" && (target == "Array" || target == "Object[]" || originalTargetName == "Array"))
             {
+                if (node.ArgumentList.Arguments.Count == 3)
+                {
+                    var acSrc = Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    var acDst = Transform(node.ArgumentList.Arguments[1].Expression, context);
+                    var acLen = Transform(node.ArgumentList.Arguments[2].Expression, context);
+                    return $"System.arraycopy({acSrc}, 0, {acDst}, 0, {acLen})";
+                }
                 var copyArgs = TransformArgumentList(node.ArgumentList, context);
                 return $"System.arraycopy({copyArgs})";
             }
@@ -828,8 +904,17 @@ public class ExpressionTransformer : IExpressionTransformer
                     string suffix = methodName == "WriteLine" ? "println" : "print";
                     if (node.ArgumentList.Arguments.Count == 0)
                         return $"System.out.{suffix}()";
-                    var consoleArgs = string.Join(", ", node.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)));
-                    return $"System.out.{suffix}({consoleArgs})";
+                    // C# Console.WriteLine(format, arg1, arg2, ...) with 2+ args uses composite format {0},{1}...
+                    // Java println() only takes a single argument. Use printf() instead (caller must adapt format).
+                    if (node.ArgumentList.Arguments.Count >= 2)
+                    {
+                        var fmtArg = Transform(node.ArgumentList.Arguments[0].Expression, context);
+                        var restArgs = string.Join(", ", node.ArgumentList.Arguments.Skip(1).Select(a => Transform(a.Expression, context)));
+                        string newline = methodName == "WriteLine" ? " + \"\\n\"" : "";
+                        return $"System.out.printf(String.valueOf({fmtArg}){newline}, {restArgs})";
+                    }
+                    var singleArg = Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    return $"System.out.{suffix}({singleArg})";
                 }
             }
 

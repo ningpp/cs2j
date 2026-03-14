@@ -413,7 +413,27 @@ public class StatementTransformer : IStatementTransformer
             expression.Contains("Arrays.stream(") || expression.Contains(".stream()") ||
             expression.Contains(".map(") ||
             expression.Contains(".filter(") ||
-            expression.Contains(".flatMap("));
+            expression.Contains(".flatMap(") ||
+            expression.Contains(".sorted(") ||
+            expression.Contains(".distinct(") ||
+            expression.Contains(".limit(") ||
+            expression.Contains(".skip(") ||
+            expression.Contains(".peek(") ||
+            expression.Contains(".mapToInt(") ||
+            expression.Contains(".mapToLong(") ||
+            expression.Contains(".mapToDouble(") ||
+            expression.Contains(".mapToObj("));
+
+        // Also detect by semantic type: if the C# expression type is IOrderedEnumerable or IQueryable
+        // (both are always yielded as Java Streams by the LINQ translator), force-collect.
+        if (!isStream && exprTypeInfo is INamedTypeSymbol csForeachType)
+        {
+            bool isLinqResult = csForeachType.Name is "IOrderedEnumerable" or "IOrderedQueryable" or "IQueryable"
+                || (csForeachType.ContainingNamespace?.ToDisplayString().StartsWith("System.Linq") == true
+                    && csForeachType.Name != "IEnumerable" && csForeachType.Name != "ICollection");
+            if (isLinqResult)
+                isStream = true;
+        }
 
         if (isStream)
         {
@@ -945,6 +965,12 @@ public class StatementTransformer : IStatementTransformer
                 if (javaType.StartsWith("ArrayList<") && initExpr.Contains(".collect(Collectors.toList())"))
                     initExpr = $"new ArrayList<>({initExpr})";
                 init = $" = {initExpr}";
+                // Java cannot auto-box int to Double/Float (only int→Integer is supported).
+                // When a boxed Double/Float local is initialized with an int literal, widen it.
+                if (javaType == "Double" && IsIntegerLiteralString(initExpr))
+                    init = $" = {initExpr}.0";
+                else if (javaType == "Float" && IsIntegerLiteralString(initExpr))
+                    init = $" = {initExpr}f";
             }
             else if (wasConvertedFromVar && javaType != "var" && javaType != "Object")
             {
@@ -980,6 +1006,18 @@ public class StatementTransformer : IStatementTransformer
     private JavaSyntaxNode TransformYieldBreak(YieldStatementSyntax? stmt, ConversionContext context)
     {
         return new JavaStatementNode("return _yieldResult;");
+    }
+
+    /// <summary>
+    /// Returns true when <paramref name="s"/> is a bare integer literal string (possibly negative),
+    /// e.g. "0", "1", "-1", "42". Used to detect int literals that need widening to Double/Float.
+    /// </summary>
+    private static bool IsIntegerLiteralString(string? s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return false;
+        s = s.Trim();
+        if (s.StartsWith("-") || s.StartsWith("+")) s = s.Substring(1).Trim();
+        return s.Length > 0 && s.All(char.IsDigit);
     }
 }
 

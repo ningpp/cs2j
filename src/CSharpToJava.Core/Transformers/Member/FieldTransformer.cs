@@ -56,6 +56,12 @@ public class FieldTransformer : IMemberTransformer
             {
                 var exprTransformer = new Transformers.Expression.ExpressionTransformer();
                 javaField.Initializer = exprTransformer.Transform(variable.Initializer.Value, context);
+                // Java cannot auto-box int to Double/Float (only int→Integer is supported).
+                // When a boxed Double/Float field is initialized with an int literal, widen it.
+                if (javaType == "Double" && IsIntegerLiteralString(javaField.Initializer))
+                    javaField.Initializer += ".0";
+                else if (javaType == "Float" && IsIntegerLiteralString(javaField.Initializer))
+                    javaField.Initializer += "f";
             }
 
             yield return javaField;
@@ -90,5 +96,17 @@ public class FieldTransformer : IMemberTransformer
             result &= ~JavaModifiers.Public;
 
         return result;
+    }
+
+    /// <summary>
+    /// Returns true when <paramref name="s"/> is a bare integer literal string (possibly negative),
+    /// e.g. "0", "1", "-1", "42". Used to detect int literals that need widening to Double/Float.
+    /// </summary>
+    private static bool IsIntegerLiteralString(string? s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return false;
+        s = s.Trim();
+        if (s.StartsWith("-") || s.StartsWith("+")) s = s.Substring(1).Trim();
+        return s.Length > 0 && s.All(char.IsDigit);
     }
 }
