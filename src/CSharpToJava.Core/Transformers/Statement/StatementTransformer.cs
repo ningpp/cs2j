@@ -171,16 +171,26 @@ public class StatementTransformer : IStatementTransformer
             {
                 // Check if the enclosing method's return type is IList<T>, ICollection<T>, or IEnumerable<T>
                 var enclosingMethod = stmt.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
+                ITypeSymbol? enclosingRetSym = null;
                 if (enclosingMethod != null)
+                    enclosingRetSym = context.SemanticModel.GetTypeInfo(enclosingMethod.ReturnType).Type;
+                // Also check property accessor (return in a get { } block)
+                if (enclosingRetSym == null)
                 {
-                    var retTypeSymbol = context.SemanticModel.GetTypeInfo(enclosingMethod.ReturnType).Type;
-                    if (retTypeSymbol is INamedTypeSymbol retNamed &&
-                        retNamed.Name is "IList" or "ICollection" or "List" or "Collection"
-                            or "IEnumerable" or "Iterable")
+                    var propAccessor = stmt.Ancestors().OfType<AccessorDeclarationSyntax>().FirstOrDefault();
+                    if (propAccessor != null)
                     {
-                        expr = $"Arrays.asList({expr})";
-                        context.AddImport("java.util.Arrays");
+                        var propDecl = propAccessor.Ancestors().OfType<PropertyDeclarationSyntax>().FirstOrDefault();
+                        if (propDecl != null)
+                            enclosingRetSym = context.SemanticModel.GetTypeInfo(propDecl.Type).Type;
                     }
+                }
+                if (enclosingRetSym is INamedTypeSymbol retNamed &&
+                    retNamed.Name is "IList" or "ICollection" or "List" or "Collection"
+                        or "IEnumerable" or "Iterable")
+                {
+                    expr = $"Arrays.asList({expr})";
+                    context.AddImport("java.util.Arrays");
                 }
             }
 
@@ -196,16 +206,30 @@ public class StatementTransformer : IStatementTransformer
                 expr.Contains("stream(") || expr.Contains("Stream.concat") ||
                 expr.Contains(".distinct(") || expr.Contains(".sorted(")))
             {
+                // Check if enclosing method returns Iterable
                 var enclosing = stmt.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
-                if (enclosing != null)
+                ITypeSymbol? enclosingRetType = enclosing != null
+                    ? context.SemanticModel?.GetTypeInfo(enclosing.ReturnType).Type
+                    : null;
+                // Also check property accessor (return inside a get { } block)
+                if (enclosingRetType == null)
                 {
-                    var methodRetSym = context.SemanticModel?.GetTypeInfo(enclosing.ReturnType).Type;
-                    bool methodReturnsIterable = methodRetSym is INamedTypeSymbol mret &&
-                        mret.Name is "IEnumerable" or "ICollection" or "IList";
-                    if (methodReturnsIterable)
+                    var accessorDecl = stmt.Ancestors().OfType<AccessorDeclarationSyntax>().FirstOrDefault();
+                    if (accessorDecl != null)
                     {
-                        expr = $"{expr}.collect(java.util.stream.Collectors.toList())";
+                        var propDecl2 = accessorDecl.Ancestors().OfType<PropertyDeclarationSyntax>().FirstOrDefault();
+                        if (propDecl2 != null)
+                            enclosingRetType = context.SemanticModel?.GetTypeInfo(propDecl2.Type).Type;
                     }
+                }
+                bool enclosingReturnsIterable = enclosingRetType is INamedTypeSymbol mret &&
+                    mret.Name is "IEnumerable" or "ICollection" or "IList";
+                // Don't double-collect: if the expression already ends with .toList() it's already a List
+                bool alreadyCollected = expr.EndsWith(".toList())") || expr.EndsWith("toList()))");
+                if (enclosingReturnsIterable && !alreadyCollected)
+                {
+                    context.AddImport("java.util.stream.Collectors");
+                    expr = $"{expr}.collect(Collectors.toList())";
                 }
             }
         }
@@ -328,8 +352,15 @@ public class StatementTransformer : IStatementTransformer
                 // Try to get the proper Map.Entry type from the dictionary's type arguments
                 if (exprNamed.IsGenericType && exprNamed.TypeArguments.Length >= 2)
                 {
-                    var keyType = context.MapType(exprNamed.TypeArguments[0]);
-                    var valType = context.MapType(exprNamed.TypeArguments[1]);
+                    // Must use boxed types for Map.Entry generic args (primitives not allowed in generics)
+                    static string BoxJavaType(string t) => t switch
+                    {
+                        "int" => "Integer", "long" => "Long", "double" => "Double",
+                        "float" => "Float", "boolean" => "Boolean", "short" => "Short",
+                        "byte" => "Byte", "char" => "Character", _ => t
+                    };
+                    var keyType = BoxJavaType(context.MapType(exprNamed.TypeArguments[0]));
+                    var valType = BoxJavaType(context.MapType(exprNamed.TypeArguments[1]));
                     javaType = $"Map.Entry<{keyType}, {valType}>";
                     context.AddImport("java.util.Map");
                 }
@@ -341,20 +372,50 @@ public class StatementTransformer : IStatementTransformer
             }
         }
 
+        // Pre-process: StreamSupport.stream(...).toArray() used in foreach can't be iterated (Object[]).
+        // Convert to .collect(Collectors.toList()) so the list is Iterable<T> and foreach works.
+        {
+            var trimExpr = expression.TrimEnd();
+            if (trimExpr.EndsWith(".toArray()") && trimExpr.Contains("StreamSupport.stream("))
+            {
+                expression = trimExpr.Substring(0, trimExpr.Length - ".toArray()".Length)
+                             + ".collect(Collectors.toList())";
+                context.AddImport("java.util.stream.Collectors");
+            }
+        }
+
         // Check if the expression is a Stream (doesn't implement Iterable).
         // Stream.concat(), StreamSupport.stream(), Arrays.stream(), etc.
         // Collect to List to allow break/continue/return in the loop body.
-        bool isStream = expression.Contains("Stream.concat(") || expression.Contains("StreamSupport.stream(") ||
+        // Use EndsWith check to avoid double-collecting an already-collected stream:
+        // the expression may contain inner .collect() calls (e.g. spliterator wrapping)
+        // but we only skip if the OUTERMOST call is already .collect(Collectors.toList()).
+        bool isStream = !expression.TrimEnd().EndsWith(".collect(Collectors.toList())")
+            && !expression.TrimEnd().EndsWith(".toArray()")
+            && !System.Text.RegularExpressions.Regex.IsMatch(expression.TrimEnd(), @"\.toArray\([^)]+\)$")
+            && (
+            expression.Contains("Stream.concat(") || expression.Contains("StreamSupport.stream(") ||
             expression.Contains("Arrays.stream(") || expression.Contains(".stream()") ||
-            (expression.Contains(".map(") && !expression.Contains(".collect(")) ||
-            (expression.Contains(".filter(") && !expression.Contains(".collect(")) ||
-            (expression.Contains(".flatMap(") && !expression.Contains(".collect("));
+            expression.Contains(".map(") ||
+            expression.Contains(".filter(") ||
+            expression.Contains(".flatMap("));
 
         if (isStream)
         {
             // Collect stream to list so that break/return/continue work in loop body
             context.AddImport("java.util.stream.Collectors");
             expression = $"{expression}.collect(Collectors.toList())";
+        }
+
+        // Iterating a raw (non-generic) IEnumerable with a typed loop variable: in Java, iterating
+        // a raw Iterable yields Object, which can't be assigned to a typed variable (compile error).
+        // Cast the iterable to Iterable<ElementType> to make it compile (generates unchecked warning).
+        if (!isStream && javaType != "Object" && javaType != "var"
+            && exprTypeInfo is INamedTypeSymbol rawEnum
+            && !rawEnum.IsGenericType
+            && rawEnum.Name is "IEnumerable" or "ICollection")
+        {
+            expression = $"(Iterable<{javaType}>) ({expression})";
         }
 
         return new JavaStatementNode($"for ({javaType} {identifier} : {expression}) {body}");
@@ -748,13 +809,72 @@ public class StatementTransformer : IStatementTransformer
             }
         }
 
+        // If this is a primitive-typed variable with no initializer, check if it's used as an out-argument
+        // to TryGetValue. In that case, Java can't compare the result of map.get() (Integer) to null
+        // when assigned to a primitive (int). Use the boxed type (Integer, Long, etc.) instead.
+        if (hasNoInitializer)
+        {
+            string? boxedType = javaType switch
+            {
+                "int" => "Integer", "long" => "Long", "double" => "Double",
+                "float" => "Float", "boolean" => "Boolean", "short" => "Short",
+                "byte" => "Byte", "char" => "Character", _ => null
+            };
+            if (boxedType != null && stmt.Parent is BlockSyntax parentBlock)
+            {
+                foreach (var variable in stmt.Declaration.Variables)
+                {
+                    var varName = variable.Identifier.Text;
+                    bool usedAsTryGetValueOut = parentBlock.DescendantNodes()
+                        .OfType<InvocationExpressionSyntax>()
+                        .Any(inv => inv.Expression is MemberAccessExpressionSyntax ma2
+                            && ma2.Name.Identifier.Text is "TryGetValue" or "TryGetComponent"
+                            && inv.ArgumentList.Arguments.Any(a =>
+                                a.RefKindKeyword.IsKind(SyntaxKind.OutKeyword)
+                                && a.Expression is IdentifierNameSyntax id
+                                && id.Identifier.Text == varName));
+                    if (usedAsTryGetValueOut)
+                    {
+                        javaType = boxedType;
+                        break;
+                    }
+                }
+            }
+        }
+
         var exprTransformer = new ExpressionTransformer();
         var declarations = string.Join(", ", stmt.Declaration.Variables.Select(v =>
         {
             string init;
             if (v.Initializer != null)
             {
-                init = $" = {exprTransformer.Transform(v.Initializer.Value, context)}";
+                var initExpr = exprTransformer.Transform(v.Initializer.Value, context);
+                // When the declared type is a primitive array (e.g., int[]) and the initializer is
+                // a generic method whose original return type is T[] (type-parameter array),
+                // Java generics substitute T with the boxed type (Integer[]) — we must unbox it.
+                if (javaType is "int[]" or "long[]" or "double[]" or "float[]" or "boolean[]"
+                    && v.Initializer.Value is InvocationExpressionSyntax unboxInvExpr
+                    && context.SemanticModel != null)
+                {
+                    var invSym2 = context.SemanticModel.GetSymbolInfo(unboxInvExpr).Symbol as IMethodSymbol;
+                    if (invSym2?.OriginalDefinition.ReturnType is IArrayTypeSymbol origRetArr2
+                        && origRetArr2.ElementType is ITypeParameterSymbol)
+                    {
+                        context.AddImport("java.util.Arrays");
+                        initExpr = javaType switch
+                        {
+                            "int[]" => $"Arrays.stream({initExpr}).mapToInt(Integer::intValue).toArray()",
+                            "long[]" => $"Arrays.stream({initExpr}).mapToLong(Long::longValue).toArray()",
+                            "double[]" => $"Arrays.stream({initExpr}).mapToDouble(Double::doubleValue).toArray()",
+                            _ => initExpr
+                        };
+                    }
+                }
+                // ArrayList<T> cannot be directly assigned from Stream.collect(Collectors.toList()) which returns List<T>.
+                // Wrap with new ArrayList<>(...) to produce a concrete ArrayList type.
+                if (javaType.StartsWith("ArrayList<") && initExpr.Contains(".collect(Collectors.toList())"))
+                    initExpr = $"new ArrayList<>({initExpr})";
+                init = $" = {initExpr}";
             }
             else if (wasConvertedFromVar && javaType != "var" && javaType != "Object")
             {

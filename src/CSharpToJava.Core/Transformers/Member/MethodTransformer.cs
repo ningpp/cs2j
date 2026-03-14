@@ -151,6 +151,7 @@ public class MethodTransformer : IMemberTransformer
         if (name == "GetHashCode") return "hashCode";
         if (name == "GetEnumerator") return "iterator";
         if (name == "GetType") return "getClass";
+        if (name == "Dispose") return "close";  // IDisposable.Dispose() → AutoCloseable.close()
 
         var camelName = name.Length > 0 ? char.ToLower(name[0]) + name.Substring(1) : name;
         // Escape Java keywords (e.g. Assert → assert → assertValue)
@@ -237,8 +238,9 @@ public class MethodTransformer : IMemberTransformer
                     javaParam.IsVarArgs = true;
                     break;
                 case SyntaxKind.ThisKeyword:
-                    // Extension method first parameter - skip it (the method stays static)
-                    return null;
+                    // Extension method 'this' parameter: keep it as first parameter in the Java static method.
+                    // The 'this' modifier is simply ignored; the parameter name and type are preserved.
+                    break;
                 case SyntaxKind.InKeyword:
                     // 'in' parameter - treat like ref (read-only ref) but just pass by value in Java
                     break;

@@ -139,7 +139,7 @@ public class PropertyTransformer : IMemberTransformer
                 Parameters = { new JavaParameter(propType, "value") },
                 Body = setAccessor?.ExpressionBody != null
                     ? new Transformers.Expression.ExpressionTransformer().Transform(setAccessor.ExpressionBody.Expression, context)
-                    : $"this.{fieldName} = value;",
+                    : (isStatic ? $"{fieldName} = value;" : $"this.{fieldName} = value;"),
                 IsBodyExpression = setAccessor?.ExpressionBody != null
             };
 

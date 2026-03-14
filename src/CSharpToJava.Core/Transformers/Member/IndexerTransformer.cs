@@ -80,7 +80,10 @@ public class IndexerTransformer : IMemberTransformer
             var setter = new JavaMethodDeclaration
             {
                 Name = "set",
-                ReturnType = "void",
+                // Return the set value (returnType) rather than void, so that compound indexer
+                // assignment (e.g. CdtEdge edge = Edges[i] = value) works in Java:
+                // edge = Edges.set(i, value)  → returns value (the newly-set item).
+                ReturnType = returnType,
                 Modifiers = GetAccessorModifiers(setAccessor, indexerDecl.Modifiers) | JavaModifiers.Public
             };
 
@@ -94,13 +97,14 @@ public class IndexerTransformer : IMemberTransformer
             if (setAccessor?.Body != null)
             {
                 var statementTransformer = new Transformers.Statement.StatementTransformer();
-                setter.Body = statementTransformer.TransformBlock(setAccessor.Body, context);
+                setter.Body = statementTransformer.TransformBlock(setAccessor.Body, context) + "\nreturn value;";
             }
             else if (setAccessor?.ExpressionBody != null)
             {
                 var exprTransformer = new Transformers.Expression.ExpressionTransformer();
                 setter.Body = exprTransformer.Transform(setAccessor.ExpressionBody.Expression, context);
-                setter.IsBodyExpression = true;
+                setter.IsBodyExpression = false; // need a block with return
+                setter.Body += ";\nreturn value;";
             }
 
             results.Add(setter);

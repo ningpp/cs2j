@@ -280,8 +280,31 @@ public class TypeMappingRegistry
             if (backtickIdx >= 0)
             {
                 var baseKeyName = key.TypeName.Substring(0, backtickIdx);
-                if (typeName.StartsWith(baseKeyName + "<") || typeName == baseKeyName)
-                    return value.JavaMethodName;
+                bool baseNameMatches = typeName.StartsWith(baseKeyName + "<") || typeName == baseKeyName;
+                if (baseNameMatches)
+                {
+                    // Verify arity: the backtick number must match the number of type arguments in typeName.
+                    // This prevents "System.Tuple`2: Item1 → getKey" matching System.Tuple<A, B, C, D> (arity 4).
+                    if (int.TryParse(key.TypeName.Substring(backtickIdx + 1), out int expectedArity))
+                    {
+                        if (typeName == baseKeyName)
+                        {
+                            // Non-generic usage — only match if expectedArity == 0 (no type params)
+                            if (expectedArity == 0) return value.JavaMethodName;
+                        }
+                        else
+                        {
+                            // Count top-level commas inside <...> to determine actual arity.
+                            // openAnglePos must point at the '<' character itself (not one past it).
+                            int actualArity = CountTopLevelTypeArgs(typeName, baseKeyName.Length);
+                            if (actualArity == expectedArity) return value.JavaMethodName;
+                        }
+                    }
+                    else
+                    {
+                        return value.JavaMethodName; // No arity in config key, use startsWith (legacy)
+                    }
+                }
             }
         }
 
@@ -324,6 +347,24 @@ public class TypeMappingRegistry
             return type.Substring(start + 1, end - start - 1);
         }
         return type;
+    }
+
+    /// <summary>
+    /// Count the number of top-level type arguments inside the &lt;&gt; at position `openAnglePos`.
+    /// e.g., "System.Tuple&lt;int, int, double, double&gt;" with openAnglePos pointing at '&lt;' returns 4.
+    /// </summary>
+    private static int CountTopLevelTypeArgs(string typeName, int openAnglePos)
+    {
+        int depth = 0;
+        int count = 1;
+        for (int i = openAnglePos; i < typeName.Length; i++)
+        {
+            char c = typeName[i];
+            if (c == '<') depth++;
+            else if (c == '>') { depth--; if (depth < 0) break; }
+            else if (c == ',' && depth == 1) count++;
+        }
+        return count;
     }
 
     /// <summary>

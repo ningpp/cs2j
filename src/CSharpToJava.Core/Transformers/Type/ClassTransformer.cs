@@ -135,6 +135,8 @@ public class ClassTransformer : ITypeTransformer
         AddIteratorBridgeMethods(javaClass);
         AddIterableSizeBridgeMethods(javaClass);
         AddCloneableBridgeMethods(javaClass);
+        AddListInterfaceBridgeMethods(javaClass);
+        AddIRectangleBridgeMethods(javaClass);
         context.LeaveType();
 
         return javaClass;
@@ -219,6 +221,8 @@ public class ClassTransformer : ITypeTransformer
         AddIteratorBridgeMethods(javaClass);
         AddIterableSizeBridgeMethods(javaClass);
         AddCloneableBridgeMethods(javaClass);
+        AddListInterfaceBridgeMethods(javaClass);
+        AddIRectangleBridgeMethods(javaClass);
         context.LeaveType();
 
         return javaClass;
@@ -334,6 +338,21 @@ public class ClassTransformer : ITypeTransformer
 
     internal static void AddCtorIfNotDuplicateInternal(JavaClassDeclaration javaClass, JavaConstructorDeclaration ctor)
     {
+        // Early-out: drop adapter delegation constructors unconditionally.
+        // An adapter delegation wraps a constructor parameter in a type-adapter and delegates
+        // to another constructor. Pattern: "this(new SomeClass(originalParam...));"
+        // In Java such adapters are unnecessary (lambdas satisfy functional interfaces directly),
+        // and keeping them causes recursive-constructor or type-erasure-ambiguity errors.
+        // ONLY applies when the constructor has parameters (parameterless delegations like
+        // "OverlapRemovalParameters() : this(new Parameters())" must be kept as they provide
+        // a needed default constructor, not a type-adaptation wrapper).
+        var trimmedBody = (ctor.Body ?? "").Trim();
+        bool isAdapterDelegation = ctor.Parameters.Count > 0 &&
+            (trimmedBody.StartsWith("this(new ") || trimmedBody.StartsWith("this( new "))
+            && trimmedBody.EndsWith(");") && !trimmedBody.Contains('\n');
+        if (isAdapterDelegation)
+            return; // Adapter delegation not needed in Java — drop it.
+
         var erasedSig = ErasedParamSig(ctor.Parameters);
         if (!javaClass.Constructors.Any(c => ErasedParamSig(c.Parameters) == erasedSig))
         {
@@ -342,8 +361,12 @@ public class ClassTransformer : ITypeTransformer
         }
 
         // Type-erasure conflict: two constructors with same erased parameter signature.
-        // Convert the conflicting constructor to a static factory method named "createFrom<ParamType>".
-        // The factory method body creates an instance via the no-arg constructor + initialization.
+        // If the duplicate constructor body is just a this(...) delegation, silently drop it —
+        // the constructor it delegates to is already present.
+        bool isJustDelegation = (trimmedBody.StartsWith("this(") && trimmedBody.EndsWith(");") && !trimmedBody.Contains('\n'))
+            || (trimmedBody.StartsWith("super(") && trimmedBody.EndsWith(");") && !trimmedBody.Contains('\n'));
+        if (isJustDelegation)
+            return; // The delegate target is already present; safe to drop this wrapper constructor.
         if (ctor.Parameters.Count == 1)
         {
             var paramType = ctor.Parameters[0].Type;
@@ -382,9 +405,9 @@ public class ClassTransformer : ITypeTransformer
                 else
                 {
                     // Replace bare instance method calls (without explicit receiver) with __inst. prefix
-                    // This handles "add(r);" → "__inst.add(r);"
+                    // This handles "add(r);" → "__inst.add(r);" but NOT "ValidateArg.isNotNull(" etc.
                     var rewritten = System.Text.RegularExpressions.Regex.Replace(
-                        line, @"\b([a-z][a-zA-Z0-9]*)\(", m => {
+                        line, @"(?<!\.)\b([a-z][a-zA-Z0-9]*)\(", m => {
                             var methodName = m.Groups[1].Value;
                             // Skip Java keywords and common static methods
                             if (methodName is "for" or "if" or "while" or "return" or "new" or "super" or "this")
@@ -534,10 +557,136 @@ public class ClassTransformer : ITypeTransformer
         }
     }
 
+    /// <summary>
+    /// When a C# class implements IList&lt;T&gt; (mapped to Java List&lt;T&gt;), the Java List interface
+    /// has many abstract methods with different signatures than C#'s IList&lt;T&gt;.
+    /// Strategy: switch to "extends AbstractList&lt;T&gt;" (which implements all abstract List methods)
+    /// rather than "implements List&lt;T&gt;" (which requires implementing all ~20 abstract methods).
+    /// AbstractList only requires get(int) and size() to be abstract; everything else has defaults.
+    /// When there's already a base class, fall back to adding individual bridge methods.
+    /// </summary>
+    private static void AddListInterfaceBridgeMethods(JavaClassDeclaration javaClass)
+    {
+        // Only apply to classes that implement List<T>
+        var listType = javaClass.ImplementedTypes.FirstOrDefault(t => t == "List" || t.StartsWith("List<"));
+        if (listType == null) return;
+
+        // Extract element type from "List<T>" → T, or fall back to "Object"
+        string elemType = "Object";
+        if (listType.StartsWith("List<") && listType.EndsWith(">"))
+            elemType = listType.Substring(5, listType.Length - 6);
+
+        // Switch from "implements List<T>" to "extends AbstractList<T>"
+        // AbstractList implements all abstract List methods (except get(int) and size())
+        // so the class only needs to provide those two plus any overrides.
+        if (javaClass.ExtendedType == null)
+        {
+            javaClass.ImplementedTypes.Remove(listType);
+            javaClass.ExtendedType = $"java.util.AbstractList<{elemType}>";
+        }
+
+        // Fix: add(T item) → boolean add(T item) { ...; return true; }
+        // AbstractList.add(E) calls add(size(), e) → throws UnsupportedOperationException.
+        // Override directly with boolean return to provide the custom add logic.
+        var addMethod = javaClass.Methods.FirstOrDefault(m =>
+            m.Name == "add" && m.Parameters.Count == 1 &&
+            m.Parameters[0].Type == elemType && m.ReturnType == "void");
+        if (addMethod != null)
+        {
+            addMethod.ReturnType = "boolean";
+            if (addMethod.Body != null)
+                addMethod.Body = addMethod.Body.TrimEnd() + "\nreturn true;";
+        }
+
+        // Fix: set(int, T) void → T set(int, T) { T _old = this.get(index); ...; return _old; }
+        var setMethod = javaClass.Methods.FirstOrDefault(m =>
+            m.Name == "set" && m.Parameters.Count == 2 &&
+            m.Parameters[0].Type == "int" && m.Parameters[1].Type == elemType && m.ReturnType == "void");
+        if (setMethod != null)
+        {
+            string indexParam = setMethod.Parameters[0].Name ?? "index";
+            setMethod.ReturnType = elemType;
+            if (setMethod.Body != null)
+                setMethod.Body = $"{elemType} _setOldValue_ = this.get({indexParam});\n" + setMethod.Body.TrimEnd() + $"\nreturn _setOldValue_;";
+        }
+
+        // Add size() bridge if missing (AbstractList.size() is abstract)
+        if (!javaClass.Methods.Any(m => m.Name == "size" && m.Parameters.Count == 0))
+        {
+            bool hasGetCount = javaClass.Methods.Any(m => m.Name == "getCount" && m.Parameters.Count == 0);
+            if (hasGetCount)
+            {
+                javaClass.Methods.Add(new JavaMethodDeclaration
+                {
+                    Modifiers = JavaModifiers.Public,
+                    ReturnType = "int",
+                    Name = "size",
+                    Body = "return getCount();"
+                });
+            }
+        }
+    }
+
+    /// <summary>
+    /// When a class implements IRectangle&lt;BoxedPrimitive&gt; (e.g. IRectangle&lt;Double&gt;) but its
+    /// internal methods use primitive types (e.g. contains(double)), Java requires bridge methods
+    /// for the boxed-type overloads defined in the interface.
+    /// </summary>
+    private static void AddIRectangleBridgeMethods(JavaClassDeclaration javaClass)
+    {
+        var iRectType = javaClass.ImplementedTypes.FirstOrDefault(t => t == "IRectangle" || t.StartsWith("IRectangle<"));
+        if (iRectType == null) return;
+
+        // Extract type argument P from IRectangle<P>
+        string? boxedType = null;
+        if (iRectType.StartsWith("IRectangle<") && iRectType.EndsWith(">"))
+            boxedType = iRectType.Substring("IRectangle<".Length, iRectType.Length - "IRectangle<".Length - 1).Trim();
+        if (boxedType == null) return;
+
+        // Map boxed type to primitive
+        string? primitiveType = boxedType switch
+        {
+            "Double" => "double",
+            "Integer" => "int",
+            "Float" => "float",
+            "Long" => "long",
+            "Boolean" => "boolean",
+            _ => null
+        };
+        if (primitiveType == null) return;
+
+        // Bridge: boolean contains(BoxedType point)  →  contains((primitive) point)
+        if (!javaClass.Methods.Any(m => m.Name == "contains" && m.Parameters.Count == 1 && m.Parameters[0].Type == boxedType)
+            && javaClass.Methods.Any(m => m.Name == "contains" && m.Parameters.Count == 1 && m.Parameters[0].Type == primitiveType))
+        {
+            var bridge = new JavaMethodDeclaration { Modifiers = JavaModifiers.Public, ReturnType = "boolean", Name = "contains", Body = $"return contains(({primitiveType}) point);" };
+            bridge.Parameters.Add(new JavaParameter(boxedType, "point"));
+            javaClass.Methods.Add(bridge);
+        }
+
+        // Bridge: boolean contains(BoxedType p, double radius)  →  contains((primitive) p, radius)
+        if (!javaClass.Methods.Any(m => m.Name == "contains" && m.Parameters.Count == 2 && m.Parameters[0].Type == boxedType)
+            && javaClass.Methods.Any(m => m.Name == "contains" && m.Parameters.Count == 2 && m.Parameters[0].Type == primitiveType))
+        {
+            var bridge = new JavaMethodDeclaration { Modifiers = JavaModifiers.Public, ReturnType = "boolean", Name = "contains", Body = $"return contains(({primitiveType}) p, radius);" };
+            bridge.Parameters.Add(new JavaParameter(boxedType, "p"));
+            bridge.Parameters.Add(new JavaParameter("double", "radius"));
+            javaClass.Methods.Add(bridge);
+        }
+
+        // Bridge: void add(BoxedType point)  →  add((primitive) point)
+        if (!javaClass.Methods.Any(m => m.Name == "add" && m.Parameters.Count == 1 && m.Parameters[0].Type == boxedType)
+            && javaClass.Methods.Any(m => m.Name == "add" && m.Parameters.Count == 1 && m.Parameters[0].Type == primitiveType))
+        {
+            var bridge = new JavaMethodDeclaration { Modifiers = JavaModifiers.Public, ReturnType = "void", Name = "add", Body = $"add(({primitiveType}) point);" };
+            bridge.Parameters.Add(new JavaParameter(boxedType, "point"));
+            javaClass.Methods.Add(bridge);
+        }
+    }
+
     private void ProcessMember(MemberDeclarationSyntax member, JavaClassDeclaration javaClass, ConversionContext context)
     {
         var factory = new Transformers.TransformerFactory();
-
         switch (member)
         {
             case FieldDeclarationSyntax fieldDecl:

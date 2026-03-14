@@ -266,11 +266,32 @@ public class ExpressionTransformer : IExpressionTransformer
         }
 
         // If this is a method symbol used as an invocation target, camelCase it to match Java convention
-        if (symbolInfo.HasValue && symbolInfo.Value.Symbol is IMethodSymbol && char.IsUpper(name[0]))
+        if (symbolInfo.HasValue && symbolInfo.Value.Symbol is IMethodSymbol methodGroupSym && char.IsUpper(name[0]))
         {
             var camelName2 = name == "GetHashCode" ? "hashCode"
+                : name == "GetType" ? "getClass"
+                : name == "GetEnumerator" ? "iterator"
+                : name == "Dispose" ? "close"
                 : char.ToLower(name[0]) + name.Substring(1);
-            return ConversionContext.EscapeJavaKeyword(camelName2);
+            camelName2 = ConversionContext.EscapeJavaKeyword(camelName2);
+
+            // Check if this identifier is used as a METHOD GROUP (delegate/lambda, not a call).
+            // If the parent is not an InvocationExpressionSyntax with this node as the callee,
+            // then this is a method group reference → generate ClassName::methodName in Java.
+            bool isDirectCall = node.Parent is InvocationExpressionSyntax directInvCall
+                && directInvCall.Expression == node;
+            if (!isDirectCall && methodGroupSym.MethodKind != MethodKind.Constructor)
+            {
+                var containingType = methodGroupSym.ContainingType?.Name;
+                if (!string.IsNullOrEmpty(containingType))
+                {
+                    if (methodGroupSym.IsStatic)
+                        return $"{containingType}::{camelName2}";
+                    else
+                        return $"this::{camelName2}";
+                }
+            }
+            return camelName2;
         }
 
         return ConversionContext.EscapeJavaKeyword(name);
@@ -290,6 +311,19 @@ public class ExpressionTransformer : IExpressionTransformer
                 var idx = mapped.IndexOf('<');
                 if (idx > 0) return mapped.Substring(0, idx);
                 return mapped;
+            }
+        }
+
+        // If this is being used as a method invocation target (e.g. CrossRectangleNodes<TA, P>(args)),
+        // camelCase the method name to match Java convention.
+        if (node.Parent is InvocationExpressionSyntax inv && inv.Expression == node
+            && char.IsUpper(typeName[0]) && context.SemanticModel != null)
+        {
+            var sym = context.SemanticModel.GetSymbolInfo(node).Symbol;
+            if (sym is IMethodSymbol)
+            {
+                typeName = char.ToLower(typeName[0]) + typeName.Substring(1);
+                typeName = ConversionContext.EscapeJavaKeyword(typeName);
             }
         }
 
@@ -350,10 +384,11 @@ public class ExpressionTransformer : IExpressionTransformer
                         if (!string.IsNullOrEmpty(mappedCount))
                             return $"{left}.{mappedCount}()";
 
-                        // Fall back: any type implementing ICollection<T> → size()
-                        bool implementsICollection = namedExprType.AllInterfaces.Any(i =>
-                            i.SpecialType == SpecialType.System_Collections_Generic_ICollection_T ||
-                            i.Name is "ICollection" or "IList" or "ISet");
+                        // Fall back: any type implementing ICollection<T> (or that IS ICollection<T>) → size()
+                        bool implementsICollection = namedExprType.Name is "ICollection" or "IList" or "ISet"
+                            || namedExprType.AllInterfaces.Any(i =>
+                                i.SpecialType == SpecialType.System_Collections_Generic_ICollection_T ||
+                                i.Name is "ICollection" or "IList" or "ISet");
                         if (implementsICollection)
                             return $"{left}.size()";
                     }
@@ -429,7 +464,8 @@ public class ExpressionTransformer : IExpressionTransformer
                         var currFq = currExprType.ToDisplayString();
                         if (currFq.StartsWith("System.Collections.Generic.IEnumerator") ||
                             currFq == "System.Collections.IEnumerator" ||
-                            currFq.StartsWith("System.Collections.Generic.IEnumerator`"))
+                            currFq.StartsWith("System.Collections.Generic.IEnumerator`") ||
+                            currFq.Contains(".Enumerator"))  // Any Enumerator struct
                             return $"{left}.next()";
                     }
                 }
@@ -546,7 +582,35 @@ public class ExpressionTransformer : IExpressionTransformer
             if (target == "GC" && methodName is "SuppressFinalize" or "Collect" or "KeepAlive")
                 return $"/* GC.{methodName} */";
 
-            // Special case: dict.TryGetValue(key, out value) → (value = dict.get(key)) != null
+            // Special case: System.Tuple.Create(v1, v2) → new AbstractMap.SimpleEntry<>(v1, v2)
+            // (System.Tuple<T1,T2> maps to AbstractMap.SimpleEntry<T1,T2>)
+            // System.Tuple.Create(v1, v2, v3) → Tuple.of(v1, v2, v3) (vavr)
+            if (target is "Tuple" or "System.Tuple" && methodName == "Create" && node.ArgumentList != null)
+            {
+                var tupleArgCount = node.ArgumentList.Arguments.Count;
+                if (tupleArgCount == 2)
+                {
+                    var a1 = Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    var a2 = Transform(node.ArgumentList.Arguments[1].Expression, context);
+                    context.AddImport("java.util.AbstractMap");
+                    return $"new AbstractMap.SimpleEntry<>({a1}, {a2})";
+                }
+                if (tupleArgCount == 3)
+                {
+                    var a1 = Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    var a2 = Transform(node.ArgumentList.Arguments[1].Expression, context);
+                    var a3 = Transform(node.ArgumentList.Arguments[2].Expression, context);
+                    context.AddImport("io.vavr.Tuple");
+                    return $"Tuple.of({a1}, {a2}, {a3})";
+                }
+                if (tupleArgCount >= 4)
+                {
+                    var argStrings = node.ArgumentList.Arguments
+                        .Select(a => Transform(a.Expression, context));
+                    context.AddImport("io.vavr.Tuple");
+                    return $"Tuple.of({string.Join(", ", argStrings)})";
+                }
+            }
             if (methodName == "TryGetValue" && node.ArgumentList.Arguments.Count == 2)
             {
                 var tvKey = Transform(node.ArgumentList.Arguments[0].Expression, context);
@@ -564,6 +628,19 @@ public class ExpressionTransformer : IExpressionTransformer
                     tvOut = Transform(tvArg.Expression, context);
                 }
                 return $"(({tvOut} = {target}.get({tvKey})) != null)";
+            }
+
+            // Special case: Enum.Parse(typeof(T), str[, ignoreCase]) → T.valueOf(str) in Java
+            // Java's Enum.valueOf(T.class, str) is always case-sensitive; ignoreCase param is dropped.
+            if (methodName is "Parse" or "parse" && (target is "Enum" or "System.Enum")
+                && node.ArgumentList.Arguments.Count >= 2)
+            {
+                string enumTypeName = "Object";
+                var firstArg = node.ArgumentList.Arguments[0].Expression;
+                if (firstArg is TypeOfExpressionSyntax typeofExprEnum)
+                    enumTypeName = Transform(typeofExprEnum.Type, context);
+                var strVal = Transform(node.ArgumentList.Arguments[1].Expression, context);
+                return $"{enumTypeName}.valueOf({strVal})";
             }
 
             // Special case: Object.ReferenceEquals(a, b) → (a == b) in Java (reference equality)
@@ -592,9 +669,8 @@ public class ExpressionTransformer : IExpressionTransformer
             // Special case: Array.CreateInstance(type, len) → Array.newInstance(type, len) [java.lang.reflect.Array]
             if (methodName is "CreateInstance" && (target == "Array" || target == "System.Array" || originalTargetName == "Array"))
             {
-                context.AddImport("java.lang.reflect.Array");
                 var refArgs = TransformArgumentList(node.ArgumentList, context);
-                return $"Array.newInstance({refArgs})";
+                return $"java.lang.reflect.Array.newInstance({refArgs})";
             }
             // Special case: array.SetValue(val, idx) → Array.set(array, idx, val) [java.lang.reflect.Array]
             if (methodName is "SetValue" or "setValue" && node.ArgumentList.Arguments.Count == 2)
@@ -605,8 +681,7 @@ public class ExpressionTransformer : IExpressionTransformer
                 {
                     var sval = Transform(node.ArgumentList.Arguments[0].Expression, context);
                     var sidx = Transform(node.ArgumentList.Arguments[1].Expression, context);
-                    context.AddImport("java.lang.reflect.Array");
-                    return $"Array.set({target}, {sidx}, {sval})";
+                    return $"java.lang.reflect.Array.set({target}, {sidx}, {sval})";
                 }
             }
             // Special case: array.GetValue(idx) → Array.get(array, idx) [java.lang.reflect.Array]
@@ -617,8 +692,34 @@ public class ExpressionTransformer : IExpressionTransformer
                     gvaType.Name == "Array"))
                 {
                     var gidx = Transform(node.ArgumentList.Arguments[0].Expression, context);
-                    context.AddImport("java.lang.reflect.Array");
-                    return $"Array.get({target}, {gidx})";
+                    return $"java.lang.reflect.Array.get({target}, {gidx})";
+                }
+            }
+
+            // Special case: arr.GetLength(dim) on multi-dimensional C# arrays (mapped to jagged Java arrays)
+            // GetLength(0) → arr.length (number of rows), GetLength(1) → arr[0].length (number of columns)
+            if (methodName == "GetLength" && node.ArgumentList.Arguments.Count == 1)
+            {
+                var dimArg = node.ArgumentList.Arguments[0].Expression;
+                if (dimArg is LiteralExpressionSyntax dimLit && dimLit.IsKind(SyntaxKind.NumericLiteralExpression))
+                {
+                    var dimVal = dimLit.Token.ValueText;
+                    if (dimVal == "0") return $"{target}.length";
+                    if (dimVal == "1") return $"{target}[0].length";
+                }
+                // For variable dimension, use length as fallback
+                return $"{target}.length";
+            }
+
+            // Special case: str.Split(charSeparator) → str.split(String.valueOf(charSeparator)) in Java
+            // Java's String.split(String) does not accept char; char literals must be widened to String.
+            if (methodName == "Split" && node.ArgumentList.Arguments.Count == 1)
+            {
+                var arg0Type = context.SemanticModel?.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type;
+                if (arg0Type?.SpecialType == SpecialType.System_Char)
+                {
+                    var charArg = Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    return $"{target}.split(String.valueOf({charArg}))";
                 }
             }
 
@@ -741,11 +842,24 @@ public class ExpressionTransformer : IExpressionTransformer
                         && (msLinq.ContainingType?.ContainingNamespace?.ToDisplayString()?.StartsWith("System.Linq") == true);
                     if (isLinqExtension)
                     {
+                        // Special shortcut: if the target is already a collected List (from a query expression)
+                        // and we're calling ToList() on it, return the target directly — no-op.
+                        if ((methodName == "ToList" || methodName == "toList") &&
+                            (target.EndsWith(".collect(Collectors.toList())") ||
+                             target.EndsWith("toList()))") ||
+                             target.EndsWith("toList())")))
+                        {
+                            return target;
+                        }
+
                         // Special shortcut: Count() with no args on a type that has a Count property
                         // → use size() or getCount() directly (both return int, not long as Stream.count())
                         if (methodName == "Count" && node.ArgumentList.Arguments.Count == 0)
                         {
                             var rcvTypeSym = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                            // Arrays: intPairs.Count() → intPairs.length (avoid Stream.count() which returns long)
+                            if (rcvTypeSym is IArrayTypeSymbol)
+                                return $"{target}.length";
                             bool hasCountProp = rcvTypeSym != null && rcvTypeSym.GetMembers("Count")
                                 .OfType<IPropertySymbol>().Any(p => !p.IsStatic);
                             bool hasSizeMethod = rcvTypeSym != null && rcvTypeSym.GetMembers("size")
@@ -780,12 +894,37 @@ public class ExpressionTransformer : IExpressionTransformer
                             bool isAlreadyLinqResult = receiverType2 is INamedTypeSymbol rn2
                                 && (rn2.Name is "IOrderedEnumerable"
                                     || rn2.ContainingNamespace?.ToDisplayString().StartsWith("System.Linq") == true);
+                            // Also treat as already-a-stream if the target string already has Java stream operations.
+                            // This happens when chaining LINQ methods (e.g. .Select(...).ToList()) —
+                            // the Select already produced a StreamSupport.stream(...).map(...) and we must not re-wrap.
+                            // BUT: if the target already ends with .collect(...) it is a List (not a stream)
+                            // and further LINQ operations need to re-wrap it as a stream.
+                            bool targetEndsWithCollect = target.EndsWith(".toList())")
+                                                      || target.EndsWith("toList()))");
+                            if (!isAlreadyLinqResult && !targetEndsWithCollect)
+                                isAlreadyLinqResult = target.Contains("StreamSupport.stream(") ||
+                                                      target.Contains("Arrays.stream(") ||
+                                                      target.Contains(".stream()") ||
+                                                      target.Contains(".map(") ||
+                                                      target.Contains(".filter(") ||
+                                                      target.Contains(".flatMap(") ||
+                                                      target.Contains(".sorted(") ||
+                                                      target.Contains(".distinct(");
                             if (!isAlreadyLinqResult)
                             {
                                 if (receiverType2 is IArrayTypeSymbol)
                                 {
                                     context.AddImport("java.util.Arrays");
                                     linqTarget = $"Arrays.stream({target})";
+                                }
+                                else if (receiverType2 is INamedTypeSymbol mapRecv &&
+                                    (mapRecv.Name is "Dictionary" or "SortedDictionary" or "IDictionary" or
+                                     "HashMap" or "TreeMap" or "LinkedHashMap" or "SortedMap" ||
+                                     mapRecv.AllInterfaces.Any(i => i.Name is "IDictionary")))
+                                {
+                                    // Map doesn't implement Iterable; iterate via .entrySet()
+                                    context.AddImport("java.util.stream.StreamSupport");
+                                    linqTarget = $"StreamSupport.stream({target}.entrySet().spliterator(), false)";
                                 }
                                 else
                                 {
@@ -815,14 +954,39 @@ public class ExpressionTransformer : IExpressionTransformer
                 {
                     if (IsLinqMethod(extMethodName))
                     {
+                        // Special shortcut: if the target is already a collected List and we're calling ToList(),
+                        // that's a no-op — return the target directly.
+                        if ((extMethodName == "ToList" || extMethodName == "toList") &&
+                            (target.EndsWith(".collect(Collectors.toList())") ||
+                             target.EndsWith("toList()))") ||
+                             target.EndsWith("toList())")))
+                        {
+                            return target;
+                        }
+
+                        // Check if target is already a stream — don't re-wrap
+                        bool extTargetIsAlreadyStream =
+                            !target.EndsWith(".collect(Collectors.toList())") &&
+                            !target.EndsWith("toList()))") &&
+                            !target.EndsWith("toList())") &&
+                            (target.Contains("StreamSupport.stream(") ||
+                             target.Contains("Arrays.stream(") ||
+                             target.Contains(".stream()") ||
+                             target.Contains(".map(") ||
+                             target.Contains(".filter(") ||
+                             target.Contains(".flatMap(") ||
+                             target.Contains(".sorted(") ||
+                             target.Contains(".distinct("));
                         // Determine if the receiver is a Collection (supports .stream()) or bare Iterable
                         var rcvrType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
-                        bool isCollection = rcvrType is INamedTypeSymbol rcvrNamed &&
+                        bool isCollection = !extTargetIsAlreadyStream && rcvrType is INamedTypeSymbol rcvrNamed &&
                             (rcvrNamed.AllInterfaces.Any(i => i.Name is "ICollection" or "IList") ||
                              rcvrNamed.Name is "List" or "ArrayList" or "LinkedList" or "HashSet" or "TreeSet");
-                        string streamTarget = isCollection
-                            ? $"{target}.stream()"
-                            : $"StreamSupport.stream({target}.spliterator(), false)";
+                        string streamTarget = extTargetIsAlreadyStream
+                            ? target
+                            : isCollection
+                                ? $"{target}.stream()"
+                                : $"StreamSupport.stream({target}.spliterator(), false)";
                         context.AddImport("java.util.stream.StreamSupport");
                         context.AddImport("java.util.stream.Collectors");
                         var extLinqArgs = string.Join(", ", node.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)));
@@ -950,11 +1114,25 @@ public class ExpressionTransformer : IExpressionTransformer
             // Java uses camelCase for all method names
             if (char.IsUpper(methodName[0]))
             {
+                // Special case: GetEnumerator on Dict/SortedDictionary → .entrySet().iterator()
+                if (methodName == "GetEnumerator")
+                {
+                    var enumRecvType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                    if (enumRecvType is INamedTypeSymbol enumNamed &&
+                        (enumNamed.Name is "Dictionary" or "SortedDictionary" or "IDictionary" or
+                         "SortedList" or "HashMap" or "TreeMap" or "LinkedHashMap" or "SortedMap" ||
+                         enumNamed.AllInterfaces.Any(i => i.Name is "IDictionary")))
+                    {
+                        return $"{target}.entrySet().iterator()";
+                    }
+                }
                 var camelMethod = methodName switch
                 {
                     "GetHashCode" => "hashCode",
                     "GetEnumerator" => "iterator",
+                    "MoveNext" => "hasNext",
                     "GetType" => "getClass",
+                    "Dispose" => "close",
                     _ => char.ToLower(methodName[0]) + methodName.Substring(1)
                 };
                 methodName = ConversionContext.EscapeJavaKeyword(camelMethod);
@@ -990,9 +1168,28 @@ public class ExpressionTransformer : IExpressionTransformer
                     }
                     else if (node.ArgumentList.Arguments.Count == 1)
                     {
-                        // Comparer<T> → Comparator<T>: wrap with .compare(a,b) method reference
-                        var comparerArg = Transform(node.ArgumentList.Arguments[0].Expression, context);
+                        var argExpr4 = node.ArgumentList.Arguments[0].Expression;
+                        var argSym4 = context.SemanticModel?.GetSymbolInfo(argExpr4).Symbol;
                         context.AddImport("java.util.Collections");
+                        // If argument is a method group (Comparison<T> delegate), use method reference.
+                        // Exclude ObjectCreationExpression (new PointComparer()) — those resolve to constructor IMethodSymbol
+                        // but should be passed as-is (they're already IComparer objects).
+                        if (argSym4 is IMethodSymbol compMethod4
+                            && argExpr4 is not ObjectCreationExpressionSyntax
+                            && compMethod4.MethodKind != MethodKind.Constructor
+                            && !string.IsNullOrEmpty(compMethod4.Name))
+                        {
+                            var containingType4 = compMethod4.ContainingType?.Name ?? "";
+                            var javaName4 = char.ToLower(compMethod4.Name[0]) + compMethod4.Name.Substring(1);
+                            var refStr4 = compMethod4.IsStatic ? $"{containingType4}::{javaName4}" : $"this::{javaName4}";
+                            return $"Collections.sort({target}, {refStr4})";
+                        }
+                        // If the argument is already a lambda (Comparison<T>), use it directly as Comparator<T>.
+                        // Do NOT wrap in "(a, b) -> lambda.compare(a, b)" — that produces a double-lambda.
+                        var comparerArg = Transform(argExpr4, context);
+                        if (argExpr4 is LambdaExpressionSyntax)
+                            return $"Collections.sort({target}, {comparerArg})";
+                        // Comparer<T>/IComparer<T> → Comparator<T>: wrap with .compare(a,b) method reference
                         return $"Collections.sort({target}, (a, b) -> {comparerArg}.compare(a, b))";
                     }
                 }
@@ -1011,6 +1208,31 @@ public class ExpressionTransformer : IExpressionTransformer
                         return $"{target}.stream().mapToLong(Long::longValue).toArray()";
                     if (elemType == SpecialType.System_Double)
                         return $"{target}.stream().mapToDouble(Double::doubleValue).toArray()";
+                    if (elemType == SpecialType.None)
+                    {
+                        // Reference type: ArrayList<T>.toArray() returns Object[], need .toArray(new T[0])
+                        var javaElemType = context.MapType(taList.TypeArguments[0]);
+                        // Strip generic params for array creation
+                        var rawElemType = javaElemType.Contains('<') ? javaElemType.Substring(0, javaElemType.IndexOf('<')) : javaElemType;
+                        return $"{target}.toArray(new {rawElemType}[0])";
+                    }
+                }
+            }
+            // Check if the invoked member is actually a property of delegate type
+            // e.g., X.DelegateProp(args) where DelegateProp is a property of delegate type
+            // → X.getDelegateProp().invoke(args)
+            if (context.SemanticModel != null)
+            {
+                var maSymDelegate = context.SemanticModel.GetSymbolInfo(memberAccess).Symbol;
+                if (maSymDelegate is IPropertySymbol propSymDelegate &&
+                    propSymDelegate.Type.TypeKind == TypeKind.Delegate)
+                {
+                    var invokeMethodName = GetDelegateInvokeMethod(propSymDelegate.Type);
+                    if (invokeMethodName != null)
+                    {
+                        var getterName2 = $"get{char.ToUpper(propSymDelegate.Name[0])}{propSymDelegate.Name.Substring(1)}";
+                        return $"{target}.{getterName2}().{invokeMethodName}({args})";
+                    }
                 }
             }
             return $"{target}.{methodName}({args})";
@@ -1027,6 +1249,15 @@ public class ExpressionTransformer : IExpressionTransformer
             var refA = Transform(node.ArgumentList.Arguments[0].Expression, context);
             var refB = Transform(node.ArgumentList.Arguments[1].Expression, context);
             return $"({refA} == {refB})";
+        }
+
+        // Bare Equals(a, b) call (static Object.Equals) → Objects.equals(a, b)
+        if (expr == "equals" && node.ArgumentList.Arguments.Count == 2)
+        {
+            var eA = Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var eB = Transform(node.ArgumentList.Arguments[1].Expression, context);
+            context.AddImport("java.util.Objects");
+            return $"Objects.equals({eA}, {eB})";
         }
 
         // Detect delegate/functional-interface invocations (C# Func<>/Action<>/Predicate<> called as functions)
@@ -1076,8 +1307,61 @@ public class ExpressionTransformer : IExpressionTransformer
 
     private string TransformLinqInvocation(InvocationExpressionSyntax node, string target, string methodName, ConversionContext context)
     {
+        // Indexed Select: collection.Select((item, index) => ...) — 2-param lambda
+        // Java Stream.map() only accepts 1-arg functions — transform to IntStream.range pattern
+        if (methodName == "Select" && node.ArgumentList.Arguments.Count == 1)
+        {
+            var selectArgExpr = node.ArgumentList.Arguments[0].Expression;
+            if (selectArgExpr is ParenthesizedLambdaExpressionSyntax pLambda2P && pLambda2P.ParameterList.Parameters.Count == 2)
+            {
+                var itemParam = pLambda2P.ParameterList.Parameters[0].Identifier.Text;
+                var idxParam = pLambda2P.ParameterList.Parameters[1].Identifier.Text;
+                ExpressionSyntax? bodyExprNode = pLambda2P.Body as ExpressionSyntax
+                    ?? (pLambda2P.Body as BlockSyntax)?.Statements.OfType<ReturnStatementSyntax>().FirstOrDefault()?.Expression;
+                if (bodyExprNode != null)
+                {
+                    var bodyStr = Transform(bodyExprNode, context);
+                    // Replace element param with arr[idxParam] when we can extract the underlying array
+                    string? underlyingArr = null;
+                    if (target.StartsWith("Arrays.stream(") && target.EndsWith(")"))
+                        underlyingArr = target.Substring("Arrays.stream(".Length, target.Length - "Arrays.stream(".Length - 1);
+                    if (underlyingArr != null)
+                    {
+                        context.AddImport("java.util.stream.IntStream");
+                        var fixedBody = System.Text.RegularExpressions.Regex.Replace(
+                            bodyStr, $@"\b{System.Text.RegularExpressions.Regex.Escape(itemParam)}\b",
+                            $"{underlyingArr}[{idxParam}]");
+                        return $"IntStream.range(0, {underlyingArr}.length).mapToObj({idxParam} -> {fixedBody})";
+                    }
+                }
+            }
+        }
+
         var args = TransformArgumentList(node.ArgumentList, context);
         bool hasArgs = node.ArgumentList.Arguments.Count > 0;
+
+        // Skip identity select: Select(x => x) is a no-op — return target without .map()
+        if (methodName == "Select" && hasArgs)
+        {
+            var selectArgs = args.Trim();
+            var arrowIdx = selectArgs.IndexOf("->");
+            if (arrowIdx > 0)
+            {
+                var param = selectArgs.Substring(0, arrowIdx).Trim();
+                var body = selectArgs.Substring(arrowIdx + 2).Trim();
+                if (param == body && !param.Contains(",") && !param.Contains("("))
+                    return target;
+            }
+        }
+
+        // For Contains on primitive int array (IntStream), use == instead of .equals()
+        bool receiverIsPrimitiveIntArray = false;
+        if (methodName == "Contains" && node.Expression is MemberAccessExpressionSyntax maContains)
+        {
+            var rcvType = context.SemanticModel?.GetTypeInfo(maContains.Expression).Type;
+            receiverIsPrimitiveIntArray = rcvType is IArrayTypeSymbol arrType &&
+                arrType.ElementType.SpecialType == SpecialType.System_Int32;
+        }
 
         // Handle Cast<T>() and OfType<T>() — the type T is a generic type argument, not a value argument
         if (methodName is "Cast" or "OfType")
@@ -1107,8 +1391,9 @@ public class ExpressionTransformer : IExpressionTransformer
             "ToList" => $"{target}.collect(Collectors.toList())",
             "ToArray" => TransformLinqToArray(node, target, context),
             "ToListAsync" when context.IsInAsyncContext => $"{target}.collect(Collectors.toList())",
-            "Count" when !hasArgs => $"{target}.count()",
-            "Count" => $"{target}.filter({args}).count()",
+            // C# Count() returns int; Java Stream.count() returns long. Cast to int to match C# semantics.
+            "Count" when !hasArgs => $"(int)({target}.count())",
+            "Count" => $"(int)({target}.filter({args}).count())",
             "Any" when !hasArgs => $"{target}.findAny().isPresent()",
             "Any" => $"{target}.anyMatch({args})",
             "All" => $"{target}.allMatch({args})",
@@ -1117,15 +1402,20 @@ public class ExpressionTransformer : IExpressionTransformer
             "ThenBy" => $"{target}.thenComparing({args})",
             "GroupBy" => $"{target}.collect(Collectors.groupingBy({args}))",
             "Join" => $"null /* TODO: LINQ Join({args}) */",
-            "Sum" => $"{target}.mapToLong(x -> x).sum()",
+            "Sum" when hasArgs => $"{target}.mapToDouble({args}).sum()",
+            "Sum" => $"{target}.mapToDouble(x -> ((Number) x).doubleValue()).sum()",
+            "Average" when hasArgs => $"{target}.mapToDouble({args}).average().orElse(0)",
             "Average" => $"{target}.mapToDouble(x -> x).average().orElse(0)",
+            "Min" when hasArgs => $"{target}.mapToDouble({args}).min().orElse(0.0)",
             "Min" => $"{target}.min(Comparator.naturalOrder()).orElse(null)",
+            "Max" when hasArgs => $"{target}.mapToDouble({args}).max().orElse(0.0)",
             "Max" => $"{target}.max(Comparator.naturalOrder()).orElse(null)",
             "Take" => $"{target}.limit({args})",
             "Skip" => $"{target}.skip({args})",
             "Distinct" => $"{target}.distinct()",
             "Reverse" => $"java.util.Collections.reverse({target})", // in-place List.Reverse()
-            "Contains" => $"{target}.anyMatch(x -> x.equals({args}))",
+            // Primitive int arrays use IntStream where x is int (not Integer), so use == not .equals()
+            "Contains" => receiverIsPrimitiveIntArray ? $"{target}.anyMatch(x -> x == {args})" : $"{target}.anyMatch(x -> x.equals({args}))",
             "Concat" => TransformLinqConcat(node, target, context),
             "Zip" => $"null /* TODO: Zip({args}) */",
             "Last" => $"{target}.reduce((a, b) -> b).orElseThrow()",
@@ -1134,7 +1424,7 @@ public class ExpressionTransformer : IExpressionTransformer
             "AsEnumerable" => target,
             "TakeWhile" => $"{target}.takeWhile({args})",
             "SkipWhile" => $"{target}.dropWhile({args})",
-            "Aggregate" when node.ArgumentList.Arguments.Count == 2 => $"{target}.reduce({args})",
+            "Aggregate" when node.ArgumentList.Arguments.Count == 2 => TransformAggregate2(node, target, context),
             "Union" => $"Stream.concat({target}, {TransformToStream(node.ArgumentList.Arguments[0].Expression, context)}).distinct()",
             "Intersect" => $"{target}.filter({args}::contains)",
             _ => $"{target}.{methodName}({args})"
@@ -1162,6 +1452,16 @@ public class ExpressionTransformer : IExpressionTransformer
             }
             string bodyResult = Transform(exprBody, context);
             ITypeSymbol? bodyRetType = context.SemanticModel?.GetTypeInfo(exprBody).Type;
+
+            // If bodyResult is already a Java stream expression (e.g., from identity-select removal
+            // or from a LINQ chain), don't wrap it again with StreamSupport.
+            bool bodyIsAlreadyStream = bodyResult.Contains("StreamSupport.stream(")
+                || bodyResult.Contains("Arrays.stream(")
+                || bodyResult.Contains(".stream()")
+                || bodyResult.Contains(".map(") || bodyResult.Contains(".filter(")
+                || bodyResult.Contains(".flatMap(");
+            if (bodyIsAlreadyStream)
+                return $"{paramStr} -> {bodyResult}";
             bool returnsCollectionOrIterable = bodyRetType switch {
                 IArrayTypeSymbol => true,
                 INamedTypeSymbol nb => nb.Name is "List" or "ArrayList" or "LinkedList" or "HashSet"
@@ -1170,7 +1470,22 @@ public class ExpressionTransformer : IExpressionTransformer
                     || nb.AllInterfaces.Any(i => i.Name is "IEnumerable" or "ICollection" or "IList"),
                 _ => false
             };
-            var innerExpr = returnsCollectionOrIterable ? $"{bodyResult}.stream()" : bodyResult;
+            bool isKnownJavaCollection = bodyRetType is INamedTypeSymbol nbC &&
+                (nbC.Name is "List" or "ArrayList" or "LinkedList" or "HashSet" or "TreeSet"
+                    or "ArrayDeque" or "PriorityQueue" or "Collection"
+                    || nbC.AllInterfaces.Any(i => i.Name is "ICollection"));
+            string innerExpr;
+            if (bodyRetType is IArrayTypeSymbol)
+                innerExpr = $"Arrays.stream({bodyResult})";
+            else if (isKnownJavaCollection)
+                innerExpr = $"{bodyResult}.stream()";
+            else if (returnsCollectionOrIterable)
+            {
+                context.AddImport("java.util.stream.StreamSupport");
+                innerExpr = $"StreamSupport.stream({bodyResult}.spliterator(), false)";
+            }
+            else
+                innerExpr = bodyResult;
             return $"{paramStr} -> {innerExpr}";
         }
 
@@ -1189,7 +1504,61 @@ public class ExpressionTransformer : IExpressionTransformer
         }
         else
         {
+            // Non-lambda selector (e.g., method group). The transformed result is already a
+            // Java method reference like "this::methodName". For flatMap, the method must
+            // return Stream<T>, not Iterable<T>. If the method returns an Iterable, convert
+            // the method reference to a lambda that wraps with StreamSupport.
+            var selectorSym = context.SemanticModel?.GetSymbolInfo(selectorArg).Symbol as IMethodSymbol;
             collectionSelector = Transform(selectorArg, context);
+            if (selectorSym != null)
+            {
+                var retType = selectorSym.ReturnType;
+                bool retIsArray = retType is IArrayTypeSymbol;
+                bool retIsCollectionFamily = !retIsArray && retType is INamedTypeSymbol retNamed &&
+                    (retNamed.Name is "IEnumerable" or "IOrderedEnumerable" or "ISet" ||
+                     retNamed.AllInterfaces.Any(i => i.Name is "IEnumerable"));
+                bool retIsKnownCollection = retType is INamedTypeSymbol retKnown &&
+                    (retKnown.Name is "List" or "ArrayList" or "LinkedList" or "HashSet" or
+                     "TreeSet" or "Collection" or "ArrayDeque" ||
+                     retKnown.AllInterfaces.Any(i => i.Name is "ICollection"));
+                if (retIsArray)
+                {
+                    // e.g. X::getItems where getItems returns T[] → __p -> Arrays.stream(X.getItems(__p))
+                    context.AddImport("java.util.Arrays");
+                    // Build explicit lambda: if method ref has "::", convert to explicit call
+                    if (collectionSelector.Contains("::"))
+                    {
+                        var parts = collectionSelector.Split(new[] { "::" }, 2, StringSplitOptions.None);
+                        var receiver = parts[0]; var method = parts[1];
+                        var callExpr = receiver == "this" ? $"this.{method}(__p)" : $"{receiver}.{method}(__p)";
+                        collectionSelector = $"__p -> Arrays.stream({callExpr})";
+                    }
+                }
+                else if (retIsCollectionFamily && !retIsKnownCollection)
+                {
+                    // Plain Iterable (not a known Java Collection that has .stream()) →
+                    // need StreamSupport wrapper
+                    context.AddImport("java.util.stream.StreamSupport");
+                    if (collectionSelector.Contains("::"))
+                    {
+                        var parts = collectionSelector.Split(new[] { "::" }, 2, StringSplitOptions.None);
+                        var receiver = parts[0]; var method = parts[1];
+                        var callExpr = receiver == "this" ? $"this.{method}(__p)" : $"{receiver}.{method}(__p)";
+                        collectionSelector = $"__p -> StreamSupport.stream({callExpr}.spliterator(), false)";
+                    }
+                }
+                else if (retIsKnownCollection)
+                {
+                    // Known Java Collection → .stream() suffix
+                    if (collectionSelector.Contains("::"))
+                    {
+                        var parts = collectionSelector.Split(new[] { "::" }, 2, StringSplitOptions.None);
+                        var receiver = parts[0]; var method = parts[1];
+                        var callExpr = receiver == "this" ? $"this.{method}(__p)" : $"{receiver}.{method}(__p)";
+                        collectionSelector = $"__p -> {callExpr}.stream()";
+                    }
+                }
+            }
         }
 
         // Optional second argument: result selector (x, y) → result
@@ -1228,6 +1597,36 @@ public class ExpressionTransformer : IExpressionTransformer
         // IEnumerable/Iterable → StreamSupport.stream
         context.AddImport("java.util.stream.StreamSupport");
         return $"StreamSupport.stream({exprStr}.spliterator(), false)";
+    }
+
+    /// <summary>
+    /// Translates LINQ Aggregate(seed, accumulator) to Java stream reduce.
+    /// When the seed is a String but the stream is numeric (DoubleStream), we need to
+    /// first convert it to a Stream&lt;String&gt; via mapToObj(String::valueOf).
+    /// </summary>
+    private string TransformAggregate2(InvocationExpressionSyntax node, string target, ConversionContext context)
+    {
+        if (node.ArgumentList.Arguments.Count != 2) return $"{target}.reduce(/* Aggregate */)";
+
+        var seedArg = node.ArgumentList.Arguments[0];
+        var lambdaArg = node.ArgumentList.Arguments[1];
+
+        var seedExprStr = Transform(seedArg.Expression, context);
+        var lambdaStr = Transform(lambdaArg.Expression, context);
+
+        // Check if the seed type is String — if so, we need to box the stream to Stream<String>
+        var seedType = context.SemanticModel?.GetTypeInfo(seedArg.Expression).Type;
+        bool seedIsString = seedType?.SpecialType == SpecialType.System_String;
+
+        if (seedIsString)
+        {
+            // For string accumulation: convert DoubleStream/IntStream → Stream<String> first
+            // The target might be Arrays.stream(doubleArr) → DoubleStream
+            // Insert .mapToObj(String::valueOf) to make it Stream<String>, then reduce works
+            return $"{target}.mapToObj(String::valueOf).reduce({seedExprStr}, {lambdaStr})";
+        }
+
+        return $"{target}.reduce({seedExprStr}, {lambdaStr})";
     }
 
     private string TransformLinqConcat(InvocationExpressionSyntax node, string target, ConversionContext context)
@@ -1272,6 +1671,23 @@ public class ExpressionTransformer : IExpressionTransformer
                     return $"{target}.mapToLong(x -> (long) x).toArray()";
                 if (elemType == SpecialType.System_Double)
                     return $"{target}.mapToDouble(x -> (double) x).toArray()";
+            }
+        }
+        // For reference types, use toArray(T[]::new) to produce a typed array instead of Object[].
+        // Detect the element type from the C# return type of the ToArray() call.
+        if (context.SemanticModel != null)
+        {
+            var returnArrayType = context.SemanticModel.GetTypeInfo(node).Type as IArrayTypeSymbol;
+            if (returnArrayType != null)
+            {
+                var elemSym = returnArrayType.ElementType;
+                if (elemSym.SpecialType == SpecialType.None && elemSym.TypeKind != TypeKind.Error &&
+                    elemSym.TypeKind != TypeKind.TypeParameter)
+                {
+                    var elemTypeName = context.MapType(elemSym);
+                    if (!string.IsNullOrEmpty(elemTypeName) && elemTypeName != "Object")
+                        return $"{target}.toArray({elemTypeName}[]::new)";
+                }
             }
         }
         return $"{target}.toArray()";
@@ -1711,6 +2127,17 @@ public class ExpressionTransformer : IExpressionTransformer
                         return $"{innerStmt}; set{propName}({finalVal})";
                     }
                     var rhs = Transform(node.Right, context);
+                    // Narrow int/long to byte/short when the property type requires it
+                    if (context.SemanticModel != null
+                        && identProp.Type.SpecialType is SpecialType.System_Byte or SpecialType.System_Int16)
+                    {
+                        var rhsTypeInfo = context.SemanticModel.GetTypeInfo(node.Right);
+                        if (rhsTypeInfo.Type?.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64)
+                        {
+                            var castType = identProp.Type.SpecialType == SpecialType.System_Byte ? "byte" : "short";
+                            rhs = $"({castType}) {rhs}";
+                        }
+                    }
                     return $"set{propName}({rhs})";
                 }
                 else // Compound assignment to property: Left -= x → setLeft(getLeft() - x)
@@ -2055,6 +2482,22 @@ public class ExpressionTransformer : IExpressionTransformer
                     return $"set{propName}(get{propName}() {delta})";
                 }
             }
+            // Element access: dict[key]++ → dict.put(key, dict.get(key) + 1)
+            // Java Map.get() returns Object/boxed and can't be used with ++ operator.
+            if (node.Operand is ElementAccessExpressionSyntax eaOp)
+            {
+                var eaType = context.SemanticModel?.GetTypeInfo(eaOp.Expression).Type;
+                bool isMap = eaType is INamedTypeSymbol mapNs &&
+                    (mapNs.Name is "Dictionary" or "SortedDictionary" or "IDictionary" or
+                     "HashMap" or "TreeMap" or "LinkedHashMap" ||
+                     mapNs.AllInterfaces.Any(i => i.Name is "IDictionary"));
+                if (isMap && eaOp.ArgumentList.Arguments.Count == 1)
+                {
+                    var mapTarget = Transform(eaOp.Expression, context);
+                    var key = Transform(eaOp.ArgumentList.Arguments[0].Expression, context);
+                    return $"{mapTarget}.put({key}, {mapTarget}.get({key}) {delta})";
+                }
+            }
         }
         var operand = Transform(node.Operand, context);
         return $"{operand}{op}";
@@ -2086,6 +2529,21 @@ public class ExpressionTransformer : IExpressionTransformer
                     return $"set{propName}(get{propName}() {delta})";
                 }
             }
+            // Element access: ++dict[key] → dict.put(key, dict.get(key) + 1)
+            if (node.Operand is ElementAccessExpressionSyntax eaOp2)
+            {
+                var eaType2 = context.SemanticModel?.GetTypeInfo(eaOp2.Expression).Type;
+                bool isMap2 = eaType2 is INamedTypeSymbol mapNs2 &&
+                    (mapNs2.Name is "Dictionary" or "SortedDictionary" or "IDictionary" or
+                     "HashMap" or "TreeMap" or "LinkedHashMap" ||
+                     mapNs2.AllInterfaces.Any(i => i.Name is "IDictionary"));
+                if (isMap2 && eaOp2.ArgumentList.Arguments.Count == 1)
+                {
+                    var mapTarget2 = Transform(eaOp2.Expression, context);
+                    var key2 = Transform(eaOp2.ArgumentList.Arguments[0].Expression, context);
+                    return $"{mapTarget2}.put({key2}, {mapTarget2}.get({key2}) {delta})";
+                }
+            }
         }
         var operand = Transform(node.Operand, context);
         return $"{op}{operand}";
@@ -2096,6 +2554,23 @@ public class ExpressionTransformer : IExpressionTransformer
 
     private string TransformConditional(ConditionalExpressionSyntax node, ConversionContext context)
     {
+        // Detect: dict.TryGetValue(key, out T v) ? v : null → dict.get(key)
+        // TryGetValue with an inline out-variable declaration (C# 7) cannot be expressed
+        // in Java since there are no out parameters. When the result is used only to
+        // select between the out value and null, we can simplify to just map.get(key).
+        if (node.Condition is InvocationExpressionSyntax tryGetCond &&
+            tryGetCond.Expression is MemberAccessExpressionSyntax tryGetMa &&
+            tryGetMa.Name.Identifier.Text == "TryGetValue" &&
+            tryGetCond.ArgumentList.Arguments.Count == 2 &&
+            tryGetCond.ArgumentList.Arguments[1].Expression is DeclarationExpressionSyntax &&
+            node.WhenFalse is LiteralExpressionSyntax whenFalseLit2 &&
+            whenFalseLit2.IsKind(SyntaxKind.NullLiteralExpression))
+        {
+            var tvTarget2 = Transform(tryGetMa.Expression, context);
+            var tvKey2 = Transform(tryGetCond.ArgumentList.Arguments[0].Expression, context);
+            return $"{tvTarget2}.get({tvKey2})";
+        }
+
         var condition = Transform(node.Condition, context);
         var whenTrue = Transform(node.WhenTrue, context);
         var whenFalse = Transform(node.WhenFalse, context);
@@ -2153,6 +2628,10 @@ public class ExpressionTransformer : IExpressionTransformer
         if (targetTypeSymbol is INamedTypeSymbol namedTarget && namedTarget.TypeKind == TypeKind.Enum
             && targetType != "int")
         {
+            // If the expression already yields this enum type (e.g. T.valueOf(s) or T.values()[n]),
+            // the cast is a no-op — avoid generating T.values()[T.valueOf(s)] which fails to compile.
+            if (expression.StartsWith($"{targetType}.valueOf(") || expression.StartsWith($"{targetType}.values()["))
+                return expression;
             return $"{targetType}.values()[{expression}]";
         }
 
@@ -2165,6 +2644,21 @@ public class ExpressionTransformer : IExpressionTransformer
         {
             context.AddImport("java.util.Arrays");
             return $"Arrays.asList({expression})";
+        }
+
+        // Cast from IList<T>/ICollection<T>/IEnumerable<T> to T[] → list.toArray(T[]::new)
+        // Java lists can't be directly cast to arrays.
+        if (targetTypeSymbol is IArrayTypeSymbol targetArraySym &&
+            sourceTypeSymbol is INamedTypeSymbol namedSourceForArrayCast &&
+            namedSourceForArrayCast.Name is "IList" or "IList`1" or "ICollection" or "ICollection`1"
+                or "IEnumerable" or "IEnumerable`1" or "List" or "Collection")
+        {
+            var elemTypeName = context.MapType(targetArraySym.ElementType);
+            if (!string.IsNullOrEmpty(elemTypeName) && elemTypeName != "Object"
+                && targetArraySym.ElementType.SpecialType == SpecialType.None
+                && targetArraySym.ElementType.TypeKind != TypeKind.TypeParameter)
+                return $"{expression}.toArray({elemTypeName}[]::new)";
+            return $"{expression}.toArray()";
         }
 
         return $"(({targetType}) {expression})";
@@ -2303,7 +2797,22 @@ public class ExpressionTransformer : IExpressionTransformer
                 bool argLooksLikeStream = argExprStr.Contains(".map(") || argExprStr.Contains(".filter(") ||
                     argExprStr.Contains(".flatMap(") || argExprStr.Contains("Stream.concat(") ||
                     argExprStr.Contains("StreamSupport.stream(") || argExprStr.Contains("Arrays.stream(") ||
-                    argExprStr.Contains(".stream()");
+                    argExprStr.Contains(".stream()") || argExprStr.Contains(".mapToObj(") ||
+                    argExprStr.Contains("IntStream.range(");
+                // If the expression already ends with .collect(...) it is already a List, not a Stream.
+                // This happens for LINQ query expressions (TransformQuery always appends .collect()).
+                bool argIsAlreadyCollected = argExprStr.EndsWith(".toList())")
+                    || argExprStr.EndsWith("toList()))");
+                if (argIsAlreadyCollected)
+                    argLooksLikeStream = false;
+                // Terminal operations like .count(), .sum(), .max(), .findFirst() — result is NOT a stream
+                bool argIsTerminal = argExprStr.EndsWith(".count()") || argExprStr.EndsWith(".sum()")
+                    || argExprStr.EndsWith(".isPresent()") || argExprStr.EndsWith(".getAsDouble()")
+                    || argExprStr.EndsWith(".getAsLong()") || argExprStr.EndsWith(".getAsInt()")
+                    || argExprStr.Contains(".orElse(") || argExprStr.Contains(".orElseThrow(")
+                    || argExprStr.Contains(".findFirst()") || argExprStr.Contains(".findAny()");
+                if (argIsTerminal)
+                    argLooksLikeStream = false;
 
                 bool isCollectionType = type.StartsWith("ArrayList") || type.StartsWith("LinkedList") ||
                     type.StartsWith("HashSet") || type.StartsWith("TreeSet") || type.StartsWith("ArrayDeque");
@@ -2409,11 +2918,91 @@ public class ExpressionTransformer : IExpressionTransformer
             }
         }
 
+        // Fix: per-argument type-aware transformations for constructor calls:
+        // (1) When a constructor parameter expects IEnumerable<T>/ICollection<T>/IList<T> and
+        //     the argument is a C# array (T[]), Java arrays don't implement Iterable → wrap with Arrays.asList().
+        // (2) When a constructor parameter expects IComparer<T> (mapped to Comparator<T>) and
+        //     the argument is a lambda, Java can't disambiguate from BiFunction<T,T,Integer> → cast explicitly.
+        if (context.SemanticModel != null && node.ArgumentList?.Arguments.Count is > 0)
+        {
+            var ctorSym = context.SemanticModel.GetSymbolInfo(node).Symbol as IMethodSymbol;
+            if (ctorSym != null && ctorSym.Parameters.Length == node.ArgumentList.Arguments.Count)
+            {
+                List<string>? fixedCtorArgList = null;
+                for (int i = 0; i < node.ArgumentList.Arguments.Count; i++)
+                {
+                    var pType = ctorSym.Parameters[i].Type;
+                    var argSyntax = node.ArgumentList.Arguments[i].Expression;
+                    // (1) Array → Iterable
+                    bool wantIterable = pType is INamedTypeSymbol pn &&
+                        (pn.Name is "IEnumerable" or "ICollection" or "IList" ||
+                         pn.AllInterfaces.Any(ii => ii.Name is "IEnumerable" or "ICollection"));
+                    if (wantIterable)
+                    {
+                        var aType = context.SemanticModel.GetTypeInfo(argSyntax).Type;
+                        if (aType is IArrayTypeSymbol arrTypeSym)
+                        {
+                            fixedCtorArgList ??= node.ArgumentList.Arguments
+                                .Select(a => Transform(a.Expression, context)).ToList();
+                            context.AddImport("java.util.Arrays");
+                            var argStr = fixedCtorArgList[i];
+                            // If the expected element type (e.g. IEdge) differs from actual array element (e.g. IntPair),
+                            // cast the array to (ExpElemType[]) to avoid Iterable<IntPair> vs Iterable<IEdge> mismatch.
+                            if (pType is INamedTypeSymbol pnTyped && pnTyped.TypeArguments.Length > 0)
+                            {
+                                var expectedElem = pnTyped.TypeArguments[0];
+                                var actualElem = arrTypeSym.ElementType;
+                                if (!SymbolEqualityComparer.Default.Equals(expectedElem, actualElem))
+                                {
+                                    var expectedElemStr = context.MapType(expectedElem);
+                                    fixedCtorArgList[i] = $"Arrays.asList(({expectedElemStr}[]) {argStr})";
+                                }
+                                else
+                                    fixedCtorArgList[i] = $"Arrays.asList({argStr})";
+                            }
+                            else
+                                fixedCtorArgList[i] = $"Arrays.asList({argStr})";
+                        }
+                        else if (pType is INamedTypeSymbol pnTyped2 && pnTyped2.TypeArguments.Length > 0
+                            && aType is INamedTypeSymbol namedArgType && namedArgType.TypeArguments.Length > 0)
+                        {
+                            // Non-array covariance: Set<IntPair> passed as Iterable<IEdge>
+                            // Java generics are invariant — add an unchecked (Iterable<X>)(Iterable<?>) cast.
+                            var expectedElemCov = pnTyped2.TypeArguments[0];
+                            var actualElemCov = namedArgType.TypeArguments[0];
+                            if (!SymbolEqualityComparer.Default.Equals(expectedElemCov, actualElemCov))
+                            {
+                                fixedCtorArgList ??= node.ArgumentList.Arguments
+                                    .Select(a => Transform(a.Expression, context)).ToList();
+                                var expectedElemStrCov = context.MapType(expectedElemCov);
+                                fixedCtorArgList[i] = $"(java.lang.Iterable<{expectedElemStrCov}>) (java.lang.Iterable<?>) {fixedCtorArgList[i]}";
+                            }
+                        }
+                    }
+                    // (2) IComparer<T> → (Comparator<T>) cast for lambdas
+                    else if (pType is INamedTypeSymbol pComp && pComp.Name == "IComparer"
+                        && argSyntax is LambdaExpressionSyntax)
+                    {
+                        string comparatorType = "Comparator";
+                        if (pComp.TypeArguments.Length > 0)
+                            comparatorType = $"Comparator<{context.MapType(pComp.TypeArguments[0])}>";
+                        else if (typeInfo.HasValue && typeInfo.Value.Type is INamedTypeSymbol ctorRbType
+                            && ctorRbType.TypeArguments.Length > 0)
+                            comparatorType = $"Comparator<{context.MapType(ctorRbType.TypeArguments[0])}>";
+                        fixedCtorArgList ??= node.ArgumentList.Arguments
+                            .Select(a => Transform(a.Expression, context)).ToList();
+                        fixedCtorArgList[i] = $"({comparatorType}) {fixedCtorArgList[i]}";
+                    }
+                }
+                if (fixedCtorArgList != null)
+                    args = string.Join(", ", fixedCtorArgList);
+            }
+        }
+
         return $"new {type}({args})";
     }
 
-    /// <summary>
-    /// Computes the factory method name used when a constructor conflicts with another by type erasure.
+    /// <summary>    /// Computes the factory method name used when a constructor conflicts with another by type erasure.
     /// Must match the logic in ClassTransformer.AddCtorIfNotDuplicateInternal.
     /// </summary>
     internal static string? GetErasureFactoryMethodName(string constructedType, string paramJavaType)
@@ -2512,7 +3101,22 @@ public class ExpressionTransformer : IExpressionTransformer
         if (node.Initializer != null)
         {
             var init = TransformArrayInitializer(node.Initializer, context);
-            return $"new {elementType}[]{init}";
+            var result = $"new {elementType}[]{init}";
+            // For non-argument contexts (field/local var initializers, property setter assignments etc.),
+            // wrap with Arrays.asList() when the Java T[] is used where Iterable<T> is expected.
+            // (Argument contexts are handled by TransformArgumentList; return contexts by TransformReturnStatement.)
+            if (node.Parent is not ArgumentSyntax && node.Parent is not ReturnStatementSyntax && context.SemanticModel != null)
+            {
+                var convertedType = context.SemanticModel.GetTypeInfo(node).ConvertedType;
+                if (convertedType is INamedTypeSymbol convNs2 &&
+                    (convNs2.Name is "IEnumerable" or "ICollection" or "IList" or "IReadOnlyList" or "IReadOnlyCollection" ||
+                     convNs2.AllInterfaces.Any(i => i.Name is "IEnumerable")))
+                {
+                    context.AddImport("java.util.Arrays");
+                    return $"Arrays.asList({result})";
+                }
+            }
+            return result;
         }
 
         // Build sizes string: OmittedArraySizeExpression → "[]", specified size → "[n]"
@@ -2524,6 +3128,10 @@ public class ExpressionTransformer : IExpressionTransformer
         bool requiresCast = elementTypeSymbol is ITypeParameterSymbol ||
             (elementTypeSymbol is INamedTypeSymbol namedEl &&
              namedEl.TypeArguments.Any(a => a is ITypeParameterSymbol));
+        // Also require cast for concrete generic types (e.g. RTree<A, B>[n]):
+        // Java equally forbids creating arrays of any generic type, even with concrete type args.
+        if (!requiresCast && elementTypeSymbol is INamedTypeSymbol namedConcrete && namedConcrete.TypeArguments.Length > 0)
+            requiresCast = true;
         if (requiresCast)
         {
             // Raw type for cast (erase type params for the cast expression)
@@ -2550,7 +3158,21 @@ public class ExpressionTransformer : IExpressionTransformer
             elementType = context.MapType(arr.ElementType);
         }
         var init = TransformArrayInitializer(node.Initializer, context);
-        return $"new {elementType}[]{init}";
+        var result = $"new {elementType}[]{init}";
+        // Wrap with Arrays.asList() when used in non-argument/non-return IEnumerable context (Java T[] ≠ Iterable<T>)
+        // (Argument contexts handled by TransformArgumentList; return contexts by TransformReturnStatement.)
+        if (node.Parent is not ArgumentSyntax && node.Parent is not ReturnStatementSyntax && context.SemanticModel != null)
+        {
+            var convertedType = context.SemanticModel.GetTypeInfo(node).ConvertedType;
+            if (convertedType is INamedTypeSymbol convNs2 &&
+                (convNs2.Name is "IEnumerable" or "ICollection" or "IList" or "IReadOnlyList" or "IReadOnlyCollection" ||
+                 convNs2.AllInterfaces.Any(i => i.Name is "IEnumerable")))
+            {
+                context.AddImport("java.util.Arrays");
+                return $"Arrays.asList({result})";
+            }
+        }
+        return result;
     }
 
     private string TransformArrayInitializer(InitializerExpressionSyntax node, ConversionContext context)
@@ -2622,6 +3244,15 @@ public class ExpressionTransformer : IExpressionTransformer
             // Already a stream result from a previous LINQ expression
             result = source;
         }
+        else if (sourceExprType is INamedTypeSymbol mapSrcNamed &&
+            (mapSrcNamed.Name is "Dictionary" or "SortedDictionary" or "IDictionary" or
+             "HashMap" or "TreeMap" or "LinkedHashMap" or "SortedMap" or "SortedList" ||
+             mapSrcNamed.AllInterfaces.Any(i => i.Name is "IDictionary")))
+        {
+            // Map doesn't implement Iterable; iterate via .entrySet()
+            context.AddImport("java.util.stream.StreamSupport");
+            result = $"StreamSupport.stream({source}.entrySet().spliterator(), false)";
+        }
         else
         {
             // IEnumerable → StreamSupport.stream(x.spliterator(), false)
@@ -2656,7 +3287,24 @@ public class ExpressionTransformer : IExpressionTransformer
                 // 处理嵌套 from (SelectMany)
                 var newSource = Transform(fromClause.Expression, context);
                 var newIdentifier = fromClause.Identifier.ValueText;
-                result = $"{result}.flatMap({currentIdentifier} -> {newSource}.stream().map({newIdentifier} -> {newIdentifier}))";
+                var newSourceType = context.SemanticModel?.GetTypeInfo(fromClause.Expression).Type;
+                // Check if newSource is already a stream expression to avoid double-wrapping
+                bool newSourceIsStream = newSource.Contains("StreamSupport.stream(") ||
+                    newSource.Contains("Arrays.stream(") || newSource.Contains(".stream()") ||
+                    newSource.Contains(".map(") || newSource.Contains(".filter(") ||
+                    newSource.Contains(".flatMap(");
+                string innerStream;
+                if (newSourceIsStream)
+                    innerStream = newSource;
+                else if (newSourceType is IArrayTypeSymbol)
+                {
+                    context.AddImport("java.util.Arrays");
+                    innerStream = $"Arrays.stream({newSource})";
+                }
+                else
+                    innerStream = $"{newSource}.stream()";
+                // Omit the identity .map(id -> id) — it causes type erasure and is always a no-op
+                result = $"{result}.flatMap({currentIdentifier} -> {innerStream})";
                 currentIdentifier = newIdentifier;
             }
             else if (clause is JoinClauseSyntax joinClause)
@@ -2678,7 +3326,9 @@ public class ExpressionTransformer : IExpressionTransformer
         if (selectOrGroup is SelectClauseSyntax selectClause)
         {
             var selector = Transform(selectClause.Expression, context);
-            result = $"{result}.map({currentIdentifier} -> {selector})";
+            // Skip identity map (select x → x is a no-op that causes type erasure)
+            if (selector != currentIdentifier)
+                result = $"{result}.map({currentIdentifier} -> {selector})";
         }
         else if (selectOrGroup is GroupClauseSyntax groupClause)
         {
@@ -2901,11 +3551,13 @@ public class ExpressionTransformer : IExpressionTransformer
                 // Detect stream expression passed to parameter expecting IEnumerable/Iterable:
                 // The C# argument type is IEnumerable<T> but after LINQ transformation it becomes
                 // a Java Stream<T> which doesn't implement Iterable<T>. Add .collect(Collectors.toList()).
+                // Use EndsWith check (not Contains) to avoid falsely suppressing when inner operands
+                // of Stream.concat() contain collect() calls — only the outermost call matters.
                 var argActualInfo = context.SemanticModel.GetTypeInfo(arg.Expression);
                 bool argIsEnumerable = argActualInfo.Type is INamedTypeSymbol argNs &&
                     (argNs.Name is "IEnumerable" or "IOrderedEnumerable" or "IQueryable" ||
                      argNs.AllInterfaces.Any(i => i.Name is "IEnumerable"));
-                bool exprIsStream = !expr.Contains(".collect(") && (
+                bool exprIsStream = !expr.TrimEnd().EndsWith(".collect(Collectors.toList())") && (
                     expr.Contains("Stream.concat(") ||
                     expr.Contains("StreamSupport.stream(") ||
                     expr.Contains("Arrays.stream(") ||
@@ -2913,11 +3565,37 @@ public class ExpressionTransformer : IExpressionTransformer
                     expr.Contains(".filter(") ||
                     expr.Contains(".flatMap(") ||
                     expr.Contains(".distinct(") ||
-                    expr.Contains(".sorted("));
+                    expr.Contains(".sorted(") ||
+                    expr.Contains(".mapToObj(") ||
+                    expr.Contains("IntStream.range("));
                 if (argIsEnumerable && exprIsStream)
                 {
                     context.AddImport("java.util.stream.Collectors");
                     return $"{expr}.collect(Collectors.toList())";
+                }
+
+                // Detect C# array passed where IEnumerable/Iterable is expected.
+                // In Java, T[] doesn't implement Iterable<T>, so wrap with Arrays.asList().
+                bool argIsArray = argActualInfo.Type is IArrayTypeSymbol;
+                var argConvType2 = argActualInfo.ConvertedType;
+                bool convIsEnumerable = argConvType2 is INamedTypeSymbol convNs &&
+                    (convNs.Name is "IEnumerable" or "ICollection" or "IList" or "IReadOnlyList" or "IReadOnlyCollection" ||
+                     convNs.AllInterfaces.Any(i => i.Name is "IEnumerable"));
+                if (argIsArray && convIsEnumerable)
+                {
+                    context.AddImport("java.util.Arrays");
+                    return $"Arrays.asList({expr})";
+                }
+
+                // Detect implicit int→byte/short narrowing: C# allows int literals in-range to
+                // implicitly pass to byte/short parameters; Java requires explicit cast.
+                var argRawType = context.SemanticModel.GetTypeInfo(arg.Expression).Type?.SpecialType;
+                var argConvType = context.SemanticModel.GetTypeInfo(arg.Expression).ConvertedType?.SpecialType;
+                if (argRawType is SpecialType.System_Int32 or SpecialType.System_Int64
+                    && argConvType is SpecialType.System_Byte or SpecialType.System_Int16)
+                {
+                    var castType = argConvType == SpecialType.System_Byte ? "byte" : "short";
+                    return $"({castType}) {expr}";
                 }
             }
 

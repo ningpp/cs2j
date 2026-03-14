@@ -459,6 +459,31 @@ public class ConversionContext
             return MapSimpleTypeName(mapped);
         }
 
+        // For unmapped types from the project being converted (e.g. Microsoft.Msagl.*), add an explicit
+        // import when the simple name conflicts with a java.util.* or other wildcard-imported type.
+        // This prevents ambiguous reference errors like "reference to Timer is ambiguous".
+        var ns = typeSymbol.ContainingNamespace?.ToDisplayString();
+        if (!string.IsNullOrEmpty(ns) && ns.StartsWith("Microsoft."))
+        {
+            // Names that are also in java.util or other wildcard imports
+            if (name is "Timer" or "Set" or "Date" or "Random" or "Scanner" or "Arrays" or "Collections"
+                or "Optional" or "Stack" or "Queue" or "Deque" or "Iterator")
+            {
+                // Add explicit import to resolve ambiguity
+                var javaPackage = NamespaceToPackage(ns);
+                AddImport($"{javaPackage}.{name}");
+            }
+        }
+
+        // For nested types (e.g. C# Variable.NeighborAndWeight), use OuterClass.InnerClass in Java.
+        // Exclude type parameters (ITypeParameterSymbol) — they are referenced by simple name T, not OuterClass.T.
+        if (typeSymbol is not ITypeParameterSymbol
+            && typeSymbol.ContainingType is INamedTypeSymbol outerType
+            && outerType.TypeKind != TypeKind.Error)
+        {
+            return $"{outerType.Name}.{MapSimpleTypeName(name)}";
+        }
+
         return MapSimpleTypeName(name);
     }
 

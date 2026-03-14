@@ -1065,16 +1065,7 @@
       "java": "List",
       "imports": ["java.util.List"]
     },
-    {
-      "csharp": "System.Tuple`3",
-      "java": "Object[]",
-      "imports": []
-    },
-    {
-      "csharp": "System.ValueTuple`3",
-      "java": "Object[]",
-      "imports": []
-    },
+
     {
       "csharp": "System.Diagnostics.Debug",
       "java": "System",
@@ -1863,6 +1854,76 @@
       "javaMethod": "getValue"
     },
     {
+      "type": "System.Tuple`3",
+      "method": "Item1",
+      "javaMethod": "_1"
+    },
+    {
+      "type": "System.Tuple`3",
+      "method": "Item2",
+      "javaMethod": "_2"
+    },
+    {
+      "type": "System.Tuple`3",
+      "method": "Item3",
+      "javaMethod": "_3"
+    },
+    {
+      "type": "System.Tuple`4",
+      "method": "Item1",
+      "javaMethod": "_1"
+    },
+    {
+      "type": "System.Tuple`4",
+      "method": "Item2",
+      "javaMethod": "_2"
+    },
+    {
+      "type": "System.Tuple`4",
+      "method": "Item3",
+      "javaMethod": "_3"
+    },
+    {
+      "type": "System.Tuple`4",
+      "method": "Item4",
+      "javaMethod": "_4"
+    },
+    {
+      "type": "System.Tuple`5",
+      "method": "Item1",
+      "javaMethod": "_1"
+    },
+    {
+      "type": "System.Tuple`5",
+      "method": "Item2",
+      "javaMethod": "_2"
+    },
+    {
+      "type": "System.Tuple`5",
+      "method": "Item3",
+      "javaMethod": "_3"
+    },
+    {
+      "type": "System.Tuple`5",
+      "method": "Item4",
+      "javaMethod": "_4"
+    },
+    {
+      "type": "System.Tuple`5",
+      "method": "Item5",
+      "javaMethod": "_5"
+    },
+    {
+      "type": "System.Tuple`2",
+      "method": "Item1",
+      "javaMethod": "getKey"
+    },
+    {
+      "type": "System.Tuple`2",
+      "method": "Item2",
+      "javaMethod": "getValue"
+    },
+    {
       "type": "System.Linq.IGrouping`2",
       "method": "Key",
       "javaMethod": "getKey"
@@ -1886,6 +1947,11 @@
       "type": "System.IO.Stream",
       "method": "Flush",
       "javaMethod": "flush"
+    },
+    {
+      "type": "System.Environment",
+      "method": "NewLine",
+      "javaMethod": "System.lineSeparator()"
     }
   ],
   "namespaceMappings": [
