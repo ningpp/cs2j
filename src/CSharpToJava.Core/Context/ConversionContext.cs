@@ -100,6 +100,11 @@ public class ConversionContext
     public bool IsInLambdaContext { get; set; }
 
     /// <summary>
+    /// 是否在 yield return 方法中（转换为列表积累模式）
+    /// </summary>
+    public bool IsInYieldMethod { get; set; }
+
+    /// <summary>
     /// 收集的导入语句
     /// </summary>
     public HashSet<string> ImportedTypes { get; } = new();
@@ -550,6 +555,60 @@ public class ConversionContext
     /// Public wrapper for <see cref="AddImportsForType"/> used by transformers.
     /// </summary>
     public void AddImportsForTypePublic(string csharpType) => AddImportsForType(csharpType);
+
+    /// <summary>
+    /// Maps a C# type from its syntax representation (string) when the Roslyn semantic model
+    /// cannot resolve the type (e.g. unresolved assembly references). Used as fallback from
+    /// FieldTransformer / PropertyTransformer / MethodTransformer instead of returning "Object".
+    /// </summary>
+    public string MapTypeFromSyntax(TypeSyntax typeSyntax)
+    {
+        if (typeSyntax == null) return "Object";
+        return MapTypeFromSyntaxString(typeSyntax.ToString().Trim());
+    }
+
+    private string MapTypeFromSyntaxString(string typeName)
+    {
+        if (string.IsNullOrWhiteSpace(typeName)) return "Object";
+
+        // Nullable T? → strip the ?
+        if (typeName.EndsWith("?") && typeName.Length > 1)
+            return MapTypeFromSyntaxString(typeName.Substring(0, typeName.Length - 1));
+
+        // Array T[] → map element type + []
+        if (typeName.EndsWith("[]"))
+        {
+            var elemType = MapTypeFromSyntaxString(typeName.Substring(0, typeName.Length - 2));
+            return elemType + "[]";
+        }
+
+        // Generic type e.g. List<XmlReader>
+        var openAngle = typeName.IndexOf('<');
+        if (openAngle > 0 && typeName.EndsWith(">"))
+        {
+            var baseTypeName = typeName.Substring(0, openAngle).Trim();
+            var innerArgs = typeName.Substring(openAngle + 1, typeName.Length - openAngle - 2);
+            var mappedBase = TypeMappings.MapType(baseTypeName);
+            if (mappedBase != baseTypeName)
+            {
+                AddImportsForType(baseTypeName);
+                mappedBase = MapSimpleTypeName(mappedBase);
+            }
+            if (mappedBase == "Object") return "Object";
+            return $"{mappedBase}<{innerArgs}>";
+        }
+
+        // Try exact match in type registry
+        var mapped = TypeMappings.MapType(typeName);
+        if (mapped != typeName)
+        {
+            AddImportsForType(typeName);
+            return MapSimpleTypeName(mapped);
+        }
+
+        // No mapping found: use the syntax name directly (handles classes whose name is unchanged)
+        return MapSimpleTypeName(typeName);
+    }
 
     /// <summary>
     /// 注册一个已合并的 partial 类型

@@ -30,7 +30,9 @@ public class FieldTransformer : IMemberTransformer
     public IEnumerable<JavaFieldDeclaration> TransformAll(FieldDeclarationSyntax fieldDecl, ConversionContext context)
     {
         var typeInfo = context.SemanticModel?.GetTypeInfo(fieldDecl.Declaration.Type);
-        var javaType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Object";
+        var javaType = typeInfo.HasValue && typeInfo.Value.Type != null
+            ? context.MapType(typeInfo.Value.Type)
+            : context.MapTypeFromSyntax(fieldDecl.Declaration.Type);
         var modifiers = ConvertModifiers(fieldDecl.Modifiers);
 
         // Handle const/readonly modifiers

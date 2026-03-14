@@ -402,6 +402,11 @@ class Program
             <artifactId>vavr</artifactId>
             <version>0.10.4</version>
         </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.17.2</version>
+        </dependency>
     </dependencies>
 
 </project>

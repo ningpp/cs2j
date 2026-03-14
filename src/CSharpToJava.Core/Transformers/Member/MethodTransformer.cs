@@ -66,7 +66,36 @@ public class MethodTransformer : IMemberTransformer
         if (methodDecl.Body != null)
         {
             var statementTransformer = new Transformers.Statement.StatementTransformer();
-            javaMethod.Body = statementTransformer.TransformBlock(methodDecl.Body, context);
+
+            // Detect yield-returning method: convert to list accumulation pattern
+            bool isYieldMethod = methodDecl.Body.DescendantNodes()
+                .OfType<YieldStatementSyntax>().Any();
+            if (isYieldMethod)
+            {
+                context.IsInYieldMethod = true;
+                context.AddImport("java.util.ArrayList");
+                var elemType = ExtractElementType(javaMethod.ReturnType);
+                bool isIteratorReturn = javaMethod.Name == "iterator";
+                if (isIteratorReturn)
+                {
+                    context.AddImport("java.util.Iterator");
+                    javaMethod.ReturnType = $"Iterator<{elemType ?? "Object"}>";
+                }
+                else
+                {
+                    context.AddImport("java.util.List");
+                    javaMethod.ReturnType = $"List<{elemType ?? "Object"}>";
+                }
+                var body = statementTransformer.TransformBlock(methodDecl.Body, context);
+                var listType = elemType != null ? $"ArrayList<{elemType}>" : "ArrayList<Object>";
+                var returnStmt = isIteratorReturn ? "return _yieldResult.iterator();" : "return _yieldResult;";
+                javaMethod.Body = $"{listType} _yieldResult = new {listType}();\n        {body}\n        {returnStmt}";
+                context.IsInYieldMethod = false;
+            }
+            else
+            {
+                javaMethod.Body = statementTransformer.TransformBlock(methodDecl.Body, context);
+            }
         }
         else if (methodDecl.ExpressionBody != null)
         {
@@ -212,13 +241,16 @@ public class MethodTransformer : IMemberTransformer
             return context.MapType(typeInfo.Value.Type);
         }
 
-        return "Object";
+        // Semantic model failed to resolve the type — fall back to the syntax text
+        return context.MapTypeFromSyntax(methodDecl.ReturnType);
     }
 
     private JavaParameter? ConvertParameter(ParameterSyntax param, ConversionContext context)
     {
         var typeInfo = context.SemanticModel?.GetTypeInfo(param.Type!);
-        var javaType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Object";
+        var javaType = typeInfo.HasValue && typeInfo.Value.Type != null
+            ? context.MapType(typeInfo.Value.Type)
+            : context.MapTypeFromSyntax(param.Type!);
 
         var paramName = ConversionContext.EscapeJavaKeyword(param.Identifier.Text);
         var javaParam = new JavaParameter(javaType, paramName);
@@ -263,6 +295,17 @@ public class MethodTransformer : IMemberTransformer
     private static string GetHolderType(string javaType)
     {
         return CSharpToJava.Core.Transformers.Type.DelegateTransformer.GetHolderType(javaType);
+    }
+
+    /// <summary>
+    /// Extracts the element type from a Java generic container type like Iterable&lt;T&gt;, List&lt;T&gt;, Iterator&lt;T&gt;.
+    /// Returns null if no type argument is found.
+    /// </summary>
+    private static string? ExtractElementType(string javaType)
+    {
+        var m = System.Text.RegularExpressions.Regex.Match(javaType,
+            @"^(?:Iterable|Iterator|List|ArrayList|Collection|IEnumerable)<(.+)>$");
+        return m.Success ? m.Groups[1].Value : null;
     }
 
     private JavaModifiers ConvertModifiers(SyntaxTokenList modifiers)

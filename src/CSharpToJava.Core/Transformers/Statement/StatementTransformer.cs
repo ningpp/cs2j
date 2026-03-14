@@ -31,6 +31,8 @@ public class StatementTransformer : IStatementTransformer
             SyntaxKind.UsingStatement => TransformUsingStatement(node as UsingStatementSyntax, context),
             SyntaxKind.BreakStatement => new JavaStatementNode("break;"),
             SyntaxKind.ContinueStatement => new JavaStatementNode("continue;"),
+            SyntaxKind.YieldReturnStatement => TransformYieldReturn(node as YieldStatementSyntax, context),
+            SyntaxKind.YieldBreakStatement => TransformYieldBreak(node as YieldStatementSyntax, context),
             SyntaxKind.LockStatement => TransformLockStatement(node as LockStatementSyntax, context),
             SyntaxKind.FixedStatement => TransformFixedStatement(node as FixedStatementSyntax, context),
             SyntaxKind.UnsafeStatement => TransformUnsafeStatement(node as UnsafeStatementSyntax, context),
@@ -55,7 +57,20 @@ public class StatementTransformer : IStatementTransformer
         foreach (var statement in statements)
         {
             var result = Transform(statement, context);
-            if (result is JavaStatementNode stmt)
+            if (result is JavaMemberCollection collection)
+            {
+                foreach (var member in collection.Members)
+                {
+                    var memberText = member.ToString("");
+                    if (!string.IsNullOrWhiteSpace(memberText) &&
+                        !memberText.TrimStart().StartsWith("#") &&
+                        !memberText.TrimStart().StartsWith("/* TODO: UncheckedStatement"))
+                    {
+                        results.Add(memberText);
+                    }
+                }
+            }
+            else if (result is JavaStatementNode stmt)
             {
                 var stmtText = stmt.ToString("");
                 // 过滤掉空语句和 C# 预处理器指令残留
@@ -773,6 +788,9 @@ public class StatementTransformer : IStatementTransformer
             bool isIEnumerator = resolvedType is INamedTypeSymbol ien
                 && (ien.Name is "IEnumerator" or "IEnumerator`1");
             javaType = (isEnumeratorStruct || isIEnumerator) ? "var" : context.MapType(resolvedType);
+            // Fallback: if MapType returns empty (e.g. unresolved error type), use var to let Java infer
+            if (string.IsNullOrWhiteSpace(javaType))
+                javaType = "var";
         }
         else
         {
@@ -843,6 +861,56 @@ public class StatementTransformer : IStatementTransformer
         }
 
         var exprTransformer = new ExpressionTransformer();
+
+        // Special case: var x = target.Property = value
+        // Property setters return void in Java — split into two statements: "Type x = value; target.setProperty(x);"
+        if (stmt.Declaration.Variables.Count == 1)
+        {
+            var sv = stmt.Declaration.Variables[0];
+            if (sv.Initializer?.Value is AssignmentExpressionSyntax assignInit
+                && assignInit.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.SimpleAssignmentExpression))
+            {
+                // Check if the LHS of the initializer-assignment is a property setter
+                bool lhsIsProp = false;
+                if (assignInit.Left is MemberAccessExpressionSyntax maLhsCheck)
+                {
+                    var symCheck = context.SemanticModel?.GetSymbolInfo(maLhsCheck).Symbol;
+                    lhsIsProp = symCheck is IPropertySymbol || (symCheck == null && char.IsUpper(maLhsCheck.Name.Identifier.Text[0]));
+                }
+                else if (assignInit.Left is IdentifierNameSyntax idLhsCheck)
+                {
+                    var symCheck = context.SemanticModel?.GetSymbolInfo(idLhsCheck).Symbol;
+                    lhsIsProp = symCheck is IPropertySymbol;
+                }
+                if (lhsIsProp)
+                {
+                    var varName = ConversionContext.EscapeJavaKeyword(sv.Identifier.Text);
+                    var rhsExpr = exprTransformer.Transform(assignInit.Right, context);
+                    // Build setter call using varName as the value argument
+                    string setterCode;
+                    if (assignInit.Left is MemberAccessExpressionSyntax maLhsSet)
+                    {
+                        var maTarget = exprTransformer.Transform(maLhsSet.Expression, context);
+                        var maPropName = maLhsSet.Name.Identifier.Text;
+                        setterCode = $"{maTarget}.set{maPropName}({varName})";
+                    }
+                    else if (assignInit.Left is IdentifierNameSyntax idLhsSet)
+                    {
+                        setterCode = $"set{idLhsSet.Identifier.Text}({varName})";
+                    }
+                    else
+                    {
+                        setterCode = exprTransformer.Transform(assignInit, context);
+                    }
+                    var preStmts = context.DrainPreStatements();
+                    var preCode = preStmts.Count > 0 ? string.Join("\n", preStmts.Select(s => s.TrimEnd(';') + ";")) + "\n" : "";
+                    return new JavaMemberCollection(
+                        new JavaStatementNode($"{preCode}{javaType} {varName} = {rhsExpr};"),
+                        new JavaStatementNode($"{setterCode};"));
+                }
+            }
+        }
+
         var declarations = string.Join(", ", stmt.Declaration.Variables.Select(v =>
         {
             string init;
@@ -858,7 +926,9 @@ public class StatementTransformer : IStatementTransformer
                 {
                     var invSym2 = context.SemanticModel.GetSymbolInfo(unboxInvExpr).Symbol as IMethodSymbol;
                     if (invSym2?.OriginalDefinition.ReturnType is IArrayTypeSymbol origRetArr2
-                        && origRetArr2.ElementType is ITypeParameterSymbol)
+                        && origRetArr2.ElementType is ITypeParameterSymbol
+                        // Skip if already converted by TransformLinqToArray (contains mapToDouble/mapToInt etc.)
+                        && !initExpr.Contains(".mapToDouble(") && !initExpr.Contains(".mapToInt(") && !initExpr.Contains(".mapToLong("))
                     {
                         context.AddImport("java.util.Arrays");
                         initExpr = javaType switch
@@ -896,6 +966,20 @@ public class StatementTransformer : IStatementTransformer
         }));
 
         return new JavaStatementNode($"{javaType} {declarations};");
+    }
+
+    private JavaSyntaxNode TransformYieldReturn(YieldStatementSyntax? stmt, ConversionContext context)
+    {
+        if (stmt?.Expression == null)
+            return new JavaStatementNode("// yield return (empty)");
+        var exprTransformer = new ExpressionTransformer();
+        var expr = exprTransformer.Transform(stmt.Expression, context);
+        return new JavaStatementNode($"_yieldResult.add({expr});");
+    }
+
+    private JavaSyntaxNode TransformYieldBreak(YieldStatementSyntax? stmt, ConversionContext context)
+    {
+        return new JavaStatementNode("return _yieldResult;");
     }
 }
 

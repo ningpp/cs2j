@@ -89,6 +89,7 @@ public class ExpressionTransformer : IExpressionTransformer
             SyntaxKind.ConditionalExpression => TransformConditional((ConditionalExpressionSyntax)node, context),
             SyntaxKind.CastExpression => TransformCast((CastExpressionSyntax)node, context),
             SyntaxKind.IsExpression => TransformIs((BinaryExpressionSyntax)node, context),
+            SyntaxKind.IsPatternExpression => TransformIsPattern((IsPatternExpressionSyntax)node, context),
             SyntaxKind.AsExpression => TransformAs((BinaryExpressionSyntax)node, context),
             SyntaxKind.TypeOfExpression => TransformTypeOf((TypeOfExpressionSyntax)node, context),
             SyntaxKind.DefaultExpression => TransformDefault((DefaultExpressionSyntax)node, context),
@@ -294,6 +295,11 @@ public class ExpressionTransformer : IExpressionTransformer
             return camelName2;
         }
 
+        // Fallback: try TypeMappings simple-name lookup for unresolved type names (e.g., Thread → ThreadHelper)
+        var simpleMapped = context.TypeMappings?.MapType(name);
+        if (!string.IsNullOrEmpty(simpleMapped) && simpleMapped != name)
+            return simpleMapped;
+
         return ConversionContext.EscapeJavaKeyword(name);
     }
 
@@ -455,6 +461,13 @@ public class ExpressionTransformer : IExpressionTransformer
                 }
 
                 // 将属性名转换为 getter 方法名
+                // Special case: String.Length → length() (Java String method, not property)
+                if (memberName == "Length")
+                {
+                    var strExprType = context.SemanticModel?.GetTypeInfo(node.Expression).Type;
+                    if (strExprType?.SpecialType == SpecialType.System_String)
+                        return $"{left}.length()";
+                }
                 // Special case: IEnumerator<T>.Current → iterate with next()
                 if (memberName == "Current")
                 {
@@ -477,6 +490,10 @@ public class ExpressionTransformer : IExpressionTransformer
             if (symbol is IFieldSymbol fieldSymbol)
             {
                 var specialType = fieldSymbol.ContainingType?.SpecialType;
+                if (fieldSymbol.ContainingType?.SpecialType == SpecialType.System_String)
+                {
+                    if (memberName == "Empty") return "\"\"";
+                }
                 if (specialType == SpecialType.System_Double || specialType == SpecialType.System_Single) {
                     var wrapper = specialType == SpecialType.System_Double ? "Double" : "Float";
                     if (memberName == "MaxValue") return $"{wrapper}.MAX_VALUE";
@@ -659,8 +676,21 @@ public class ExpressionTransformer : IExpressionTransformer
             }
 
             // Special case: Array.Sort(arr) / Array.Sort(arr, comparer) → Arrays.sort(arr) / Arrays.sort(arr, comparer)
+            // Special sub-case: Array.Sort(keys, items) with two array args → ArrayHelper.sortParallel(keys, items)
+            // C# Array.Sort(T1[] keys, T2[] items) sorts keys in-place and rearranges items accordingly.
+            // Java has no equivalent; use a generated ArrayHelper utility.
             if (methodName == "Sort" && (target == "Array" || originalTargetName == "Array"))
             {
+                if (node.ArgumentList?.Arguments.Count == 2)
+                {
+                    var sortKey = Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    var sortVal = Transform(node.ArgumentList.Arguments[1].Expression, context);
+                    // Check if second arg is an array (not a Comparator/IComparer)
+                    var secondArgType = context.SemanticModel?.GetTypeInfo(node.ArgumentList.Arguments[1].Expression).Type;
+                    bool secondIsArray = secondArgType is IArrayTypeSymbol;
+                    if (secondIsArray)
+                        return $"ArrayHelper.sortParallel({sortKey}, {sortVal})";
+                }
                 context.AddImport("java.util.Arrays");
                 var sortArgs = TransformArgumentList(node.ArgumentList, context);
                 return $"Arrays.sort({sortArgs})";
@@ -780,6 +810,26 @@ public class ExpressionTransformer : IExpressionTransformer
                         return "/* Debug.WriteLine() */";
                     var printArg = Transform(node.ArgumentList.Arguments[0].Expression, context);
                     return $"System.err.println({printArg})";
+                }
+            }
+
+            // Special case: Console.WriteLine / Console.Write → System.out.println / System.out.print
+            // Handles unresolved Console (target="Console") and resolved System.Console → Java "System"
+            if (methodName is "WriteLine" or "Write")
+            {
+                bool isConsoleCall = target is "Console";
+                if (!isConsoleCall && context.SemanticModel != null)
+                {
+                    var conSym = context.SemanticModel.GetSymbolInfo(memberAccess).Symbol as IMethodSymbol;
+                    isConsoleCall = conSym?.ContainingType?.ToDisplayString() == "System.Console";
+                }
+                if (isConsoleCall)
+                {
+                    string suffix = methodName == "WriteLine" ? "println" : "print";
+                    if (node.ArgumentList.Arguments.Count == 0)
+                        return $"System.out.{suffix}()";
+                    var consoleArgs = string.Join(", ", node.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)));
+                    return $"System.out.{suffix}({consoleArgs})";
                 }
             }
 
@@ -1012,9 +1062,31 @@ public class ExpressionTransformer : IExpressionTransformer
             {
                 var containingType = typeInfo.Value.Type.ToDisplayString();
                 var mappedMethod = context.TypeMappings.MapMethod(containingType, methodName);
+                // Also try fully-qualified equivalent for C# keywords (e.g., "string" → "System.String")
+                if (string.IsNullOrEmpty(mappedMethod) && containingType == "string")
+                    mappedMethod = context.TypeMappings.MapMethod("System.String", methodName);
                 if (!string.IsNullOrEmpty(mappedMethod))
                 {
-                    methodName = mappedMethod;
+                    if (mappedMethod.Contains('.'))
+                    {
+                        // e.g., "StringHelper.isNullOrEmpty" → redirect to a static utility class call.
+                        // For static calls (receiver is a type name), don't include receiver in args.
+                        var dotPos = mappedMethod.IndexOf('.');
+                        var newStaticClass = mappedMethod.Substring(0, dotPos);
+                        var newStaticMethod = mappedMethod.Substring(dotPos + 1);
+                        var redirectArgs = TransformArgumentList(node.ArgumentList, context);
+                        // Detect static receiver: NamedType means receiver is a class name, not an instance
+                        var receiverSymKind = context.SemanticModel?.GetSymbolInfo(memberAccess.Expression).Symbol?.Kind;
+                        bool isStaticReceiver = receiverSymKind == Microsoft.CodeAnalysis.SymbolKind.NamedType
+                            || receiverSymKind == Microsoft.CodeAnalysis.SymbolKind.Alias;
+                        string callArgs = (!isStaticReceiver && !string.IsNullOrEmpty(redirectArgs))
+                            ? $"{target}, {redirectArgs}" : redirectArgs ?? "";
+                        return $"{newStaticClass}.{newStaticMethod}({callArgs})";
+                    }
+                    else
+                    {
+                        methodName = mappedMethod;
+                    }
                 }
                 // e.g., X.GetHashCode() where X is double → Double.hashCode(X)
                 var primitiveWrapper = containingType switch
@@ -1072,6 +1144,16 @@ public class ExpressionTransformer : IExpressionTransformer
                         if (primitiveToFq != null)
                             wrapperMapped = context.TypeMappings.MapMethod(primitiveToFq, methodName);
                     }
+                    // When mapped method contains '.' (e.g., "MathHelper.tryParseDouble"), redirect to static utility.
+                    // Do NOT include target (the class name like "Double") as an argument.
+                    if (!string.IsNullOrEmpty(wrapperMapped) && wrapperMapped.Contains('.'))
+                    {
+                        var dotIdxW = wrapperMapped.IndexOf('.');
+                        var wClass = wrapperMapped.Substring(0, dotIdxW);
+                        var wMethod = wrapperMapped.Substring(dotIdxW + 1);
+                        var wArgs = TransformArgumentList(node.ArgumentList, context);
+                        return $"{wClass}.{wMethod}({wArgs})";
+                    }
                     methodName = !string.IsNullOrEmpty(wrapperMapped)
                         ? wrapperMapped
                         : char.ToLower(methodName[0]) + methodName.Substring(1);
@@ -1106,11 +1188,86 @@ public class ExpressionTransformer : IExpressionTransformer
                         }
                     }
                     if (!string.IsNullOrEmpty(staticMapped))
-                        methodName = staticMapped;
+                    {
+                        if (staticMapped.Contains('.'))
+                        {
+                            // e.g., "MathHelper.tryParseDouble" → redirect receiver to the new class
+                            var dotPos2 = staticMapped.IndexOf('.');
+                            target = staticMapped.Substring(0, dotPos2);
+                            methodName = staticMapped.Substring(dotPos2 + 1);
+                        }
+                        else
+                        {
+                            methodName = staticMapped;
+                        }
+                    }
                 }
             }
 
             var args = TransformArgumentList(node.ArgumentList, context);
+
+            // Special case: String.Format(CultureInfo/IFormatProvider, formatStr, args...) → String.format(formatStr, args...)
+            // Java's String.format(String, Object...) doesn't accept a CultureInfo/Locale as first arg
+            // (CultureInfo is the MSAGL wrapper class, not java.util.Locale).
+            if ((methodName == "Format" || methodName == "format") && target == "String"
+                && node.ArgumentList?.Arguments.Count >= 2)
+            {
+                bool firstArgIsFormatProvider = false;
+                if (context.SemanticModel != null)
+                {
+                    var firstArgType = context.SemanticModel.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type;
+                    firstArgIsFormatProvider = firstArgType != null &&
+                        (firstArgType.Name.Contains("CultureInfo") || firstArgType.Name == "IFormatProvider"
+                         || firstArgType.AllInterfaces.Any(i => i.Name == "IFormatProvider"));
+                }
+                else
+                {
+                    // Heuristic: inspect the generated text of first arg
+                    var firstArgText = Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    firstArgIsFormatProvider = firstArgText.Contains("CultureInfo") || firstArgText.Contains("Culture");
+                }
+                if (firstArgIsFormatProvider)
+                {
+                    var remainingArgs = string.Join(", ", node.ArgumentList.Arguments.Skip(1)
+                        .Select(a => Transform(a.Expression, context)));
+                    return $"String.format({remainingArgs})";
+                }
+            }
+
+            // Special case: List<T>.remove(primitive_int) must use remove(Integer.valueOf(x)) to call the
+            // remove(Object) overload (returns boolean). Java's remove(int) removes by index (returns T).
+            if ((methodName == "remove" || methodName == "Remove") && node.ArgumentList?.Arguments.Count == 1
+                && context.SemanticModel != null)
+            {
+                var rcvListType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type;
+                if (rcvListType is INamedTypeSymbol listNt && listNt.TypeArguments.Length > 0 &&
+                    (listNt.AllInterfaces.Any(i => i.Name is "IList" or "ICollection") ||
+                     listNt.Name is "List" or "ArrayList"))
+                {
+                    var singleArgType2 = context.SemanticModel.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type;
+                    if (singleArgType2?.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64
+                                                    or SpecialType.System_Int16 or SpecialType.System_Byte)
+                    {
+                        var singleArgStr2 = Transform(node.ArgumentList.Arguments[0].Expression, context);
+                        var boxedType2 = singleArgType2.SpecialType switch {
+                            SpecialType.System_Int64 => "Long",
+                            SpecialType.System_Int16 => "Short",
+                            SpecialType.System_Byte  => "Byte",
+                            _                        => "Integer"
+                        };
+                        return $"{target}.remove({boxedType2}.valueOf({singleArgStr2}))";
+                    }
+                }
+            }
+
+            // String.ToString(IFormatProvider/CultureInfo) in C# → toString() in Java (String has no locale-aware toString)
+            if ((methodName == "ToString" || methodName == "toString") && node.ArgumentList.Arguments.Count > 0)
+            {
+                var toStrRcvr = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                if (toStrRcvr?.SpecialType == SpecialType.System_String)
+                    return $"{target}.toString()";
+            }
+
             // Java uses camelCase for all method names
             if (char.IsUpper(methodName[0]))
             {
@@ -1133,6 +1290,9 @@ public class ExpressionTransformer : IExpressionTransformer
                     "MoveNext" => "hasNext",
                     "GetType" => "getClass",
                     "Dispose" => "close",
+                    // String case-conversion — must map even when receiver type is unresolved
+                    "ToLower" => "toLowerCase",
+                    "ToUpper" => "toUpperCase",
                     _ => char.ToLower(methodName[0]) + methodName.Substring(1)
                 };
                 methodName = ConversionContext.EscapeJavaKeyword(camelMethod);
@@ -1681,7 +1841,12 @@ public class ExpressionTransformer : IExpressionTransformer
             if (returnArrayType != null)
             {
                 var elemSym = returnArrayType.ElementType;
-                if (elemSym.SpecialType == SpecialType.None && elemSym.TypeKind != TypeKind.Error &&
+                // Allow reference types (SpecialType.None) AND String (SpecialType.System_String).
+                // Exclude primitives (int, bool, etc.) which are handled by mapToInt/mapToDouble above.
+                bool elemIsRefOrString = elemSym.SpecialType == SpecialType.None
+                    || elemSym.SpecialType == SpecialType.System_String
+                    || elemSym.SpecialType == SpecialType.System_Object;
+                if (elemIsRefOrString && elemSym.TypeKind != TypeKind.Error &&
                     elemSym.TypeKind != TypeKind.TypeParameter)
                 {
                     var elemTypeName = context.MapType(elemSym);
@@ -2669,6 +2834,11 @@ public class ExpressionTransformer : IExpressionTransformer
         var left = Transform(node.Left, context);
         var typeInfo = context.SemanticModel?.GetTypeInfo(node.Right);
         var rightType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Object";
+        // instanceof requires reference types in Java — box primitives
+        rightType = rightType switch {
+            "double" => "Double", "float" => "Float", "int" => "Integer",
+            "long" => "Long", "short" => "Short", "byte" => "Byte",
+            "char" => "Character", "bool" or "boolean" => "Boolean", _ => rightType };
         return $"({left} instanceof {rightType})";
     }
 
@@ -2743,6 +2913,22 @@ public class ExpressionTransformer : IExpressionTransformer
         }
 
         var args = TransformArgumentList(node.ArgumentList, context);
+
+        // Special case: new BufferedReader(filename_string) → new BufferedReader(new FileReader(filename))
+        // Java's BufferedReader takes a java.io.Reader, not a String. C# StreamReader takes a String path.
+        if (type == "BufferedReader" && node.ArgumentList?.Arguments.Count == 1)
+        {
+            var singleArgExpr = node.ArgumentList.Arguments[0].Expression;
+            var singleArgType = context.SemanticModel?.GetTypeInfo(singleArgExpr).Type;
+            bool isStringArg = singleArgType?.SpecialType == SpecialType.System_String
+                || singleArgType == null; // if unresolved, assume String (since StreamReader takes String)
+            if (isStringArg)
+            {
+                var singleArgStr = Transform(singleArgExpr, context);
+                context.AddImport("java.io.FileReader");
+                return $"new BufferedReader(new FileReader({singleArgStr}))";
+            }
+        }
 
         // Handle exception constructors where C# has (paramName, message) 2-string constructors but Java doesn't:
         // e.g., new ArgumentOutOfRangeException("param", "message") → new IllegalArgumentException("param: message")
@@ -3311,9 +3497,14 @@ public class ExpressionTransformer : IExpressionTransformer
             {
                 result = $"{result} /* TODO: join */";
             }
-            else if (clause is LetClauseSyntax)
+            else if (clause is LetClauseSyntax letClause)
             {
-                result = $"{result} /* TODO: let */";
+                // Translate: let ip = expr(p)  →  .map(p -> expr(p))
+                // Update currentIdentifier to the let variable for subsequent clauses.
+                var letVar = letClause.Identifier.ValueText;
+                var letExpr = Transform(letClause.Expression, context);
+                result = $"{result}.map({currentIdentifier} -> {letExpr})";
+                currentIdentifier = letVar;
             }
             else if (clause is OrderByClauseSyntax)
             {
@@ -3401,26 +3592,33 @@ public class ExpressionTransformer : IExpressionTransformer
     private string TransformThrowExpression(ThrowExpressionSyntax node, ConversionContext context)
     {
         var expr = Transform(node.Expression, context);
-        return $"(() => {{ throw new {expr}; }})()"; // Java throw 是语句，不是表达式
+        // Java has no throw expressions; wrap in a Supplier lambda and call get()
+        return $"((java.util.function.Supplier<Object>) () -> {{ throw {expr}; }}).get()";
     }
 
     private string TransformSwitchExpression(SwitchExpressionSyntax node, ConversionContext context)
     {
-        // Java 14+ 支持 switch 表达式
+        // Java 14+ switch expressions
         var governingExpr = Transform(node.GoverningExpression, context);
         var arms = new List<string>();
 
         foreach (var arm in node.Arms)
         {
-            var pattern = TransformPattern(arm.Pattern, context);
             var whenClause = arm.WhenClause != null
                 ? $" when {Transform(arm.WhenClause.Condition, context)}"
                 : "";
             var result = Transform(arm.Expression, context);
-            arms.Add($"case {pattern}{whenClause} -> {result}");
+            // DiscardPattern = C# wildcard _ → Java default (no 'case' keyword)
+            if (arm.Pattern is DiscardPatternSyntax)
+                arms.Add($"default -> {result};");
+            else
+            {
+                var pattern = TransformPattern(arm.Pattern, context);
+                arms.Add($"case {pattern}{whenClause} -> {result};");
+            }
         }
 
-        return $"switch ({governingExpr}) {{ {string.Join(", ", arms)} }}";
+        return $"switch ({governingExpr}) {{ {string.Join(" ", arms)} }}";
     }
 
     private string TransformIndexExpression(ElementAccessExpressionSyntax node, ConversionContext context)
@@ -3447,9 +3645,59 @@ public class ExpressionTransformer : IExpressionTransformer
         {
             ConstantPatternSyntax constant => Transform(constant.Expression, context),
             DeclarationPatternSyntax decl => TransformDeclarationPattern(decl, context),
-            DiscardPatternSyntax => "_",
+            TypePatternSyntax tp => context.MapType(context.SemanticModel?.GetTypeInfo(tp.Type).Type!) ?? tp.Type.ToString(),
+            DiscardPatternSyntax => "default",
             _ => "/* TODO: pattern */"
         };
+    }
+
+    private string TransformIsPattern(IsPatternExpressionSyntax node, ConversionContext context)
+    {
+        var left = Transform(node.Expression, context);
+        return TransformIsPatternCore(left, node.Pattern, context);
+    }
+
+    private string TransformIsPatternCore(string left, PatternSyntax pattern, ConversionContext context)
+    {
+        switch (pattern)
+        {
+            case ConstantPatternSyntax constant:
+                // x is null → x == null
+                if (constant.Expression.IsKind(SyntaxKind.NullLiteralExpression))
+                    return $"({left} == null)";
+                // x is true/false/constant → Objects.equals(x, constant)
+                var constVal = Transform(constant.Expression, context);
+                return $"(java.util.Objects.equals({left}, {constVal}))";
+
+            case UnaryPatternSyntax unary when unary.IsKind(SyntaxKind.NotPattern):
+                // x is not null → x != null
+                if (unary.Pattern is ConstantPatternSyntax innerConst && innerConst.Expression.IsKind(SyntaxKind.NullLiteralExpression))
+                    return $"({left} != null)";
+                // x is not <pattern> → !(x is <pattern>)
+                return $"(!{TransformIsPatternCore(left, unary.Pattern, context)})";
+
+            case DeclarationPatternSyntax decl:
+                // x is Type y → x instanceof Type y  (Java 16+ pattern matching instanceof)
+                var declStr = TransformDeclarationPattern(decl, context);
+                return $"({left} instanceof {declStr})";
+
+            case TypePatternSyntax tp:
+                // x is Type (C# 9+) → x instanceof Type
+                var tpInfo = context.SemanticModel?.GetTypeInfo(tp.Type);
+                var tpName = tpInfo.HasValue && tpInfo.Value.Type != null ? context.MapType(tpInfo.Value.Type) : tp.Type.ToString();
+                // instanceof requires reference types — box primitives
+                tpName = tpName switch {
+                    "double" => "Double", "float" => "Float", "int" => "Integer",
+                    "long" => "Long", "short" => "Short", "byte" => "Byte",
+                    "char" => "Character", "bool" or "boolean" => "Boolean", _ => tpName };
+                return $"({left} instanceof {tpName})";
+
+            case DiscardPatternSyntax:
+                return "true";
+
+            default:
+                return $"({left} instanceof Object /* TODO: pattern {pattern.Kind()} */)";
+        }
     }
 
     private string TransformDeclarationPattern(DeclarationPatternSyntax pattern, ConversionContext context)
@@ -3555,6 +3803,7 @@ public class ExpressionTransformer : IExpressionTransformer
                 // of Stream.concat() contain collect() calls — only the outermost call matters.
                 var argActualInfo = context.SemanticModel.GetTypeInfo(arg.Expression);
                 bool argIsEnumerable = argActualInfo.Type is INamedTypeSymbol argNs &&
+                    argNs.SpecialType != SpecialType.System_String && // String implements IEnumerable<char> but is not a stream
                     (argNs.Name is "IEnumerable" or "IOrderedEnumerable" or "IQueryable" ||
                      argNs.AllInterfaces.Any(i => i.Name is "IEnumerable"));
                 bool exprIsStream = !expr.TrimEnd().EndsWith(".collect(Collectors.toList())") && (

@@ -22,7 +22,9 @@ public class PropertyTransformer : IMemberTransformer
 
         var results = new List<JavaSyntaxNode>();
         var typeInfo = context.SemanticModel?.GetTypeInfo(propDecl.Type);
-        var propType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Object";
+        var propType = typeInfo.HasValue && typeInfo.Value.Type != null
+            ? context.MapType(typeInfo.Value.Type)
+            : context.MapTypeFromSyntax(propDecl.Type);
         var propName = ConversionContext.EscapeJavaKeyword(propDecl.Identifier.Text);
         var fieldName = ConversionContext.EscapeJavaKeyword(ToCamelCase(propName));
         var isStatic = propDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword));
@@ -89,7 +91,7 @@ public class PropertyTransformer : IMemberTransformer
                                           m.IsKind(SyntaxKind.PrivateKeyword) ||
                                           m.IsKind(SyntaxKind.InternalKeyword)))
             {
-                getterModifiers = JavaModifiers.Public;
+                getterModifiers = JavaModifiers.Public | (modifiers & ~(JavaModifiers.Public | JavaModifiers.Protected | JavaModifiers.Private));
             }
             // 确保只有一个访问修饰符
             getterModifiers = GetSingleAccessModifier(getterModifiers);
@@ -109,7 +111,24 @@ public class PropertyTransformer : IMemberTransformer
             if (getAccessor?.Body != null)
             {
                 var statementTransformer = new Transformers.Statement.StatementTransformer();
-                getter.Body = statementTransformer.TransformBlock(getAccessor.Body, context);
+                // Detect yield-returning getter: convert to list accumulation pattern
+                bool isYieldGetter = getAccessor.Body.DescendantNodes().OfType<YieldStatementSyntax>().Any();
+                if (isYieldGetter)
+                {
+                    context.IsInYieldMethod = true;
+                    context.AddImport("java.util.ArrayList");
+                    context.AddImport("java.util.List");
+                    var elemType = PropertyYieldExtractElementType(propType);
+                    getter.ReturnType = $"List<{elemType ?? "Object"}>";
+                    var body = statementTransformer.TransformBlock(getAccessor.Body, context);
+                    var listType = elemType != null ? $"ArrayList<{elemType}>" : "ArrayList<Object>";
+                    getter.Body = $"{listType} _yieldResult = new {listType}();\n        {body}\n        return _yieldResult;";
+                    context.IsInYieldMethod = false;
+                }
+                else
+                {
+                    getter.Body = statementTransformer.TransformBlock(getAccessor.Body, context);
+                }
                 getter.IsBodyExpression = false;
             }
 
@@ -126,7 +145,7 @@ public class PropertyTransformer : IMemberTransformer
                                           m.IsKind(SyntaxKind.PrivateKeyword) ||
                                           m.IsKind(SyntaxKind.InternalKeyword)))
             {
-                setterModifiers = JavaModifiers.Public;
+                setterModifiers = JavaModifiers.Public | (modifiers & ~(JavaModifiers.Public | JavaModifiers.Protected | JavaModifiers.Private));
             }
             // 确保只有一个访问修饰符
             setterModifiers = GetSingleAccessModifier(setterModifiers);
@@ -216,5 +235,12 @@ public class PropertyTransformer : IMemberTransformer
     {
         if (string.IsNullOrEmpty(name)) return name;
         return char.ToUpper(name[0]) + name.Substring(1);
+    }
+
+    private static string? PropertyYieldExtractElementType(string javaType)
+    {
+        var m = System.Text.RegularExpressions.Regex.Match(javaType,
+            @"^(?:Iterable|Iterator|List|ArrayList|Collection|IEnumerable)<(.+)>$");
+        return m.Success ? m.Groups[1].Value : null;
     }
 }

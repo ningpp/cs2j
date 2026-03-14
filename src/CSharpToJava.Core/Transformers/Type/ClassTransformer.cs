@@ -117,13 +117,21 @@ public class ClassTransformer : ITypeTransformer
 
             foreach (var member in originalNode.Members)
             {
-                // Deduplication for partial types: use full parameter type signature to preserve overloads
+                // Deduplication for partial types: use full parameter type signature to preserve overloads.
+                // Include ref/out/in modifiers in the key so that overloads differing only in ref-ness are kept distinct.
+                static string ParamKey(ParameterSyntax p)
+                {
+                    var mod = p.Modifiers.Any(m => m.IsKind(SyntaxKind.RefKeyword)) ? "ref_" :
+                              p.Modifiers.Any(m => m.IsKind(SyntaxKind.OutKeyword)) ? "out_" :
+                              p.Modifiers.Any(m => m.IsKind(SyntaxKind.InKeyword))  ? "in_"  : "";
+                    return mod + (p.Type?.ToString() ?? "?");
+                }
                 var key = member switch
                 {
-                    MethodDeclarationSyntax m => $"m:{m.Identifier.Text}:{string.Join(",", m.ParameterList?.Parameters.Select(p => p.Type?.ToString() ?? "?") ?? Enumerable.Empty<string>())}",
+                    MethodDeclarationSyntax m => $"m:{m.Identifier.Text}:{string.Join(",", m.ParameterList?.Parameters.Select(p => ParamKey(p)) ?? Enumerable.Empty<string>())}",
                     PropertyDeclarationSyntax p => $"p:{p.Identifier.Text}",
                     FieldDeclarationSyntax f => $"f:{string.Join(",", f.Declaration.Variables.Select(v => v.Identifier.Text))}",
-                    ConstructorDeclarationSyntax c => $"ctor:{string.Join(",", c.ParameterList?.Parameters.Select(p => p.Type?.ToString() ?? "?") ?? Enumerable.Empty<string>())}",
+                    ConstructorDeclarationSyntax c => $"ctor:{string.Join(",", c.ParameterList?.Parameters.Select(p => ParamKey(p)) ?? Enumerable.Empty<string>())}",
                     _ => $"other:{member.GetHashCode()}"
                 };
                 if (seenMemberKeys.Add(key))

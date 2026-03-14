@@ -107,42 +107,102 @@
     },
     {
       "csharp": "System.Xml.XmlReader",
-      "java": "Object",
-      "imports": []
+      "java": "XmlReader",
+      "imports": ["Microsoft.Msagl.XmlReader"]
     },
     {
       "csharp": "System.Xml.XmlTextReader",
-      "java": "Object",
-      "imports": []
+      "java": "XmlTextReader",
+      "imports": ["Microsoft.Msagl.XmlTextReader"]
     },
     {
       "csharp": "System.Xml.XmlWriter",
-      "java": "Object",
+      "java": "XmlWriter",
       "imports": []
     },
     {
       "csharp": "System.Xml.XmlReaderSettings",
-      "java": "Object",
+      "java": "XmlReaderSettings",
+      "imports": []
+    },
+    {
+      "csharp": "System.Xml.XmlWriterSettings",
+      "java": "XmlWriterSettings",
+      "imports": []
+    },
+    {
+      "csharp": "System.Xml.XmlNodeType",
+      "java": "XmlNodeType",
+      "imports": []
+    },
+    {
+      "csharp": "System.Xml.XmlConvert",
+      "java": "XmlConvert",
+      "imports": []
+    },
+    {
+      "csharp": "System.Xml.ReadState",
+      "java": "ReadState",
       "imports": []
     },
     {
       "csharp": "XmlReader",
-      "java": "Object",
+      "java": "XmlReader",
       "imports": []
     },
     {
       "csharp": "XmlTextReader",
-      "java": "Object",
+      "java": "XmlTextReader",
       "imports": []
     },
     {
       "csharp": "XmlWriter",
-      "java": "Object",
+      "java": "XmlWriter",
       "imports": []
     },
     {
       "csharp": "XmlReaderSettings",
-      "java": "Object",
+      "java": "XmlReaderSettings",
+      "imports": []
+    },
+    {
+      "csharp": "XmlWriterSettings",
+      "java": "XmlWriterSettings",
+      "imports": []
+    },
+    {
+      "csharp": "XmlNodeType",
+      "java": "XmlNodeType",
+      "imports": []
+    },
+    {
+      "csharp": "XmlConvert",
+      "java": "XmlConvert",
+      "imports": []
+    },
+    {
+      "csharp": "ReadState",
+      "java": "ReadState",
+      "imports": []
+    },
+    {
+      "csharp": "System.Text.Json.JsonSerializer",
+      "java": "JsonSerializer",
+      "imports": []
+    },
+    {
+      "csharp": "System.Text.Json.JsonSerializerOptions",
+      "java": "JsonSerializerOptions",
+      "imports": []
+    },
+    {
+      "csharp": "JsonSerializer",
+      "java": "JsonSerializer",
+      "imports": []
+    },
+    {
+      "csharp": "JsonSerializerOptions",
+      "java": "JsonSerializerOptions",
       "imports": []
     },
     {
@@ -302,18 +362,48 @@
     },
     {
       "csharp": "System.Collections.Generic.LinkedListNode`1",
-      "java": "Object",
-      "imports": []
+      "java": "LinkedListNode",
+      "imports": ["Microsoft.Msagl.LinkedListNode"]
     },
     {
       "csharp": "System.Collections.Generic.LinkedList`1",
-      "java": "LinkedList",
-      "imports": ["java.util.LinkedList"]
+      "java": "LinkedListWithNodes",
+      "imports": ["Microsoft.Msagl.LinkedListWithNodes"]
     },
     {
       "csharp": "System.Diagnostics.Stopwatch",
       "java": "StopwatchHelper",
       "imports": []
+    },
+    {
+      "csharp": "System.Collections.Queue",
+      "java": "ArrayDeque<Object>",
+      "imports": ["java.util.ArrayDeque"]
+    },
+    {
+      "csharp": "System.Text.Json.JsonSerializer",
+      "java": "JsonSerializer",
+      "imports": ["Microsoft.Msagl.JsonSerializer"]
+    },
+    {
+      "csharp": "System.Text.Json.JsonSerializerOptions",
+      "java": "JsonSerializerOptions",
+      "imports": ["Microsoft.Msagl.JsonSerializerOptions"]
+    },
+    {
+      "csharp": "System.Text.Json.Serialization.JsonConverter",
+      "java": "Object",
+      "imports": []
+    },
+    {
+      "csharp": "System.Xml.XmlWriterSettings",
+      "java": "XmlWriterSettings",
+      "imports": ["Microsoft.Msagl.XmlWriterSettings"]
+    },
+    {
+      "csharp": "XmlWriterSettings",
+      "java": "XmlWriterSettings",
+      "imports": ["Microsoft.Msagl.XmlWriterSettings"]
     },
     {
       "csharp": "System.Linq.ILookup`2",
@@ -367,8 +457,8 @@
     },
     {
       "csharp": "System.Collections.Generic.LinkedList`1",
-      "java": "LinkedList",
-      "imports": ["java.util.LinkedList"]
+      "java": "LinkedListWithNodes",
+      "imports": ["Microsoft.Msagl.LinkedListWithNodes"]
     },
     {
       "csharp": "System.Collections.Generic.SortedList`2",
@@ -557,8 +647,18 @@
     },
     {
       "csharp": "System.IO.TextReader",
-      "java": "Reader",
-      "imports": ["java.io.Reader"]
+      "java": "TextReader",
+      "imports": ["Microsoft.Msagl.TextReader"]
+    },
+    {
+      "csharp": "System.Threading.Thread",
+      "java": "ThreadHelper",
+      "imports": ["Microsoft.Msagl.ThreadHelper"]
+    },
+    {
+      "csharp": "Thread",
+      "java": "ThreadHelper",
+      "imports": ["Microsoft.Msagl.ThreadHelper"]
     },
     {
       "csharp": "System.IO.TextWriter",
@@ -627,8 +727,8 @@
     },
     {
       "csharp": "System.IO.File",
-      "java": "Files",
-      "imports": ["java.nio.file.Files"]
+      "java": "FileHelper",
+      "imports": ["Microsoft.Msagl.FileHelper"]
     },
     {
       "csharp": "System.IO.BufferedStream",
@@ -832,8 +932,8 @@
     },
     {
       "csharp": "System.Threading.Thread",
-      "java": "Thread",
-      "imports": ["java.lang.Thread"]
+      "java": "ThreadHelper",
+      "imports": ["Microsoft.Msagl.ThreadHelper"]
     },
     {
       "csharp": "System.Threading.ThreadPool",
@@ -1235,6 +1335,16 @@
     },
     {
       "type": "System.String",
+      "method": "GetLength",
+      "javaMethod": "length"
+    },
+    {
+      "type": "System.String",
+      "method": "get_Length",
+      "javaMethod": "length"
+    },
+    {
+      "type": "System.String",
       "method": "ToCharArray",
       "javaMethod": "toCharArray"
     },
@@ -1242,6 +1352,86 @@
       "type": "System.String",
       "method": "IsEmpty",
       "javaMethod": "isEmpty"
+    },
+    {
+      "type": "System.String",
+      "method": "IsNullOrEmpty",
+      "javaMethod": "StringHelper.isNullOrEmpty"
+    },
+    {
+      "type": "System.String",
+      "method": "IsNullOrWhiteSpace",
+      "javaMethod": "StringHelper.isNullOrWhiteSpace"
+    },
+    {
+      "type": "System.String",
+      "method": "Compare",
+      "javaMethod": "StringHelper.compare"
+    },
+    {
+      "type": "System.Double",
+      "method": "TryParse",
+      "javaMethod": "MathHelper.tryParseDouble"
+    },
+    {
+      "type": "System.Double",
+      "method": "Parse",
+      "javaMethod": "parseDouble"
+    },
+    {
+      "type": "System.Single",
+      "method": "TryParse",
+      "javaMethod": "MathHelper.tryParseFloat"
+    },
+    {
+      "type": "System.Single",
+      "method": "Parse",
+      "javaMethod": "parseFloat"
+    },
+    {
+      "type": "System.Int32",
+      "method": "TryParse",
+      "javaMethod": "MathHelper.tryParseInt"
+    },
+    {
+      "type": "System.Int32",
+      "method": "Parse",
+      "javaMethod": "parseInt"
+    },
+    {
+      "type": "System.Int64",
+      "method": "TryParse",
+      "javaMethod": "MathHelper.tryParseLong"
+    },
+    {
+      "type": "System.Int64",
+      "method": "Parse",
+      "javaMethod": "parseLong"
+    },
+    {
+      "type": "System.Boolean",
+      "method": "TryParse",
+      "javaMethod": "MathHelper.tryParseBool"
+    },
+    {
+      "type": "System.Boolean",
+      "method": "Parse",
+      "javaMethod": "parseBoolean"
+    },
+    {
+      "type": "System.Enum",
+      "method": "TryParse",
+      "javaMethod": "EnumHelper.tryParse"
+    },
+    {
+      "type": "System.Enum",
+      "method": "Parse",
+      "javaMethod": "EnumHelper.parse"
+    },
+    {
+      "type": "System.Enum",
+      "method": "GetValues",
+      "javaMethod": "EnumHelper.getValues"
     },
     {
       "type": "System.Collections.Generic.List",
@@ -1952,6 +2142,51 @@
       "type": "System.Environment",
       "method": "NewLine",
       "javaMethod": "System.lineSeparator()"
+    },
+    {
+      "type": "System.Collections.Queue",
+      "method": "Enqueue",
+      "javaMethod": "add"
+    },
+    {
+      "type": "System.Collections.Queue",
+      "method": "Dequeue",
+      "javaMethod": "poll"
+    },
+    {
+      "type": "System.Collections.Queue",
+      "method": "Count",
+      "javaMethod": "size"
+    },
+    {
+      "type": "System.Collections.Queue",
+      "method": "Peek",
+      "javaMethod": "peek"
+    },
+    {
+      "type": "System.Threading.Thread",
+      "method": "CurrentThread",
+      "javaMethod": "currentThread"
+    },
+    {
+      "type": "System.IO.File",
+      "method": "WriteAllText",
+      "javaMethod": "writeAllText"
+    },
+    {
+      "type": "System.IO.File",
+      "method": "ReadAllText",
+      "javaMethod": "readAllText"
+    },
+    {
+      "type": "System.IO.File",
+      "method": "OpenRead",
+      "javaMethod": "openRead"
+    },
+    {
+      "type": "System.IO.File",
+      "method": "OpenText",
+      "javaMethod": "openText"
     }
   ],
   "namespaceMappings": [
