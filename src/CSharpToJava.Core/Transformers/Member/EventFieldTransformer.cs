@@ -6,23 +6,8 @@ using CSharpToJava.Core.Java;
 
 namespace CSharpToJava.Core.Transformers.Member;
 
-/// <summary>
-/// Converts C# event field declarations into a Java listener-list pattern.
-///
-/// C# input:
-///   public event EventHandler&lt;LayoutProgressEventArgs&gt; LayoutStarted;
-///
-/// Java output (4 members added to the class):
-///   private java.util.List&lt;java.util.function.Consumer&lt;LayoutProgressEventArgs&gt;&gt; _layoutStartedListeners = new java.util.ArrayList&lt;&gt;();
-///   public void addLayoutStartedListener(java.util.function.Consumer&lt;LayoutProgressEventArgs&gt; h) { _layoutStartedListeners.add(h); }
-///   public void removeLayoutStartedListener(java.util.function.Consumer&lt;LayoutProgressEventArgs&gt; h) { _layoutStartedListeners.remove(h); }
-///   protected void fireLayoutStarted(Object sender, LayoutProgressEventArgs args) { for (var _h : _layoutStartedListeners) _h.accept(args); }
-/// </summary>
 public class EventFieldTransformer
 {
-    /// <summary>
-    /// Returns a list of Java members that represent the event pattern.
-    /// </summary>
     public List<JavaSyntaxNode> TransformEvent(EventFieldDeclarationSyntax node, ConversionContext context)
     {
         var result = new List<JavaSyntaxNode>();
@@ -30,41 +15,31 @@ public class EventFieldTransformer
         foreach (var variable in node.Declaration.Variables)
         {
             var eventName = variable.Identifier.Text;
-            result.AddRange(GenerateEventMembers(node, eventName, context));
+            var sig = DetermineListenerSignature(node.Declaration.Type, context);
+            result.AddRange(GenerateEventMembers(node, eventName, sig));
         }
 
         return result;
     }
 
-    /// <summary>
-    /// Handles EventDeclarationSyntax (explicit add/remove accessors).
-    /// We still generate the listener list + add/remove using the custom accessor bodies.
-    /// </summary>
     public List<JavaSyntaxNode> TransformExplicitEvent(EventDeclarationSyntax node, ConversionContext context)
     {
         var eventName = node.Identifier.Text;
-        var (listenerType, argsType) = DetermineListenerTypes(node.Type, context);
-        return GenerateEventMembers(null, eventName, context,
-            delegateType: listenerType, delegateArgsType: argsType);
+        var sig = DetermineListenerSignature(node.Type, context);
+        return GenerateEventMembers(null, eventName, sig);
     }
 
-    private List<JavaSyntaxNode> GenerateEventMembers(EventFieldDeclarationSyntax? node, string eventName,
-        ConversionContext context, string? delegateType = null, string? delegateArgsType = null)
+    private class EventSignature
+    {
+        public string ListenerType { get; set; } = "java.util.function.Consumer<Object>";
+        public List<JavaParameter> Parameters { get; set; } = new List<JavaParameter>();
+        public string InvokeCallArguments { get; set; } = "";
+        public string InvokeMethodName { get; set; } = "accept";
+    }
+
+    private List<JavaSyntaxNode> GenerateEventMembers(EventFieldDeclarationSyntax? node, string eventName, EventSignature sig)
     {
         var result = new List<JavaSyntaxNode>();
-
-        // Determine listener type
-        string listenerType;
-        string argsType;
-        if (delegateType == null && node != null)
-        {
-            (listenerType, argsType) = DetermineListenerTypes(node.Declaration.Type, context);
-        }
-        else
-        {
-            listenerType = delegateType ?? "Consumer<Object>";
-            argsType = delegateArgsType ?? "Object";
-        }
 
         var fieldName = "_" + char.ToLower(eventName[0]) + eventName.Substring(1) + "Listeners";
         var baseName = char.ToUpper(eventName[0]) + eventName.Substring(1);
@@ -72,122 +47,141 @@ public class EventFieldTransformer
         var removeMethod = "remove" + baseName + "Listener";
         var fireMethod = "fire" + baseName;
 
-        // Visibility from event declaration
-        var eventMods = node != null ? GetModifiers(node.Modifiers) : JavaModifiers.None;
-
-        // 1. Private listener list field
         result.Add(new JavaFieldDeclaration
         {
-            Type = $"java.util.List<{listenerType}>",
+            Type = $"java.util.List<{sig.ListenerType}>",
             Name = fieldName,
             Modifiers = JavaModifiers.Private,
             Initializer = "new java.util.ArrayList<>()"
         });
 
-        // 2. addXListener
         result.Add(new JavaMethodDeclaration
         {
             Name = addMethod,
             Modifiers = JavaModifiers.Public,
             ReturnType = "void",
-            Parameters = { new JavaParameter(listenerType, "handler") },
+            Parameters = { new JavaParameter(sig.ListenerType, "handler") },
             Body = $"{fieldName}.add(handler);",
         });
 
-        // 3. removeXListener
         result.Add(new JavaMethodDeclaration
         {
             Name = removeMethod,
             Modifiers = JavaModifiers.Public,
             ReturnType = "void",
-            Parameters = { new JavaParameter(listenerType, "handler") },
+            Parameters = { new JavaParameter(sig.ListenerType, "handler") },
             Body = $"{fieldName}.remove(handler);",
         });
-
-        // 4. fireX (protected)
-        string fireBody;
-        if (listenerType.StartsWith("Consumer<") || listenerType == "Consumer")
-        {
-            fireBody = $"for (var _handler : {fieldName}) _handler.accept(args);";
-        }
-        else
-        {
-            // Custom delegate type - call invoke
-            fireBody = $"for (var _handler : {fieldName}) _handler.invoke(sender, args);";
-        }
 
         result.Add(new JavaMethodDeclaration
         {
             Name = fireMethod,
             Modifiers = JavaModifiers.Protected,
             ReturnType = "void",
-            Parameters = { new JavaParameter("Object", "sender"), new JavaParameter(argsType, "args") },
-            Body = fireBody,
+            Parameters = sig.Parameters,
+            Body = $"for (var _handler : {fieldName}) _handler.{sig.InvokeMethodName}({sig.InvokeCallArguments});",
         });
 
         return result;
     }
 
-    private (string listenerType, string argsType) DetermineListenerTypes(TypeSyntax typeSyntax, ConversionContext context)
+    private EventSignature DetermineListenerSignature(TypeSyntax typeSyntax, ConversionContext context)
     {
-        // Try resolving via semantic model
+        var sig = new EventSignature();
         var typeInfo = context.SemanticModel?.GetTypeInfo(typeSyntax);
+
         if (typeInfo.HasValue && typeInfo.Value.Type is INamedTypeSymbol namedType)
         {
             var origDef = namedType.OriginalDefinition;
-            var origName = origDef.Name;          // e.g. "EventHandler"
-            var origNs   = origDef.ContainingNamespace?.ToDisplayString(); // e.g. "System"
-            // EventHandler (non-generic) -> Consumer<Object>
+            var origName = origDef.Name;
+            var origNs = origDef.ContainingNamespace?.ToDisplayString();
+
             if (origName == "EventHandler" && origNs == "System" && namedType.TypeArguments.Length == 0)
-                return ("Consumer<Object>", "Object");
-            // EventHandler<TArgs> -> Consumer<TArgs>
+            {
+                sig.ListenerType = "java.util.function.Consumer<Object>";
+                sig.Parameters.Add(new JavaParameter("Object", "sender"));
+                sig.Parameters.Add(new JavaParameter("Object", "args"));
+                sig.InvokeCallArguments = "args"; 
+                sig.InvokeMethodName = "accept";
+                return sig;
+            }
+
             if (origName == "EventHandler" && origNs == "System" && namedType.TypeArguments.Length == 1)
             {
                 var argType = context.MapType(namedType.TypeArguments[0]);
-                return ($"Consumer<{argType}>", argType);
+                sig.ListenerType = $"java.util.function.Consumer<{argType}>";
+                sig.Parameters.Add(new JavaParameter("Object", "sender"));
+                sig.Parameters.Add(new JavaParameter(argType, "args"));
+                sig.InvokeCallArguments = "args";
+                sig.InvokeMethodName = "accept";
+                return sig;
             }
-            // Action -> Runnable
+
             if (origName == "Action" && origNs == "System" && namedType.TypeArguments.Length == 0)
-                return ("Runnable", "Object");
-            // Action<T> -> Consumer<T>
+            {
+                sig.ListenerType = "Runnable";
+                sig.InvokeCallArguments = "";
+                sig.InvokeMethodName = "run";
+                return sig;
+            }
+
             if (origName == "Action" && origNs == "System" && namedType.TypeArguments.Length == 1)
             {
                 var argType = context.MapType(namedType.TypeArguments[0]);
-                return ($"Consumer<{argType}>", argType);
+                sig.ListenerType = $"java.util.function.Consumer<{argType}>";
+                sig.Parameters.Add(new JavaParameter(argType, "arg"));
+                sig.InvokeCallArguments = "arg";
+                sig.InvokeMethodName = "accept";
+                return sig;
             }
-            // Custom delegate type - use its full mapped name
-            var mappedType = context.MapType(namedType);
-            return (mappedType, "Object");
-        }
 
-        // Fallback: parse syntax
-        if (typeSyntax is GenericNameSyntax generic)
-        {
-            var name = generic.Identifier.Text;
-            if (name == "EventHandler" && generic.TypeArgumentList.Arguments.Count == 1)
+            sig.ListenerType = context.MapType(namedType);
+            var invokeMethod = namedType.DelegateInvokeMethod;
+            if (invokeMethod != null)
             {
-                var argTypeSyntax = generic.TypeArgumentList.Arguments[0];
-                var argTypeInfo = context.SemanticModel?.GetTypeInfo(argTypeSyntax);
-                var argType = argTypeInfo.HasValue && argTypeInfo.Value.Type != null
-                    ? context.MapType(argTypeInfo.Value.Type)
-                    : argTypeSyntax.ToString();
-                return ($"Consumer<{argType}>", argType);
+                var pNames = new List<string>();
+                foreach (var p in invokeMethod.Parameters)
+                {
+                    var pType = context.MapType(p.Type);
+                    var pName = p.Name;
+                    sig.Parameters.Add(new JavaParameter(pType, pName));
+                    pNames.Add(pName);
+                }
+                sig.InvokeCallArguments = string.Join(", ", pNames);
+                sig.InvokeMethodName = "invoke";
             }
+            else
+            {
+                sig.Parameters.Add(new JavaParameter("Object", "sender"));
+                sig.Parameters.Add(new JavaParameter("Object", "args"));
+                sig.InvokeCallArguments = "sender, args";
+                sig.InvokeMethodName = "invoke";
+            }
+
+            return sig;
         }
-        if (typeSyntax is IdentifierNameSyntax ident)
+
+        if (typeSyntax is GenericNameSyntax generic && generic.Identifier.Text == "EventHandler" && generic.TypeArgumentList.Arguments.Count == 1)
         {
-            if (ident.Identifier.Text == "EventHandler")
-                return ("Consumer<Object>", "Object");
-            return (ident.Identifier.Text, "Object");
+            var argTypeSyntax = generic.TypeArgumentList.Arguments[0];
+            var argTypeInfo = context.SemanticModel?.GetTypeInfo(argTypeSyntax);
+            var argType = argTypeInfo.HasValue && argTypeInfo.Value.Type != null ? context.MapType(argTypeInfo.Value.Type) : argTypeSyntax.ToString();
+            
+            sig.ListenerType = $"java.util.function.Consumer<{argType}>";
+            sig.Parameters.Add(new JavaParameter("Object", "sender"));
+            sig.Parameters.Add(new JavaParameter(argType, "args"));
+            sig.InvokeCallArguments = "args";
+            sig.InvokeMethodName = "accept";
+            return sig;
         }
 
-        return ("Consumer<Object>", "Object");
-    }
+        sig.ListenerType = typeSyntax is IdentifierNameSyntax ident ? ident.Identifier.Text : typeSyntax.ToString();
+        sig.Parameters.Add(new JavaParameter("Object", "sender"));
+        sig.Parameters.Add(new JavaParameter("Object", "args"));
+        sig.InvokeCallArguments = "sender, args";
+        sig.InvokeMethodName = "invoke";
 
-    private string GetEventType(TypeSyntax typeSyntax, ConversionContext context)
-    {
-        var (listenerType, _) = DetermineListenerTypes(typeSyntax, context);
-        return listenerType;
+        return sig;
     }
 
     private static JavaModifiers GetModifiers(SyntaxTokenList modifiers)
@@ -198,11 +192,11 @@ public class EventFieldTransformer
             result |= mod.Kind() switch
             {
                 SyntaxKind.PublicKeyword => JavaModifiers.Public,
-                SyntaxKind.InternalKeyword => JavaModifiers.Public,
                 SyntaxKind.ProtectedKeyword => JavaModifiers.Protected,
                 SyntaxKind.PrivateKeyword => JavaModifiers.Private,
+                SyntaxKind.InternalKeyword => JavaModifiers.Public,
                 SyntaxKind.StaticKeyword => JavaModifiers.Static,
-                _ => JavaModifiers.None
+                _ => JavaModifiers.None,
             };
         }
         return result;
