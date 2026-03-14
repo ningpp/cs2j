@@ -151,6 +151,45 @@ public class MethodTransformer : IMemberTransformer
                 javaMethod.TypeParameters.Insert(0, toAdd[i]);
         }
 
+        // Generate overloads for C# default parameters (Java doesn't support default parameter values)
+        // For each trailing parameter with a default value, generate an overload that delegates to the full method.
+        var allMethodParams = methodDecl.ParameterList?.Parameters.ToList() ?? new List<ParameterSyntax>();
+        int firstDefaultIdx = allMethodParams.FindIndex(p => p.Default != null);
+        if (firstDefaultIdx >= 0 && allMethodParams.Skip(firstDefaultIdx).All(p => p.Default != null))
+        {
+            var overloads = new List<JavaSyntaxNode> { javaMethod };
+            var exprXf = new Transformers.Expression.ExpressionTransformer();
+            for (int cutAt = firstDefaultIdx; cutAt < allMethodParams.Count; cutAt++)
+            {
+                var overload = new JavaMethodDeclaration
+                {
+                    Name = javaMethod.Name,
+                    Modifiers = javaMethod.Modifiers,
+                    ReturnType = javaMethod.ReturnType,
+                };
+                foreach (var tp in javaMethod.TypeParameters) overload.TypeParameters.Add(tp);
+                foreach (var p2 in javaMethod.Parameters.Take(cutAt)) overload.Parameters.Add(p2);
+
+                var callArgs = new List<string>();
+                for (int i = 0; i < allMethodParams.Count; i++)
+                {
+                    if (i < cutAt)
+                        callArgs.Add(ConversionContext.EscapeJavaKeyword(allMethodParams[i].Identifier.Text));
+                    else
+                    {
+                        var defaultVal = allMethodParams[i].Default?.Value != null
+                            ? exprXf.Transform(allMethodParams[i].Default!.Value, context)
+                            : "null";
+                        callArgs.Add(defaultVal);
+                    }
+                }
+                string callPrefix = javaMethod.ReturnType == "void" ? "" : "return ";
+                overload.Body = $"{callPrefix}{javaMethod.Name}({string.Join(", ", callArgs)});";
+                overloads.Add(overload);
+            }
+            return new JavaMemberCollection(overloads);
+        }
+
         return javaMethod;
     }
 

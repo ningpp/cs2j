@@ -1,2307 +1,2800 @@
-{
-  "typeMappings": [
-    {
-      "csharp": "System.String",
-      "java": "String",
-      "imports": []
-    },
-    {
-      "csharp": "System.Int32",
-      "java": "int",
-      "imports": []
-    },
-    {
-      "csharp": "System.Int64",
-      "java": "long",
-      "imports": []
-    },
-    {
-      "csharp": "System.Int16",
-      "java": "short",
-      "imports": []
-    },
-    {
-      "csharp": "System.Byte",
-      "java": "byte",
-      "imports": []
-    },
-    {
-      "csharp": "System.SByte",
-      "java": "byte",
-      "imports": []
-    },
-    {
-      "csharp": "System.UInt32",
-      "java": "int",
-      "imports": []
-    },
-    {
-      "csharp": "System.UInt64",
-      "java": "long",
-      "imports": []
-    },
-    {
-      "csharp": "System.UInt16",
-      "java": "short",
-      "imports": []
-    },
-    {
-      "csharp": "System.Single",
-      "java": "float",
-      "imports": []
-    },
-    {
-      "csharp": "System.Double",
-      "java": "double",
-      "imports": []
-    },
-    {
-      "csharp": "System.Boolean",
-      "java": "boolean",
-      "imports": []
-    },
-    {
-      "csharp": "System.Char",
-      "java": "char",
-      "imports": []
-    },
-    {
-      "csharp": "System.Object",
-      "java": "Object",
-      "imports": []
-    },
-    {
-      "csharp": "System.Void",
-      "java": "void",
-      "imports": []
-    },
-    {
-      "csharp": "System.Collections.Generic.List`1",
-      "java": "ArrayList",
-      "imports": ["java.util.ArrayList"]
-    },
-    {
-      "csharp": "System.Collections.Generic.IList`1",
-      "java": "List",
-      "imports": ["java.util.List"]
-    },
-    {
-      "csharp": "System.Collections.Generic.Dictionary`2",
-      "java": "HashMap",
-      "imports": ["java.util.HashMap"]
-    },
-    {
-      "csharp": "System.Collections.Generic.IDictionary`2",
-      "java": "Map",
-      "imports": ["java.util.Map"]
-    },
-    {
-      "csharp": "System.Collections.Generic.HashSet`1",
-      "java": "HashSet",
-      "imports": ["java.util.HashSet"]
-    },
-    {
-      "csharp": "System.Collections.ICollection",
-      "java": "Collection",
-      "imports": ["java.util.Collection"]
-    },
-    {
-      "csharp": "System.Xml.XmlReader",
-      "java": "XmlReader",
-      "imports": ["Microsoft.Msagl.XmlReader"]
-    },
-    {
-      "csharp": "System.Xml.XmlTextReader",
-      "java": "XmlTextReader",
-      "imports": ["Microsoft.Msagl.XmlTextReader"]
-    },
-    {
-      "csharp": "System.Xml.XmlWriter",
-      "java": "XmlWriter",
-      "imports": []
-    },
-    {
-      "csharp": "System.Xml.XmlReaderSettings",
-      "java": "XmlReaderSettings",
-      "imports": []
-    },
-    {
-      "csharp": "System.Xml.XmlWriterSettings",
-      "java": "XmlWriterSettings",
-      "imports": []
-    },
-    {
-      "csharp": "System.Xml.XmlNodeType",
-      "java": "XmlNodeType",
-      "imports": []
-    },
-    {
-      "csharp": "System.Xml.XmlConvert",
-      "java": "XmlConvert",
-      "imports": []
-    },
-    {
-      "csharp": "System.Xml.ReadState",
-      "java": "ReadState",
-      "imports": []
-    },
-    {
-      "csharp": "XmlReader",
-      "java": "XmlReader",
-      "imports": []
-    },
-    {
-      "csharp": "XmlTextReader",
-      "java": "XmlTextReader",
-      "imports": []
-    },
-    {
-      "csharp": "XmlWriter",
-      "java": "XmlWriter",
-      "imports": []
-    },
-    {
-      "csharp": "XmlReaderSettings",
-      "java": "XmlReaderSettings",
-      "imports": []
-    },
-    {
-      "csharp": "XmlWriterSettings",
-      "java": "XmlWriterSettings",
-      "imports": []
-    },
-    {
-      "csharp": "XmlNodeType",
-      "java": "XmlNodeType",
-      "imports": []
-    },
-    {
-      "csharp": "XmlConvert",
-      "java": "XmlConvert",
-      "imports": []
-    },
-    {
-      "csharp": "ReadState",
-      "java": "ReadState",
-      "imports": []
-    },
-    {
-      "csharp": "System.Text.Json.JsonSerializer",
-      "java": "JsonSerializer",
-      "imports": []
-    },
-    {
-      "csharp": "System.Text.Json.JsonSerializerOptions",
-      "java": "JsonSerializerOptions",
-      "imports": []
-    },
-    {
-      "csharp": "JsonSerializer",
-      "java": "JsonSerializer",
-      "imports": []
-    },
-    {
-      "csharp": "JsonSerializerOptions",
-      "java": "JsonSerializerOptions",
-      "imports": []
-    },
-    {
-      "csharp": "InvalidOperationException",
-      "java": "IllegalStateException",
-      "imports": []
-    },
-    {
-      "csharp": "OperationCanceledException",
-      "java": "CancellationException",
-      "imports": ["java.util.concurrent.CancellationException"]
-    },
-    {
-      "csharp": "ParallelOptions",
-      "java": "Object",
-      "imports": []
-    },
-    {
-      "csharp": "System.Collections.IEnumerable",
-      "java": "Iterable",
-      "imports": []
-    },
-    {
-      "csharp": "System.Collections.IEnumerator",
-      "java": "Iterator",
-      "imports": ["java.util.Iterator"]
-    },
-    {
-      "csharp": "System.Array",
-      "java": "Object",
-      "imports": []
-    },
-    {
-      "csharp": "Array",
-      "java": "Object",
-      "imports": []
-    },
-    {
-      "csharp": "Dictionary",
-      "java": "HashMap",
-      "imports": ["java.util.HashMap"]
-    },
-    {
-      "csharp": "System.Collections.Generic.IEnumerable`1",
-      "java": "Iterable",
-      "imports": ["java.lang.Iterable"]
-    },
-    {
-      "csharp": "System.Collections.Generic.IEnumerator`1",
-      "java": "Iterator",
-      "imports": ["java.util.Iterator"]
-    },
-    {
-      "csharp": "System.Threading.Tasks.Task`1",
-      "java": "CompletableFuture",
-      "imports": ["java.util.concurrent.CompletableFuture"]
-    },
-    {
-      "csharp": "System.Threading.Tasks.Task",
-      "java": "CompletableFuture",
-      "imports": ["java.util.concurrent.CompletableFuture"]
-    },
-    {
-      "csharp": "System.Threading.Tasks.ValueTask`1",
-      "java": "CompletableFuture",
-      "imports": ["java.util.concurrent.CompletableFuture"]
-    },
-    {
-      "csharp": "System.DateTime",
-      "java": "LocalDateTime",
-      "imports": ["java.time.LocalDateTime"]
-    },
-    {
-      "csharp": "System.DateTimeOffset",
-      "java": "OffsetDateTime",
-      "imports": ["java.time.OffsetDateTime"]
-    },
-    {
-      "csharp": "System.TimeSpan",
-      "java": "Duration",
-      "imports": ["java.time.Duration"]
-    },
-    {
-      "csharp": "System.DateOnly",
-      "java": "LocalDate",
-      "imports": ["java.time.LocalDate"]
-    },
-    {
-      "csharp": "System.TimeOnly",
-      "java": "LocalTime",
-      "imports": ["java.time.LocalTime"]
-    },
-    {
-      "csharp": "System.Guid",
-      "java": "UUID",
-      "imports": ["java.util.UUID"]
-    },
-    {
-      "csharp": "System.Uri",
-      "java": "URI",
-      "imports": ["java.net.URI"]
-    },
-    {
-      "csharp": "System.Text.StringBuilder",
-      "java": "StringBuilder",
-      "imports": ["java.lang.StringBuilder"]
-    },
-    {
-      "csharp": "System.Exception",
-      "java": "Exception",
-      "imports": ["java.lang.Exception"]
-    },
-    {
-      "csharp": "System.ArgumentException",
-      "java": "IllegalArgumentException",
-      "imports": ["java.lang.IllegalArgumentException"]
-    },
-    {
-      "csharp": "System.ArgumentNullException",
-      "java": "NullPointerException",
-      "imports": ["java.lang.NullPointerException"]
-    },
-    {
-      "csharp": "System.InvalidOperationException",
-      "java": "IllegalStateException",
-      "imports": ["java.lang.IllegalStateException"]
-    },
-    {
-      "csharp": "System.NotImplementedException",
-      "java": "UnsupportedOperationException",
-      "imports": ["java.lang.UnsupportedOperationException"]
-    },
-    {
-      "csharp": "System.IDisposable",
-      "java": "AutoCloseable",
-      "imports": ["java.lang.AutoCloseable"]
-    },
-    {
-      "csharp": "System.IComparable",
-      "java": "Comparable",
-      "imports": []
-    },
-    {
-      "csharp": "System.IComparable`1",
-      "java": "Comparable",
-      "imports": []
-    },
-    {
-      "csharp": "System.EventArgs",
-      "java": "Object",
-      "imports": []
-    },
-    {
-      "csharp": "System.ICloneable",
-      "java": "Cloneable",
-      "imports": []
-    },
-    {
-      "csharp": "System.Collections.Generic.LinkedListNode`1",
-      "java": "LinkedListNode",
-      "imports": ["Microsoft.Msagl.LinkedListNode"]
-    },
-    {
-      "csharp": "System.Collections.Generic.LinkedList`1",
-      "java": "LinkedListWithNodes",
-      "imports": ["Microsoft.Msagl.LinkedListWithNodes"]
-    },
-    {
-      "csharp": "System.Diagnostics.Stopwatch",
-      "java": "StopwatchHelper",
-      "imports": []
-    },
-    {
-      "csharp": "System.Collections.Queue",
-      "java": "ArrayDeque<Object>",
-      "imports": ["java.util.ArrayDeque"]
-    },
-    {
-      "csharp": "System.Text.Json.JsonSerializer",
-      "java": "JsonSerializer",
-      "imports": ["Microsoft.Msagl.JsonSerializer"]
-    },
-    {
-      "csharp": "System.Text.Json.JsonSerializerOptions",
-      "java": "JsonSerializerOptions",
-      "imports": ["Microsoft.Msagl.JsonSerializerOptions"]
-    },
-    {
-      "csharp": "System.Text.Json.Serialization.JsonConverter",
-      "java": "Object",
-      "imports": []
-    },
-    {
-      "csharp": "System.Xml.XmlWriterSettings",
-      "java": "XmlWriterSettings",
-      "imports": ["Microsoft.Msagl.XmlWriterSettings"]
-    },
-    {
-      "csharp": "XmlWriterSettings",
-      "java": "XmlWriterSettings",
-      "imports": ["Microsoft.Msagl.XmlWriterSettings"]
-    },
-    {
-      "csharp": "System.Linq.ILookup`2",
-      "java": "Map",
-      "imports": ["java.util.Map"]
-    },
-    {
-      "csharp": "System.Linq.IGrouping`2",
-      "java": "AbstractMap.SimpleEntry",
-      "imports": ["java.util.AbstractMap"]
-    },
-    {
-      "csharp": "System.Collections.Generic.Queue`1",
-      "java": "LinkedList",
-      "imports": ["java.util.LinkedList"]
-    },
-    {
-      "csharp": "System.Collections.Generic.Stack`1",
-      "java": "Stack",
-      "imports": ["java.util.Stack"]
-    },
-    {
-      "csharp": "System.Collections.Generic.PriorityQueue`2",
-      "java": "PriorityQueue",
-      "imports": ["java.util.PriorityQueue"]
-    },
-    {
-      "csharp": "System.Collections.ObjectModel.ReadOnlyCollection`1",
-      "java": "Collections.unmodifiableList",
-      "imports": ["java.util.Collections"]
-    },
-    {
-      "csharp": "System.Collections.ObjectModel.ReadOnlyDictionary`2",
-      "java": "Collections.unmodifiableMap",
-      "imports": ["java.util.Collections"]
-    },
-    {
-      "csharp": "System.Collections.Generic.IReadOnlyCollection`1",
-      "java": "Collection",
-      "imports": ["java.util.Collection"]
-    },
-    {
-      "csharp": "System.Collections.Generic.IReadOnlyList`1",
-      "java": "List",
-      "imports": ["java.util.List"]
-    },
-    {
-      "csharp": "System.Collections.Generic.IReadOnlyDictionary`2",
-      "java": "Map",
-      "imports": ["java.util.Map"]
-    },
-    {
-      "csharp": "System.Collections.Generic.LinkedList`1",
-      "java": "LinkedListWithNodes",
-      "imports": ["Microsoft.Msagl.LinkedListWithNodes"]
-    },
-    {
-      "csharp": "System.Collections.Generic.SortedList`2",
-      "java": "TreeMap",
-      "imports": ["java.util.TreeMap"]
-    },
-    {
-      "csharp": "System.Collections.Generic.SortedDictionary`2",
-      "java": "TreeMap",
-      "imports": ["java.util.TreeMap"]
-    },
-    {
-      "csharp": "System.Collections.Generic.SortedSet`1",
-      "java": "TreeSet",
-      "imports": ["java.util.TreeSet"]
-    },
-    {
-      "csharp": "System.Collections.Generic.ICollection`1",
-      "java": "Collection",
-      "imports": ["java.util.Collection"]
-    },
-    {
-      "csharp": "System.Collections.Generic.ISet`1",
-      "java": "Set",
-      "imports": ["java.util.Set"]
-    },
-    {
-      "csharp": "System.Array",
-      "java": "Object",
-      "imports": []
-    },
-    {
-      "csharp": "System.Collections.Generic.KeyValuePair`2",
-      "java": "AbstractMap.SimpleEntry",
-      "imports": ["java.util.AbstractMap"]
-    },
-    {
-      "csharp": "System.Collections.BitArray",
-      "java": "BitSet",
-      "imports": ["java.util.BitSet"]
-    },
-    {
-      "csharp": "System.Collections.Concurrent.ConcurrentDictionary`2",
-      "java": "ConcurrentHashMap",
-      "imports": ["java.util.concurrent.ConcurrentHashMap"]
-    },
-    {
-      "csharp": "System.Collections.Concurrent.ConcurrentQueue`1",
-      "java": "ConcurrentLinkedQueue",
-      "imports": ["java.util.concurrent.ConcurrentLinkedQueue"]
-    },
-    {
-      "csharp": "System.Collections.Concurrent.ConcurrentStack`1",
-      "java": "ConcurrentLinkedDeque",
-      "imports": ["java.util.concurrent.ConcurrentLinkedDeque"]
-    },
-    {
-      "csharp": "System.Collections.Concurrent.ConcurrentBag`1",
-      "java": "ConcurrentLinkedQueue",
-      "imports": ["java.util.concurrent.ConcurrentLinkedQueue"]
-    },
-    {
-      "csharp": "System.Collections.Concurrent.BlockingCollection`1",
-      "java": "BlockingQueue",
-      "imports": ["java.util.concurrent.BlockingQueue"]
-    },
-    {
-      "csharp": "System.Collections.Concurrent.IProducerConsumerCollection`1",
-      "java": "BlockingQueue",
-      "imports": ["java.util.concurrent.BlockingQueue"]
-    },
-    {
-      "csharp": "System.SystemException",
-      "java": "RuntimeException",
-      "imports": ["java.lang.RuntimeException"]
-    },
-    {
-      "csharp": "System.NullReferenceException",
-      "java": "NullPointerException",
-      "imports": ["java.lang.NullPointerException"]
-    },
-    {
-      "csharp": "System.IndexOutOfRangeException",
-      "java": "IndexOutOfBoundsException",
-      "imports": ["java.lang.IndexOutOfBoundsException"]
-    },
-    {
-      "csharp": "System.ArrayTypeMismatchException",
-      "java": "ArrayStoreException",
-      "imports": ["java.lang.ArrayStoreException"]
-    },
-    {
-      "csharp": "System.DivideByZeroException",
-      "java": "ArithmeticException",
-      "imports": ["java.lang.ArithmeticException"]
-    },
-    {
-      "csharp": "System.OverflowException",
-      "java": "ArithmeticException",
-      "imports": ["java.lang.ArithmeticException"]
-    },
-    {
-      "csharp": "System.NotSupportedException",
-      "java": "UnsupportedOperationException",
-      "imports": ["java.lang.UnsupportedOperationException"]
-    },
-    {
-      "csharp": "System.TypeLoadException",
-      "java": "ClassNotFoundException",
-      "imports": ["java.lang.ClassNotFoundException"]
-    },
-    {
-      "csharp": "System.TypeInitializationException",
-      "java": "ExceptionInInitializerError",
-      "imports": ["java.lang.ExceptionInInitializerError"]
-    },
-    {
-      "csharp": "System.IO.IOException",
-      "java": "IOException",
-      "imports": ["java.io.IOException"]
-    },
-    {
-      "csharp": "System.IO.FileNotFoundException",
-      "java": "FileNotFoundException",
-      "imports": ["java.io.FileNotFoundException"]
-    },
-    {
-      "csharp": "System.IO.DirectoryNotFoundException",
-      "java": "FileNotFoundException",
-      "imports": ["java.io.FileNotFoundException"]
-    },
-    {
-      "csharp": "System.IO.EndOfStreamException",
-      "java": "EOFException",
-      "imports": ["java.io.EOFException"]
-    },
-    {
-      "csharp": "System.ArgumentOutOfRangeException",
-      "java": "IllegalArgumentException",
-      "imports": ["java.lang.IllegalArgumentException"]
-    },
-    {
-      "csharp": "System.RankException",
-      "java": "IllegalArgumentException",
-      "imports": ["java.lang.IllegalArgumentException"]
-    },
-    {
-      "csharp": "System.InvalidCastException",
-      "java": "ClassCastException",
-      "imports": ["java.lang.ClassCastException"]
-    },
-    {
-      "csharp": "System.FormatException",
-      "java": "IllegalArgumentException",
-      "imports": ["java.lang.IllegalArgumentException"]
-    },
-    {
-      "csharp": "System.Threading.Tasks.TaskCanceledException",
-      "java": "ExecutionException",
-      "imports": ["java.util.concurrent.ExecutionException"]
-    },
-    {
-      "csharp": "System.OperationCanceledException",
-      "java": "CancellationException",
-      "imports": ["java.util.concurrent.CancellationException"]
-    },
-    {
-      "csharp": "System.Security.SecurityException",
-      "java": "SecurityException",
-      "imports": ["java.lang.SecurityException"]
-    },
-    {
-      "csharp": "System.UnauthorizedAccessException",
-      "java": "SecurityException",
-      "imports": ["java.lang.SecurityException"]
-    },
-    {
-      "csharp": "System.TimeoutException",
-      "java": "TimeoutException",
-      "imports": ["java.util.concurrent.TimeoutException"]
-    },
-    {
-      "csharp": "System.ComponentModel.Win32Exception",
-      "java": "Exception"
-    },
-    {
-      "csharp": "Win32Exception",
-      "java": "Exception"
-    },
-    {
-      "csharp": "System.IO.Stream",
-      "java": "InputStream",
-      "imports": ["java.io.InputStream"]
-    },
-    {
-      "csharp": "System.IO.TextReader",
-      "java": "TextReader",
-      "imports": ["Microsoft.Msagl.TextReader"]
-    },
-    {
-      "csharp": "System.Threading.Thread",
-      "java": "ThreadHelper",
-      "imports": ["Microsoft.Msagl.ThreadHelper"]
-    },
-    {
-      "csharp": "Thread",
-      "java": "ThreadHelper",
-      "imports": ["Microsoft.Msagl.ThreadHelper"]
-    },
-    {
-      "csharp": "System.IO.TextWriter",
-      "java": "Writer",
-      "imports": ["java.io.Writer"]
-    },
-    {
-      "csharp": "System.IO.BinaryReader",
-      "java": "DataInputStream",
-      "imports": ["java.io.DataInputStream"]
-    },
-    {
-      "csharp": "System.IO.BinaryWriter",
-      "java": "DataOutputStream",
-      "imports": ["java.io.DataOutputStream"]
-    },
-    {
-      "csharp": "System.IO.FileStream",
-      "java": "FileInputStream",
-      "imports": ["java.io.FileInputStream"]
-    },
-    {
-      "csharp": "System.IO.MemoryStream",
-      "java": "ByteArrayInputStream",
-      "imports": ["java.io.ByteArrayInputStream"]
-    },
-    {
-      "csharp": "System.IO.StringReader",
-      "java": "StringReader",
-      "imports": ["java.io.StringReader"]
-    },
-    {
-      "csharp": "System.IO.StringWriter",
-      "java": "StringWriter",
-      "imports": ["java.io.StringWriter"]
-    },
-    {
-      "csharp": "System.IO.StreamReader",
-      "java": "BufferedReader",
-      "imports": ["java.io.BufferedReader"]
-    },
-    {
-      "csharp": "System.IO.StreamWriter",
-      "java": "BufferedWriter",
-      "imports": ["java.io.BufferedWriter"]
-    },
-    {
-      "csharp": "System.IO.Path",
-      "java": "Paths",
-      "imports": ["java.nio.file.Paths"]
-    },
-    {
-      "csharp": "System.IO.Directory",
-      "java": "Files",
-      "imports": ["java.nio.file.Files"]
-    },
-    {
-      "csharp": "System.IO.DirectoryInfo",
-      "java": "Path",
-      "imports": ["java.nio.file.Path"]
-    },
-    {
-      "csharp": "System.IO.FileInfo",
-      "java": "Path",
-      "imports": ["java.nio.file.Path"]
-    },
-    {
-      "csharp": "System.IO.File",
-      "java": "FileHelper",
-      "imports": ["Microsoft.Msagl.FileHelper"]
-    },
-    {
-      "csharp": "System.IO.BufferedStream",
-      "java": "BufferedInputStream",
-      "imports": ["java.io.BufferedInputStream"]
-    },
-    {
-      "csharp": "System.Net.Http.HttpClient",
-      "java": "HttpClient",
-      "imports": ["java.net.http.HttpClient"]
-    },
-    {
-      "csharp": "System.Net.Http.HttpRequestMessage",
-      "java": "HttpRequest",
-      "imports": ["java.net.http.HttpRequest"]
-    },
-    {
-      "csharp": "System.Net.Http.HttpResponseMessage",
-      "java": "HttpResponse",
-      "imports": ["java.net.http.HttpResponse"]
-    },
-    {
-      "csharp": "System.Net.Http.HttpContent",
-      "java": "BodyPublishers",
-      "imports": ["java.net.http.HttpRequest.BodyPublishers"]
-    },
-    {
-      "csharp": "System.Net.Http.StringContent",
-      "java": "BodyPublishers",
-      "imports": ["java.net.http.HttpRequest.BodyPublishers"]
-    },
-    {
-      "csharp": "System.Net.Http.HttpStatusCode",
-      "java": "HttpStatusCode",
-      "imports": ["java.net.http.HttpStatusCode"]
-    },
-    {
-      "csharp": "System.Net.Sockets.Socket",
-      "java": "Socket",
-      "imports": ["java.net.Socket"]
-    },
-    {
-      "csharp": "System.Net.Sockets.TcpClient",
-      "java": "Socket",
-      "imports": ["java.net.Socket"]
-    },
-    {
-      "csharp": "System.Net.Sockets.TcpListener",
-      "java": "ServerSocket",
-      "imports": ["java.net.ServerSocket"]
-    },
-    {
-      "csharp": "System.Net.Sockets.UdpClient",
-      "java": "DatagramSocket",
-      "imports": ["java.net.DatagramSocket"]
-    },
-    {
-      "csharp": "System.Net.Dns",
-      "java": "InetAddress",
-      "imports": ["java.net.InetAddress"]
-    },
-    {
-      "csharp": "System.Net.IPEndPoint",
-      "java": "InetSocketAddress",
-      "imports": ["java.net.InetSocketAddress"]
-    },
-    {
-      "csharp": "System.Net.IPAddress",
-      "java": "InetAddress",
-      "imports": ["java.net.InetAddress"]
-    },
-    {
-      "csharp": "System.Action",
-      "java": "Runnable",
-      "imports": ["java.lang.Runnable"]
-    },
-    {
-      "csharp": "System.Action`1",
-      "java": "Consumer",
-      "imports": ["java.util.function.Consumer"]
-    },
-    {
-      "csharp": "System.Action`2",
-      "java": "BiConsumer",
-      "imports": ["java.util.function.BiConsumer"]
-    },
-    {
-      "csharp": "System.Action`3",
-      "java": "Procedure3",
-      "imports": ["org.eclipse.collections.api.block.procedure.Procedure3"]
-    },
-    {
-      "csharp": "System.Action`4",
-      "java": "Procedure4",
-      "imports": ["org.eclipse.collections.api.block.procedure.Procedure4"]
-    },
-    {
-      "csharp": "System.Func`1",
-      "java": "Supplier",
-      "imports": ["java.util.function.Supplier"]
-    },
-    {
-      "csharp": "System.Func`2",
-      "java": "Function",
-      "imports": ["java.util.function.Function"]
-    },
-    {
-      "csharp": "System.Func`3",
-      "java": "BiFunction",
-      "imports": ["java.util.function.BiFunction"]
-    },
-    {
-      "csharp": "System.Func`4",
-      "java": "Function3",
-      "imports": ["org.eclipse.collections.api.block.function.Function3"]
-    },
-    {
-      "csharp": "System.Func`5",
-      "java": "Function4",
-      "imports": ["org.eclipse.collections.api.block.function.Function4"]
-    },
-    {
-      "csharp": "System.Predicate`1",
-      "java": "Predicate",
-      "imports": ["java.util.function.Predicate"]
-    },
-    {
-      "csharp": "System.Comparison`1",
-      "java": "Comparator",
-      "imports": ["java.util.Comparator"]
-    },
-    {
-      "csharp": "System.Collections.Generic.IComparer`1",
-      "java": "Comparator",
-      "imports": ["java.util.Comparator"]
-    },
-    {
-      "csharp": "System.Collections.Generic.IComparable`1",
-      "java": "Comparable",
-      "imports": ["java.lang.Comparable"]
-    },
-    {
-      "csharp": "System.EventHandler",
-      "java": "Consumer",
-      "imports": ["java.util.function.Consumer"]
-    },
-    {
-      "csharp": "System.EventHandler`1",
-      "java": "Consumer",
-      "imports": ["java.util.function.Consumer"]
-    },
-    {
-      "csharp": "System.Attribute",
-      "java": "Object",
-      "imports": []
-    },
-    {
-      "csharp": "System.AttributeUsageAttribute",
-      "java": "Retention",
-      "imports": ["java.lang.annotation.Retention"]
-    },
-    {
-      "csharp": "System.ObsoleteAttribute",
-      "java": "Deprecated",
-      "imports": ["java.lang.Deprecated"]
-    },
-    {
-      "csharp": "System.SerializableAttribute",
-      "java": "Serializable",
-      "imports": ["java.io.Serializable"]
-    },
-    {
-      "csharp": "System.Type",
-      "java": "Class",
-      "imports": ["java.lang.Class"]
-    },
-    {
-      "csharp": "System.Reflection.Assembly",
-      "java": "Package",
-      "imports": ["java.lang.Package"]
-    },
-    {
-      "csharp": "System.Reflection.FieldInfo",
-      "java": "Field",
-      "imports": ["java.lang.reflect.Field"]
-    },
-    {
-      "csharp": "System.Reflection.MethodInfo",
-      "java": "Method",
-      "imports": ["java.lang.reflect.Method"]
-    },
-    {
-      "csharp": "System.Reflection.ConstructorInfo",
-      "java": "Constructor",
-      "imports": ["java.lang.reflect.Constructor"]
-    },
-    {
-      "csharp": "System.Reflection.ParameterInfo",
-      "java": "Parameter",
-      "imports": ["java.lang.reflect.Parameter"]
-    },
-    {
-      "csharp": "System.Threading.Thread",
-      "java": "ThreadHelper",
-      "imports": ["Microsoft.Msagl.ThreadHelper"]
-    },
-    {
-      "csharp": "System.Threading.ThreadPool",
-      "java": "Executors",
-      "imports": ["java.util.concurrent.Executors"]
-    },
-    {
-      "csharp": "System.Threading.Mutex",
-      "java": "ReentrantLock",
-      "imports": ["java.util.concurrent.locks.ReentrantLock"]
-    },
-    {
-      "csharp": "System.Threading.Semaphore",
-      "java": "Semaphore",
-      "imports": ["java.util.concurrent.Semaphore"]
-    },
-    {
-      "csharp": "System.Threading.AutoResetEvent",
-      "java": "CountDownLatch",
-      "imports": ["java.util.concurrent.CountDownLatch"]
-    },
-    {
-      "csharp": "System.Threading.ManualResetEvent",
-      "java": "CountDownLatch",
-      "imports": ["java.util.concurrent.CountDownLatch"]
-    },
-    {
-      "csharp": "System.Threading.Interlocked",
-      "java": "AtomicInteger",
-      "imports": ["java.util.concurrent.atomic.AtomicInteger"]
-    },
-    {
-      "csharp": "System.Threading.Tasks.Parallel",
-      "java": "ParallelStream",
-      "imports": ["java.util.stream"]
-    },
-    {
-      "csharp": "System.Math",
-      "java": "Math",
-      "imports": ["java.lang.Math"]
-    },
-    {
-      "csharp": "System.Random",
-      "java": "Random",
-      "imports": ["java.util.Random"]
-    },
-    {
-      "csharp": "System.Decimal",
-      "java": "BigDecimal",
-      "imports": ["java.math.BigDecimal"]
-    },
-    {
-      "csharp": "System.Numerics.BigInteger",
-      "java": "BigInteger",
-      "imports": ["java.math.BigInteger"]
-    },
-    {
-      "csharp": "System.Text.RegularExpressions.Regex",
-      "java": "Pattern",
-      "imports": ["java.util.regex.Pattern"]
-    },
-    {
-      "csharp": "System.Text.RegularExpressions.Match",
-      "java": "Matcher",
-      "imports": ["java.util.regex.Matcher"]
-    },
-    {
-      "csharp": "System.Linq.IOrderedEnumerable`1",
-      "java": "Stream",
-      "imports": ["java.util.stream.Stream"]
-    },
-    {
-      "csharp": "System.Linq.IQueryable`1",
-      "java": "Stream",
-      "imports": ["java.util.stream.Stream"]
-    },
-    {
-      "csharp": "System.Linq.Lookup`2",
-      "java": "Map",
-      "imports": ["java.util.Map"]
-    },
-    {
-      "csharp": "System.Tuple`1",
-      "java": "Tuple1",
-      "imports": ["io.vavr.Tuple1"]
-    },
-    {
-      "csharp": "System.Tuple`2",
-      "java": "AbstractMap.SimpleEntry",
-      "imports": ["java.util.AbstractMap"]
-    },
-    {
-      "csharp": "System.Tuple`3",
-      "java": "Tuple3",
-      "imports": ["io.vavr.Tuple3"]
-    },
-    {
-      "csharp": "System.Tuple`4",
-      "java": "Tuple4",
-      "imports": ["io.vavr.Tuple4"]
-    },
-    {
-      "csharp": "System.Tuple`5",
-      "java": "Tuple5",
-      "imports": ["io.vavr.Tuple5"]
-    },
-    {
-      "csharp": "System.Tuple`6",
-      "java": "Tuple6",
-      "imports": ["io.vavr.Tuple6"]
-    },
-    {
-      "csharp": "System.Tuple`7",
-      "java": "Tuple7",
-      "imports": ["io.vavr.Tuple7"]
-    },
-    {
-      "csharp": "System.Tuple`8",
-      "java": "Tuple8",
-      "imports": ["io.vavr.Tuple8"]
-    },
-    {
-      "csharp": "System.ValueTuple`1",
-      "java": "Tuple1",
-      "imports": ["io.vavr.Tuple1"]
-    },
-    {
-      "csharp": "System.ValueTuple`2",
-      "java": "Tuple2",
-      "imports": ["io.vavr.Tuple2"]
-    },
-    {
-      "csharp": "System.Nullable`1",
-      "java": "Optional",
-      "imports": ["java.util.Optional"]
-    },
-    {
-      "csharp": "System.Lazy`1",
-      "java": "Lazy",
-      "imports": ["java.util.concurrent.atomic.AtomicReference"]
-    },
-    {
-      "csharp": "System.IProgress`1",
-      "java": "Consumer",
-      "imports": ["java.util.function.Consumer"]
-    },
-    {
-      "csharp": "System.Progress`1",
-      "java": "Consumer",
-      "imports": ["java.util.function.Consumer"]
-    },
-    {
-      "csharp": "System.TimeZoneInfo",
-      "java": "ZoneId",
-      "imports": ["java.time.ZoneId"]
-    },
-    {
-      "csharp": "System.Text.Encoding",
-      "java": "Charset",
-      "imports": ["java.nio.charset.Charset"]
-    },
-    {
-      "csharp": "System.Text.UTF8Encoding",
-      "java": "StandardCharsets.UTF_8",
-      "imports": ["java.nio.charset.StandardCharsets"]
-    },
-    {
-      "csharp": "System.Text.ASCIIEncoding",
-      "java": "StandardCharsets.US_ASCII",
-      "imports": ["java.nio.charset.StandardCharsets"]
-    },
-    {
-      "csharp": "System.BitConverter",
-      "java": "ByteBuffer",
-      "imports": ["java.nio.ByteBuffer"]
-    },
-    {
-      "csharp": "System.Console",
-      "java": "System",
-      "imports": ["java.lang.System"]
-    },
-    {
-      "csharp": "System.Collections.ObjectModel.ObservableCollection`1",
-      "java": "ObservableList",
-      "imports": ["javafx.collections.ObservableList"]
-    },
-    {
-      "csharp": "System.ComponentModel.INotifyPropertyChanged",
-      "java": "ChangeListener",
-      "imports": ["javafx.beans.value.ChangeListener"]
-    },
-    {
-      "csharp": "System.MarshalByRefObject",
-      "java": "Object",
-      "imports": []
-    },
-    {
-      "csharp": "System.Threading.CancellationToken",
-      "java": "boolean",
-      "imports": []
-    },
-    {
-      "csharp": "System.Threading.CancellationTokenSource",
-      "java": "java.util.concurrent.atomic.AtomicBoolean",
-      "imports": ["java.util.concurrent.atomic.AtomicBoolean"]
-    },
-    {
-      "csharp": "System.MathF",
-      "java": "Math",
-      "imports": []
-    },
-    {
-      "csharp": "System.Collections.Generic.IReadOnlyList`1",
-      "java": "List",
-      "imports": ["java.util.List"]
-    },
-    {
-      "csharp": "System.Collections.Generic.IReadOnlyDictionary`2",
-      "java": "Map",
-      "imports": ["java.util.Map"]
-    },
-    {
-      "csharp": "System.Collections.Generic.IReadOnlyCollection`1",
-      "java": "Collection",
-      "imports": ["java.util.Collection"]
-    },
-    {
-      "csharp": "System.Collections.ObjectModel.ReadOnlyCollection`1",
-      "java": "List",
-      "imports": ["java.util.List"]
-    },
+﻿{
+    "typeMappings":  [
+                         {
+                             "csharp":  "System.String",
+                             "java":  "String",
+                             "imports":  [
 
-    {
-      "csharp": "System.Diagnostics.Debug",
-      "java": "System",
-      "imports": []
-    },
-    {
-      "csharp": "System.Diagnostics.Contracts.Contract",
-      "java": "Object",
-      "imports": []
-    },
-    {
-      "csharp": "System.Runtime.CompilerServices.MethodImplAttribute",
-      "java": "Object",
-      "imports": []
-    }
-  ],
-  "methodMappings": [
-    {
-      "type": "System.Collections.Generic.IEnumerator`1",
-      "method": "MoveNext",
-      "javaMethod": "hasNext"
-    },
-    {
-      "type": "System.Collections.IEnumerator",
-      "method": "MoveNext",
-      "javaMethod": "hasNext"
-    },
-    {
-      "type": "System.Collections.Generic.IComparer",
-      "method": "Compare",
-      "javaMethod": "compare"
-    },
-    {
-      "type": "System.Collections.IComparer",
-      "method": "Compare",
-      "javaMethod": "compare"
-    },
-    {
-      "type": "System.Collections.Generic.Comparer",
-      "method": "Compare",
-      "javaMethod": "compare"
-    },
-    {
-      "type": "System.Collections.Generic.Dictionary",
-      "method": "Add",
-      "javaMethod": "put"
-    },
-    {
-      "type": "System.Collections.Generic.IDictionary",
-      "method": "Add",
-      "javaMethod": "put"
-    },
-    {
-      "type": "System.Collections.Generic.List",
-      "method": "Add",
-      "javaMethod": "add"
-    },
-    {
-      "type": "System.Collections.Generic.IList",
-      "method": "Add",
-      "javaMethod": "add"
-    },
-    {
-      "type": "System.Collections.Generic.List",
-      "method": "Remove",
-      "javaMethod": "remove"
-    },
-    {
-      "type": "System.Collections.Generic.IList",
-      "method": "Remove",
-      "javaMethod": "remove"
-    },
-    {
-      "type": "System.Collections.Generic.List",
-      "method": "Contains",
-      "javaMethod": "contains"
-    },
-    {
-      "type": "System.Collections.Generic.IList",
-      "method": "Contains",
-      "javaMethod": "contains"
-    },
-    {
-      "type": "System.Collections.Generic.Dictionary",
-      "method": "ContainsKey",
-      "javaMethod": "containsKey"
-    },
-    {
-      "type": "System.Collections.Generic.IDictionary",
-      "method": "ContainsKey",
-      "javaMethod": "containsKey"
-    },
-    {
-      "type": "System.Collections.Generic.Dictionary",
-      "method": "TryGetValue",
-      "javaMethod": "get"
-    },
-    {
-      "type": "System.Collections.Generic.IDictionary",
-      "method": "TryGetValue",
-      "javaMethod": "get"
-    },
-    {
-      "type": "System.String",
-      "method": "Equals",
-      "javaMethod": "equals"
-    },
-    {
-      "type": "System.String",
-      "method": "Substring",
-      "javaMethod": "substring"
-    },
-    {
-      "type": "System.String",
-      "method": "IndexOf",
-      "javaMethod": "indexOf"
-    },
-    {
-      "type": "System.String",
-      "method": "LastIndexOf",
-      "javaMethod": "lastIndexOf"
-    },
-    {
-      "type": "System.String",
-      "method": "Replace",
-      "javaMethod": "replace"
-    },
-    {
-      "type": "System.String",
-      "method": "Split",
-      "javaMethod": "split"
-    },
-    {
-      "type": "System.String",
-      "method": "Trim",
-      "javaMethod": "trim"
-    },
-    {
-      "type": "System.String",
-      "method": "ToLower",
-      "javaMethod": "toLowerCase"
-    },
-    {
-      "type": "System.String",
-      "method": "ToUpper",
-      "javaMethod": "toUpperCase"
-    },
-    {
-      "type": "System.String",
-      "method": "StartsWith",
-      "javaMethod": "startsWith"
-    },
-    {
-      "type": "System.String",
-      "method": "EndsWith",
-      "javaMethod": "endsWith"
-    },
-    {
-      "type": "System.String",
-      "method": "Join",
-      "javaMethod": "join"
-    },
-    {
-      "type": "System.String",
-      "method": "Format",
-      "javaMethod": "format"
-    },
-    {
-      "type": "System.String",
-      "method": "GetLength",
-      "javaMethod": "length"
-    },
-    {
-      "type": "System.String",
-      "method": "get_Length",
-      "javaMethod": "length"
-    },
-    {
-      "type": "System.String",
-      "method": "ToCharArray",
-      "javaMethod": "toCharArray"
-    },
-    {
-      "type": "System.String",
-      "method": "IsEmpty",
-      "javaMethod": "isEmpty"
-    },
-    {
-      "type": "System.String",
-      "method": "IsNullOrEmpty",
-      "javaMethod": "StringHelper.isNullOrEmpty"
-    },
-    {
-      "type": "System.String",
-      "method": "IsNullOrWhiteSpace",
-      "javaMethod": "StringHelper.isNullOrWhiteSpace"
-    },
-    {
-      "type": "System.String",
-      "method": "Compare",
-      "javaMethod": "StringHelper.compare"
-    },
-    {
-      "type": "System.Double",
-      "method": "TryParse",
-      "javaMethod": "MathHelper.tryParseDouble"
-    },
-    {
-      "type": "System.Double",
-      "method": "Parse",
-      "javaMethod": "parseDouble"
-    },
-    {
-      "type": "System.Single",
-      "method": "TryParse",
-      "javaMethod": "MathHelper.tryParseFloat"
-    },
-    {
-      "type": "System.Single",
-      "method": "Parse",
-      "javaMethod": "parseFloat"
-    },
-    {
-      "type": "System.Int32",
-      "method": "TryParse",
-      "javaMethod": "MathHelper.tryParseInt"
-    },
-    {
-      "type": "System.Int32",
-      "method": "Parse",
-      "javaMethod": "parseInt"
-    },
-    {
-      "type": "System.Int64",
-      "method": "TryParse",
-      "javaMethod": "MathHelper.tryParseLong"
-    },
-    {
-      "type": "System.Int64",
-      "method": "Parse",
-      "javaMethod": "parseLong"
-    },
-    {
-      "type": "System.Boolean",
-      "method": "TryParse",
-      "javaMethod": "MathHelper.tryParseBool"
-    },
-    {
-      "type": "System.Boolean",
-      "method": "Parse",
-      "javaMethod": "parseBoolean"
-    },
-    {
-      "type": "System.Enum",
-      "method": "TryParse",
-      "javaMethod": "EnumHelper.tryParse"
-    },
-    {
-      "type": "System.Enum",
-      "method": "Parse",
-      "javaMethod": "EnumHelper.parse"
-    },
-    {
-      "type": "System.Enum",
-      "method": "GetValues",
-      "javaMethod": "EnumHelper.getValues"
-    },
-    {
-      "type": "System.Collections.Generic.List",
-      "method": "AddRange",
-      "javaMethod": "addAll"
-    },
-    {
-      "type": "System.Collections.Generic.IList",
-      "method": "AddRange",
-      "javaMethod": "addAll"
-    },
-    {
-      "type": "System.Collections.Generic.List",
-      "method": "Insert",
-      "javaMethod": "add"
-    },
-    {
-      "type": "System.Collections.Generic.IList",
-      "method": "Insert",
-      "javaMethod": "add"
-    },
-    {
-      "type": "System.Collections.Generic.List",
-      "method": "InsertRange",
-      "javaMethod": "addAll"
-    },
-    {
-      "type": "System.Collections.Generic.IList",
-      "method": "InsertRange",
-      "javaMethod": "addAll"
-    },
-    {
-      "type": "System.Collections.Generic.List",
-      "method": "RemoveRange",
-      "javaMethod": "subList"
-    },
-    {
-      "type": "System.Collections.Generic.IList",
-      "method": "RemoveRange",
-      "javaMethod": "subList"
-    },
-    {
-      "type": "System.Collections.Generic.List",
-      "method": "Clear",
-      "javaMethod": "clear"
-    },
-    {
-      "type": "System.Collections.Generic.IList",
-      "method": "Clear",
-      "javaMethod": "clear"
-    },
-    {
-      "type": "System.Collections.Generic.List",
-      "method": "CopyTo",
-      "javaMethod": "toArray"
-    },
-    {
-      "type": "System.Collections.Generic.IList",
-      "method": "CopyTo",
-      "javaMethod": "toArray"
-    },
-    {
-      "type": "System.Collections.Generic.List",
-      "method": "GetEnumerator",
-      "javaMethod": "iterator"
-    },
-    {
-      "type": "System.Collections.Generic.IList",
-      "method": "GetEnumerator",
-      "javaMethod": "iterator"
-    },
-    {
-      "type": "System.Collections.Generic.List",
-      "method": "IndexOf",
-      "javaMethod": "indexOf"
-    },
-    {
-      "type": "System.Collections.Generic.IList",
-      "method": "IndexOf",
-      "javaMethod": "indexOf"
-    },
-    {
-      "type": "System.Collections.Generic.List",
-      "method": "LastIndexOf",
-      "javaMethod": "lastIndexOf"
-    },
-    {
-      "type": "System.Collections.Generic.IList",
-      "method": "LastIndexOf",
-      "javaMethod": "lastIndexOf"
-    },
-    {
-      "type": "System.Collections.Generic.List",
-      "method": "Sort",
-      "javaMethod": "sort"
-    },
-    {
-      "type": "System.Collections.Generic.IList",
-      "method": "Sort",
-      "javaMethod": "sort"
-    },
-    {
-      "type": "System.Collections.Generic.List",
-      "method": "Reverse",
-      "javaMethod": "reverse"
-    },
-    {
-      "type": "System.Collections.Generic.IList",
-      "method": "Reverse",
-      "javaMethod": "reverse"
-    },
-    {
-      "type": "System.Collections.Generic.Dictionary",
-      "method": "Remove",
-      "javaMethod": "remove"
-    },
-    {
-      "type": "System.Collections.Generic.IDictionary",
-      "method": "Remove",
-      "javaMethod": "remove"
-    },
-    {
-      "type": "System.Collections.Generic.Dictionary",
-      "method": "Clear",
-      "javaMethod": "clear"
-    },
-    {
-      "type": "System.Collections.Generic.IDictionary",
-      "method": "Clear",
-      "javaMethod": "clear"
-    },
-    {
-      "type": "System.Collections.Generic.Dictionary",
-      "method": "ContainsValue",
-      "javaMethod": "containsValue"
-    },
-    {
-      "type": "System.Collections.Generic.IDictionary",
-      "method": "ContainsValue",
-      "javaMethod": "containsValue"
-    },
-    {
-      "type": "System.Threading.Tasks.Task",
-      "method": "Wait",
-      "javaMethod": "join"
-    },
-    {
-      "type": "System.Threading.Tasks.Task`1",
-      "method": "Wait",
-      "javaMethod": "join"
-    },
-    {
-      "type": "System.Threading.Tasks.Task",
-      "method": "Run",
-      "javaMethod": "runAsync"
-    },
-    {
-      "type": "System.Threading.Tasks.Task`1",
-      "method": "Run",
-      "javaMethod": "supplyAsync"
-    },
-    {
-      "type": "System.Threading.Tasks.Task",
-      "method": "WhenAll",
-      "javaMethod": "allOf"
-    },
-    {
-      "type": "System.Threading.Tasks.Task`1",
-      "method": "WhenAll",
-      "javaMethod": "allOf"
-    },
-    {
-      "type": "System.Threading.Tasks.Task",
-      "method": "WhenAny",
-      "javaMethod": "anyOf"
-    },
-    {
-      "type": "System.Threading.Tasks.Task`1",
-      "method": "WhenAny",
-      "javaMethod": "anyOf"
-    },
-    {
-      "type": "System.Threading.Tasks.Task",
-      "method": "ContinueWith",
-      "javaMethod": "thenApply"
-    },
-    {
-      "type": "System.Threading.Tasks.Task`1",
-      "method": "ContinueWith",
-      "javaMethod": "thenApply"
-    },
-    {
-      "type": "System.Threading.Tasks.Task",
-      "method": "Delay",
-      "javaMethod": "delayedExecutor"
-    },
-    {
-      "type": "System.Threading.Tasks.Task`1",
-      "method": "Delay",
-      "javaMethod": "delayedExecutor"
-    },
-    {
-      "type": "System.Math",
-      "method": "Abs",
-      "javaMethod": "abs"
-    },
-    {
-      "type": "System.Math",
-      "method": "Round",
-      "javaMethod": "round"
-    },
-    {
-      "type": "System.Math",
-      "method": "Ceiling",
-      "javaMethod": "ceil"
-    },
-    {
-      "type": "System.Math",
-      "method": "Floor",
-      "javaMethod": "floor"
-    },
-    {
-      "type": "System.Math",
-      "method": "Pow",
-      "javaMethod": "pow"
-    },
-    {
-      "type": "System.Math",
-      "method": "Sqrt",
-      "javaMethod": "sqrt"
-    },
-    {
-      "type": "System.Math",
-      "method": "Sin",
-      "javaMethod": "sin"
-    },
-    {
-      "type": "System.Math",
-      "method": "Cos",
-      "javaMethod": "cos"
-    },
-    {
-      "type": "System.Math",
-      "method": "Tan",
-      "javaMethod": "tan"
-    },
-    {
-      "type": "System.Math",
-      "method": "Log",
-      "javaMethod": "log"
-    },
-    {
-      "type": "System.Math",
-      "method": "Log10",
-      "javaMethod": "log10"
-    },
-    {
-      "type": "System.Math",
-      "method": "Max",
-      "javaMethod": "max"
-    },
-    {
-      "type": "System.Math",
-      "method": "Min",
-      "javaMethod": "min"
-    },
-    {
-      "type": "System.Math",
-      "method": "Clamp",
-      "javaMethod": "clamp"
-    },
-    {
-      "type": "System.Math",
-      "method": "Atan2",
-      "javaMethod": "atan2"
-    },
-    {
-      "type": "System.Math",
-      "method": "Atan",
-      "javaMethod": "atan"
-    },
-    {
-      "type": "System.Math",
-      "method": "Asin",
-      "javaMethod": "asin"
-    },
-    {
-      "type": "System.Math",
-      "method": "Acos",
-      "javaMethod": "acos"
-    },
-    {
-      "type": "System.Math",
-      "method": "Sign",
-      "javaMethod": "signum"
-    },
-    {
-      "type": "System.Math",
-      "method": "Exp",
-      "javaMethod": "exp"
-    },
-    {
-      "type": "System.Math",
-      "method": "Truncate",
-      "javaMethod": "truncate"
-    },
-    {
-      "type": "System.Math",
-      "method": "Tanh",
-      "javaMethod": "tanh"
-    },
-    {
-      "type": "System.Math",
-      "method": "Sinh",
-      "javaMethod": "sinh"
-    },
-    {
-      "type": "System.Math",
-      "method": "Cosh",
-      "javaMethod": "cosh"
-    },
-    {
-      "type": "System.Console",
-      "method": "WriteLine",
-      "javaMethod": "out.println"
-    },
-    {
-      "type": "System.Console",
-      "method": "Write",
-      "javaMethod": "out.print"
-    },
-    {
-      "type": "System.Console",
-      "method": "ReadLine",
-      "javaMethod": "console.readLine"
-    },
-    {
-      "type": "System.Console",
-      "method": "Read",
-      "javaMethod": "console.read"
-    },
-    {
-      "type": "System.Collections.Generic.HashSet`1",
-      "method": "Add",
-      "javaMethod": "add"
-    },
-    {
-      "type": "System.Collections.Generic.HashSet`1",
-      "method": "Remove",
-      "javaMethod": "remove"
-    },
-    {
-      "type": "System.Collections.Generic.HashSet`1",
-      "method": "Contains",
-      "javaMethod": "contains"
-    },
-    {
-      "type": "System.Collections.Generic.HashSet`1",
-      "method": "Clear",
-      "javaMethod": "clear"
-    },
-    {
-      "type": "System.Collections.Generic.Queue`1",
-      "method": "Enqueue",
-      "javaMethod": "add"
-    },
-    {
-      "type": "System.Collections.Generic.Queue`1",
-      "method": "Dequeue",
-      "javaMethod": "remove"
-    },
-    {
-      "type": "System.Collections.Generic.Queue`1",
-      "method": "Peek",
-      "javaMethod": "peek"
-    },
-    {
-      "type": "System.Collections.Generic.Queue`1",
-      "method": "Count",
-      "javaMethod": "size"
-    },
-    {
-      "type": "System.Collections.Generic.Stack`1",
-      "method": "Push",
-      "javaMethod": "push"
-    },
-    {
-      "type": "System.Collections.Generic.Stack`1",
-      "method": "Pop",
-      "javaMethod": "pop"
-    },
-    {
-      "type": "System.Collections.Generic.Stack`1",
-      "method": "Peek",
-      "javaMethod": "peek"
-    },
-    {
-      "type": "System.Linq.Enumerable",
-      "method": "Where",
-      "javaMethod": "filter"
-    },
-    {
-      "type": "System.Linq.Enumerable",
-      "method": "Select",
-      "javaMethod": "map"
-    },
-    {
-      "type": "System.Linq.Enumerable",
-      "method": "ToList",
-      "javaMethod": "toList"
-    },
-    {
-      "type": "System.Linq.Enumerable",
-      "method": "ToArray",
-      "javaMethod": "toArray"
-    },
-    {
-      "type": "System.Linq.Enumerable",
-      "method": "Count",
-      "javaMethod": "count"
-    },
-    {
-      "type": "System.Linq.Enumerable",
-      "method": "Any",
-      "javaMethod": "anyMatch"
-    },
-    {
-      "type": "System.Linq.Enumerable",
-      "method": "All",
-      "javaMethod": "allMatch"
-    },
-    {
-      "type": "System.Linq.Enumerable",
-      "method": "First",
-      "javaMethod": "findFirst"
-    },
-    {
-      "type": "System.Linq.Enumerable",
-      "method": "FirstOrDefault",
-      "javaMethod": "findFirst"
-    },
-    {
-      "type": "System.Linq.Enumerable",
-      "method": "Single",
-      "javaMethod": "findAny"
-    },
-    {
-      "type": "System.Linq.Enumerable",
-      "method": "SingleOrDefault",
-      "javaMethod": "findAny"
-    },
-    {
-      "type": "System.Linq.Enumerable",
-      "method": "Last",
-      "javaMethod": "reduce"
-    },
-    {
-      "type": "System.Linq.Enumerable",
-      "method": "LastOrDefault",
-      "javaMethod": "reduce"
-    },
-    {
-      "type": "System.Linq.Enumerable",
-      "method": "Contains",
-      "javaMethod": "contains"
-    },
-    {
-      "type": "System.Linq.Enumerable",
-      "method": "OrderBy",
-      "javaMethod": "sorted"
-    },
-    {
-      "type": "System.Linq.Enumerable",
-      "method": "ThenBy",
-      "javaMethod": "sorted"
-    },
-    {
-      "type": "System.Linq.Enumerable",
-      "method": "GroupBy",
-      "javaMethod": "groupingBy"
-    },
-    {
-      "type": "System.Linq.Enumerable",
-      "method": "ToDictionary",
-      "javaMethod": "toMap"
-    },
-    {
-      "type": "System.Linq.Enumerable",
-      "method": "ElementAt",
-      "javaMethod": "skip"
-    },
-    {
-      "type": "System.Linq.Enumerable",
-      "method": "Skip",
-      "javaMethod": "skip"
-    },
-    {
-      "type": "System.Linq.Enumerable",
-      "method": "Take",
-      "javaMethod": "limit"
-    },
-    {
-      "type": "System.Linq.Enumerable",
-      "method": "Distinct",
-      "javaMethod": "distinct"
-    },
-    {
-      "type": "System.Linq.Enumerable",
-      "method": "Sum",
-      "javaMethod": "mapToLong"
-    },
-    {
-      "type": "System.Linq.Enumerable",
-      "method": "Average",
-      "javaMethod": "mapToDouble"
-    },
-    {
-      "type": "System.Linq.Enumerable",
-      "method": "Min",
-      "javaMethod": "min"
-    },
-    {
-      "type": "System.Linq.Enumerable",
-      "method": "Max",
-      "javaMethod": "max"
-    },
-    {
-      "type": "System.Collections.Generic.IEnumerable`1",
-      "method": "Where",
-      "javaMethod": "filter"
-    },
-    {
-      "type": "System.Collections.Generic.IEnumerable`1",
-      "method": "Select",
-      "javaMethod": "map"
-    },
-    {
-      "type": "System.Collections.Generic.IEnumerable`1",
-      "method": "ToList",
-      "javaMethod": "collect"
-    },
-    {
-      "type": "System.Collections.Generic.Dictionary`2",
-      "method": "Keys",
-      "javaMethod": "keySet"
-    },
-    {
-      "type": "System.Collections.Generic.IDictionary`2",
-      "method": "Keys",
-      "javaMethod": "keySet"
-    },
-    {
-      "type": "System.Collections.Generic.Dictionary`2",
-      "method": "Values",
-      "javaMethod": "values"
-    },
-    {
-      "type": "System.Collections.Generic.IDictionary`2",
-      "method": "Values",
-      "javaMethod": "values"
-    },
-    {
-      "type": "System.Collections.Generic.List`1",
-      "method": "RemoveAt",
-      "javaMethod": "remove"
-    },
-    {
-      "type": "System.Collections.Generic.IList`1",
-      "method": "RemoveAt",
-      "javaMethod": "remove"
-    },
-    {
-      "type": "System.Globalization.CultureInfo",
-      "method": "InvariantCulture",
-      "javaMethod": "java.util.Locale.ROOT"
-    },
-    {
-      "type": "System.Double",
-      "method": "IsInfinity",
-      "javaMethod": "isInfinite"
-    },
-    {
-      "type": "System.Double",
-      "method": "IsPositiveInfinity",
-      "javaMethod": "isInfinite"
-    },
-    {
-      "type": "System.Double",
-      "method": "IsNegativeInfinity",
-      "javaMethod": "isInfinite"
-    },
-    {
-      "type": "System.Double",
-      "method": "IsNaN",
-      "javaMethod": "isNaN"
-    },
-    {
-      "type": "System.Double",
-      "method": "IsFinite",
-      "javaMethod": "isFinite"
-    },
-    {
-      "type": "System.Tuple`2",
-      "method": "Item1",
-      "javaMethod": "getKey"
-    },
-    {
-      "type": "System.Tuple`2",
-      "method": "Item2",
-      "javaMethod": "getValue"
-    },
-    {
-      "type": "System.Tuple`3",
-      "method": "Item1",
-      "javaMethod": "_1"
-    },
-    {
-      "type": "System.Tuple`3",
-      "method": "Item2",
-      "javaMethod": "_2"
-    },
-    {
-      "type": "System.Tuple`3",
-      "method": "Item3",
-      "javaMethod": "_3"
-    },
-    {
-      "type": "System.Tuple`4",
-      "method": "Item1",
-      "javaMethod": "_1"
-    },
-    {
-      "type": "System.Tuple`4",
-      "method": "Item2",
-      "javaMethod": "_2"
-    },
-    {
-      "type": "System.Tuple`4",
-      "method": "Item3",
-      "javaMethod": "_3"
-    },
-    {
-      "type": "System.Tuple`4",
-      "method": "Item4",
-      "javaMethod": "_4"
-    },
-    {
-      "type": "System.Tuple`5",
-      "method": "Item1",
-      "javaMethod": "_1"
-    },
-    {
-      "type": "System.Tuple`5",
-      "method": "Item2",
-      "javaMethod": "_2"
-    },
-    {
-      "type": "System.Tuple`5",
-      "method": "Item3",
-      "javaMethod": "_3"
-    },
-    {
-      "type": "System.Tuple`5",
-      "method": "Item4",
-      "javaMethod": "_4"
-    },
-    {
-      "type": "System.Tuple`5",
-      "method": "Item5",
-      "javaMethod": "_5"
-    },
-    {
-      "type": "System.Tuple`2",
-      "method": "Item1",
-      "javaMethod": "getKey"
-    },
-    {
-      "type": "System.Tuple`2",
-      "method": "Item2",
-      "javaMethod": "getValue"
-    },
-    {
-      "type": "System.Linq.IGrouping`2",
-      "method": "Key",
-      "javaMethod": "getKey"
-    },
-    {
-      "type": "System.IO.Stream",
-      "method": "Read",
-      "javaMethod": "read"
-    },
-    {
-      "type": "System.IO.Stream",
-      "method": "Write",
-      "javaMethod": "write"
-    },
-    {
-      "type": "System.IO.Stream",
-      "method": "Close",
-      "javaMethod": "close"
-    },
-    {
-      "type": "System.IO.Stream",
-      "method": "Flush",
-      "javaMethod": "flush"
-    },
-    {
-      "type": "System.Environment",
-      "method": "NewLine",
-      "javaMethod": "System.lineSeparator()"
-    },
-    {
-      "type": "System.Collections.Queue",
-      "method": "Enqueue",
-      "javaMethod": "add"
-    },
-    {
-      "type": "System.Collections.Queue",
-      "method": "Dequeue",
-      "javaMethod": "poll"
-    },
-    {
-      "type": "System.Collections.Queue",
-      "method": "Count",
-      "javaMethod": "size"
-    },
-    {
-      "type": "System.Collections.Queue",
-      "method": "Peek",
-      "javaMethod": "peek"
-    },
-    {
-      "type": "System.Threading.Thread",
-      "method": "CurrentThread",
-      "javaMethod": "currentThread"
-    },
-    {
-      "type": "System.IO.File",
-      "method": "WriteAllText",
-      "javaMethod": "writeAllText"
-    },
-    {
-      "type": "System.IO.File",
-      "method": "ReadAllText",
-      "javaMethod": "readAllText"
-    },
-    {
-      "type": "System.IO.File",
-      "method": "OpenRead",
-      "javaMethod": "openRead"
-    },
-    {
-      "type": "System.IO.File",
-      "method": "OpenText",
-      "javaMethod": "openText"
-    }
-  ],
-  "namespaceMappings": [
-    {
-      "csharp": "",
-      "java": "Microsoft.Msagl"
-    },
-    {
-      "csharp": "System",
-      "java": "java.lang"
-    },
-    {
-      "csharp": "System.Collections.Generic",
-      "java": "java.util"
-    },
-    {
-      "csharp": "System.Linq",
-      "java": "java.util.stream"
-    },
-    {
-      "csharp": "System.Threading.Tasks",
-      "java": "java.util.concurrent"
-    },
-    {
-      "csharp": "System.Text",
-      "java": "java.lang"
-    },
-    {
-      "csharp": "System.IO",
-      "java": "java.io"
-    },
-    {
-      "csharp": "System.Net",
-      "java": "java.net"
-    },
-    {
-      "csharp": "System.Time",
-      "java": "java.time"
-    },
-    {
-      "csharp": "System.Collections",
-      "java": "java.util"
-    },
-    {
-      "csharp": "System.Collections.ObjectModel",
-      "java": "java.util"
-    },
-    {
-      "csharp": "System.Collections.Concurrent",
-      "java": "java.util.concurrent"
-    },
-    {
-      "csharp": "System.Reflection",
-      "java": "java.lang.reflect"
-    },
-    {
-      "csharp": "System.Threading",
-      "java": "java.util.concurrent"
-    },
-    {
-      "csharp": "System.Text.RegularExpressions",
-      "java": "java.util.regex"
-    },
-    {
-      "csharp": "System.Numerics",
-      "java": "java.math"
-    },
-    {
-      "csharp": "System.ComponentModel",
-      "java": "javafx.beans"
-    },
-    {
-      "csharp": "System.Runtime.Serialization",
-      "java": "java.io"
-    },
-    {
-      "csharp": "System.Security",
-      "java": "java.security"
-    },
-    {
-      "csharp": "System.Security.Cryptography",
-      "java": "java.security"
-    },
-    {
-      "csharp": "System.Globalization.CultureInfo",
-      "java": "Locale",
-      "imports": ["java.util.Locale"]
-    },
-    {
-      "csharp": "System.Globalization",
-      "java": "java.util"
-    },
-    {
-      "csharp": "System.Resources",
-      "java": "java.util"
-    },
-    {
-      "csharp": "System.Net.Http",
-      "java": "java.net.http"
-    },
-    {
-      "csharp": "System.Net.Sockets",
-      "java": "java.net"
-    },
-    {
-      "csharp": "System.Diagnostics",
-      "java": "java.lang"
-    }
-  ]
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Int32",
+                             "java":  "int",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Int64",
+                             "java":  "long",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Int16",
+                             "java":  "short",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Byte",
+                             "java":  "byte",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.SByte",
+                             "java":  "byte",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.UInt32",
+                             "java":  "int",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.UInt64",
+                             "java":  "long",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.UInt16",
+                             "java":  "short",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Single",
+                             "java":  "float",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Double",
+                             "java":  "double",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Boolean",
+                             "java":  "boolean",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Char",
+                             "java":  "char",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Object",
+                             "java":  "Object",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Void",
+                             "java":  "void",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Generic.List`1",
+                             "java":  "ArrayList",
+                             "imports":  [
+                                             "java.util.ArrayList"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Generic.IList`1",
+                             "java":  "List",
+                             "imports":  [
+                                             "java.util.List"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Generic.Dictionary`2",
+                             "java":  "HashMap",
+                             "imports":  [
+                                             "java.util.HashMap"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Generic.IDictionary`2",
+                             "java":  "Map",
+                             "imports":  [
+                                             "java.util.Map"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Generic.HashSet`1",
+                             "java":  "HashSet",
+                             "imports":  [
+                                             "java.util.HashSet"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.ICollection",
+                             "java":  "Collection",
+                             "imports":  [
+                                             "java.util.Collection"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Xml.XmlReader",
+                             "java":  "XmlReader",
+                             "imports":  [
+                                             "Microsoft.Msagl.XmlReader"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Xml.XmlTextReader",
+                             "java":  "XmlTextReader",
+                             "imports":  [
+                                             "Microsoft.Msagl.XmlTextReader"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Xml.XmlWriter",
+                             "java":  "XmlWriter",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Xml.XmlReaderSettings",
+                             "java":  "XmlReaderSettings",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Xml.XmlWriterSettings",
+                             "java":  "XmlWriterSettings",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Xml.XmlNodeType",
+                             "java":  "XmlNodeType",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Xml.XmlConvert",
+                             "java":  "XmlConvert",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Xml.ReadState",
+                             "java":  "ReadState",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "XmlReader",
+                             "java":  "XmlReader",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "XmlTextReader",
+                             "java":  "XmlTextReader",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "XmlWriter",
+                             "java":  "XmlWriter",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "XmlReaderSettings",
+                             "java":  "XmlReaderSettings",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "XmlWriterSettings",
+                             "java":  "XmlWriterSettings",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "XmlNodeType",
+                             "java":  "XmlNodeType",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "XmlConvert",
+                             "java":  "XmlConvert",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "ReadState",
+                             "java":  "ReadState",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Text.Json.JsonSerializer",
+                             "java":  "JsonSerializer",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Text.Json.JsonSerializerOptions",
+                             "java":  "JsonSerializerOptions",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "JsonSerializer",
+                             "java":  "JsonSerializer",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "JsonSerializerOptions",
+                             "java":  "JsonSerializerOptions",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "InvalidOperationException",
+                             "java":  "IllegalStateException",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "OperationCanceledException",
+                             "java":  "CancellationException",
+                             "imports":  [
+                                             "java.util.concurrent.CancellationException"
+                                         ]
+                         },
+                         {
+                             "csharp":  "ParallelOptions",
+                             "java":  "Object",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.IEnumerable",
+                             "java":  "Iterable",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.IEnumerator",
+                             "java":  "Iterator",
+                             "imports":  [
+                                             "java.util.Iterator"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Array",
+                             "java":  "Object",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "Array",
+                             "java":  "Object",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "Dictionary",
+                             "java":  "HashMap",
+                             "imports":  [
+                                             "java.util.HashMap"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Generic.IEnumerable`1",
+                             "java":  "Iterable",
+                             "imports":  [
+                                             "java.lang.Iterable"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Generic.IEnumerator`1",
+                             "java":  "Iterator",
+                             "imports":  [
+                                             "java.util.Iterator"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Threading.Tasks.Task`1",
+                             "java":  "CompletableFuture",
+                             "imports":  [
+                                             "java.util.concurrent.CompletableFuture"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Threading.Tasks.Task",
+                             "java":  "CompletableFuture",
+                             "imports":  [
+                                             "java.util.concurrent.CompletableFuture"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Threading.Tasks.ValueTask`1",
+                             "java":  "CompletableFuture",
+                             "imports":  [
+                                             "java.util.concurrent.CompletableFuture"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.DateTime",
+                             "java":  "LocalDateTime",
+                             "imports":  [
+                                             "java.time.LocalDateTime"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.DateTimeOffset",
+                             "java":  "OffsetDateTime",
+                             "imports":  [
+                                             "java.time.OffsetDateTime"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.TimeSpan",
+                             "java":  "Duration",
+                             "imports":  [
+                                             "java.time.Duration"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.DateOnly",
+                             "java":  "LocalDate",
+                             "imports":  [
+                                             "java.time.LocalDate"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.TimeOnly",
+                             "java":  "LocalTime",
+                             "imports":  [
+                                             "java.time.LocalTime"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Guid",
+                             "java":  "UUID",
+                             "imports":  [
+                                             "java.util.UUID"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Uri",
+                             "java":  "URI",
+                             "imports":  [
+                                             "java.net.URI"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Text.StringBuilder",
+                             "java":  "StringBuilder",
+                             "imports":  [
+                                             "java.lang.StringBuilder"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Exception",
+                             "java":  "Exception",
+                             "imports":  [
+                                             "java.lang.Exception"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.ArgumentException",
+                             "java":  "IllegalArgumentException",
+                             "imports":  [
+                                             "java.lang.IllegalArgumentException"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.ArgumentNullException",
+                             "java":  "NullPointerException",
+                             "imports":  [
+                                             "java.lang.NullPointerException"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.InvalidOperationException",
+                             "java":  "IllegalStateException",
+                             "imports":  [
+                                             "java.lang.IllegalStateException"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.NotImplementedException",
+                             "java":  "UnsupportedOperationException",
+                             "imports":  [
+                                             "java.lang.UnsupportedOperationException"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.IDisposable",
+                             "java":  "AutoCloseable",
+                             "imports":  [
+                                             "java.lang.AutoCloseable"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.IComparable",
+                             "java":  "Comparable",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.IComparable`1",
+                             "java":  "Comparable",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.EventArgs",
+                             "java":  "Object",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.ICloneable",
+                             "java":  "Cloneable",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Generic.LinkedListNode`1",
+                             "java":  "LinkedListNode",
+                             "imports":  [
+                                             "Microsoft.Msagl.LinkedListNode"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Generic.LinkedList`1",
+                             "java":  "LinkedListWithNodes",
+                             "imports":  [
+                                             "Microsoft.Msagl.LinkedListWithNodes"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Diagnostics.Stopwatch",
+                             "java":  "StopwatchHelper",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Queue",
+                             "java":  "ArrayDeque\u003cObject\u003e",
+                             "imports":  [
+                                             "java.util.ArrayDeque"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Text.Json.JsonSerializer",
+                             "java":  "JsonSerializer",
+                             "imports":  [
+                                             "Microsoft.Msagl.JsonSerializer"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Text.Json.JsonSerializerOptions",
+                             "java":  "JsonSerializerOptions",
+                             "imports":  [
+                                             "Microsoft.Msagl.JsonSerializerOptions"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Text.Json.Serialization.JsonConverter",
+                             "java":  "Object",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Xml.XmlWriterSettings",
+                             "java":  "XmlWriterSettings",
+                             "imports":  [
+                                             "Microsoft.Msagl.XmlWriterSettings"
+                                         ]
+                         },
+                         {
+                             "csharp":  "XmlWriterSettings",
+                             "java":  "XmlWriterSettings",
+                             "imports":  [
+                                             "Microsoft.Msagl.XmlWriterSettings"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Linq.ILookup`2",
+                             "java":  "Map",
+                             "imports":  [
+                                             "java.util.Map"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Linq.IGrouping`2",
+                             "java":  "AbstractMap.SimpleEntry",
+                             "imports":  [
+                                             "java.util.AbstractMap"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Generic.Queue`1",
+                             "java":  "LinkedList",
+                             "imports":  [
+                                             "java.util.LinkedList"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Generic.Stack`1",
+                             "java":  "Stack",
+                             "imports":  [
+                                             "java.util.Stack"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Generic.PriorityQueue`2",
+                             "java":  "PriorityQueue",
+                             "imports":  [
+                                             "java.util.PriorityQueue"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.ObjectModel.ReadOnlyCollection`1",
+                             "java":  "Collections.unmodifiableList",
+                             "imports":  [
+                                             "java.util.Collections"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.ObjectModel.ReadOnlyDictionary`2",
+                             "java":  "Collections.unmodifiableMap",
+                             "imports":  [
+                                             "java.util.Collections"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Generic.IReadOnlyCollection`1",
+                             "java":  "Collection",
+                             "imports":  [
+                                             "java.util.Collection"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Generic.IReadOnlyList`1",
+                             "java":  "List",
+                             "imports":  [
+                                             "java.util.List"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Generic.IReadOnlyDictionary`2",
+                             "java":  "Map",
+                             "imports":  [
+                                             "java.util.Map"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Generic.LinkedList`1",
+                             "java":  "LinkedListWithNodes",
+                             "imports":  [
+                                             "Microsoft.Msagl.LinkedListWithNodes"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Generic.SortedList`2",
+                             "java":  "TreeMap",
+                             "imports":  [
+                                             "java.util.TreeMap"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Generic.SortedDictionary`2",
+                             "java":  "TreeMap",
+                             "imports":  [
+                                             "java.util.TreeMap"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Generic.SortedSet`1",
+                             "java":  "TreeSet",
+                             "imports":  [
+                                             "java.util.TreeSet"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Generic.ICollection`1",
+                             "java":  "Collection",
+                             "imports":  [
+                                             "java.util.Collection"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Generic.ISet`1",
+                             "java":  "Set",
+                             "imports":  [
+                                             "java.util.Set"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Array",
+                             "java":  "Object",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Generic.KeyValuePair`2",
+                             "java":  "AbstractMap.SimpleEntry",
+                             "imports":  [
+                                             "java.util.AbstractMap"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.BitArray",
+                             "java":  "BitSet",
+                             "imports":  [
+                                             "java.util.BitSet"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Concurrent.ConcurrentDictionary`2",
+                             "java":  "ConcurrentHashMap",
+                             "imports":  [
+                                             "java.util.concurrent.ConcurrentHashMap"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Concurrent.ConcurrentQueue`1",
+                             "java":  "ConcurrentLinkedQueue",
+                             "imports":  [
+                                             "java.util.concurrent.ConcurrentLinkedQueue"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Concurrent.ConcurrentStack`1",
+                             "java":  "ConcurrentLinkedDeque",
+                             "imports":  [
+                                             "java.util.concurrent.ConcurrentLinkedDeque"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Concurrent.ConcurrentBag`1",
+                             "java":  "ConcurrentLinkedQueue",
+                             "imports":  [
+                                             "java.util.concurrent.ConcurrentLinkedQueue"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Concurrent.BlockingCollection`1",
+                             "java":  "BlockingQueue",
+                             "imports":  [
+                                             "java.util.concurrent.BlockingQueue"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Concurrent.IProducerConsumerCollection`1",
+                             "java":  "BlockingQueue",
+                             "imports":  [
+                                             "java.util.concurrent.BlockingQueue"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.SystemException",
+                             "java":  "RuntimeException",
+                             "imports":  [
+                                             "java.lang.RuntimeException"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.NullReferenceException",
+                             "java":  "NullPointerException",
+                             "imports":  [
+                                             "java.lang.NullPointerException"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.IndexOutOfRangeException",
+                             "java":  "IndexOutOfBoundsException",
+                             "imports":  [
+                                             "java.lang.IndexOutOfBoundsException"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.ArrayTypeMismatchException",
+                             "java":  "ArrayStoreException",
+                             "imports":  [
+                                             "java.lang.ArrayStoreException"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.DivideByZeroException",
+                             "java":  "ArithmeticException",
+                             "imports":  [
+                                             "java.lang.ArithmeticException"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.OverflowException",
+                             "java":  "ArithmeticException",
+                             "imports":  [
+                                             "java.lang.ArithmeticException"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.NotSupportedException",
+                             "java":  "UnsupportedOperationException",
+                             "imports":  [
+                                             "java.lang.UnsupportedOperationException"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.TypeLoadException",
+                             "java":  "ClassNotFoundException",
+                             "imports":  [
+                                             "java.lang.ClassNotFoundException"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.TypeInitializationException",
+                             "java":  "ExceptionInInitializerError",
+                             "imports":  [
+                                             "java.lang.ExceptionInInitializerError"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.IO.IOException",
+                             "java":  "IOException",
+                             "imports":  [
+                                             "java.io.IOException"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.IO.FileNotFoundException",
+                             "java":  "FileNotFoundException",
+                             "imports":  [
+                                             "java.io.FileNotFoundException"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.IO.DirectoryNotFoundException",
+                             "java":  "FileNotFoundException",
+                             "imports":  [
+                                             "java.io.FileNotFoundException"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.IO.EndOfStreamException",
+                             "java":  "EOFException",
+                             "imports":  [
+                                             "java.io.EOFException"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.ArgumentOutOfRangeException",
+                             "java":  "IllegalArgumentException",
+                             "imports":  [
+                                             "java.lang.IllegalArgumentException"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.RankException",
+                             "java":  "IllegalArgumentException",
+                             "imports":  [
+                                             "java.lang.IllegalArgumentException"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.InvalidCastException",
+                             "java":  "ClassCastException",
+                             "imports":  [
+                                             "java.lang.ClassCastException"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.FormatException",
+                             "java":  "IllegalArgumentException",
+                             "imports":  [
+                                             "java.lang.IllegalArgumentException"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Threading.Tasks.TaskCanceledException",
+                             "java":  "ExecutionException",
+                             "imports":  [
+                                             "java.util.concurrent.ExecutionException"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.OperationCanceledException",
+                             "java":  "CancellationException",
+                             "imports":  [
+                                             "java.util.concurrent.CancellationException"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Security.SecurityException",
+                             "java":  "SecurityException",
+                             "imports":  [
+                                             "java.lang.SecurityException"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.UnauthorizedAccessException",
+                             "java":  "SecurityException",
+                             "imports":  [
+                                             "java.lang.SecurityException"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.TimeoutException",
+                             "java":  "TimeoutException",
+                             "imports":  [
+                                             "java.util.concurrent.TimeoutException"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.ComponentModel.Win32Exception",
+                             "java":  "Exception"
+                         },
+                         {
+                             "csharp":  "Win32Exception",
+                             "java":  "Exception"
+                         },
+                         {
+                             "csharp":  "System.IO.Stream",
+                             "java":  "InputStream",
+                             "imports":  [
+                                             "java.io.InputStream"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.IO.TextReader",
+                             "java":  "TextReader",
+                             "imports":  [
+                                             "Microsoft.Msagl.TextReader"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Threading.Thread",
+                             "java":  "ThreadHelper",
+                             "imports":  [
+                                             "Microsoft.Msagl.ThreadHelper"
+                                         ]
+                         },
+                         {
+                             "csharp":  "Thread",
+                             "java":  "ThreadHelper",
+                             "imports":  [
+                                             "Microsoft.Msagl.ThreadHelper"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.IO.TextWriter",
+                             "java":  "Writer",
+                             "imports":  [
+                                             "java.io.Writer"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.IO.BinaryReader",
+                             "java":  "DataInputStream",
+                             "imports":  [
+                                             "java.io.DataInputStream"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.IO.BinaryWriter",
+                             "java":  "DataOutputStream",
+                             "imports":  [
+                                             "java.io.DataOutputStream"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.IO.FileStream",
+                             "java":  "FileInputStream",
+                             "imports":  [
+                                             "java.io.FileInputStream"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.IO.MemoryStream",
+                             "java":  "ByteArrayInputStream",
+                             "imports":  [
+                                             "java.io.ByteArrayInputStream"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.IO.StringReader",
+                             "java":  "StringReader",
+                             "imports":  [
+                                             "java.io.StringReader"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.IO.StringWriter",
+                             "java":  "StringWriter",
+                             "imports":  [
+                                             "java.io.StringWriter"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.IO.StreamReader",
+                             "java":  "BufferedReader",
+                             "imports":  [
+                                             "java.io.BufferedReader"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.IO.StreamWriter",
+                             "java":  "PrintWriter",
+                             "imports":  [
+                                             "java.io.PrintWriter"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.IO.Path",
+                             "java":  "Paths",
+                             "imports":  [
+                                             "java.nio.file.Paths"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.IO.Directory",
+                             "java":  "Files",
+                             "imports":  [
+                                             "java.nio.file.Files"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.IO.DirectoryInfo",
+                             "java":  "Path",
+                             "imports":  [
+                                             "java.nio.file.Path"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.IO.FileInfo",
+                             "java":  "Path",
+                             "imports":  [
+                                             "java.nio.file.Path"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.IO.File",
+                             "java":  "FileHelper",
+                             "imports":  [
+                                             "Microsoft.Msagl.FileHelper"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.IO.BufferedStream",
+                             "java":  "BufferedInputStream",
+                             "imports":  [
+                                             "java.io.BufferedInputStream"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Net.Http.HttpClient",
+                             "java":  "HttpClient",
+                             "imports":  [
+                                             "java.net.http.HttpClient"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Net.Http.HttpRequestMessage",
+                             "java":  "HttpRequest",
+                             "imports":  [
+                                             "java.net.http.HttpRequest"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Net.Http.HttpResponseMessage",
+                             "java":  "HttpResponse",
+                             "imports":  [
+                                             "java.net.http.HttpResponse"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Net.Http.HttpContent",
+                             "java":  "BodyPublishers",
+                             "imports":  [
+                                             "java.net.http.HttpRequest.BodyPublishers"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Net.Http.StringContent",
+                             "java":  "BodyPublishers",
+                             "imports":  [
+                                             "java.net.http.HttpRequest.BodyPublishers"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Net.Http.HttpStatusCode",
+                             "java":  "HttpStatusCode",
+                             "imports":  [
+                                             "java.net.http.HttpStatusCode"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Net.Sockets.Socket",
+                             "java":  "Socket",
+                             "imports":  [
+                                             "java.net.Socket"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Net.Sockets.TcpClient",
+                             "java":  "Socket",
+                             "imports":  [
+                                             "java.net.Socket"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Net.Sockets.TcpListener",
+                             "java":  "ServerSocket",
+                             "imports":  [
+                                             "java.net.ServerSocket"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Net.Sockets.UdpClient",
+                             "java":  "DatagramSocket",
+                             "imports":  [
+                                             "java.net.DatagramSocket"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Net.Dns",
+                             "java":  "InetAddress",
+                             "imports":  [
+                                             "java.net.InetAddress"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Net.IPEndPoint",
+                             "java":  "InetSocketAddress",
+                             "imports":  [
+                                             "java.net.InetSocketAddress"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Net.IPAddress",
+                             "java":  "InetAddress",
+                             "imports":  [
+                                             "java.net.InetAddress"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Action",
+                             "java":  "Runnable",
+                             "imports":  [
+                                             "java.lang.Runnable"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Action`1",
+                             "java":  "Consumer",
+                             "imports":  [
+                                             "java.util.function.Consumer"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Action`2",
+                             "java":  "BiConsumer",
+                             "imports":  [
+                                             "java.util.function.BiConsumer"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Action`3",
+                             "java":  "Procedure3",
+                             "imports":  [
+                                             "org.eclipse.collections.api.block.procedure.Procedure3"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Action`4",
+                             "java":  "Procedure4",
+                             "imports":  [
+                                             "org.eclipse.collections.api.block.procedure.Procedure4"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Func`1",
+                             "java":  "Supplier",
+                             "imports":  [
+                                             "java.util.function.Supplier"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Func`2",
+                             "java":  "Function",
+                             "imports":  [
+                                             "java.util.function.Function"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Func`3",
+                             "java":  "BiFunction",
+                             "imports":  [
+                                             "java.util.function.BiFunction"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Func`4",
+                             "java":  "Function3",
+                             "imports":  [
+                                             "org.eclipse.collections.api.block.function.Function3"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Func`5",
+                             "java":  "Function4",
+                             "imports":  [
+                                             "org.eclipse.collections.api.block.function.Function4"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Predicate`1",
+                             "java":  "Predicate",
+                             "imports":  [
+                                             "java.util.function.Predicate"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Comparison`1",
+                             "java":  "Comparator",
+                             "imports":  [
+                                             "java.util.Comparator"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Generic.IComparer`1",
+                             "java":  "Comparator",
+                             "imports":  [
+                                             "java.util.Comparator"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Generic.IComparable`1",
+                             "java":  "Comparable",
+                             "imports":  [
+                                             "java.lang.Comparable"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.EventHandler",
+                             "java":  "Consumer",
+                             "imports":  [
+                                             "java.util.function.Consumer"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.EventHandler`1",
+                             "java":  "Consumer",
+                             "imports":  [
+                                             "java.util.function.Consumer"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Attribute",
+                             "java":  "Object",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.AttributeUsageAttribute",
+                             "java":  "Retention",
+                             "imports":  [
+                                             "java.lang.annotation.Retention"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.ObsoleteAttribute",
+                             "java":  "Deprecated",
+                             "imports":  [
+                                             "java.lang.Deprecated"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.SerializableAttribute",
+                             "java":  "Serializable",
+                             "imports":  [
+                                             "java.io.Serializable"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Type",
+                             "java":  "Class",
+                             "imports":  [
+                                             "java.lang.Class"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Reflection.Assembly",
+                             "java":  "Package",
+                             "imports":  [
+                                             "java.lang.Package"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Reflection.FieldInfo",
+                             "java":  "Field",
+                             "imports":  [
+                                             "java.lang.reflect.Field"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Reflection.MethodInfo",
+                             "java":  "Method",
+                             "imports":  [
+                                             "java.lang.reflect.Method"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Reflection.ConstructorInfo",
+                             "java":  "Constructor",
+                             "imports":  [
+                                             "java.lang.reflect.Constructor"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Reflection.ParameterInfo",
+                             "java":  "Parameter",
+                             "imports":  [
+                                             "java.lang.reflect.Parameter"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Threading.Thread",
+                             "java":  "ThreadHelper",
+                             "imports":  [
+                                             "Microsoft.Msagl.ThreadHelper"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Threading.ThreadPool",
+                             "java":  "Executors",
+                             "imports":  [
+                                             "java.util.concurrent.Executors"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Threading.Mutex",
+                             "java":  "ReentrantLock",
+                             "imports":  [
+                                             "java.util.concurrent.locks.ReentrantLock"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Threading.Semaphore",
+                             "java":  "Semaphore",
+                             "imports":  [
+                                             "java.util.concurrent.Semaphore"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Threading.AutoResetEvent",
+                             "java":  "CountDownLatch",
+                             "imports":  [
+                                             "java.util.concurrent.CountDownLatch"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Threading.ManualResetEvent",
+                             "java":  "CountDownLatch",
+                             "imports":  [
+                                             "java.util.concurrent.CountDownLatch"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Threading.Interlocked",
+                             "java":  "AtomicInteger",
+                             "imports":  [
+                                             "java.util.concurrent.atomic.AtomicInteger"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Threading.Tasks.Parallel",
+                             "java":  "ParallelStream",
+                             "imports":  [
+                                             "java.util.stream"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Math",
+                             "java":  "Math",
+                             "imports":  [
+                                             "java.lang.Math"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Random",
+                             "java":  "Random",
+                             "imports":  [
+                                             "java.util.Random"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Decimal",
+                             "java":  "BigDecimal",
+                             "imports":  [
+                                             "java.math.BigDecimal"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Numerics.BigInteger",
+                             "java":  "BigInteger",
+                             "imports":  [
+                                             "java.math.BigInteger"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Text.RegularExpressions.Regex",
+                             "java":  "Pattern",
+                             "imports":  [
+                                             "java.util.regex.Pattern"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Text.RegularExpressions.Match",
+                             "java":  "Matcher",
+                             "imports":  [
+                                             "java.util.regex.Matcher"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Linq.IOrderedEnumerable`1",
+                             "java":  "Stream",
+                             "imports":  [
+                                             "java.util.stream.Stream"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Linq.IQueryable`1",
+                             "java":  "Stream",
+                             "imports":  [
+                                             "java.util.stream.Stream"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Linq.Lookup`2",
+                             "java":  "Map",
+                             "imports":  [
+                                             "java.util.Map"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Tuple`1",
+                             "java":  "Tuple1",
+                             "imports":  [
+                                             "io.vavr.Tuple1"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Tuple`2",
+                             "java":  "AbstractMap.SimpleEntry",
+                             "imports":  [
+                                             "java.util.AbstractMap"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Tuple`3",
+                             "java":  "Tuple3",
+                             "imports":  [
+                                             "io.vavr.Tuple3"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Tuple`4",
+                             "java":  "Tuple4",
+                             "imports":  [
+                                             "io.vavr.Tuple4"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Tuple`5",
+                             "java":  "Tuple5",
+                             "imports":  [
+                                             "io.vavr.Tuple5"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Tuple`6",
+                             "java":  "Tuple6",
+                             "imports":  [
+                                             "io.vavr.Tuple6"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Tuple`7",
+                             "java":  "Tuple7",
+                             "imports":  [
+                                             "io.vavr.Tuple7"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Tuple`8",
+                             "java":  "Tuple8",
+                             "imports":  [
+                                             "io.vavr.Tuple8"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.ValueTuple`1",
+                             "java":  "Tuple1",
+                             "imports":  [
+                                             "io.vavr.Tuple1"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.ValueTuple`2",
+                             "java":  "Tuple2",
+                             "imports":  [
+                                             "io.vavr.Tuple2"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Nullable`1",
+                             "java":  "Optional",
+                             "imports":  [
+                                             "java.util.Optional"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Lazy`1",
+                             "java":  "Lazy",
+                             "imports":  [
+                                             "java.util.concurrent.atomic.AtomicReference"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.IProgress`1",
+                             "java":  "Consumer",
+                             "imports":  [
+                                             "java.util.function.Consumer"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Progress`1",
+                             "java":  "Consumer",
+                             "imports":  [
+                                             "java.util.function.Consumer"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.TimeZoneInfo",
+                             "java":  "ZoneId",
+                             "imports":  [
+                                             "java.time.ZoneId"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Text.Encoding",
+                             "java":  "Charset",
+                             "imports":  [
+                                             "java.nio.charset.Charset"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Text.UTF8Encoding",
+                             "java":  "StandardCharsets.UTF_8",
+                             "imports":  [
+                                             "java.nio.charset.StandardCharsets"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Text.ASCIIEncoding",
+                             "java":  "StandardCharsets.US_ASCII",
+                             "imports":  [
+                                             "java.nio.charset.StandardCharsets"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.BitConverter",
+                             "java":  "ByteBuffer",
+                             "imports":  [
+                                             "java.nio.ByteBuffer"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Console",
+                             "java":  "System",
+                             "imports":  [
+                                             "java.lang.System"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.ObjectModel.ObservableCollection`1",
+                             "java":  "ObservableList",
+                             "imports":  [
+                                             "javafx.collections.ObservableList"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.ComponentModel.INotifyPropertyChanged",
+                             "java":  "ChangeListener",
+                             "imports":  [
+                                             "javafx.beans.value.ChangeListener"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.MarshalByRefObject",
+                             "java":  "Object",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Threading.CancellationToken",
+                             "java":  "boolean",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Threading.CancellationTokenSource",
+                             "java":  "java.util.concurrent.atomic.AtomicBoolean",
+                             "imports":  [
+                                             "java.util.concurrent.atomic.AtomicBoolean"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.MathF",
+                             "java":  "Math",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Generic.IReadOnlyList`1",
+                             "java":  "List",
+                             "imports":  [
+                                             "java.util.List"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Generic.IReadOnlyDictionary`2",
+                             "java":  "Map",
+                             "imports":  [
+                                             "java.util.Map"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.Generic.IReadOnlyCollection`1",
+                             "java":  "Collection",
+                             "imports":  [
+                                             "java.util.Collection"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Collections.ObjectModel.ReadOnlyCollection`1",
+                             "java":  "List",
+                             "imports":  [
+                                             "java.util.List"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Diagnostics.Debug",
+                             "java":  "System",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Diagnostics.Contracts.Contract",
+                             "java":  "Object",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Runtime.CompilerServices.MethodImplAttribute",
+                             "java":  "Object",
+                             "imports":  [
+
+                                         ]
+                         }
+                     ],
+    "methodMappings":  [
+                           {
+                               "type":  "System.Collections.Generic.IEnumerator`1",
+                               "method":  "MoveNext",
+                               "javaMethod":  "hasNext"
+                           },
+                           {
+                               "type":  "System.Collections.IEnumerator",
+                               "method":  "MoveNext",
+                               "javaMethod":  "hasNext"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IComparer",
+                               "method":  "Compare",
+                               "javaMethod":  "compare"
+                           },
+                           {
+                               "type":  "System.Collections.IComparer",
+                               "method":  "Compare",
+                               "javaMethod":  "compare"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.Comparer",
+                               "method":  "Compare",
+                               "javaMethod":  "compare"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.Dictionary",
+                               "method":  "Add",
+                               "javaMethod":  "put"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IDictionary",
+                               "method":  "Add",
+                               "javaMethod":  "put"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.List",
+                               "method":  "Add",
+                               "javaMethod":  "add"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IList",
+                               "method":  "Add",
+                               "javaMethod":  "add"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.List",
+                               "method":  "Remove",
+                               "javaMethod":  "remove"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IList",
+                               "method":  "Remove",
+                               "javaMethod":  "remove"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.List",
+                               "method":  "Contains",
+                               "javaMethod":  "contains"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IList",
+                               "method":  "Contains",
+                               "javaMethod":  "contains"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.Dictionary",
+                               "method":  "ContainsKey",
+                               "javaMethod":  "containsKey"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IDictionary",
+                               "method":  "ContainsKey",
+                               "javaMethod":  "containsKey"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.Dictionary",
+                               "method":  "TryGetValue",
+                               "javaMethod":  "get"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IDictionary",
+                               "method":  "TryGetValue",
+                               "javaMethod":  "get"
+                           },
+                           {
+                               "type":  "System.String",
+                               "method":  "Equals",
+                               "javaMethod":  "equals"
+                           },
+                           {
+                               "type":  "System.String",
+                               "method":  "Substring",
+                               "javaMethod":  "substring"
+                           },
+                           {
+                               "type":  "System.String",
+                               "method":  "IndexOf",
+                               "javaMethod":  "indexOf"
+                           },
+                           {
+                               "type":  "System.String",
+                               "method":  "LastIndexOf",
+                               "javaMethod":  "lastIndexOf"
+                           },
+                           {
+                               "type":  "System.String",
+                               "method":  "Replace",
+                               "javaMethod":  "replace"
+                           },
+                           {
+                               "type":  "System.String",
+                               "method":  "Split",
+                               "javaMethod":  "split"
+                           },
+                           {
+                               "type":  "System.String",
+                               "method":  "Trim",
+                               "javaMethod":  "trim"
+                           },
+                           {
+                               "type":  "System.String",
+                               "method":  "ToLower",
+                               "javaMethod":  "toLowerCase"
+                           },
+                           {
+                               "type":  "System.String",
+                               "method":  "ToUpper",
+                               "javaMethod":  "toUpperCase"
+                           },
+                           {
+                               "type":  "System.String",
+                               "method":  "StartsWith",
+                               "javaMethod":  "startsWith"
+                           },
+                           {
+                               "type":  "System.String",
+                               "method":  "EndsWith",
+                               "javaMethod":  "endsWith"
+                           },
+                           {
+                               "type":  "System.String",
+                               "method":  "Join",
+                               "javaMethod":  "join"
+                           },
+                           {
+                               "type":  "System.String",
+                               "method":  "Format",
+                               "javaMethod":  "format"
+                           },
+                           {
+                               "type":  "System.String",
+                               "method":  "GetLength",
+                               "javaMethod":  "length"
+                           },
+                           {
+                               "type":  "System.String",
+                               "method":  "get_Length",
+                               "javaMethod":  "length"
+                           },
+                           {
+                               "type":  "System.String",
+                               "method":  "ToCharArray",
+                               "javaMethod":  "toCharArray"
+                           },
+                           {
+                               "type":  "System.String",
+                               "method":  "IsEmpty",
+                               "javaMethod":  "isEmpty"
+                           },
+                           {
+                               "type":  "System.String",
+                               "method":  "IsNullOrEmpty",
+                               "javaMethod":  "StringHelper.isNullOrEmpty"
+                           },
+                           {
+                               "type":  "System.String",
+                               "method":  "IsNullOrWhiteSpace",
+                               "javaMethod":  "StringHelper.isNullOrWhiteSpace"
+                           },
+                           {
+                               "type":  "System.String",
+                               "method":  "Compare",
+                               "javaMethod":  "StringHelper.compare"
+                           },
+                           {
+                               "type":  "System.Double",
+                               "method":  "TryParse",
+                               "javaMethod":  "MathHelper.tryParseDouble"
+                           },
+                           {
+                               "type":  "System.Double",
+                               "method":  "Parse",
+                               "javaMethod":  "parseDouble"
+                           },
+                           {
+                               "type":  "System.Single",
+                               "method":  "TryParse",
+                               "javaMethod":  "MathHelper.tryParseFloat"
+                           },
+                           {
+                               "type":  "System.Single",
+                               "method":  "Parse",
+                               "javaMethod":  "parseFloat"
+                           },
+                           {
+                               "type":  "System.Int32",
+                               "method":  "TryParse",
+                               "javaMethod":  "MathHelper.tryParseInt"
+                           },
+                           {
+                               "type":  "System.Int32",
+                               "method":  "Parse",
+                               "javaMethod":  "parseInt"
+                           },
+                           {
+                               "type":  "System.Int64",
+                               "method":  "TryParse",
+                               "javaMethod":  "MathHelper.tryParseLong"
+                           },
+                           {
+                               "type":  "System.Int64",
+                               "method":  "Parse",
+                               "javaMethod":  "parseLong"
+                           },
+                           {
+                               "type":  "System.Boolean",
+                               "method":  "TryParse",
+                               "javaMethod":  "MathHelper.tryParseBool"
+                           },
+                           {
+                               "type":  "System.Boolean",
+                               "method":  "Parse",
+                               "javaMethod":  "parseBoolean"
+                           },
+                           {
+                               "type":  "System.Enum",
+                               "method":  "TryParse",
+                               "javaMethod":  "EnumHelper.tryParse"
+                           },
+                           {
+                               "type":  "System.Enum",
+                               "method":  "Parse",
+                               "javaMethod":  "EnumHelper.parse"
+                           },
+                           {
+                               "type":  "System.Enum",
+                               "method":  "GetValues",
+                               "javaMethod":  "EnumHelper.getValues"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.List",
+                               "method":  "AddRange",
+                               "javaMethod":  "addAll"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IList",
+                               "method":  "AddRange",
+                               "javaMethod":  "addAll"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.List",
+                               "method":  "Insert",
+                               "javaMethod":  "add"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IList",
+                               "method":  "Insert",
+                               "javaMethod":  "add"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.List",
+                               "method":  "InsertRange",
+                               "javaMethod":  "addAll"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IList",
+                               "method":  "InsertRange",
+                               "javaMethod":  "addAll"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.List",
+                               "method":  "RemoveRange",
+                               "javaMethod":  "subList"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IList",
+                               "method":  "RemoveRange",
+                               "javaMethod":  "subList"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.List",
+                               "method":  "Clear",
+                               "javaMethod":  "clear"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IList",
+                               "method":  "Clear",
+                               "javaMethod":  "clear"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.List",
+                               "method":  "CopyTo",
+                               "javaMethod":  "toArray"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IList",
+                               "method":  "CopyTo",
+                               "javaMethod":  "toArray"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.List",
+                               "method":  "GetEnumerator",
+                               "javaMethod":  "iterator"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IList",
+                               "method":  "GetEnumerator",
+                               "javaMethod":  "iterator"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.List",
+                               "method":  "IndexOf",
+                               "javaMethod":  "indexOf"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IList",
+                               "method":  "IndexOf",
+                               "javaMethod":  "indexOf"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.List",
+                               "method":  "LastIndexOf",
+                               "javaMethod":  "lastIndexOf"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IList",
+                               "method":  "LastIndexOf",
+                               "javaMethod":  "lastIndexOf"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.List",
+                               "method":  "Sort",
+                               "javaMethod":  "sort"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IList",
+                               "method":  "Sort",
+                               "javaMethod":  "sort"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.List",
+                               "method":  "Reverse",
+                               "javaMethod":  "reverse"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IList",
+                               "method":  "Reverse",
+                               "javaMethod":  "reverse"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.Dictionary",
+                               "method":  "Remove",
+                               "javaMethod":  "remove"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IDictionary",
+                               "method":  "Remove",
+                               "javaMethod":  "remove"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.Dictionary",
+                               "method":  "Clear",
+                               "javaMethod":  "clear"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IDictionary",
+                               "method":  "Clear",
+                               "javaMethod":  "clear"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.Dictionary",
+                               "method":  "ContainsValue",
+                               "javaMethod":  "containsValue"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IDictionary",
+                               "method":  "ContainsValue",
+                               "javaMethod":  "containsValue"
+                           },
+                           {
+                               "type":  "System.Threading.Tasks.Task",
+                               "method":  "Wait",
+                               "javaMethod":  "join"
+                           },
+                           {
+                               "type":  "System.Threading.Tasks.Task`1",
+                               "method":  "Wait",
+                               "javaMethod":  "join"
+                           },
+                           {
+                               "type":  "System.Threading.Tasks.Task",
+                               "method":  "Run",
+                               "javaMethod":  "runAsync"
+                           },
+                           {
+                               "type":  "System.Threading.Tasks.Task`1",
+                               "method":  "Run",
+                               "javaMethod":  "supplyAsync"
+                           },
+                           {
+                               "type":  "System.Threading.Tasks.Task",
+                               "method":  "WhenAll",
+                               "javaMethod":  "allOf"
+                           },
+                           {
+                               "type":  "System.Threading.Tasks.Task`1",
+                               "method":  "WhenAll",
+                               "javaMethod":  "allOf"
+                           },
+                           {
+                               "type":  "System.Threading.Tasks.Task",
+                               "method":  "WhenAny",
+                               "javaMethod":  "anyOf"
+                           },
+                           {
+                               "type":  "System.Threading.Tasks.Task`1",
+                               "method":  "WhenAny",
+                               "javaMethod":  "anyOf"
+                           },
+                           {
+                               "type":  "System.Threading.Tasks.Task",
+                               "method":  "ContinueWith",
+                               "javaMethod":  "thenApply"
+                           },
+                           {
+                               "type":  "System.Threading.Tasks.Task`1",
+                               "method":  "ContinueWith",
+                               "javaMethod":  "thenApply"
+                           },
+                           {
+                               "type":  "System.Threading.Tasks.Task",
+                               "method":  "Delay",
+                               "javaMethod":  "delayedExecutor"
+                           },
+                           {
+                               "type":  "System.Threading.Tasks.Task`1",
+                               "method":  "Delay",
+                               "javaMethod":  "delayedExecutor"
+                           },
+                           {
+                               "type":  "System.Math",
+                               "method":  "Abs",
+                               "javaMethod":  "abs"
+                           },
+                           {
+                               "type":  "System.Math",
+                               "method":  "Round",
+                               "javaMethod":  "round"
+                           },
+                           {
+                               "type":  "System.Math",
+                               "method":  "Ceiling",
+                               "javaMethod":  "ceil"
+                           },
+                           {
+                               "type":  "System.Math",
+                               "method":  "Floor",
+                               "javaMethod":  "floor"
+                           },
+                           {
+                               "type":  "System.Math",
+                               "method":  "Pow",
+                               "javaMethod":  "pow"
+                           },
+                           {
+                               "type":  "System.Math",
+                               "method":  "Sqrt",
+                               "javaMethod":  "sqrt"
+                           },
+                           {
+                               "type":  "System.Math",
+                               "method":  "Sin",
+                               "javaMethod":  "sin"
+                           },
+                           {
+                               "type":  "System.Math",
+                               "method":  "Cos",
+                               "javaMethod":  "cos"
+                           },
+                           {
+                               "type":  "System.Math",
+                               "method":  "Tan",
+                               "javaMethod":  "tan"
+                           },
+                           {
+                               "type":  "System.Math",
+                               "method":  "Log",
+                               "javaMethod":  "log"
+                           },
+                           {
+                               "type":  "System.Math",
+                               "method":  "Log10",
+                               "javaMethod":  "log10"
+                           },
+                           {
+                               "type":  "System.Math",
+                               "method":  "Max",
+                               "javaMethod":  "max"
+                           },
+                           {
+                               "type":  "System.Math",
+                               "method":  "Min",
+                               "javaMethod":  "min"
+                           },
+                           {
+                               "type":  "System.Math",
+                               "method":  "Clamp",
+                               "javaMethod":  "clamp"
+                           },
+                           {
+                               "type":  "System.Math",
+                               "method":  "Atan2",
+                               "javaMethod":  "atan2"
+                           },
+                           {
+                               "type":  "System.Math",
+                               "method":  "Atan",
+                               "javaMethod":  "atan"
+                           },
+                           {
+                               "type":  "System.Math",
+                               "method":  "Asin",
+                               "javaMethod":  "asin"
+                           },
+                           {
+                               "type":  "System.Math",
+                               "method":  "Acos",
+                               "javaMethod":  "acos"
+                           },
+                           {
+                               "type":  "System.Math",
+                               "method":  "Sign",
+                               "javaMethod":  "signum"
+                           },
+                           {
+                               "type":  "System.Math",
+                               "method":  "Exp",
+                               "javaMethod":  "exp"
+                           },
+                           {
+                               "type":  "System.Math",
+                               "method":  "Truncate",
+                               "javaMethod":  "truncate"
+                           },
+                           {
+                               "type":  "System.Math",
+                               "method":  "Tanh",
+                               "javaMethod":  "tanh"
+                           },
+                           {
+                               "type":  "System.Math",
+                               "method":  "Sinh",
+                               "javaMethod":  "sinh"
+                           },
+                           {
+                               "type":  "System.Math",
+                               "method":  "Cosh",
+                               "javaMethod":  "cosh"
+                           },
+                           {
+                               "type":  "System.Console",
+                               "method":  "WriteLine",
+                               "javaMethod":  "out.println"
+                           },
+                           {
+                               "type":  "System.Console",
+                               "method":  "Write",
+                               "javaMethod":  "out.print"
+                           },
+                           {
+                               "type":  "System.Console",
+                               "method":  "ReadLine",
+                               "javaMethod":  "console.readLine"
+                           },
+                           {
+                               "type":  "System.Console",
+                               "method":  "Read",
+                               "javaMethod":  "console.read"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.HashSet`1",
+                               "method":  "Add",
+                               "javaMethod":  "add"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.HashSet`1",
+                               "method":  "Remove",
+                               "javaMethod":  "remove"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.HashSet`1",
+                               "method":  "Contains",
+                               "javaMethod":  "contains"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.HashSet`1",
+                               "method":  "Clear",
+                               "javaMethod":  "clear"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.Queue`1",
+                               "method":  "Enqueue",
+                               "javaMethod":  "add"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.Queue`1",
+                               "method":  "Dequeue",
+                               "javaMethod":  "remove"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.Queue`1",
+                               "method":  "Peek",
+                               "javaMethod":  "peek"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.Queue`1",
+                               "method":  "Count",
+                               "javaMethod":  "size"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.Stack`1",
+                               "method":  "Push",
+                               "javaMethod":  "push"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.Stack`1",
+                               "method":  "Pop",
+                               "javaMethod":  "pop"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.Stack`1",
+                               "method":  "Peek",
+                               "javaMethod":  "peek"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "Where",
+                               "javaMethod":  "filter"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "Select",
+                               "javaMethod":  "map"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "ToList",
+                               "javaMethod":  "toList"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "ToArray",
+                               "javaMethod":  "toArray"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "Count",
+                               "javaMethod":  "count"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "Any",
+                               "javaMethod":  "anyMatch"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "All",
+                               "javaMethod":  "allMatch"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "First",
+                               "javaMethod":  "findFirst"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "FirstOrDefault",
+                               "javaMethod":  "findFirst"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "Single",
+                               "javaMethod":  "findAny"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "SingleOrDefault",
+                               "javaMethod":  "findAny"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "Last",
+                               "javaMethod":  "reduce"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "LastOrDefault",
+                               "javaMethod":  "reduce"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "Contains",
+                               "javaMethod":  "contains"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "OrderBy",
+                               "javaMethod":  "sorted"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "ThenBy",
+                               "javaMethod":  "sorted"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "GroupBy",
+                               "javaMethod":  "groupingBy"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "ToDictionary",
+                               "javaMethod":  "toMap"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "ElementAt",
+                               "javaMethod":  "skip"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "Skip",
+                               "javaMethod":  "skip"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "Take",
+                               "javaMethod":  "limit"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "Distinct",
+                               "javaMethod":  "distinct"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "Sum",
+                               "javaMethod":  "mapToLong"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "Average",
+                               "javaMethod":  "mapToDouble"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "Min",
+                               "javaMethod":  "min"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "Max",
+                               "javaMethod":  "max"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IEnumerable`1",
+                               "method":  "Where",
+                               "javaMethod":  "filter"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IEnumerable`1",
+                               "method":  "Select",
+                               "javaMethod":  "map"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IEnumerable`1",
+                               "method":  "ToList",
+                               "javaMethod":  "collect"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.Dictionary`2",
+                               "method":  "Keys",
+                               "javaMethod":  "keySet"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IDictionary`2",
+                               "method":  "Keys",
+                               "javaMethod":  "keySet"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.Dictionary`2",
+                               "method":  "Values",
+                               "javaMethod":  "values"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IDictionary`2",
+                               "method":  "Values",
+                               "javaMethod":  "values"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.List`1",
+                               "method":  "RemoveAt",
+                               "javaMethod":  "remove"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IList`1",
+                               "method":  "RemoveAt",
+                               "javaMethod":  "remove"
+                           },
+                           {
+                               "type":  "System.Globalization.CultureInfo",
+                               "method":  "InvariantCulture",
+                               "javaMethod":  "java.util.Locale.ROOT"
+                           },
+                           {
+                               "type":  "System.Double",
+                               "method":  "IsInfinity",
+                               "javaMethod":  "isInfinite"
+                           },
+                           {
+                               "type":  "System.Double",
+                               "method":  "IsPositiveInfinity",
+                               "javaMethod":  "isInfinite"
+                           },
+                           {
+                               "type":  "System.Double",
+                               "method":  "IsNegativeInfinity",
+                               "javaMethod":  "isInfinite"
+                           },
+                           {
+                               "type":  "System.Double",
+                               "method":  "IsNaN",
+                               "javaMethod":  "isNaN"
+                           },
+                           {
+                               "type":  "System.Double",
+                               "method":  "IsFinite",
+                               "javaMethod":  "isFinite"
+                           },
+                           {
+                               "type":  "System.Tuple`2",
+                               "method":  "Item1",
+                               "javaMethod":  "getKey"
+                           },
+                           {
+                               "type":  "System.Tuple`2",
+                               "method":  "Item2",
+                               "javaMethod":  "getValue"
+                           },
+                           {
+                               "type":  "System.Tuple`3",
+                               "method":  "Item1",
+                               "javaMethod":  "_1"
+                           },
+                           {
+                               "type":  "System.Tuple`3",
+                               "method":  "Item2",
+                               "javaMethod":  "_2"
+                           },
+                           {
+                               "type":  "System.Tuple`3",
+                               "method":  "Item3",
+                               "javaMethod":  "_3"
+                           },
+                           {
+                               "type":  "System.Tuple`4",
+                               "method":  "Item1",
+                               "javaMethod":  "_1"
+                           },
+                           {
+                               "type":  "System.Tuple`4",
+                               "method":  "Item2",
+                               "javaMethod":  "_2"
+                           },
+                           {
+                               "type":  "System.Tuple`4",
+                               "method":  "Item3",
+                               "javaMethod":  "_3"
+                           },
+                           {
+                               "type":  "System.Tuple`4",
+                               "method":  "Item4",
+                               "javaMethod":  "_4"
+                           },
+                           {
+                               "type":  "System.Tuple`5",
+                               "method":  "Item1",
+                               "javaMethod":  "_1"
+                           },
+                           {
+                               "type":  "System.Tuple`5",
+                               "method":  "Item2",
+                               "javaMethod":  "_2"
+                           },
+                           {
+                               "type":  "System.Tuple`5",
+                               "method":  "Item3",
+                               "javaMethod":  "_3"
+                           },
+                           {
+                               "type":  "System.Tuple`5",
+                               "method":  "Item4",
+                               "javaMethod":  "_4"
+                           },
+                           {
+                               "type":  "System.Tuple`5",
+                               "method":  "Item5",
+                               "javaMethod":  "_5"
+                           },
+                           {
+                               "type":  "System.Tuple`2",
+                               "method":  "Item1",
+                               "javaMethod":  "getKey"
+                           },
+                           {
+                               "type":  "System.Tuple`2",
+                               "method":  "Item2",
+                               "javaMethod":  "getValue"
+                           },
+                           {
+                               "type":  "System.Linq.IGrouping`2",
+                               "method":  "Key",
+                               "javaMethod":  "getKey"
+                           },
+                           {
+                               "type":  "System.IO.Stream",
+                               "method":  "Read",
+                               "javaMethod":  "read"
+                           },
+                           {
+                               "type":  "System.IO.Stream",
+                               "method":  "Write",
+                               "javaMethod":  "write"
+                           },
+                           {
+                               "type":  "System.IO.Stream",
+                               "method":  "Close",
+                               "javaMethod":  "close"
+                           },
+                           {
+                               "type":  "System.IO.Stream",
+                               "method":  "Flush",
+                               "javaMethod":  "flush"
+                           },
+                           {
+                               "type":  "System.Environment",
+                               "method":  "NewLine",
+                               "javaMethod":  "System.lineSeparator()"
+                           },
+                           {
+                               "type":  "System.Collections.Queue",
+                               "method":  "Enqueue",
+                               "javaMethod":  "add"
+                           },
+                           {
+                               "type":  "System.Collections.Queue",
+                               "method":  "Dequeue",
+                               "javaMethod":  "poll"
+                           },
+                           {
+                               "type":  "System.Collections.Queue",
+                               "method":  "Count",
+                               "javaMethod":  "size"
+                           },
+                           {
+                               "type":  "System.Collections.Queue",
+                               "method":  "Peek",
+                               "javaMethod":  "peek"
+                           },
+                           {
+                               "type":  "System.Threading.Thread",
+                               "method":  "CurrentThread",
+                               "javaMethod":  "currentThread"
+                           },
+                           {
+                               "type":  "System.IO.File",
+                               "method":  "WriteAllText",
+                               "javaMethod":  "writeAllText"
+                           },
+                           {
+                               "type":  "System.IO.File",
+                               "method":  "ReadAllText",
+                               "javaMethod":  "readAllText"
+                           },
+                           {
+                               "type":  "System.IO.File",
+                               "method":  "OpenRead",
+                               "javaMethod":  "openRead"
+                           },
+                           {
+                               "type":  "System.IO.File",
+                               "method":  "OpenText",
+                               "javaMethod":  "openText"
+                           },
+                           {
+                               "type":  "System.IO.StreamWriter",
+                               "method":  "WriteLine",
+                               "javaMethod":  "println"
+                           },
+                           {
+                               "type":  "System.IO.StreamWriter",
+                               "method":  "Write",
+                               "javaMethod":  "print"
+                           },
+                           {
+                               "type":  "System.IO.TextWriter",
+                               "method":  "WriteLine",
+                               "javaMethod":  "println"
+                           },
+                           {
+                               "type":  "System.IO.TextWriter",
+                               "method":  "Write",
+                               "javaMethod":  "print"
+                           }
+                       ],
+    "namespaceMappings":  [
+                              {
+                                  "csharp":  "",
+                                  "java":  "Microsoft.Msagl"
+                              },
+                              {
+                                  "csharp":  "System",
+                                  "java":  "java.lang"
+                              },
+                              {
+                                  "csharp":  "System.Collections.Generic",
+                                  "java":  "java.util"
+                              },
+                              {
+                                  "csharp":  "System.Linq",
+                                  "java":  "java.util.stream"
+                              },
+                              {
+                                  "csharp":  "System.Threading.Tasks",
+                                  "java":  "java.util.concurrent"
+                              },
+                              {
+                                  "csharp":  "System.Text",
+                                  "java":  "java.lang"
+                              },
+                              {
+                                  "csharp":  "System.IO",
+                                  "java":  "java.io"
+                              },
+                              {
+                                  "csharp":  "System.Net",
+                                  "java":  "java.net"
+                              },
+                              {
+                                  "csharp":  "System.Time",
+                                  "java":  "java.time"
+                              },
+                              {
+                                  "csharp":  "System.Collections",
+                                  "java":  "java.util"
+                              },
+                              {
+                                  "csharp":  "System.Collections.ObjectModel",
+                                  "java":  "java.util"
+                              },
+                              {
+                                  "csharp":  "System.Collections.Concurrent",
+                                  "java":  "java.util.concurrent"
+                              },
+                              {
+                                  "csharp":  "System.Reflection",
+                                  "java":  "java.lang.reflect"
+                              },
+                              {
+                                  "csharp":  "System.Threading",
+                                  "java":  "java.util.concurrent"
+                              },
+                              {
+                                  "csharp":  "System.Text.RegularExpressions",
+                                  "java":  "java.util.regex"
+                              },
+                              {
+                                  "csharp":  "System.Numerics",
+                                  "java":  "java.math"
+                              },
+                              {
+                                  "csharp":  "System.ComponentModel",
+                                  "java":  "javafx.beans"
+                              },
+                              {
+                                  "csharp":  "System.Runtime.Serialization",
+                                  "java":  "java.io"
+                              },
+                              {
+                                  "csharp":  "System.Security",
+                                  "java":  "java.security"
+                              },
+                              {
+                                  "csharp":  "System.Security.Cryptography",
+                                  "java":  "java.security"
+                              },
+                              {
+                                  "csharp":  "System.Globalization.CultureInfo",
+                                  "java":  "Locale",
+                                  "imports":  [
+                                                  "java.util.Locale"
+                                              ]
+                              },
+                              {
+                                  "csharp":  "System.Globalization",
+                                  "java":  "java.util"
+                              },
+                              {
+                                  "csharp":  "System.Resources",
+                                  "java":  "java.util"
+                              },
+                              {
+                                  "csharp":  "System.Net.Http",
+                                  "java":  "java.net.http"
+                              },
+                              {
+                                  "csharp":  "System.Net.Sockets",
+                                  "java":  "java.net"
+                              },
+                              {
+                                  "csharp":  "System.Diagnostics",
+                                  "java":  "java.lang"
+                              }
+                          ]
 }

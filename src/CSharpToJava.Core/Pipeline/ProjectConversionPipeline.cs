@@ -156,6 +156,7 @@ public class ProjectConversionPipeline
         {
             "System.Runtime.dll",
             "System.Collections.dll",
+            "System.Collections.NonGeneric.dll",  // System.Collections.Queue, Stack, Hashtable, ArrayList
             "System.Linq.dll",
             "System.Threading.Tasks.dll",
             "netstandard.dll",

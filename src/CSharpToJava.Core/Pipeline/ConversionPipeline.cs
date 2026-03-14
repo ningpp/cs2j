@@ -100,6 +100,10 @@ public class ConversionPipeline
                 {
                     MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
                     MetadataReference.CreateFromFile(typeof(System.Collections.Generic.List<>).Assembly.Location),
+                    // Non-generic legacy collections (System.Collections.Queue, Stack, Hashtable, etc.)
+                    // are in a separate assembly on .NET Core. Without this, Roslyn resolves bare 'Queue'
+                    // to the generic System.Collections.Generic.Queue<T> producing incorrect type mappings.
+                    MetadataReference.CreateFromFile(typeof(System.Collections.Queue).Assembly.Location),
                 }
             );
             context.SemanticModel = compilation.GetSemanticModel(syntaxTree);

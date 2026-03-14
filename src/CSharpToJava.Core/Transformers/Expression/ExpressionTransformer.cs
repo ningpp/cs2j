@@ -306,6 +306,28 @@ public class ExpressionTransformer : IExpressionTransformer
         if (!string.IsNullOrEmpty(simpleMapped) && simpleMapped != name)
             return simpleMapped;
 
+        // Fallback: unresolved uppercase identifiers used as direct method-call targets → camelCase.
+        // This handles cases where Roslyn cannot resolve the symbol (e.g., compilation errors in the
+        // project) but the identifier is clearly an instance-method call target (upper-case name,
+        // parent is InvocationExpressionSyntax with this node as the callee expression).
+        if (name.Length > 0 && char.IsUpper(name[0])
+            && node.Parent is InvocationExpressionSyntax fallbackInvParent
+            && fallbackInvParent.Expression == node)
+        {
+            var fallbackCamel = name switch
+            {
+                "GetHashCode" => "hashCode",
+                "GetEnumerator" => "iterator",
+                "MoveNext" => "hasNext",
+                "GetType" => "getClass",
+                "Dispose" => "close",
+                "ToLower" => "toLowerCase",
+                "ToUpper" => "toUpperCase",
+                _ => char.ToLower(name[0]) + name.Substring(1)
+            };
+            return ConversionContext.EscapeJavaKeyword(fallbackCamel);
+        }
+
         return ConversionContext.EscapeJavaKeyword(name);
     }
 
@@ -533,7 +555,10 @@ public class ExpressionTransformer : IExpressionTransformer
                             return $"{left}.next()";
                     }
                 }
-                var getterName = "get" + memberName;
+                // Always capitalize the first letter of the property name after "get"
+                // to match Java bean convention: C# "p1" → field "p1" → getter "getP1()"
+                var getterBaseName = memberName.Length > 0 ? char.ToUpper(memberName[0]) + memberName.Substring(1) : memberName;
+                var getterName = "get" + getterBaseName;
                 return $"{left}.{getterName}()";
             }
 
@@ -737,6 +762,19 @@ public class ExpressionTransformer : IExpressionTransformer
                     context.AddImport("java.util.stream.IntStream");
                     return $"IntStream.range({pFrom}, {pTo}).parallel().forEach({pBody})";
                 }
+            }
+
+            // Special case: Enumerable.Range(start, count) → IntStream.range(start, start + count)
+            // C# Enumerable.Range generates a sequence of `count` ints starting at `start`.
+            // Java IntStream.range(a, b) generates ints from a (inclusive) to b (exclusive).
+            if (methodName is "Range" or "range"
+                && (target is "Enumerable" || originalTargetName is "Enumerable")
+                && node.ArgumentList?.Arguments.Count == 2)
+            {
+                var rStart = Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var rCount = Transform(node.ArgumentList.Arguments[1].Expression, context);
+                context.AddImport("java.util.stream.IntStream");
+                return $"IntStream.range({rStart}, ({rStart}) + ({rCount}))";
             }
 
             // Special case: System.Tuple.Create(v1, v2) → new AbstractMap.SimpleEntry<>(v1, v2)
@@ -1196,22 +1234,45 @@ public class ExpressionTransformer : IExpressionTransformer
                             return target;
                         }
 
-                        // Check if target is already a stream — don't re-wrap
-                        bool extTargetIsAlreadyStream =
-                            !IsAlreadyCollected(target) &&
-                            (target.Contains("StreamSupport.stream(") ||
-                             target.Contains("Arrays.stream(") ||
-                             target.Contains(".stream()") ||
-                             target.Contains(".map(") ||
-                             target.Contains(".filter(") ||
-                             target.Contains(".flatMap(") ||
-                             target.Contains(".sorted(") ||
-                             target.Contains(".distinct("));
-                        // Determine if the receiver is a Collection (supports .stream()) or bare Iterable
+                        // Determine if target is already a Java Stream.
+                        // IOrderedEnumerable/IQueryable from System.Linq are always deferred LINQ results = Java Streams.
+                        // IEnumerable<T> is NOT treated as a Java Stream here — it maps to Java Iterable<T>,
+                        // which has .spliterator() but NOT .stream(). Use StreamSupport.stream() instead.
                         var rcvrType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                        bool extTargetIsAlreadyStream = false;
+                        if (rcvrType != null)
+                        {
+                            var rcvrOrigDef = rcvrType.OriginalDefinition.ToDisplayString();
+                            extTargetIsAlreadyStream =
+                                rcvrOrigDef.StartsWith("System.Linq.IOrderedEnumerable<") ||
+                                rcvrOrigDef.StartsWith("System.Linq.IQueryable");
+                        }
+                        // String-based check: if the target Java expression already contains stream operations,
+                        // it's already a Java stream. This catches LINQ chains (where result is already a Stream).
+                        // Only skip this check if the target was materialized into a list (.collect()).
+                        if (!extTargetIsAlreadyStream && !IsAlreadyCollected(target))
+                        {
+                            extTargetIsAlreadyStream =
+                                target.Contains("StreamSupport.stream(") ||
+                                target.Contains("Arrays.stream(") ||
+                                (!target.TrimStart().StartsWith("new ") &&
+                                 (target.Contains(".stream()") ||
+                                  target.Contains(".map(") ||
+                                  target.Contains(".filter(") ||
+                                  target.Contains(".flatMap(") ||
+                                  target.Contains(".sorted(") ||
+                                  target.Contains(".distinct(")));
+                        }
+                        // Determine if the receiver is a standard Java Collection (supports .stream()).
+                        // IEnumerable<T> is EXCLUDED here — it maps to Java Iterable, not Collection.
                         bool isCollection = !extTargetIsAlreadyStream && rcvrType is INamedTypeSymbol rcvrNamed &&
-                            (rcvrNamed.AllInterfaces.Any(i => i.Name is "ICollection" or "IList") ||
-                             rcvrNamed.Name is "List" or "ArrayList" or "LinkedList" or "HashSet" or "TreeSet");
+                            // Only use .stream() for concrete C# collection types that map to Java collections with .stream()
+                            (rcvrNamed.Name is "List" or "ArrayList" or "LinkedList" or "HashSet" or "TreeSet"
+                                or "IList" or "ISet" or "ICollection" or "SortedSet" or "Stack"
+                                or "Queue" or "IReadOnlyList" or "IReadOnlyCollection"
+                             || (rcvrNamed.ContainingNamespace?.ToDisplayString() is string ns &&
+                                 (ns.StartsWith("System.Collections") || ns.StartsWith("System.Linq")) &&
+                                 rcvrNamed.Name != "IEnumerable" && !rcvrNamed.Name.StartsWith("IEnumerable")));
                         string streamTarget = extTargetIsAlreadyStream
                             ? target
                             : isCollection
@@ -1245,6 +1306,39 @@ public class ExpressionTransformer : IExpressionTransformer
                 // Also try fully-qualified equivalent for C# keywords (e.g., "string" → "System.String")
                 if (string.IsNullOrEmpty(mappedMethod) && containingType == "string")
                     mappedMethod = context.TypeMappings.MapMethod("System.String", methodName);
+                // If still not found, traverse base types and interfaces (handles subclass calls like Queue.Dequeue() via SplitQueue)
+                // BUT only traverse if the method is NOT declared on the receiver type itself.
+                // If a subclass declares its own overload of the same name, the Java class has a camelCased version,
+                // and we should not map via the base class (e.g., SplitQueue.Enqueue(l,r) → enqueue, not add).
+                if (string.IsNullOrEmpty(mappedMethod) && typeInfo.Value.Type is INamedTypeSymbol namedRecvType)
+                {
+                    var resolvedMethodSym = context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol;
+                    bool isOnReceiverType = resolvedMethodSym != null &&
+                        Microsoft.CodeAnalysis.SymbolEqualityComparer.Default.Equals(
+                            resolvedMethodSym.ContainingType.OriginalDefinition,
+                            namedRecvType.OriginalDefinition);
+                    if (!isOnReceiverType)
+                    {
+                        var baseT = namedRecvType.BaseType;
+                        while (baseT != null && string.IsNullOrEmpty(mappedMethod))
+                        {
+                            mappedMethod = context.TypeMappings.MapMethod(baseT.OriginalDefinition.ToDisplayString(), methodName);
+                            if (string.IsNullOrEmpty(mappedMethod))
+                                mappedMethod = context.TypeMappings.MapMethod(baseT.ToDisplayString(), methodName);
+                            baseT = baseT.BaseType;
+                        }
+                        if (string.IsNullOrEmpty(mappedMethod))
+                        {
+                            foreach (var iface in namedRecvType.AllInterfaces)
+                            {
+                                mappedMethod = context.TypeMappings.MapMethod(iface.OriginalDefinition.ToDisplayString(), methodName);
+                                if (string.IsNullOrEmpty(mappedMethod))
+                                    mappedMethod = context.TypeMappings.MapMethod(iface.ToDisplayString(), methodName);
+                                if (!string.IsNullOrEmpty(mappedMethod)) break;
+                            }
+                        }
+                    }
+                }
                 if (!string.IsNullOrEmpty(mappedMethod))
                 {
                     if (mappedMethod.Contains('.'))
@@ -1491,6 +1585,19 @@ public class ExpressionTransformer : IExpressionTransformer
                     _ => char.ToLower(methodName[0]) + methodName.Substring(1)
                 };
                 methodName = ConversionContext.EscapeJavaKeyword(camelMethod);
+
+                // IEnumerator.Reset() has no Java equivalent — Java Iterator cannot be reset.
+                // Replace call with a no-op comment so caller statements still compile.
+                if (methodName == "reset" && node.ArgumentList.Arguments.Count == 0)
+                {
+                    var resetRecvType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                    bool isEnumeratorType = resetRecvType != null && (
+                        resetRecvType.Name is "IEnumerator" or "IEnumerator`1" ||
+                        resetRecvType.AllInterfaces.Any(i => i.Name is "IEnumerator" or "IEnumerator`1"));
+                    if (isEnumeratorType)
+                        // Return a comment only; statement transformer adds ';' → '/* ... */;' (valid Java empty statement)
+                        return "/* IEnumerator.Reset() - no-op on Java Iterator */";
+                }
             }
             // List.Reverse() → Collections.reverse(list) — ArrayList has no instance reverse()
             if (methodName == "reverse" && node.ArgumentList.Arguments.Count == 0)
@@ -1611,6 +1718,35 @@ public class ExpressionTransformer : IExpressionTransformer
 
         var expr = Transform(node.Expression, context);
         var arguments = TransformArgumentList(node.ArgumentList, context);
+
+        // For bare identifier method calls (implicit this.method(), without explicit receiver),
+        // apply TypeMappings via the resolved method symbol and its base class hierarchy.
+        // This handles cases like Enqueue(item) inside a Queue<T> subclass → add(item).
+        if (node.Expression is IdentifierNameSyntax)
+        {
+            var bareMethodSym = context.SemanticModel?.GetSymbolInfo(node.Expression).Symbol as IMethodSymbol;
+            if (bareMethodSym != null && !bareMethodSym.IsExtensionMethod)
+            {
+                var bareType = bareMethodSym.ContainingType;
+                string? bareMapped = context.TypeMappings.MapMethod(bareType.ToDisplayString(), bareMethodSym.Name);
+                if (string.IsNullOrEmpty(bareMapped))
+                    bareMapped = context.TypeMappings.MapMethod(bareType.OriginalDefinition.ToDisplayString(), bareMethodSym.Name);
+                if (string.IsNullOrEmpty(bareMapped))
+                {
+                    var baseT = bareType.BaseType;
+                    while (baseT != null && string.IsNullOrEmpty(bareMapped))
+                    {
+                        bareMapped = context.TypeMappings.MapMethod(baseT.OriginalDefinition.ToDisplayString(), bareMethodSym.Name);
+                        if (string.IsNullOrEmpty(bareMapped))
+                            bareMapped = context.TypeMappings.MapMethod(baseT.ToDisplayString(), bareMethodSym.Name);
+                        baseT = baseT.BaseType;
+                    }
+                }
+                if (!string.IsNullOrEmpty(bareMapped) && !bareMapped.Contains('.'))
+                    expr = bareMapped;
+            }
+        }
+
         if (expr.Contains("invokers.get(")) return $"{expr}.accept({arguments})";
         if (expr.Contains("solvers.get(")) return $"{expr}.apply({arguments})";
 
@@ -2293,10 +2429,10 @@ public class ExpressionTransformer : IExpressionTransformer
                         "op_RightShift" => "shiftRight",
                         "op_Equality" => "equals",
                         "op_Inequality" => "notEquals",
-                        "op_GreaterThan" => "compareTo",
-                        "op_GreaterThanOrEqual" => "compareTo",
-                        "op_LessThan" => "compareTo",
-                        "op_LessThanOrEqual" => "compareTo",
+                        "op_GreaterThan" => "greaterThan",
+                        "op_GreaterThanOrEqual" => "greaterThanOrEqual",
+                        "op_LessThan" => "lessThan",
+                        "op_LessThanOrEqual" => "lessThanOrEqual",
                         "op_Increment" => "increment",
                         "op_Decrement" => "decrement",
                         "op_UnaryNegation" => "negate",
@@ -2325,7 +2461,7 @@ public class ExpressionTransformer : IExpressionTransformer
                         return $"(!({leftExpr} == {rightExpr}) && ({leftExpr} == null || !{leftExpr}.equals({rightExpr})))";
                     }
 
-                    // 对于关系操作符，使用 CompareTo
+                    // 对于关系操作符，先检查是否实现了 IComparable
                     if (method.Name is "op_GreaterThan" or "op_GreaterThanOrEqual" or "op_LessThan" or "op_LessThanOrEqual")
                     {
                         // CompareTo 返回 int，需要比较
@@ -2337,10 +2473,23 @@ public class ExpressionTransformer : IExpressionTransformer
                             "op_LessThanOrEqual" => "<=",
                             _ => op
                         };
-                        // 需要处理 null 的情况
-                        if (IsNumericLiteral(leftExpr))
-                            return $"({rightExpr} != null && {rightExpr}.{methodName}({leftExpr}) {compareOp} 0)";
-                        return $"({leftExpr} != null && {leftExpr}.{methodName}({rightExpr}) {compareOp} 0)";
+                        // Only use instance compareTo() when the type actually implements IComparable/IComparable<T>.
+                        // For types that have comparison operators but are NOT IComparable, fall through to
+                        // the static-method call below (e.g. BorderInfo.lessThan(left, right)).
+                        bool implementsIComparable = method.ContainingType.AllInterfaces.Any(i =>
+                            i.Name is "IComparable" or "IComparable`1");
+                        if (implementsIComparable)
+                        {
+                            // 需要处理 null 的情况; if left is a literal swap sides and invert operator
+                            var invertedCompareOp = compareOp switch
+                            {
+                                ">" => "<", ">=" => "<=", "<" => ">", "<=" => ">=", _ => compareOp
+                            };
+                            if (IsNumericLiteral(leftExpr))
+                                return $"({rightExpr} != null && {rightExpr}.compareTo({leftExpr}) {invertedCompareOp} 0)";
+                            return $"({leftExpr} != null && {leftExpr}.compareTo({rightExpr}) {compareOp} 0)";
+                        }
+                        // else: fall through to static-method call below
                     }
 
                     // 默认：用户定义操作符重载在 C# 中是静态方法，Java 中也应该生成静态调用
@@ -3330,6 +3479,15 @@ public class ExpressionTransformer : IExpressionTransformer
             {
                 type = "Object";
             }
+        }
+
+        // C# delegate instantiation: new DelegateType(methodGroup) is not valid Java.
+        // In Java, a @FunctionalInterface value IS the method reference — no wrapper needed.
+        // Strip the "new DelegateType(...)" and return just the single argument directly.
+        if (typeInfo.HasValue && typeInfo.Value.Type?.TypeKind == TypeKind.Delegate
+            && node.ArgumentList?.Arguments.Count == 1)
+        {
+            return Transform(node.ArgumentList.Arguments[0].Expression, context);
         }
 
         var args = TransformArgumentList(node.ArgumentList, context);

@@ -812,6 +812,20 @@ public class ClassTransformer : ITypeTransformer
                         javaMethod.Body = "throw new UnsupportedOperationException(\"Native P/Invoke method not supported in Java\");";
                     AddMethodIfNotDuplicate(javaClass, javaMethod);
                 }
+                else if (method is JavaMemberCollection methodCollection)
+                {
+                    // Default-parameter overloads returned as a collection
+                    bool isExternMethod = methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.ExternKeyword));
+                    bool hasDllImport = methodDecl.AttributeLists
+                        .SelectMany(al => al.Attributes)
+                        .Any(a => a.Name.ToString().Contains("DllImport"));
+                    foreach (var m in methodCollection.Members.OfType<JavaMethodDeclaration>())
+                    {
+                        if ((isExternMethod || hasDllImport) && m.Body == null)
+                            m.Body = "throw new UnsupportedOperationException(\"Native P/Invoke method not supported in Java\");";
+                        AddMethodIfNotDuplicate(javaClass, m);
+                    }
+                }
                 break;
 
             case OperatorDeclarationSyntax opDecl:
