@@ -110,6 +110,13 @@ public class ConversionContext
     public HashSet<string> ImportedTypes { get; } = new();
 
     /// <summary>
+    /// Names of local variables whose initializer is a Java Stream expression.
+    /// Populated by TransformLocalDeclaration when a stream-typed initializer is detected.
+    /// Used by TransformForEachStatement to detect for-each over stream-typed variables.
+    /// </summary>
+    public HashSet<string> StreamLocalVariables { get; } = new();
+
+    /// <summary>
     /// 类型符号到 Java 类型的缓存
     /// </summary>
     public Dictionary<ITypeSymbol, string> TypeCache { get; } = new();

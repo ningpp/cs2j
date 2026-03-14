@@ -615,6 +615,23 @@ public class ExpressionTransformer : IExpressionTransformer
             if (target == "GC" && methodName is "SuppressFinalize" or "Collect" or "KeepAlive")
                 return $"/* GC.{methodName} */";
 
+            // Special case: System.Environment.GetEnvironmentVariable(name) → System.getenv(name)
+            // Special case: System.Environment.Exit(code) → System.exit(code)
+            if (target is "Environment" || originalTargetName is "Environment")
+            {
+                if (methodName is "GetEnvironmentVariable" or "getEnvironmentVariable"
+                    && node.ArgumentList.Arguments.Count >= 1)
+                {
+                    var envName = Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    return $"System.getenv({envName})";
+                }
+                if (methodName is "Exit" or "exit" && node.ArgumentList.Arguments.Count == 1)
+                {
+                    var exitCode = Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    return $"System.exit({exitCode})";
+                }
+            }
+
             // Special case: random.Next([min,] max) → nextInt / min + nextInt(max - min)
             // Java's Random.next(int bits) is protected; the public API is nextInt(bound).
             if (methodName is "Next" or "next")
@@ -1963,6 +1980,17 @@ public class ExpressionTransformer : IExpressionTransformer
     {
         var target = Transform(node.Expression, context);
 
+        // Special case: string[i] → string.charAt(i) in Java.
+        // C# string's Chars indexer returns char at index; Java uses .charAt() method.
+        {
+            var strType = context.SemanticModel?.GetTypeInfo(node.Expression).Type;
+            if (strType?.SpecialType == SpecialType.System_String && node.ArgumentList?.Arguments.Count == 1)
+            {
+                var idx = Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{target}.charAt({idx})";
+            }
+        }
+
         // 检查是否是用户定义的索引器（使用语义模型）
         var symbolInfo = context.SemanticModel?.GetSymbolInfo(node);
         if (symbolInfo.HasValue && symbolInfo.Value.Symbol != null)
@@ -2026,6 +2054,23 @@ public class ExpressionTransformer : IExpressionTransformer
         if ((node.Right is LiteralExpressionSyntax rightLit && rightLit.Token.Text == "null") ||
             (node.Left is LiteralExpressionSyntax leftLit && leftLit.Token.Text == "null"))
         {
+            // Check if the non-null operand is a non-nullable value type (int, long, bool, etc.).
+            // These can never be null in Java, so the comparison is trivially true (!=) or false (==).
+            if (context.SemanticModel != null)
+            {
+                ExpressionSyntax? nonNullSide = null;
+                if (node.Right is LiteralExpressionSyntax rn0 && rn0.Token.Text == "null") nonNullSide = node.Left;
+                else if (node.Left is LiteralExpressionSyntax ln0 && ln0.Token.Text == "null") nonNullSide = node.Right;
+                if (nonNullSide != null)
+                {
+                    var primitiveType = context.SemanticModel.GetTypeInfo(nonNullSide).Type;
+                    bool isNonNullablePrimitive = primitiveType?.IsValueType == true
+                        && primitiveType is not INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T };
+                    if (isNonNullablePrimitive)
+                        return op == "!=" ? "true" : "false";
+                }
+            }
+
             // Detect event != null / event == null → isEmpty() check on listener list
             ExpressionSyntax? eventExpr = null;
             if (node.Right is LiteralExpressionSyntax rn && rn.Token.Text == "null") eventExpr = node.Left;
@@ -2248,12 +2293,44 @@ public class ExpressionTransformer : IExpressionTransformer
                 break;
 
             default:
-                // Fallback: strip leading ?. and hope for the best
-                accessExpr = $"{objExpr}./* TODO:? */{node.WhenNotNull}";
+                // General case: ?.a.b(...) — recursively substitute the member binding with objExpr
+                accessExpr = TransformWhenNotNull(node.WhenNotNull, objExpr, context);
                 break;
         }
 
         return $"({objExpr} != null ? {accessExpr} : null)";
+    }
+
+    /// <summary>
+    /// Recursively transforms the WhenNotNull part of a conditional access expression,
+    /// replacing leading MemberBindingExpressionSyntax nodes with objExpr references.
+    /// Handles chains like ?.a.b.Method(args).
+    /// </summary>
+    internal string TransformWhenNotNull(ExpressionSyntax expr, string objExpr, ConversionContext context)
+    {
+        switch (expr)
+        {
+            case MemberBindingExpressionSyntax binding:
+                return $"{objExpr}.{ConversionContext.EscapeJavaKeyword(binding.Name.Identifier.Text)}";
+
+            case InvocationExpressionSyntax invocation:
+                var invokedTarget = TransformWhenNotNull(invocation.Expression, objExpr, context);
+                var invArgs = string.Join(", ", invocation.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)));
+                return $"{invokedTarget}({invArgs})";
+
+            case MemberAccessExpressionSyntax memberAccess:
+                var accessTarget = TransformWhenNotNull(memberAccess.Expression, objExpr, context);
+                return $"{accessTarget}.{ConversionContext.EscapeJavaKeyword(memberAccess.Name.Identifier.Text)}";
+
+            case ElementAccessExpressionSyntax elementAccess:
+                var elTarget = TransformWhenNotNull(elementAccess.Expression, objExpr, context);
+                var elIdx = string.Join(", ", elementAccess.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)));
+                return $"{elTarget}.get({elIdx})";
+
+            default:
+                // Unknown structure; fall back to transformed C# text (best effort)
+                return Transform(expr, context);
+        }
     }
 
     private static string GetJavaWrapperType(string csharpPrimitive)
@@ -2998,6 +3075,22 @@ public class ExpressionTransformer : IExpressionTransformer
         }
 
         var args = TransformArgumentList(node.ArgumentList, context);
+
+        // Special case: new BufferedWriter(filename_string) → new BufferedWriter(new FileWriter(filename))
+        // Java's BufferedWriter takes a java.io.Writer, not a String. C# StreamWriter(string) writes to file.
+        if (type == "BufferedWriter" && node.ArgumentList?.Arguments.Count == 1)
+        {
+            var singleArgExprBW = node.ArgumentList.Arguments[0].Expression;
+            var singleArgTypeBW = context.SemanticModel?.GetTypeInfo(singleArgExprBW).Type;
+            bool isStringArgBW = singleArgTypeBW?.SpecialType == SpecialType.System_String
+                || singleArgTypeBW == null;
+            if (isStringArgBW)
+            {
+                var singleArgStrBW = Transform(singleArgExprBW, context);
+                context.AddImport("java.io.FileWriter");
+                return $"new BufferedWriter(new FileWriter({singleArgStrBW}))";
+            }
+        }
 
         // Special case: new BufferedReader(filename_string) → new BufferedReader(new FileReader(filename))
         // Java's BufferedReader takes a java.io.Reader, not a String. C# StreamReader takes a String path.

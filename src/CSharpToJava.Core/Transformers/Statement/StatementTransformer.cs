@@ -107,7 +107,8 @@ public class StatementTransformer : IStatementTransformer
                     innerCall = $"{objExpr}.{ConversionContext.EscapeJavaKeyword(invokeBinding.Name.Identifier.Text)}({args});";
                     break;
                 default:
-                    innerCall = $"{objExpr}./* TODO: conditionalAccess */{condAccess.WhenNotNull};";
+                    // General case: ?.a.b(...) — recursively substitute the member binding with objExpr
+                    innerCall = exprTransformer.TransformWhenNotNull(condAccess.WhenNotNull, objExpr, context) + ";";
                     break;
             }
             return new JavaStatementNode($"if ({objExpr} != null) {{ {innerCall} }}");
@@ -434,6 +435,12 @@ public class StatementTransformer : IStatementTransformer
             if (isLinqResult)
                 isStream = true;
         }
+
+        // Fallback: if the foreach expression is a locally-declared variable that was registered
+        // as stream-typed in TransformLocalDeclaration, treat it as a stream here too.
+        // This handles cases where the SemanticModel is unavailable or the type is not in System.Linq.
+        if (!isStream && context.StreamLocalVariables.Contains(expression.Trim()))
+            isStream = true;
 
         if (isStream)
         {
@@ -817,6 +824,12 @@ public class StatementTransformer : IStatementTransformer
             javaType = "var";
         }
 
+        // When mapping C# IEnumerable<T>/ICollection<T> to Iterable<T> for a local variable,
+        // use 'var' so Java infers the concrete return type (e.g. List<T>) from the initializer.
+        // This prevents Collection<T> vs Iterable<T> compatibility issues (e.g. ArrayList.addAll).
+        if (javaType == "Iterable" || javaType.StartsWith("Iterable<"))
+            javaType = "var";
+
         // If the C# declaration used 'var' (implicit type) and had NO initializer, Java cannot infer the type.
         // We need to add a type + default initializer. Track whether the original C# type was implicit.
         bool wasImplicitVar = false;
@@ -964,6 +977,21 @@ public class StatementTransformer : IStatementTransformer
                 // Wrap with new ArrayList<>(...) to produce a concrete ArrayList type.
                 if (javaType.StartsWith("ArrayList<") && initExpr.Contains(".collect(Collectors.toList())"))
                     initExpr = $"new ArrayList<>({initExpr})";
+
+                // Track stream-typed local variables for subsequent for-each statements.
+                // When the initializer is a Java stream expression (not already collected), register
+                // the variable name so TransformForEachStatement can detect it.
+                {
+                    bool initLooksLikeStream = !initExpr.Contains(".collect(Collectors.toList())")
+                        && (initExpr.Contains(".sorted(") || initExpr.Contains(".filter(") ||
+                            initExpr.Contains(".map(") || initExpr.Contains(".flatMap(") ||
+                            initExpr.Contains("StreamSupport.stream(") || initExpr.Contains("Arrays.stream(") ||
+                            initExpr.Contains(".stream()") || initExpr.Contains("Stream.concat(") ||
+                            initExpr.Contains(".distinct(") || initExpr.Contains(".limit(") ||
+                            initExpr.Contains(".skip(") || initExpr.Contains(".peek("));
+                    if (initLooksLikeStream)
+                        context.StreamLocalVariables.Add(v.Identifier.Text);
+                }
                 init = $" = {initExpr}";
                 // Java cannot auto-box int to Double/Float (only int→Integer is supported).
                 // When a boxed Double/Float local is initialized with an int literal, widen it.

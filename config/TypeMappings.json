@@ -641,6 +641,14 @@
       "imports": ["java.util.concurrent.TimeoutException"]
     },
     {
+      "csharp": "System.ComponentModel.Win32Exception",
+      "java": "Exception"
+    },
+    {
+      "csharp": "Win32Exception",
+      "java": "Exception"
+    },
+    {
       "csharp": "System.IO.Stream",
       "java": "InputStream",
       "imports": ["java.io.InputStream"]

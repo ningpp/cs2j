@@ -143,6 +143,7 @@ public class ClassTransformer : ITypeTransformer
         AddIteratorBridgeMethods(javaClass);
         AddIterableSizeBridgeMethods(javaClass);
         AddCloneableBridgeMethods(javaClass);
+        AddComparableBridgeMethods(javaClass);
         AddListInterfaceBridgeMethods(javaClass);
         AddIRectangleBridgeMethods(javaClass);
         context.LeaveType();
@@ -229,6 +230,7 @@ public class ClassTransformer : ITypeTransformer
         AddIteratorBridgeMethods(javaClass);
         AddIterableSizeBridgeMethods(javaClass);
         AddCloneableBridgeMethods(javaClass);
+        AddComparableBridgeMethods(javaClass);
         AddListInterfaceBridgeMethods(javaClass);
         AddIRectangleBridgeMethods(javaClass);
         context.LeaveType();
@@ -544,6 +546,47 @@ public class ClassTransformer : ITypeTransformer
     }
 
     /// <summary>
+    /// When any method body calls .compareTo() but the class has no compareTo() method and has
+    /// static lessThan/greaterThan operator stub methods (from C# operator overloads), synthesize
+    /// a compareTo() that delegates to lessThan and adds Comparable&lt;T&gt; to the implements list.
+    /// This handles classes where the C# IComparable&lt;T&gt; implementation was not picked up.
+    /// </summary>
+    private static void AddComparableBridgeMethods(JavaClassDeclaration javaClass)
+    {
+        bool hasCompareTo = javaClass.Methods.Any(m => m.Name == "compareTo" && m.Parameters.Count == 1);
+        if (hasCompareTo) return;
+
+        bool bodyCallsCompareTo = javaClass.Methods.Any(m =>
+            m.Body != null && m.Body.Contains(".compareTo("));
+        if (!bodyCallsCompareTo) return;
+
+        // Require a static lessThan(ClassName, ClassName) operator method as the basis
+        var lessThanMethod = javaClass.Methods.FirstOrDefault(m =>
+            m.Name == "lessThan"
+            && m.Parameters.Count == 2
+            && (m.Modifiers & JavaModifiers.Static) != 0
+            && m.Parameters[0].Type == javaClass.Name);
+        if (lessThanMethod == null) return;
+
+        string className = javaClass.Name;
+        string elemType = lessThanMethod.Parameters[0].Type;
+
+        // Add Comparable<ClassName> to implements if not already present
+        if (!javaClass.ImplementedTypes.Any(t => t == "Comparable" || t.StartsWith("Comparable<")))
+            javaClass.ImplementedTypes.Add($"Comparable<{className}>");
+
+        var compareTo = new JavaMethodDeclaration
+        {
+            Modifiers = JavaModifiers.Public,
+            ReturnType = "int",
+            Name = "compareTo",
+            Body = $"if ({className}.lessThan(this, other)) return -1;\n        if ({className}.lessThan(other, this)) return 1;\n        return 0;"
+        };
+        compareTo.Parameters.Add(new JavaParameter(elemType, "other"));
+        javaClass.Methods.Add(compareTo);
+    }
+
+    /// <summary>
     /// When a C# class implements ICollection&lt;T&gt; but is mapped to Iterable&lt;T&gt; (to avoid
     /// implementing all abstract Collection methods), the generated class has getCount() but not size().
     /// Java code that calls Count on an instance will be translated to size()
@@ -759,6 +802,14 @@ public class ClassTransformer : ITypeTransformer
                 var method = methodTransformer.Transform(methodDecl, context);
                 if (method is JavaMethodDeclaration javaMethod)
                 {
+                    // extern/DllImport methods have no body in C# (P/Invoke stubs).
+                    // Java doesn't support P/Invoke; emit a stub that throws UnsupportedOperationException.
+                    bool isExternMethod = methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.ExternKeyword));
+                    bool hasDllImport = methodDecl.AttributeLists
+                        .SelectMany(al => al.Attributes)
+                        .Any(a => a.Name.ToString().Contains("DllImport"));
+                    if ((isExternMethod || hasDllImport) && javaMethod.Body == null)
+                        javaMethod.Body = "throw new UnsupportedOperationException(\"Native P/Invoke method not supported in Java\");";
                     AddMethodIfNotDuplicate(javaClass, javaMethod);
                 }
                 break;
