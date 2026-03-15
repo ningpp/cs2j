@@ -24,6 +24,21 @@ public class InvocationExpressionTransformer : IExpressionTransformer
     private static readonly Lazy<InvocationExpressionTransformer> _instance = new(() => new());
     public static InvocationExpressionTransformer Instance => _instance.Value;
 
+    // Maps C# type alias identifiers (without System. namespace) → Java primitive keyword.
+    // Used in the syntactic fallback to handle Int32.Parse(), Int64.Parse(), etc.
+    private static readonly Dictionary<string, string> _csharpAliasToJavaPrimitive = new()
+    {
+        ["Int32"]   = "int",
+        ["Int64"]   = "long",
+        ["Int16"]   = "short",
+        ["Byte"]    = "byte",
+        ["SByte"]   = "byte",
+        ["Single"]  = "float",
+        ["Double"]  = "double",
+        ["Boolean"] = "boolean",
+        ["Char"]    = "char",
+    };
+
     public string Transform(ExpressionSyntax node, ConversionContext context)
         => node.Kind() switch
         {
@@ -121,12 +136,36 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 isExtensionInStaticPath = false;
         }
 
+        // Fix: First()/Last() on arrays → indexed access (arrays are not streams).
+        // String.split() returns String[] in Java; arrays do not have stream terminal ops
+        // like findFirst()/reduce(). Use indexed access instead.
+        if (originalMethodName is "First" or "FirstOrDefault" or "Last" or "LastOrDefault"
+            && context.SemanticModel != null)
+        {
+            var receiverType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type;
+            if (receiverType is IArrayTypeSymbol)
+            {
+                return originalMethodName is "First" or "FirstOrDefault"
+                    ? $"{receiver}[0]"
+                    : $"{receiver}[{receiver}.length - 1]";
+            }
+        }
+
         // Issue 1: apply method-name mapping from the type-mapping registry.
         string methodName = originalMethodName;
         if (methodSymbol != null)
         {
+            // ToDisplayString() uses C# keyword aliases for primitive types:
+            // e.g. System.Int32 → "int", System.Int64 → "long".
+            // TypeMappings.json uses the fully-qualified "System.Int32" form,
+            // so the lookup with the keyword alias would miss. Try the FQN as a fallback.
             var receiverTypeName = methodSymbol.ContainingType.ToDisplayString();
             var mapped = context.TypeMappings.MapMethod(receiverTypeName, originalMethodName);
+            if (mapped == null)
+            {
+                var fqn = $"{methodSymbol.ContainingType.ContainingNamespace}.{methodSymbol.ContainingType.Name}";
+                mapped = context.TypeMappings.MapMethod(fqn, originalMethodName);
+            }
             if (mapped != null)
                 methodName = mapped;
         }
@@ -146,6 +185,9 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             {
                 var containingTypeName = methodSymbol.ContainingType.ToDisplayString();
                 receiver = context.TypeMappings.MapType(containingTypeName);
+                // Box any primitive type so static methods are called on the wrapper class.
+                // e.g. System.Int32 maps to "int", but Int32.Parse → Integer.parseInt not int.parseInt.
+                receiver = ExpressionTransformerHelpers.BoxJavaPrimitiveType(receiver);
             }
         }
         else if (methodSymbol == null)
@@ -161,6 +203,19 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 var mappedReceiverType = context.TypeMappings.MapType(syntacticReceiver);
                 if (mappedReceiverType != syntacticReceiver)
                     receiver = mappedReceiverType;
+            }
+
+            // Handle C# type alias identifiers (Int32, Int64, etc.) that appear without a namespace.
+            // TypeMappings uses "System.Int32" keys, so the syntactic lookup above misses these.
+            if (methodName == originalMethodName
+                && _csharpAliasToJavaPrimitive.TryGetValue(syntacticReceiver, out var primitiveForAlias))
+            {
+                var aliasMethod = MapPrimitiveStaticMethodName(primitiveForAlias, originalMethodName);
+                if (aliasMethod != originalMethodName)
+                {
+                    methodName = aliasMethod;
+                    receiver = ExpressionTransformerHelpers.BoxJavaPrimitiveType(primitiveForAlias);
+                }
             }
         }
 
@@ -186,9 +241,58 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         // Issue 5: when promoting to static-call form, start at index 1 to skip the receiver
         // that was already prepended; use 0 for standard instance calls.
         int argStartIndex = isExtensionInStaticPath ? 1 : 0;
+
+        // Fix: String.Split(' ') → Java split(" ") — Java's split() takes a String regex, not char.
+        // Convert any char literal arguments to their regex-string equivalents.
+        if (originalMethodName == "Split" && node.ArgumentList.Arguments.Count > argStartIndex)
+        {
+            var splitArgs = TransformSplitArguments(node.ArgumentList, context, facade, argStartIndex);
+            return $"{receiver}.{methodName}({splitArgs})";
+        }
+
         var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, argStartIndex);
 
         return $"{receiver}.{methodName}({args})";
+    }
+
+    /// <summary>
+    /// Transforms the argument list for String.Split(), converting char literal arguments
+    /// to string literals suitable for Java's split() regex parameter.
+    /// e.g. ' ' → " ", '.' → "\\."
+    /// </summary>
+    private static string TransformSplitArguments(
+        ArgumentListSyntax argumentList,
+        ConversionContext context,
+        ExpressionTransformerFacade facade,
+        int argStartIndex)
+    {
+        var parts = new List<string>();
+        var arguments = argumentList.Arguments;
+        for (int i = argStartIndex; i < arguments.Count; i++)
+        {
+            var arg = arguments[i];
+            if (arg.Expression is LiteralExpressionSyntax charLit
+                && charLit.IsKind(SyntaxKind.CharacterLiteralExpression))
+            {
+                parts.Add($"\"{EscapeRegexChar(charLit.Token.ValueText)}\"");
+            }
+            else
+            {
+                parts.Add(facade.Transform(arg.Expression, context));
+            }
+        }
+        return string.Join(", ", parts);
+    }
+
+    /// <summary>
+    /// Escapes a single character for use as a literal pattern in Java's String.split() regex.
+    /// Regex metacharacters are prefixed with a backslash so they match literally.
+    /// </summary>
+    private static string EscapeRegexChar(string ch)
+    {
+        if (ch.Length == 1 && @"\.^$*+?{}[]|()".Contains(ch[0]))
+            return @"\" + ch;
+        return ch;
     }
 
     /// <summary>

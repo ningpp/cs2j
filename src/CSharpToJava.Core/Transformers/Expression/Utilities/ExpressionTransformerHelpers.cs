@@ -104,6 +104,27 @@ public static class ExpressionTransformerHelpers
     }
 
     /// <summary>
+    /// Boxes a Java primitive type name to its wrapper class name.
+    /// e.g. int → Integer, long → Long, boolean → Boolean.
+    /// Returns the input unchanged if it is not a known Java primitive.
+    /// </summary>
+    public static string BoxJavaPrimitiveType(string javaType)
+    {
+        return javaType switch
+        {
+            "int"     => "Integer",
+            "long"    => "Long",
+            "double"  => "Double",
+            "float"   => "Float",
+            "short"   => "Short",
+            "byte"    => "Byte",
+            "char"    => "Character",
+            "boolean" => "Boolean",
+            _ => javaType
+        };
+    }
+
+    /// <summary>
     /// Checks if the type name is a Java wrapper type.
     /// Note: 'Byte' maps to C# sbyte (signed); C# byte (unsigned) is mapped to 'Short'.
     /// </summary>
