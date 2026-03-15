@@ -90,7 +90,11 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         ConversionContext context,
         ExpressionTransformerFacade facade)
     {
-        var receiver = facade.Transform(memberAccess.Expression, context);
+        // Fix: Generic type static method call — C# DemoSet<T>.Method() → Java DemoSet.Method().
+        // Java forbids type arguments on the class name at a static call site; strip them.
+        var receiver = memberAccess.Expression is GenericNameSyntax genericReceiverName
+            ? ConversionContext.EscapeJavaKeyword(genericReceiverName.Identifier.Text)
+            : facade.Transform(memberAccess.Expression, context);
         var originalMethodName = memberAccess.Name.Identifier.Text;
 
         // Fix: Primitive type static method call — C# double.IsInfinity(x) → Java Double.isInfinite(x).
