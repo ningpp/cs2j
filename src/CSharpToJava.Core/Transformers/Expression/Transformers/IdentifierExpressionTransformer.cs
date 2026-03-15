@@ -176,10 +176,14 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
             {
                 // If the mapped value is a fully-qualified Java field (contains a dot, e.g.
                 // "java.util.Locale.ROOT") emit it directly without a receiver prefix or ().
+                // For array.length: Java arrays expose length as a public final field, not a
+                // method — emit without parentheses.
                 // Otherwise it is a method name (e.g. "size") — emit as target.method().
-                return mappedMethod.Contains('.')
-                    ? mappedMethod
-                    : $"{target}.{mappedMethod}()";
+                if (mappedMethod.Contains('.'))
+                    return mappedMethod;
+                if (prop.ContainingType.SpecialType == SpecialType.System_Array)
+                    return $"{target}.{mappedMethod}";
+                return $"{target}.{mappedMethod}()";
             }
 
             // Fix 2: no mapping configured — generate getXxx() for read accesses

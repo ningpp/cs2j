@@ -217,10 +217,18 @@ public class ObjectCreationTransformer : IExpressionTransformer
     {
         var facade = ExpressionTransformerFacade.Instance;
 
-        // Fix: Always use SYNTAX element type to get the innermost type (e.g. double for double[][]).
-        // Using the semantic model's ElementType for double[][] gives double[] (nested), which
-        // would produce double[][n][] instead of the correct double[n][].
-        string elementType = context.MapTypeFromSyntax(node.Type.ElementType);
+        // Resolve element type via the semantic model when available — this handles generic
+        // type mappings through the FQN registry (e.g. List<int[]> → ArrayList<int[]>).
+        // We call GetTypeInfo on node.Type.ElementType (the element-type syntax node), NOT on
+        // the whole array-creation expression, so for double[][] the element type stays "double"
+        // (not "double[]") and rank specifiers carry the remaining dimensions correctly.
+        // Fall back to the syntax-based path when the semantic model is unavailable.
+        string elementType;
+        var elemSemType = context.SemanticModel?.GetTypeInfo(node.Type.ElementType).Type;
+        if (elemSemType != null)
+            elementType = context.MapType(elemSemType);
+        else
+            elementType = context.MapTypeFromSyntax(node.Type.ElementType);
 
         // Get dimensions
         var sizes = new List<string>();
@@ -247,9 +255,16 @@ public class ObjectCreationTransformer : IExpressionTransformer
             }
         }
 
-        // Build array creation string
+        // Build array creation string.
+        // Java forbids generic array creation (e.g. new ArrayList<T>[n] is illegal due to type
+        // erasure). Use the raw type (strip type arguments) in the new-expression only.
+        string rawElementType = elementType;
+        int genericArgStart = elementType.IndexOf('<');
+        if (genericArgStart > 0)
+            rawElementType = elementType.Substring(0, genericArgStart);
+
         var result = new StringBuilder("new ");
-        result.Append(elementType);
+        result.Append(rawElementType);
 
         // Add brackets for each dimension.
         // When an initializer is present, Java forbids explicit sizes (e.g. new double[4]{...}
