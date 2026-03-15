@@ -575,8 +575,8 @@ public class StatementTransformer : IStatementTransformer
         // Replace pair.getFieldName() with the actual variable name
         foreach (var (fieldName, varName) in fieldToVar)
         {
-            // The getter would be emitted as pair.getFieldName() (camelCase first letter)
-            var getterName = "get" + fieldName;
+            // The getter follows JavaBean convention: capitalize first letter (e.g., sourceV -> getSourceV)
+            var getterName = "get" + ToPascalCase(fieldName);
             body = body.Replace($"{forEachIdent}.{getterName}()", varName);
         }
 
@@ -1092,6 +1092,16 @@ public class StatementTransformer : IStatementTransformer
         s = s.Trim();
         if (s.StartsWith("-") || s.StartsWith("+")) s = s.Substring(1).Trim();
         return s.Length > 0 && s.All(char.IsDigit);
+    }
+
+    /// <summary>
+    /// Converts a string to PascalCase by capitalizing the first letter.
+    /// Used for generating JavaBean-compliant getter method names.
+    /// </summary>
+    private static string ToPascalCase(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return name;
+        return char.ToUpper(name[0]) + name.Substring(1);
     }
 }
 
