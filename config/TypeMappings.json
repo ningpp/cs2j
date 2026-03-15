@@ -1165,37 +1165,65 @@
                          },
                          {
                              "csharp":  "System.Func`1",
-                             "java":  "Supplier",
+                             "java":  "Function0",
                              "imports":  [
-                                             "java.util.function.Supplier"
+                                             "io.vavr.Function0"
                                          ]
                          },
                          {
                              "csharp":  "System.Func`2",
-                             "java":  "Function",
+                             "java":  "Function1",
                              "imports":  [
-                                             "java.util.function.Function"
+                                             "io.vavr.Function1"
                                          ]
                          },
                          {
                              "csharp":  "System.Func`3",
-                             "java":  "BiFunction",
+                             "java":  "Function2",
                              "imports":  [
-                                             "java.util.function.BiFunction"
+                                             "io.vavr.Function2"
                                          ]
                          },
                          {
                              "csharp":  "System.Func`4",
                              "java":  "Function3",
                              "imports":  [
-                                             "org.eclipse.collections.api.block.function.Function3"
+                                             "io.vavr.Function3"
                                          ]
                          },
                          {
                              "csharp":  "System.Func`5",
                              "java":  "Function4",
                              "imports":  [
-                                             "org.eclipse.collections.api.block.function.Function4"
+                                             "io.vavr.Function4"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Func`6",
+                             "java":  "Function5",
+                             "imports":  [
+                                             "io.vavr.Function5"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Func`7",
+                             "java":  "Function6",
+                             "imports":  [
+                                             "io.vavr.Function6"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Func`8",
+                             "java":  "Function7",
+                             "imports":  [
+                                             "io.vavr.Function7"
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Func`9",
+                             "java":  "Function8",
+                             "imports":  [
+                                             "io.vavr.Function8"
                                          ]
                          },
                          {
@@ -1669,6 +1697,51 @@
                          }
                      ],
     "methodMappings":  [
+                           {
+                               "type":  "System.Func`1",
+                               "method":  "Invoke",
+                               "javaMethod":  "apply"
+                           },
+                           {
+                               "type":  "System.Func`2",
+                               "method":  "Invoke",
+                               "javaMethod":  "apply"
+                           },
+                           {
+                               "type":  "System.Func`3",
+                               "method":  "Invoke",
+                               "javaMethod":  "apply"
+                           },
+                           {
+                               "type":  "System.Func`4",
+                               "method":  "Invoke",
+                               "javaMethod":  "apply"
+                           },
+                           {
+                               "type":  "System.Func`5",
+                               "method":  "Invoke",
+                               "javaMethod":  "apply"
+                           },
+                           {
+                               "type":  "System.Func`6",
+                               "method":  "Invoke",
+                               "javaMethod":  "apply"
+                           },
+                           {
+                               "type":  "System.Func`7",
+                               "method":  "Invoke",
+                               "javaMethod":  "apply"
+                           },
+                           {
+                               "type":  "System.Func`8",
+                               "method":  "Invoke",
+                               "javaMethod":  "apply"
+                           },
+                           {
+                               "type":  "System.Func`9",
+                               "method":  "Invoke",
+                               "javaMethod":  "apply"
+                           },
                            {
                                "type":  "System.Collections.Generic.IEnumerator`1",
                                "method":  "MoveNext",
