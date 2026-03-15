@@ -104,6 +104,9 @@ public class ConversionPipeline
                     // are in a separate assembly on .NET Core. Without this, Roslyn resolves bare 'Queue'
                     // to the generic System.Collections.Generic.Queue<T> producing incorrect type mappings.
                     MetadataReference.CreateFromFile(typeof(System.Collections.Queue).Assembly.Location),
+                    // System.Console is in its own assembly on .NET Core; without this Roslyn cannot
+                    // resolve Console/System.Console and method-name mapping (WriteLine → out.println) fails.
+                    MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
                 }
             );
             context.SemanticModel = compilation.GetSemanticModel(syntaxTree);

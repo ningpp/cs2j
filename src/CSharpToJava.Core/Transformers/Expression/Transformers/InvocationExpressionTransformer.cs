@@ -131,6 +131,39 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 methodName = mapped;
         }
 
+        // Fix: Static type receiver remapping — e.g. System.Console → System.
+        // When the receiver expression resolves to a named type symbol (static call site),
+        // replace the syntactically-derived receiver string with the TypeMappings Java name
+        // so that System.Console.WriteLine(x) → System.out.println(x).
+        // Guard: skip when the receiver is a GenericNameSyntax — it was already correctly
+        // stripped of its type arguments by the fix above (e.g. DemoSet<string> → DemoSet),
+        // and MapType on the containing type would re-introduce them (DemoSet<T>).
+        if (methodSymbol != null && context.SemanticModel != null
+            && memberAccess.Expression is not GenericNameSyntax)
+        {
+            var receiverExprSymbol = context.SemanticModel.GetSymbolInfo(memberAccess.Expression).Symbol;
+            if (receiverExprSymbol is INamedTypeSymbol)
+            {
+                var containingTypeName = methodSymbol.ContainingType.ToDisplayString();
+                receiver = context.TypeMappings.MapType(containingTypeName);
+            }
+        }
+        else if (methodSymbol == null)
+        {
+            // Syntactic fallback: when the semantic model could not resolve the method (e.g. missing
+            // assembly reference), try mapping using the raw syntactic receiver string.  This handles
+            // System.Console.WriteLine → System.out.println even without a full Roslyn compilation.
+            var syntacticReceiver = memberAccess.Expression.ToString();
+            var syntacticMapped = context.TypeMappings.MapMethod(syntacticReceiver, originalMethodName);
+            if (syntacticMapped != null)
+            {
+                methodName = syntacticMapped;
+                var mappedReceiverType = context.TypeMappings.MapType(syntacticReceiver);
+                if (mappedReceiverType != syntacticReceiver)
+                    receiver = mappedReceiverType;
+            }
+        }
+
         // Apply the same camelCase conversion at call sites that MethodTransformer applies at
         // declaration sites.  Only runs when no explicit TypeMappings override was found so that
         // hand-crafted renames (e.g. Add → add) are never double-processed.
