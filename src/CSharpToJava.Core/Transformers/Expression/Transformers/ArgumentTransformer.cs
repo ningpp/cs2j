@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Transformers.Type;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -122,18 +123,23 @@ public class ArgumentTransformer
             if (arg.Expression is IdentifierNameSyntax { Identifier.Text: "_" })
                 return "new Object[1]";
 
-            // out var result — holder-object pattern: declare Type[] _resultHolder = new Type[1]; before the call
+            // out var result — holder-object pattern: declare HolderType _resultHolder = new HolderType(); before the call
+            // and read back the value after: javaType result = _resultHolder.value;
             if (arg.Expression is DeclarationExpressionSyntax outDecl &&
                 outDecl.Designation is SingleVariableDesignationSyntax svd)
             {
                 var varName = svd.Identifier.Text;
                 var holderName = $"_{varName}Holder";
                 var javaType = ResolveOutVarType(outDecl, context);
-                context.AddPreStatement($"{javaType}[] {holderName} = new {javaType}[1]");
+                var holderType = DelegateTransformer.GetHolderType(javaType);
+                var holderInit = GetHolderInstantiation(holderType);
+                context.AddPreStatement($"{holderType} {holderName} = {holderInit}");
+                context.AddPostStatement($"{javaType} {varName} = {holderName}.value");
                 return holderName;
             }
 
-            // out existingVar — wrap in a typed holder array
+            // out existingVar — use Holder class matching the variable's type
+            // and read back the updated value into the existing variable after the call
             if (arg.Expression is IdentifierNameSyntax ident)
             {
                 var varName = ident.Identifier.Text;
@@ -145,7 +151,10 @@ public class ArgumentTransformer
                     if (typeInfo.Type != null)
                         javaType = context.MapType(typeInfo.Type);
                 }
-                context.AddPreStatement($"{javaType}[] {holderName} = new {javaType}[1]");
+                var holderType = DelegateTransformer.GetHolderType(javaType);
+                var holderInit = GetHolderInstantiation(holderType);
+                context.AddPreStatement($"{holderType} {holderName} = {holderInit}");
+                context.AddPostStatement($"{varName} = {holderName}.value");
                 return holderName;
             }
 
@@ -162,6 +171,17 @@ public class ArgumentTransformer
         }
 
         return transformer.Transform(arg.Expression, context);
+    }
+
+    /// <summary>
+    /// Returns the Java constructor call for a holder type.
+    /// Generic ObjectHolder&lt;T&gt; uses diamond type inference; primitive holders use default constructor.
+    /// </summary>
+    private static string GetHolderInstantiation(string holderType)
+    {
+        if (holderType.StartsWith("ObjectHolder<"))
+            return "new ObjectHolder<>()";
+        return $"new {holderType}()";
     }
 
     /// <summary>

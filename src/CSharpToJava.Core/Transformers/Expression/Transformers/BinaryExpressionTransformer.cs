@@ -156,17 +156,23 @@ public class BinaryExpressionTransformer : IExpressionTransformer
         var right = facade.Transform(node.Right, context);
 
         // For user-defined operators, we need to call the static method
-        // Format: TypeName.method(left, right) or method(left, right) if in same class
-        var containingType = context.MapType(operatorSymbol.ContainingType);
-        var currentType = context.CurrentType?.Name;
+        // Format: TypeName.method(left, right) or method(left, right) if in same class.
+        // Only omit the class qualifier when the call site is inside the operator's own class.
+        // Being in the same namespace/package is NOT sufficient — Java requires the class name.
+        var currentTypeName = context.CurrentType?.Name;  // e.g. "DemoSet"
+        var operatorTypeName = operatorSymbol.ContainingType.Name; // e.g. "DemoSet" (no generics)
 
-        // If we're in the same class, call directly; otherwise use fully qualified name
-        if (containingType == currentType || IsInSameCompilationUnit(context, operatorSymbol.ContainingType))
+        if (currentTypeName != null && operatorTypeName == currentTypeName)
         {
             return $"{javaMethodName}({left}, {right})";
         }
         else
         {
+            var containingType = context.MapType(operatorSymbol.ContainingType);
+            // Strip type parameters from the class name used as a static call qualifier
+            // e.g. "DemoSet<T>" → "DemoSet"; Java doesn't allow type args on static calls.
+            var angleIdx = containingType.IndexOf('<');
+            if (angleIdx > 0) containingType = containingType[..angleIdx];
             return $"{containingType}.{javaMethodName}({left}, {right})";
         }
     }

@@ -168,6 +168,7 @@ public class StatementTransformer : IStatementTransformer
 
         // Drain any pre-statements emitted by the expression transformer
         // (e.g., chain property assignment: list.Add(obj.Prop = local = expr) splits into pre-stmts)
+        // Also drain post-statements (e.g., out-param holder reads back into variables after the call)
         if (context.HasPendingPreStatements)
         {
             var preStmts = context.DrainPreStatements();
@@ -177,9 +178,20 @@ public class StatementTransformer : IStatementTransformer
             // not valid Java. Valid Java statements must be method calls, assignments, etc.
             bool isNonStatement = expr.All(c => char.IsLetterOrDigit(c) || c == '_')
                 || expr.EndsWith(".value");  // out-param XHolder field access (e.g. anchors.value)
-            if (isNonStatement)
-                return new JavaStatementNode(preStmtLines);
-            return new JavaStatementNode(preStmtLines + "\n" + expr + ";");
+            string stmtBlock = isNonStatement ? preStmtLines : preStmtLines + "\n" + expr + ";";
+            if (context.HasPendingPostStatements)
+            {
+                var postStmts = context.DrainPostStatements();
+                stmtBlock += "\n" + string.Join("\n", postStmts.Select(s => s + ";"));
+            }
+            return new JavaStatementNode(stmtBlock);
+        }
+
+        if (context.HasPendingPostStatements)
+        {
+            var postStmts = context.DrainPostStatements();
+            var postStmtLines = string.Join("\n", postStmts.Select(s => s + ";"));
+            return new JavaStatementNode(expr + ";\n" + postStmtLines);
         }
 
         return new JavaStatementNode(expr + ";");

@@ -2686,6 +2686,16 @@
                                "type":  "System.IO.TextWriter",
                                "method":  "Write",
                                "javaMethod":  "print"
+                           },
+                           {
+                               "type":  "System.Array",
+                               "method":  "Length",
+                               "javaMethod":  "length"
+                           },
+                           {
+                               "type":  "System.Array",
+                               "method":  "get_Length",
+                               "javaMethod":  "length"
                            }
                        ],
     "namespaceMappings":  [

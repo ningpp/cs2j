@@ -213,6 +213,26 @@ public class ConversionContext
 
     public bool HasPendingPreStatements => _pendingPreStatements.Count > 0;
 
+    /// <summary>
+    /// Post-statements to emit after the current statement being transformed.
+    /// Used to read back out-parameter holder values into the original variables after a call.
+    /// </summary>
+    private readonly List<string> _pendingPostStatements = new();
+
+    public void AddPostStatement(string statement)
+    {
+        _pendingPostStatements.Add(statement);
+    }
+
+    public IReadOnlyList<string> DrainPostStatements()
+    {
+        var result = _pendingPostStatements.ToList();
+        _pendingPostStatements.Clear();
+        return result;
+    }
+
+    public bool HasPendingPostStatements => _pendingPostStatements.Count > 0;
+
     public ConversionContext(ConversionOptions options, TypeMapping.TypeMappingRegistry typeMappings)
     {
         Options = options;

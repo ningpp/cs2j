@@ -111,6 +111,17 @@ public class AssignmentTransformer : IExpressionTransformer
             }
         }
 
+        // Detect assignment to an out/ref parameter inside a method body → paramName.value = rhs
+        if (op == "=" && leftNode is IdentifierNameSyntax outParamIdent)
+        {
+            if (context.SemanticModel?.GetSymbolInfo(leftNode).Symbol is IParameterSymbol param
+                && (param.RefKind == RefKind.Out || param.RefKind == RefKind.Ref))
+            {
+                var right = facade.Transform(rightNode, context);
+                return $"{ConversionContext.EscapeJavaKeyword(param.Name)}.value = {right}";
+            }
+        }
+
         var left = facade.Transform(leftNode, context);
         var rightStr = facade.Transform(rightNode, context);
         return $"{left} {op} {rightStr}";
