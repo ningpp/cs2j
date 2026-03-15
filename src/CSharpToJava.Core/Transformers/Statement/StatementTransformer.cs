@@ -162,7 +162,13 @@ public class StatementTransformer : IStatementTransformer
     {
         if (stmt.Expression == null)
         {
-            return new JavaStatementNode("throw;");
+            // Java does not support bare 'throw;' — rethrow the enclosing catch variable
+            var catchVar = stmt.Ancestors()
+                .OfType<CatchClauseSyntax>()
+                .FirstOrDefault();
+            var rethrowName = catchVar?.Declaration?.Identifier.ValueText;
+            if (string.IsNullOrWhiteSpace(rethrowName)) rethrowName = "_ex";
+            return new JavaStatementNode($"throw {ConversionContext.EscapeJavaKeyword(rethrowName.Trim())};");
         }
         var exprTransformer = ExpressionTransformerFacade.Instance;
         var expr = exprTransformer.Transform(stmt.Expression, context);
@@ -734,9 +740,16 @@ public class StatementTransformer : IStatementTransformer
         // catch 块
         foreach (var catchClause in stmt.Catches)
         {
-            var typeInfo = context.SemanticModel?.GetTypeInfo(catchClause.Declaration.Type);
-            var javaType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Exception";
-            var varName = catchClause.Declaration.Identifier.Text;
+            string javaType = "Exception";
+            string varName = "_ex";
+            if (catchClause.Declaration != null)
+            {
+                var typeInfo = context.SemanticModel?.GetTypeInfo(catchClause.Declaration.Type);
+                javaType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Exception";
+                var rawVarName = catchClause.Declaration.Identifier.ValueText;
+                if (!string.IsNullOrWhiteSpace(rawVarName))
+                    varName = ConversionContext.EscapeJavaKeyword(rawVarName);
+            }
 
             sb.Append($" catch ({javaType} {varName}) ");
 

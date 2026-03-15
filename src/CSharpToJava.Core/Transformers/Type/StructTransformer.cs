@@ -19,11 +19,13 @@ public class StructTransformer : ITypeTransformer
             throw new ArgumentException($"Expected StructDeclarationSyntax, got {node.GetType()}");
         }
 
-        // C# struct 转换为 Java 的 final 类
+        // C# struct 转换为 Java 类
+        // Note: NOT forcing Final — many C# structs are used as value types, but
+        // making them final blocks inheritance needed for some patterns in generated code.
         var javaClass = new JavaClassDeclaration
         {
             Name = structDecl.Identifier.Text,
-            Modifiers = ConvertModifiers(structDecl.Modifiers) | JavaModifiers.Final  // struct 是不可变的，使用 final
+            Modifiers = ConvertModifiers(structDecl.Modifiers)
         };
 
         // 处理类型参数

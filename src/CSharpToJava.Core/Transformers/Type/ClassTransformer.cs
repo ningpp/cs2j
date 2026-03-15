@@ -181,28 +181,33 @@ public class ClassTransformer : ITypeTransformer
         {
             foreach (var baseType in classDecl.BaseList.Types)
             {
-                if (baseType.Type is SimpleNameSyntax simpleName)
-                {
-                    var typeName = simpleName.Identifier.Text;
-                    if (typeName == "Object" || typeName == "ValueType") continue;
+                // Skip C# built-in base types that have no Java equivalent
+                if (baseType.Type is SimpleNameSyntax sn &&
+                    sn.Identifier.Text is "Object" or "ValueType")
+                    continue;
 
-                    // 检查是否是基类（第一个通常是基类，后面是接口）
-                    var typeInfo = context.SemanticModel?.GetTypeInfo(baseType.Type);
-                    if (typeInfo.HasValue && typeInfo.Value.Type?.TypeKind == TypeKind.Class)
-                    {
-                        javaClass.ExtendedType = context.MapType(typeInfo.Value.Type);
-                    }
-                    else if (typeInfo.HasValue && typeInfo.Value.Type?.TypeKind == TypeKind.Interface)
-                    {
-                        var ifaceType = typeInfo.Value.Type;
-                        var mappedIface = context.MapType(ifaceType);
-                        // ICollection<T> as an implemented interface → use Iterable to avoid requiring all abstract Collection methods
-                        if (ifaceType is INamedTypeSymbol namedIface &&
-                            namedIface.Name == "ICollection" &&
-                            namedIface.ContainingNamespace?.ToString()?.StartsWith("System") == true)
-                            mappedIface = mappedIface.Replace("Collection", "Iterable");
-                        javaClass.ImplementedTypes.Add(mappedIface);
-                    }
+                // Use semantic model for all base type kinds (Simple, Generic, Qualified, etc.)
+                var typeInfo = context.SemanticModel?.GetTypeInfo(baseType.Type);
+                if (!typeInfo.HasValue || typeInfo.Value.Type == null) continue;
+
+                var resolvedType = typeInfo.Value.Type;
+                // Skip MarshalByRefObject - it doesn't exist in Java
+                if (resolvedType.Name == "MarshalByRefObject" ||
+                    resolvedType.ToDisplayString() == "System.MarshalByRefObject") continue;
+
+                if (resolvedType.TypeKind == TypeKind.Class)
+                {
+                    javaClass.ExtendedType = context.MapType(resolvedType);
+                }
+                else if (resolvedType.TypeKind == TypeKind.Interface)
+                {
+                    var mappedIface = context.MapType(resolvedType);
+                    // ICollection<T> as an implemented interface → use Iterable to avoid requiring all abstract Collection methods
+                    if (resolvedType is INamedTypeSymbol namedIface &&
+                        namedIface.Name == "ICollection" &&
+                        namedIface.ContainingNamespace?.ToString()?.StartsWith("System") == true)
+                        mappedIface = mappedIface.Replace("Collection", "Iterable");
+                    javaClass.ImplementedTypes.Add(mappedIface);
                 }
             }
         }

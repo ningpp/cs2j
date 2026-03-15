@@ -80,11 +80,18 @@ public class LiteralExpressionTransformer : IExpressionTransformer
         if (node.Token.IsKind(SyntaxKind.StringLiteralToken))
         {
             var text = node.Token.Text;
-            if (text.StartsWith("@"))
+            if (text.StartsWith("@") || text.StartsWith("$@") || text.StartsWith("@$"))
             {
-                // Remove @ and unescape quotes
-                var content = text.Substring(2, text.Length - 3);
-                return "\"" + content.Replace("\"", "\"\"") + "\"";
+                // Use the semantic value (already decoded from C# verbatim encoding)
+                // and re-encode for Java string literals
+                var value = node.Token.ValueText;
+                var javaContent = value
+                    .Replace("\\", "\\\\")   // \ → \\
+                    .Replace("\"", "\\\"")   // " → \"
+                    .Replace("\r\n", "\\n")  // CRLF → \n
+                    .Replace("\n", "\\n")    // LF → \n
+                    .Replace("\r", "\\n");   // CR → \n
+                return "\"" + javaContent + "\"";
             }
 
             // Regular string

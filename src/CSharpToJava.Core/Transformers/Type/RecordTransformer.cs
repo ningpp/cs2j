@@ -196,18 +196,31 @@ public class RecordTransformer : ITypeTransformer
 
     private void GenerateObjectMethods(JavaClassDeclaration javaClass)
     {
+        var fieldNames = javaClass.Fields.Select(f => f.Name).ToList();
+        var className = javaClass.Name;
+
         // equals
+        string equalsBody;
+        if (fieldNames.Count == 0)
+        {
+            equalsBody = $"if (this == o) return true;\nreturn o instanceof {className};";
+        }
+        else
+        {
+            var comparisons = string.Join(" &&\n           ", fieldNames.Select(f =>
+                $"java.util.Objects.equals(this.{f}, other.{f})"));
+            equalsBody = $"if (this == o) return true;\n" +
+                         $"if (!(o instanceof {className})) return false;\n" +
+                         $"{className} other = ({className}) o;\n" +
+                         $"return {comparisons};";
+        }
         javaClass.Methods.Add(new JavaMethodDeclaration
         {
             Name = "equals",
             ReturnType = "boolean",
             Modifiers = JavaModifiers.Public | JavaModifiers.Override,
             Parameters = { new JavaParameter("Object", "o") },
-            Body = @"
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        // TODO: Implement equals logic
-        return false;"
+            Body = equalsBody
         });
 
         // hashCode
@@ -216,19 +229,19 @@ public class RecordTransformer : ITypeTransformer
             Name = "hashCode",
             ReturnType = "int",
             Modifiers = JavaModifiers.Public | JavaModifiers.Override,
-            Body = @"
-        // TODO: Implement hashCode logic
-        return Objects.hash();",
-            IsBodyExpression = false
+            Body = $"return java.util.Objects.hash({string.Join(", ", fieldNames)});"
         });
 
         // toString
+        var toStringBody = fieldNames.Count == 0
+            ? $"return \"{className}{{}}\"; "
+            : $"return \"{className}{{\" + {string.Join(" + \", \" + ", fieldNames.Select(f => $"\"{f}=\" + {f}"))} + \"}}\"; ";
         javaClass.Methods.Add(new JavaMethodDeclaration
         {
             Name = "toString",
             ReturnType = "String",
             Modifiers = JavaModifiers.Public | JavaModifiers.Override,
-            Body = @$"return ""{javaClass.Name}{{"" + ""; TODO: Implement toString logic }};"
+            Body = toStringBody
         });
     }
 

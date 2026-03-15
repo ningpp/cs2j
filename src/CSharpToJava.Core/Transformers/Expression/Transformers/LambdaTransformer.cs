@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Transformers.Statement;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
@@ -35,13 +36,57 @@ public class LambdaTransformer : IExpressionTransformer
 
     private string TransformLambda(LambdaExpressionSyntax node, ConversionContext context)
     {
-        // TODO: Implement lambda transformation
-        return $"/* TODO: lambda */ {node}";
+        var facade = ExpressionTransformerFacade.Instance;
+
+        // Collect parameters
+        IEnumerable<ParameterSyntax> parameters = node switch
+        {
+            SimpleLambdaExpressionSyntax simple => [simple.Parameter],
+            ParenthesizedLambdaExpressionSyntax paren => paren.ParameterList.Parameters,
+            _ => []
+        };
+
+        var javaParams = parameters
+            .Select(p => ConversionContext.EscapeJavaKeyword(p.Identifier.Text))
+            .ToList();
+
+        var paramStr = javaParams.Count == 1 ? javaParams[0] : $"({string.Join(", ", javaParams)})";
+
+        // Generate body
+        if (node.Block != null)
+        {
+            var stmtTransformer = new StatementTransformer();
+            var body = stmtTransformer.TransformBlock(node.Block, context);
+            return $"{paramStr} -> {{\n{body}\n}}";
+        }
+        else if (node.ExpressionBody != null)
+        {
+            var body = facade.Transform(node.ExpressionBody, context);
+            return $"{paramStr} -> {body}";
+        }
+
+        return $"{paramStr} -> null";
     }
 
     private string TransformAnonymousMethod(AnonymousMethodExpressionSyntax node, ConversionContext context)
     {
-        // TODO: Implement anonymous method transformation
-        return $"/* TODO: anonymous method */ {node}";
+        var stmtTransformer = new StatementTransformer();
+
+        string paramStr;
+        if (node.ParameterList != null && node.ParameterList.Parameters.Count > 0)
+        {
+            var javaParams = node.ParameterList.Parameters
+                .Select(p => ConversionContext.EscapeJavaKeyword(p.Identifier.Text))
+                .ToList();
+            paramStr = $"({string.Join(", ", javaParams)})";
+        }
+        else
+        {
+            paramStr = "()";
+        }
+
+        var body = stmtTransformer.TransformBlock(node.Block, context);
+        return $"{paramStr} -> {{\n{body}\n}}";
     }
 }
+

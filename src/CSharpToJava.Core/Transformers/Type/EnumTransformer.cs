@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using System.Globalization;
 
 namespace CSharpToJava.Core.Transformers.Type;
 
@@ -45,13 +46,37 @@ public class EnumTransformer : ITypeTransformer
             {
                 if (member is EnumMemberDeclarationSyntax enumMember)
                 {
+                    string fieldValue;
                     if (enumMember.EqualsValue != null)
                     {
-                        // Parse simple integer constant
-                        if (int.TryParse(enumMember.EqualsValue.Value.ToString(), out int parsedVal))
-                            nextValue = parsedVal;
+                        var valueStr = enumMember.EqualsValue.Value.ToString().Trim();
+                        // Preserve the original expression for the Java constant initializer
+                        // (hex literals like 0x01 are valid Java; binary 0b... needs conversion)
+                        if (valueStr.StartsWith("0b", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Binary literal: convert to decimal for Java compatibility
+                            try
+                            {
+                                nextValue = Convert.ToInt32(valueStr.Substring(2), 2);
+                                fieldValue = nextValue.ToString();
+                            }
+                            catch { fieldValue = valueStr; }
+                        }
+                        else
+                        {
+                            // Keep hex/decimal as-is for Java (both are valid)
+                            fieldValue = valueStr;
+                            // Update nextValue for auto-increment tracking
+                            if (valueStr.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+                                int.TryParse(valueStr.Substring(2), NumberStyles.HexNumber, null, out nextValue);
+                            else
+                                int.TryParse(valueStr, out nextValue);
+                        }
                     }
-                    var fieldValue = nextValue.ToString();
+                    else
+                    {
+                        fieldValue = nextValue.ToString();
+                    }
                     flagsClass.Fields.Add(new JavaFieldDeclaration
                     {
                         Type = "int",

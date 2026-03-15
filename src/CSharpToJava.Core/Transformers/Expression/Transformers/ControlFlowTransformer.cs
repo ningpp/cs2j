@@ -55,31 +55,92 @@ public class ControlFlowTransformer : IExpressionTransformer
 
     private string TransformConditional(ConditionalExpressionSyntax node, ConversionContext context)
     {
-        // TODO: Implement conditional transformation
-        return $"/* TODO: conditional */ {node}";
+        var facade = ExpressionTransformerFacade.Instance;
+        var condition = facade.Transform(node.Condition, context);
+        var trueExpr = facade.Transform(node.WhenTrue, context);
+        var falseExpr = facade.Transform(node.WhenFalse, context);
+        return $"({condition} ? {trueExpr} : {falseExpr})";
     }
 
     private string TransformConditionalAccess(ConditionalAccessExpressionSyntax node, ConversionContext context)
     {
-        // TODO: Implement conditional access transformation
-        return $"/* TODO: conditional access */ {node}";
+        var facade = ExpressionTransformerFacade.Instance;
+        var objExpr = facade.Transform(node.Expression, context);
+        var whenNotNull = facade.TransformWhenNotNull(node.WhenNotNull, objExpr, context);
+        return $"({objExpr} != null ? {whenNotNull} : null)";
     }
 
     private string TransformAwait(AwaitExpressionSyntax node, ConversionContext context)
     {
-        // TODO: Implement await transformation
-        return $"/* TODO: await */ {node}";
+        var facade = ExpressionTransformerFacade.Instance;
+        var expr = facade.Transform(node.Expression, context);
+        // Map C# await → CompletableFuture.join()
+        return $"{expr}.join()";
     }
 
     private string TransformThrowExpression(ThrowExpressionSyntax node, ConversionContext context)
     {
-        // TODO: Implement throw expression transformation
-        return $"/* TODO: throw expression */ {node}";
+        var facade = ExpressionTransformerFacade.Instance;
+        var expr = facade.Transform(node.Expression, context);
+        // Java has no throw expressions; wrap in a Supplier lambda (works for unchecked exceptions)
+        return $"((java.util.function.Supplier<Object>) () -> {{ throw {expr}; }}).get()";
     }
 
     private string TransformSwitchExpression(SwitchExpressionSyntax node, ConversionContext context)
     {
-        // TODO: Implement switch expression transformation
-        return $"/* TODO: switch expression */ {node}";
+        var facade = ExpressionTransformerFacade.Instance;
+        var governingExpr = facade.Transform(node.GoverningExpression, context);
+
+        // Build a ternary chain from last arm to first
+        string result = "null";
+        foreach (var arm in node.Arms.Reverse())
+        {
+            var armValue = facade.Transform(arm.Expression, context);
+            if (arm.Pattern is DiscardPatternSyntax && arm.WhenClause == null)
+            {
+                result = armValue;
+            }
+            else
+            {
+                var condition = BuildSwitchArmCondition(governingExpr, arm.Pattern, context);
+                if (arm.WhenClause != null)
+                    condition = $"({condition}) && ({facade.Transform(arm.WhenClause.Condition, context)})";
+                result = $"({condition} ? {armValue} : {result})";
+            }
+        }
+        return result;
+    }
+
+    private string BuildSwitchArmCondition(string expr, PatternSyntax pattern, ConversionContext context)
+    {
+        var facade = ExpressionTransformerFacade.Instance;
+        return pattern switch
+        {
+            ConstantPatternSyntax cp when cp.Expression.IsKind(SyntaxKind.NullLiteralExpression)
+                => $"({expr} == null)",
+            ConstantPatternSyntax cp
+                => $"java.util.Objects.equals({expr}, {facade.Transform(cp.Expression, context)})",
+            DeclarationPatternSyntax dp
+                => BuildDeclarationPatternCondition(expr, dp, context),
+            TypePatternSyntax tp
+                => $"({expr} instanceof {context.MapTypeFromSyntax(tp.Type)})",
+            DiscardPatternSyntax
+                => "true",
+            UnaryPatternSyntax np when np.OperatorToken.IsKind(SyntaxKind.NotKeyword)
+                => $"!({BuildSwitchArmCondition(expr, np.Pattern, context)})",
+            _ => $"/* TODO: pattern {pattern.GetType().Name} */ true"
+        };
+    }
+
+    private string BuildDeclarationPatternCondition(string expr, DeclarationPatternSyntax dp, ConversionContext context)
+    {
+        var mappedType = context.MapTypeFromSyntax(dp.Type);
+        var designation = dp.Designation switch
+        {
+            SingleVariableDesignationSyntax sv => ConversionContext.EscapeJavaKeyword(sv.Identifier.Text),
+            DiscardDesignationSyntax => "_",
+            _ => "_unused"
+        };
+        return $"({expr} instanceof {mappedType} {designation})";
     }
 }

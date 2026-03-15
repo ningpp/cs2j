@@ -163,41 +163,48 @@ public class ObjectCreationTransformer : IExpressionTransformer
 
     private string TransformAnonymousObjectCreation(AnonymousObjectCreationExpressionSyntax node, ConversionContext context)
     {
-        // C# anonymous objects have no direct Java equivalent
-        // Convert to a Map or emit a placeholder
-        context.Diagnostics.Warning("Anonymous object creation has no direct Java equivalent - using Map", node.GetLocation());
-        context.AddImport("java.util.HashMap");
+        // C# anonymous objects map to Map<String, Object> in Java
         context.AddImport("java.util.Map");
-
         var facade = ExpressionTransformerFacade.Instance;
-        var initializers = new List<string>();
 
+        var pairs = new List<(string key, string value)>();
         foreach (var member in node.Initializers)
         {
-            if (member.Expression is MemberAccessExpressionSyntax memberAccess)
+            string key, value;
+            if (member.NameEquals != null)
             {
-                var key = ConversionContext.EscapeJavaKeyword(memberAccess.Name.Identifier.Text);
-                var value = facade.Transform(memberAccess.Expression, context);
-                initializers.Add($"map.put(\"{key}\", {value});");
+                key = ConversionContext.EscapeJavaKeyword(member.NameEquals.Name.Identifier.Text);
+                value = facade.Transform(member.Expression, context);
             }
-            else if (member.NameEquals != null)
+            else if (member.Expression is MemberAccessExpressionSyntax memberAccess)
             {
-                var key = ConversionContext.EscapeJavaKeyword(member.NameEquals.Name.Identifier.Text);
-                var value = facade.Transform(member.Expression, context);
-                initializers.Add($"map.put(\"{key}\", {value});");
+                key = ConversionContext.EscapeJavaKeyword(memberAccess.Name.Identifier.Text);
+                value = facade.Transform(member.Expression, context);
             }
+            else
+            {
+                key = $"_field{pairs.Count}";
+                value = facade.Transform(member.Expression, context);
+            }
+            pairs.Add((key, value));
         }
 
-        var sb = new StringBuilder();
-        sb.Append("(() {\n");
-        sb.Append("  Map<String, Object> map = new HashMap<>();\n");
-        foreach (var init in initializers)
+        // Map.of() supports up to 10 entries; use it for small objects
+        if (pairs.Count <= 10)
         {
-            sb.Append("  ").Append(init).Append("\n");
+            var entries = string.Join(", ", pairs.Select(p => $"\"{p.key}\", {p.value}"));
+            return pairs.Count == 0 ? "Map.of()" : $"Map.of({entries})";
         }
-        sb.Append("  return map;\n");
-        sb.Append("})()");
 
+        // For larger objects use a Supplier lambda to stay as expression
+        context.AddImport("java.util.HashMap");
+        var sb = new StringBuilder();
+        sb.Append("((java.util.function.Supplier<Map<String, Object>>) () -> {\n");
+        sb.Append("    Map<String, Object> _map = new HashMap<>();\n");
+        foreach (var (k, v) in pairs)
+            sb.Append($"    _map.put(\"{k}\", {v});\n");
+        sb.Append("    return _map;\n");
+        sb.Append("}).get()");
         return sb.ToString();
     }
 
