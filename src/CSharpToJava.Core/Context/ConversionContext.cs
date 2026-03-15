@@ -281,6 +281,8 @@ public class ConversionContext
         _methodStack.Push(method);
         // Clear stream variable tracking to avoid cross-method contamination
         StreamLocalVariables.Clear();
+        // Clear LINQ let-alias mappings to avoid cross-method contamination
+        QueryLetAliases.Clear();
     }
 
     /// <summary>

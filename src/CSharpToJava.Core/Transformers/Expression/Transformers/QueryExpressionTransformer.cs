@@ -175,6 +175,9 @@ public class QueryExpressionTransformer : IExpressionTransformer
             }
         }
 
+        // Clear let-alias mappings so they don't leak into subsequent code
+        context.QueryLetAliases.Clear();
+
         return sb.ToString();
     }
 }
