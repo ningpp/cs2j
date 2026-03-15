@@ -121,10 +121,16 @@ public class OperatorTransformer
                 javaMethod.TypeParameters.Insert(0, toAdd[i]);
         }
 
-        // Verify return type consistency between semantic-model path and syntax-string path (Issue 5)
-        System.Diagnostics.Debug.Assert(
-            javaMethod.ReturnType == context.MapTypeFromSyntax(opDecl.ReturnType),
-            $"Operator return type mismatch: {opDecl}");
+        // Verify return type consistency between semantic-model path and syntax-string path.
+        // Emit a non-fatal diagnostic instead of crashing the process via Debug.Assert.
+        var syntaxReturnType = context.MapTypeFromSyntax(opDecl.ReturnType);
+        if (javaMethod.ReturnType != syntaxReturnType)
+        {
+            context.Diagnostics.Warning(
+                $"Operator return type resolved differently via semantic model ('{javaMethod.ReturnType}') " +
+                $"and syntax fallback ('{syntaxReturnType}'); using semantic model result.",
+                opDecl.GetLocation());
+        }
 
         return javaMethod;
     }

@@ -127,6 +127,23 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 methodName = mapped;
         }
 
+        // Apply the same camelCase conversion at call sites that MethodTransformer applies at
+        // declaration sites.  Only runs when no explicit TypeMappings override was found so that
+        // hand-crafted renames (e.g. Add → add) are never double-processed.
+        if (methodName == originalMethodName)
+        {
+            methodName = methodName switch
+            {
+                "GetHashCode"   => "hashCode",
+                "GetEnumerator" => "iterator",
+                "GetType"       => "getClass",
+                "Dispose"       => "close",
+                _ when methodName.Length > 0
+                    => char.ToLowerInvariant(methodName[0]) + methodName[1..],
+                _ => methodName
+            };
+        }
+
         methodName = ConversionContext.EscapeJavaKeyword(methodName);
 
         // Issue 5: when promoting to static-call form, start at index 1 to skip the receiver

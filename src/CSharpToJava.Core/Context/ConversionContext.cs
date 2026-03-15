@@ -627,6 +627,30 @@ public class ConversionContext
     {
         if (string.IsNullOrWhiteSpace(typeName)) return "Object";
 
+        // C# keyword types → Java equivalents (must happen before TypeMappings lookup,
+        // which only knows fully-qualified names like System.Boolean, not the keywords).
+        var keywordMapped = typeName switch
+        {
+            "bool"    => "boolean",
+            "int"     => "int",
+            "long"    => "long",
+            "short"   => "short",
+            "byte"    => "byte",
+            "sbyte"   => "byte",
+            "uint"    => "int",
+            "ulong"   => "long",
+            "ushort"  => "short",
+            "float"   => "float",
+            "double"  => "double",
+            "decimal" => "double",
+            "char"    => "char",
+            "void"    => "void",
+            "object"  => "Object",
+            "string"  => "String",
+            _         => (string?)null
+        };
+        if (keywordMapped != null) return keywordMapped;
+
         // Nullable T? → strip the ?
         if (typeName.EndsWith("?") && typeName.Length > 1)
             return MapTypeFromSyntaxString(typeName.Substring(0, typeName.Length - 1));

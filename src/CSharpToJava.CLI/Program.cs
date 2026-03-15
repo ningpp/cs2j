@@ -391,6 +391,12 @@ class Program
                     <source>${{java.version}}</source>
                     <target>${{java.version}}</target>
                     <encoding>UTF-8</encoding>
+                    <maxerrs>1000000</maxerrs>
+                    <maxwarns>0</maxwarns>
+                    <compilerArgs>
+                        <arg>-Xmaxerrs</arg>
+                        <arg>1000000</arg>
+                    </compilerArgs>
                 </configuration>
             </plugin>
         </plugins>

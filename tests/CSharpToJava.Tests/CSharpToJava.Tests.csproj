@@ -23,4 +23,12 @@
     <ProjectReference Include="..\..\src\CSharpToJava.TypeMapping\CSharpToJava.TypeMapping.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Copy the default type-mapping config so tests can run from any working directory -->
+    <Content Include="..\..\config\TypeMappings.json">
+      <Link>config\TypeMappings.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>
