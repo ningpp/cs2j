@@ -125,6 +125,10 @@ public class StructTransformer : ITypeTransformer
     /// </summary>
     private static void AddCloneMethod(JavaClassDeclaration javaClass, bool isReadOnly)
     {
+        // Skip if the C# struct already defined a Clone() method (mapped to clone()).
+        if (javaClass.Methods.Any(m => m.Name == "clone"))
+            return;
+
         var instanceFields = javaClass.Fields
             .Where(f => (f.Modifiers & JavaModifiers.Static) == 0)
             .ToList();
