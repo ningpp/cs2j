@@ -1647,6 +1647,13 @@
                                          ]
                          },
                          {
+                             "csharp":  "System.Diagnostics.Trace",
+                             "java":  "System",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
                              "csharp":  "System.Diagnostics.Contracts.Contract",
                              "java":  "Object",
                              "imports":  [
@@ -2251,6 +2258,51 @@
                                "type":  "System.Console",
                                "method":  "Read",
                                "javaMethod":  "console.read"
+                           },
+                           {
+                               "type":  "System.Diagnostics.Debug",
+                               "method":  "WriteLine",
+                               "javaMethod":  "out.println"
+                           },
+                           {
+                               "type":  "System.Diagnostics.Debug",
+                               "method":  "Write",
+                               "javaMethod":  "out.print"
+                           },
+                           {
+                               "type":  "System.Diagnostics.Debug",
+                               "method":  "WriteLineIf",
+                               "javaMethod":  "out.println"
+                           },
+                           {
+                               "type":  "System.Diagnostics.Debug",
+                               "method":  "WriteIf",
+                               "javaMethod":  "out.print"
+                           },
+                           {
+                               "type":  "System.Diagnostics.Trace",
+                               "method":  "WriteLine",
+                               "javaMethod":  "out.println"
+                           },
+                           {
+                               "type":  "System.Diagnostics.Trace",
+                               "method":  "Write",
+                               "javaMethod":  "out.print"
+                           },
+                           {
+                               "type":  "System.Diagnostics.Trace",
+                               "method":  "TraceError",
+                               "javaMethod":  "out.println"
+                           },
+                           {
+                               "type":  "System.Diagnostics.Trace",
+                               "method":  "TraceWarning",
+                               "javaMethod":  "out.println"
+                           },
+                           {
+                               "type":  "System.Diagnostics.Trace",
+                               "method":  "TraceInformation",
+                               "javaMethod":  "out.println"
                            },
                            {
                                "type":  "System.Collections.Generic.HashSet`1",

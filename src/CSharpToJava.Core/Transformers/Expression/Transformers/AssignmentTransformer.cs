@@ -111,6 +111,17 @@ public class AssignmentTransformer : IExpressionTransformer
             }
         }
 
+        // Handle bare-identifier property assignment (e.g., Demo = value; → setDemo(value);)
+        if (op == "=" && leftNode is IdentifierNameSyntax propIdentifier)
+        {
+            if (context.SemanticModel?.GetSymbolInfo(leftNode).Symbol is IPropertySymbol bareIdentProp)
+            {
+                var right = facade.Transform(rightNode, context);
+                string setter = "set" + char.ToUpperInvariant(bareIdentProp.Name[0]) + bareIdentProp.Name[1..];
+                return $"{setter}({right})";
+            }
+        }
+
         // Detect assignment to an out/ref parameter inside a method body → paramName.value = rhs
         if (op == "=" && leftNode is IdentifierNameSyntax outParamIdent)
         {

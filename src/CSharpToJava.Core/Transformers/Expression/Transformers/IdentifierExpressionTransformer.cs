@@ -66,6 +66,21 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
             }
         }
 
+        // Check if the identifier resolves to a property — generate getter() for reads,
+        // or the camelCase backing-field name when it appears on the LHS of an assignment
+        // (AssignmentTransformer will wrap that into a setXxx() call).
+        if (context.SemanticModel?.GetSymbolInfo(node).Symbol is IPropertySymbol identProp)
+        {
+            bool isLhsOfAssignment = node.Parent is AssignmentExpressionSyntax asgn && asgn.Left == node;
+            if (!isLhsOfAssignment)
+            {
+                var getter = "get" + char.ToUpperInvariant(identProp.Name[0]) + identProp.Name[1..];
+                return $"{getter}()";
+            }
+            // LHS: return camelCase so AssignmentTransformer can build setXxx(rhs)
+            return char.ToLower(identProp.Name[0]) + identProp.Name[1..];
+        }
+
         return ConversionContext.EscapeJavaKeyword(name);
     }
 
