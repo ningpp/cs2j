@@ -326,6 +326,10 @@ public class ConversionContext
     public void ClearImports()
     {
         ImportedTypes.Clear();
+        // TypeCache maps ITypeSymbol → Java type name and is used to skip re-running MapTypeInternal.
+        // But the import side-effects inside MapTypeInternal (AddImportsForType calls) are NOT replayed
+        // on cache hits. Clearing the cache here ensures each type group re-triggers those import additions.
+        TypeCache.Clear();
     }
 
     /// <summary>
