@@ -170,7 +170,10 @@ public class StructTransformer : ITypeTransformer
     /// </summary>
     private static void AddHashCodeIfMissing(JavaClassDeclaration javaClass, ConversionContext context)
     {
-        bool hasEquals = javaClass.Methods.Any(m => m.Name == "equals");
+        // Trigger on either an instance equals() override or a static valueEquals() generated
+        // from C# operator==. Both indicate equality comparison semantics that require hashCode.
+        bool hasEquals = javaClass.Methods.Any(m => m.Name == "equals" ||
+            (m.Name == "valueEquals" && (m.Modifiers & JavaModifiers.Static) != 0));
         bool hasHashCode = javaClass.Methods.Any(m => m.Name == "hashCode");
 
         if (!hasEquals || hasHashCode)

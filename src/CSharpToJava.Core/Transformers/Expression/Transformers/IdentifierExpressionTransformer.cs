@@ -158,7 +158,14 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
             var typeName = prop.ContainingType.ToDisplayString();
             var mappedMethod = context.TypeMappings.MapMethod(typeName, prop.Name);
             if (mappedMethod != null)
-                return $"{target}.{mappedMethod}";
+            {
+                // If the mapped value is a fully-qualified Java field (contains a dot, e.g.
+                // "java.util.Locale.ROOT") emit it directly without a receiver prefix or ().
+                // Otherwise it is a method name (e.g. "size") — emit as target.method().
+                return mappedMethod.Contains('.')
+                    ? mappedMethod
+                    : $"{target}.{mappedMethod}()";
+            }
 
             // Fix 2: no mapping configured — generate getXxx() for read accesses
             bool isLhsOfAssignment = node.Parent is AssignmentExpressionSyntax assign && assign.Left == node;

@@ -251,11 +251,13 @@ public class ObjectCreationTransformer : IExpressionTransformer
         var result = new StringBuilder("new ");
         result.Append(elementType);
 
-        // Add brackets for each dimension
+        // Add brackets for each dimension.
+        // When an initializer is present, Java forbids explicit sizes (e.g. new double[4]{...}
+        // is invalid); emit empty brackets so the initializer provides the length.
         for (int i = 0; i < sizes.Count; i++)
         {
             result.Append("[");
-            if (!string.IsNullOrEmpty(sizes[i]))
+            if (node.Initializer == null && !string.IsNullOrEmpty(sizes[i]))
             {
                 result.Append(sizes[i]);
             }

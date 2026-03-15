@@ -2474,6 +2474,66 @@
                            },
                            {
                                "type":  "System.Collections.Generic.List`1",
+                               "method":  "Count",
+                               "javaMethod":  "size"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IList`1",
+                               "method":  "Count",
+                               "javaMethod":  "size"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.ICollection`1",
+                               "method":  "Count",
+                               "javaMethod":  "size"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.HashSet`1",
+                               "method":  "Count",
+                               "javaMethod":  "size"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.Dictionary`2",
+                               "method":  "Count",
+                               "javaMethod":  "size"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.LinkedList`1",
+                               "method":  "Count",
+                               "javaMethod":  "size"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.Stack`1",
+                               "method":  "Count",
+                               "javaMethod":  "size"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.SortedDictionary`2",
+                               "method":  "Count",
+                               "javaMethod":  "size"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.SortedList`2",
+                               "method":  "Count",
+                               "javaMethod":  "size"
+                           },
+                           {
+                               "type":  "System.Collections.IList",
+                               "method":  "Count",
+                               "javaMethod":  "size"
+                           },
+                           {
+                               "type":  "System.Collections.ICollection",
+                               "method":  "Count",
+                               "javaMethod":  "size"
+                           },
+                           {
+                               "type":  "System.Collections.ArrayList",
+                               "method":  "Count",
+                               "javaMethod":  "size"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.List`1",
                                "method":  "RemoveAt",
                                "javaMethod":  "remove"
                            },

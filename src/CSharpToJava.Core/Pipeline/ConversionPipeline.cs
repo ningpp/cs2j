@@ -47,6 +47,21 @@ public interface IConversionPhase
 /// </summary>
 public class ConversionPipeline
 {
+    /// <summary>
+    /// A synthetic syntax tree that contributes global using directives to every compilation,
+    /// mirroring the default C# project template implicit usings.
+    /// This ensures bare identifiers like 'Console' and 'List&lt;T&gt;' resolve to their
+    /// fully-qualified types so the semantic type-mapping path fires correctly
+    /// (e.g. Console.WriteLine → System.out.println, list.Count → list.size()).
+    /// </summary>
+    internal static readonly SyntaxTree GlobalUsingsTree = CSharpSyntaxTree.ParseText(
+        "global using System;\n" +
+        "global using System.Collections.Generic;\n" +
+        "global using System.Linq;\n" +
+        "global using System.Text;\n" +
+        "global using System.Threading.Tasks;\n",
+        path: "<global-usings>");
+
     private readonly List<IConversionPhase> _phases = new();
 
     public ConversionPipeline()
@@ -95,7 +110,7 @@ public class ConversionPipeline
 
             var compilation = CSharpCompilation.Create(
                 "TempAssembly",
-                new[] { syntaxTree },
+                new[] { syntaxTree, GlobalUsingsTree },
                 references: new[]
                 {
                     MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
@@ -107,7 +122,21 @@ public class ConversionPipeline
                     // System.Console is in its own assembly on .NET Core; without this Roslyn cannot
                     // resolve Console/System.Console and method-name mapping (WriteLine → out.println) fails.
                     MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
-                }
+                },
+                options: new CSharpCompilationOptions(
+                    OutputKind.DynamicallyLinkedLibrary,
+                    // Implicit global usings mirror the default C# project template.
+                    // This lets bare identifiers like 'Console' and 'List<T>' resolve
+                    // to their fully-qualified types so the semantic mapping path fires
+                    // (e.g. Console.WriteLine → System.out.println, list.Count → list.size()).
+                    usings: new[]
+                    {
+                        "System",
+                        "System.Collections.Generic",
+                        "System.Linq",
+                        "System.Text",
+                        "System.Threading.Tasks",
+                    })
             );
             context.SemanticModel = compilation.GetSemanticModel(syntaxTree);
 
@@ -120,11 +149,12 @@ public class ConversionPipeline
                     var rewrittenRoot = (CompilationUnitSyntax)rewriter.Visit(syntaxTree.GetRoot());
                     syntaxTree = syntaxTree.WithRootAndOptions(rewrittenRoot, syntaxTree.Options);
 
-                    // 重新创建编译和语义模型
+                    // 重新创建编译和语义模型；保留 Options（含隐式 usings）和全局 using 树
                     compilation = CSharpCompilation.Create(
                         "TempAssembly",
-                        new[] { syntaxTree },
-                        compilation.References
+                        new[] { syntaxTree, GlobalUsingsTree },
+                        compilation.References,
+                        compilation.Options
                     );
                     context.SemanticModel = compilation.GetSemanticModel(syntaxTree);
                 }

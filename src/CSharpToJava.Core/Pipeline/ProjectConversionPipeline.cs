@@ -119,12 +119,22 @@ public class ProjectConversionPipeline
             return null;
         }
 
-        // Create compilation with all syntax trees and references
+        // Create compilation with all syntax trees and references.
+        // Include the shared global-usings tree so bare names like Console / List<T> resolve.
         var compilation = CSharpCompilation.Create(
             "TempAssembly",
-            syntaxTrees,
+            syntaxTrees.Append(ConversionPipeline.GlobalUsingsTree),
             GetMetadataReferences(),
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                usings: new[]
+                {
+                    "System",
+                    "System.Collections.Generic",
+                    "System.Linq",
+                    "System.Text",
+                    "System.Threading.Tasks",
+                }));
 
         // Store in context for cross-file semantic analysis
         context.ProjectCompilation = compilation;
