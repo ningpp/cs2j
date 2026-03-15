@@ -38,6 +38,8 @@ public class StatementTransformer : IStatementTransformer
             SyntaxKind.UnsafeStatement => TransformUnsafeStatement(node as UnsafeStatementSyntax, context),
             SyntaxKind.EmptyStatement => new JavaStatementNode(""),
             SyntaxKind.LocalDeclarationStatement => TransformLocalDeclaration(node as LocalDeclarationStatementSyntax, context),
+            SyntaxKind.CheckedStatement => TransformCheckedStatement(node as CheckedStatementSyntax, context),
+            SyntaxKind.UncheckedStatement => TransformUncheckedStatement(node as CheckedStatementSyntax, context),
             _ => new JavaStatementNode($"/* TODO: {node.Kind()} - {node} */")
         };
     }
@@ -137,6 +139,31 @@ public class StatementTransformer : IStatementTransformer
             }
         }
 
+        // Fix 4: Tuple deconstruction — var (first, second) = GetPair();
+        // ExpressionStatement > AssignmentExpression where LHS is DeclarationExpression with ParenthesizedVariableDesignation
+        if (stmt.Expression is AssignmentExpressionSyntax tupleAssign
+            && tupleAssign.Left is DeclarationExpressionSyntax tupleDecl
+            && tupleDecl.Designation is ParenthesizedVariableDesignationSyntax parenDesig)
+        {
+            var rhsExpr = exprTransformer.Transform(tupleAssign.Right, context);
+            var tempVar = "_t";
+            var names = parenDesig.Variables
+                .OfType<SingleVariableDesignationSyntax>()
+                .Select(svd => svd.Identifier.Text)
+                .ToList();
+            var sbTuple = new System.Text.StringBuilder();
+            sbTuple.AppendLine($"var {tempVar} = {rhsExpr};");
+            for (int i = 0; i < names.Count; i++)
+            {
+                string getter = i == 0 ? "getFirst" : i == 1 ? "getSecond" : $"getItem{i + 1}";
+                if (i < names.Count - 1)
+                    sbTuple.AppendLine($"var {ConversionContext.EscapeJavaKeyword(names[i])} = {tempVar}.{getter}();");
+                else
+                    sbTuple.Append($"var {ConversionContext.EscapeJavaKeyword(names[i])} = {tempVar}.{getter}();");
+            }
+            return new JavaStatementNode(sbTuple.ToString());
+        }
+
         var expr = exprTransformer.Transform(stmt.Expression, context);
 
         // Drain any pre-statements emitted by the expression transformer
@@ -163,10 +190,14 @@ public class StatementTransformer : IStatementTransformer
         if (stmt.Expression == null)
         {
             // Java does not support bare 'throw;' — rethrow the enclosing catch variable
+            // Fix 2: Stop ancestor walk at lambda boundaries to avoid crossing exception scope
             var catchVar = stmt.Ancestors()
+                .TakeWhile(a => a is not AnonymousFunctionExpressionSyntax)
                 .OfType<CatchClauseSyntax>()
                 .FirstOrDefault();
-            var rethrowName = catchVar?.Declaration?.Identifier.ValueText;
+            if (catchVar == null)
+                return new JavaStatementNode("throw; /* TODO: rethrow outside catch - manual conversion required */");
+            var rethrowName = catchVar.Declaration?.Identifier.ValueText;
             if (string.IsNullOrWhiteSpace(rethrowName)) rethrowName = "_ex";
             return new JavaStatementNode($"throw {ConversionContext.EscapeJavaKeyword(rethrowName.Trim())};");
         }
@@ -270,6 +301,53 @@ public class StatementTransformer : IStatementTransformer
     private JavaSyntaxNode TransformIfStatement(IfStatementSyntax stmt, ConversionContext context)
     {
         var exprTransformer = ExpressionTransformerFacade.Instance;
+
+        // Fix 5: Handle TryGetValue(key, out var value) in if condition
+        // Java Map.get() returns null for missing keys; use containsKey + get + local declaration
+        if (stmt.Condition is InvocationExpressionSyntax tvIfInvoc
+            && tvIfInvoc.Expression is MemberAccessExpressionSyntax tvIfMa
+            && tvIfMa.Name.Identifier.Text == "TryGetValue"
+            && tvIfInvoc.ArgumentList.Arguments.Count == 2
+            && tvIfInvoc.ArgumentList.Arguments[1].Expression is DeclarationExpressionSyntax tvIfDeclExpr
+            && tvIfDeclExpr.Designation is SingleVariableDesignationSyntax tvIfSvd)
+        {
+            var tvTarget = exprTransformer.Transform(tvIfMa.Expression, context);
+            var tvKey = exprTransformer.Transform(tvIfInvoc.ArgumentList.Arguments[0].Expression, context);
+
+            var tyInfo = context.SemanticModel?.GetTypeInfo(tvIfDeclExpr.Type);
+            var outJavaType = tyInfo.HasValue && tyInfo.Value.Type != null ? context.MapType(tyInfo.Value.Type) : "Object";
+            var outVarName = ConversionContext.EscapeJavaKeyword(tvIfSvd.Identifier.Text);
+
+            var tvStmtTransformer = new StatementTransformer();
+
+            string thenBody;
+            if (stmt.Statement is BlockSyntax tvIfThenBlock)
+            {
+                var bodyStr = TransformBlock(tvIfThenBlock, context);
+                thenBody = $"{{\n        {outJavaType} {outVarName} = {tvTarget}.get({tvKey});\n        {bodyStr}\n    }}";
+            }
+            else
+            {
+                var bodyStr = tvStmtTransformer.Transform(stmt.Statement, context).ToString("");
+                thenBody = $"{{\n        {outJavaType} {outVarName} = {tvTarget}.get({tvKey});\n        {bodyStr}\n    }}";
+            }
+
+            var ifSb = new System.Text.StringBuilder();
+            ifSb.Append($"if ({tvTarget}.containsKey({tvKey})) {thenBody}");
+
+            if (stmt.Else != null)
+            {
+                string elseBody;
+                if (stmt.Else.Statement is BlockSyntax tvIfElseBlock)
+                    elseBody = $"{{\n        {TransformBlock(tvIfElseBlock, context)}\n    }}";
+                else
+                    elseBody = $"{{ {tvStmtTransformer.Transform(stmt.Else.Statement, context).ToString("")} }}";
+                ifSb.Append($" else {elseBody}");
+            }
+
+            return new JavaStatementNode(ifSb.ToString());
+        }
+
         var condition = exprTransformer.Transform(stmt.Condition, context);
 
         var stmtTransformer = new StatementTransformer();
@@ -722,6 +800,13 @@ public class StatementTransformer : IStatementTransformer
             sections.Add(sectionStr);
         }
 
+        // Fix 3: If no default arm exists, add one so the Java switch is exhaustive
+        bool hasDefaultSection = sections.Any(s => s.TrimStart().StartsWith("default:"));
+        if (!hasDefaultSection)
+        {
+            sections.Add($"default:\n            throw new IllegalStateException(\"Unexpected value: \" + {expression});");
+        }
+
         var bodyStr = string.Join("\n\n        ", sections);
 
         return new JavaStatementNode($"switch ({expression}) {{\n        {bodyStr}\n    }}");
@@ -819,7 +904,12 @@ public class StatementTransformer : IStatementTransformer
             ? $"{{\n        {TransformBlock(block, context)}\n    }}"
             : $"{{ {stmtTransformer.Transform(stmt.Statement, context).ToString("")} }}";
 
-        return new JavaStatementNode($"synchronized ({expression}) {body}");
+        // Fix 6: Warn when lock expression is not a simple identifier; non-identifier lock targets
+        // may evaluate to a different object on each synchronized block entry in Java
+        string lockWarning = stmt.Expression is not IdentifierNameSyntax
+            ? "// WARNING: lock expression is not a simple reference; verify lock identity\n"
+            : "";
+        return new JavaStatementNode($"{lockWarning}synchronized ({expression}) {body}");
     }
 
     private JavaSyntaxNode TransformFixedStatement(FixedStatementSyntax stmt, ConversionContext context)
@@ -838,6 +928,19 @@ public class StatementTransformer : IStatementTransformer
             stmt.GetLocation()
         );
         return new JavaStatementNode("/* TODO: Unsafe statement - manual conversion required */");
+    }
+
+    private JavaSyntaxNode TransformCheckedStatement(CheckedStatementSyntax stmt, ConversionContext context)
+    {
+        // Fix 1: Java has no checked arithmetic; emit the inner block with an explanatory comment
+        var body = TransformBlock(stmt.Block, context);
+        return new JavaStatementNode("// C# checked block: use Math.*Exact() methods for overflow detection.\n" + body);
+    }
+
+    private JavaSyntaxNode TransformUncheckedStatement(CheckedStatementSyntax stmt, ConversionContext context)
+    {
+        // Fix 1: Java arithmetic is always unchecked; simply emit the inner block
+        return new JavaStatementNode(TransformBlock(stmt.Block, context));
     }
 
     private JavaSyntaxNode TransformLocalDeclaration(LocalDeclarationStatementSyntax stmt, ConversionContext context)

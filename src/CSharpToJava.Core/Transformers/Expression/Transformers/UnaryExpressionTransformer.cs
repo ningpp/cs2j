@@ -10,6 +10,7 @@ namespace CSharpToJava.Core.Transformers.Expression;
 /// <summary>
 /// Handles unary expressions (prefix/postfix operators, address of, pointer indirection).
 /// </summary>
+[TransformerRegistration]
 public class UnaryExpressionTransformer : IExpressionTransformer
 {
     static UnaryExpressionTransformer()
@@ -25,7 +26,8 @@ public class UnaryExpressionTransformer : IExpressionTransformer
             SyntaxKind.PostIncrementExpression,
             SyntaxKind.PostDecrementExpression,
             SyntaxKind.PreIncrementExpression,
-            SyntaxKind.PreDecrementExpression
+            SyntaxKind.PreDecrementExpression,
+            SyntaxKind.SuppressNullableWarningExpression
         }, new UnaryExpressionTransformer());
     }
 
@@ -45,6 +47,7 @@ public class UnaryExpressionTransformer : IExpressionTransformer
             SyntaxKind.PostDecrementExpression => TransformPostfix((PostfixUnaryExpressionSyntax)node, "--", context),
             SyntaxKind.PreIncrementExpression => TransformPrefix((PrefixUnaryExpressionSyntax)node, "++", context),
             SyntaxKind.PreDecrementExpression => TransformPrefix((PrefixUnaryExpressionSyntax)node, "--", context),
+            SyntaxKind.SuppressNullableWarningExpression => ExpressionTransformerFacade.Instance.Transform(((PostfixUnaryExpressionSyntax)node).Operand, context),
             _ => throw new NotSupportedException($"Unary expression kind {node.Kind()} not supported.")
         };
 
@@ -73,7 +76,27 @@ public class UnaryExpressionTransformer : IExpressionTransformer
             operand = $"({operand})";
         }
 
+        // Special case: unary + is not valid on non-numeric types in Java — strip it
+        if (op == "+" && context.SemanticModel != null)
+        {
+            var operandType = context.SemanticModel.GetTypeInfo(node.Operand).Type;
+            if (!IsNumericType(operandType))
+                return operand;
+        }
+
         return $"{op}{operand}";
+    }
+
+    private static bool IsNumericType(ITypeSymbol? type)
+    {
+        if (type == null) return false;
+        return type.SpecialType is
+            SpecialType.System_Int32 or SpecialType.System_Int64 or
+            SpecialType.System_Int16 or SpecialType.System_Byte or
+            SpecialType.System_SByte or SpecialType.System_UInt32 or
+            SpecialType.System_UInt64 or SpecialType.System_UInt16 or
+            SpecialType.System_Single or SpecialType.System_Double or
+            SpecialType.System_Decimal or SpecialType.System_Char;
     }
 
     private static bool IsBuiltInType(INamedTypeSymbol type)
@@ -159,7 +182,7 @@ public class UnaryExpressionTransformer : IExpressionTransformer
         context.Diagnostics.Warning("Address-of operator (&) has no Java equivalent - converting to unsafe memory access", node.GetLocation());
         var facade = ExpressionTransformerFacade.Instance;
         var operand = facade.Transform(node.Operand, context);
-        return $"/* unsafe: address of */ {operand}";
+        return $"/* C# addressof — no Java equivalent: {operand} */";
     }
 
     private string TransformPointerIndirection(PrefixUnaryExpressionSyntax node, ConversionContext context)
@@ -182,7 +205,7 @@ public class UnaryExpressionTransformer : IExpressionTransformer
                 // Only convert to method call if it's a user-defined type
                 if (!IsBuiltInType(methodSymbol.ContainingType))
                 {
-                    return TransformUserDefinedUnaryOperator(node, methodSymbol, context);
+                    return TransformUserDefinedPostfixOperator(node, methodSymbol, context);
                 }
             }
         }
@@ -190,6 +213,24 @@ public class UnaryExpressionTransformer : IExpressionTransformer
         var facade = ExpressionTransformerFacade.Instance;
         var operand = facade.Transform(node.Operand, context);
         return $"{operand}{op}";
+    }
+
+    private string TransformUserDefinedPostfixOperator(PostfixUnaryExpressionSyntax node, IMethodSymbol operatorSymbol, ConversionContext context)
+    {
+        var facade = ExpressionTransformerFacade.Instance;
+        var operand = facade.Transform(node.Operand, context);
+        var javaMethodName = GetOperatorMethodName(operatorSymbol);
+        var containingType = context.MapType(operatorSymbol.ContainingType);
+        var currentType = context.CurrentType?.Name;
+
+        // Postfix semantics: save pre-increment value, apply operator, return saved value
+        var tmp = context.GenerateSyntheticName("_post");
+        context.AddPreStatement($"var {tmp} = {operand};");
+        var methodCall = (containingType == currentType || IsInSameCompilationUnit(context, operatorSymbol.ContainingType))
+            ? $"{operand} = {javaMethodName}({operand});"
+            : $"{operand} = {containingType}.{javaMethodName}({operand});";
+        context.AddPreStatement(methodCall);
+        return tmp;
     }
 
     private string TransformPrefix(PrefixUnaryExpressionSyntax node, string op, ConversionContext context)

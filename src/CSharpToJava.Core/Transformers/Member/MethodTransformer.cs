@@ -20,6 +20,12 @@ public class MethodTransformer : IMemberTransformer
             throw new ArgumentException($"Expected MethodDeclarationSyntax, got {node.GetType()}");
         }
 
+        // Fix 6: Skip partial method declarations with no implementation — they are no-op in C#, emit nothing in Java.
+        bool isPartialDeclaration = methodDecl.Body == null && methodDecl.ExpressionBody == null
+            && methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword));
+        if (isPartialDeclaration)
+            return null!;
+
         var methodInfo = context.SemanticModel?.GetSymbolInfo(methodDecl).Symbol as IMethodSymbol;
         context.EnterMethod(methodInfo);
 
@@ -58,6 +64,10 @@ public class MethodTransformer : IMemberTransformer
             if (converted != null)
                 javaMethod.Parameters.Add(converted);
         }
+
+        // Fix 1: When promoting an extension method to an instance method, strip the 'this' (receiver) parameter.
+        if (isExtensionMethod && context.Options.RewriteExtensionMethods)
+            javaMethod.Parameters.RemoveAt(0);
 
         // 注意：C# 异常规范在 Java 中需要通过 throws 子句声明
         // 这里可以添加对异常的处理逻辑
@@ -99,8 +109,7 @@ public class MethodTransformer : IMemberTransformer
         }
         else if (methodDecl.ExpressionBody != null)
         {
-            var exprTransformer = new Transformers.Expression.ExpressionTransformer();
-            javaMethod.Body = exprTransformer.Transform(methodDecl.ExpressionBody.Expression, context);
+            javaMethod.Body = Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(methodDecl.ExpressionBody.Expression, context);
             javaMethod.IsBodyExpression = true;
         }
         else if (methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.AbstractKeyword)) ||
@@ -118,9 +127,15 @@ public class MethodTransformer : IMemberTransformer
                 javaMethod.Modifiers &= ~JavaModifiers.Abstract;
                 // Ensure Cloneable is added to the declaring class (done in ClassTransformer)
             }
+            else if (methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.ExternKeyword)))
+            {
+                // Fix 5: P/Invoke extern has no Java equivalent; emit a throwing stub and strip the native modifier.
+                javaMethod.Body = $"throw new UnsupportedOperationException(\"P/Invoke: {javaMethod.Name}\");";
+                javaMethod.Modifiers &= ~JavaModifiers.Native;  // native methods cannot have a body
+            }
             else
             {
-                // 抽象方法或外部方法没有主体
+                // 抽象方法没有主体
                 javaMethod.Body = null;
             }
         }
@@ -155,10 +170,13 @@ public class MethodTransformer : IMemberTransformer
         // For each trailing parameter with a default value, generate an overload that delegates to the full method.
         var allMethodParams = methodDecl.ParameterList?.Parameters.ToList() ?? new List<ParameterSyntax>();
         int firstDefaultIdx = allMethodParams.FindIndex(p => p.Default != null);
-        if (firstDefaultIdx >= 0 && allMethodParams.Skip(firstDefaultIdx).All(p => p.Default != null))
+        // Fix 3: Do not generate default-parameter overloads for abstract methods — non-abstract overloads
+        // calling abstract siblings produce invalid Java.
+        bool isAbstractMethod = methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.AbstractKeyword));
+        if (firstDefaultIdx >= 0 && allMethodParams.Skip(firstDefaultIdx).All(p => p.Default != null) && !isAbstractMethod)
         {
             var overloads = new List<JavaSyntaxNode> { javaMethod };
-            var exprXf = new Transformers.Expression.ExpressionTransformer();
+            var exprXf = Transformers.Expression.ExpressionTransformerFacade.Instance;
             for (int cutAt = firstDefaultIdx; cutAt < allMethodParams.Count; cutAt++)
             {
                 var overload = new JavaMethodDeclaration

@@ -47,10 +47,11 @@ public class InterfaceTransformer : ITypeTransformer
         // Propagate generic type parameter constraints
         ClassTransformer.ApplyTypeParameterConstraints(interfaceDecl.ConstraintClauses, javaInterface.TypeParameters, context);
 
-        // 处理成员
+        // 处理成员 — Fix 4: create factory once outside the per-member loop
+        var factory = new Transformers.TransformerFactory();
         foreach (var member in interfaceDecl.Members)
         {
-            ProcessInterfaceMember(member, javaInterface, context);
+            ProcessInterfaceMember(member, javaInterface, context, factory);
         }
 
         return javaInterface;
@@ -85,10 +86,8 @@ public class InterfaceTransformer : ITypeTransformer
         return result;
     }
 
-    private void ProcessInterfaceMember(MemberDeclarationSyntax member, JavaInterfaceDeclaration javaInterface, ConversionContext context)
+    private void ProcessInterfaceMember(MemberDeclarationSyntax member, JavaInterfaceDeclaration javaInterface, ConversionContext context, Transformers.TransformerFactory factory)
     {
-        var factory = new Transformers.TransformerFactory();
-
         switch (member)
         {
             case MethodDeclarationSyntax methodDecl:
@@ -96,6 +95,13 @@ public class InterfaceTransformer : ITypeTransformer
                 var method = methodTransformer.Transform(methodDecl, context);
                 if (method is JavaMethodDeclaration javaMethod)
                 {
+                    // Fix 1: C# 8 default interface method implementations → Java "default" keyword
+                    bool hasBody = methodDecl.Body != null || methodDecl.ExpressionBody != null;
+                    bool isStatic = methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword));
+                    if (hasBody && !isStatic)
+                    {
+                        javaMethod.Modifiers |= JavaModifiers.Default;
+                    }
                     javaInterface.Methods.Add(javaMethod);
                 }
                 break;
@@ -140,6 +146,55 @@ public class InterfaceTransformer : ITypeTransformer
                             javaInterface.Methods.Add(jm);
                         }
                     }
+                }
+                break;
+
+            case EventFieldDeclarationSyntax eventFieldDecl:
+                // Fix 6: Interface events — emit only abstract add/remove listener signatures;
+                // no backing field and no fire method (those are class-level implementation details).
+                var eventTransformer = factory.CreateEventFieldTransformer();
+                var allEventMembers = eventTransformer.TransformEvent(eventFieldDecl, context);
+                foreach (var em in allEventMembers)
+                {
+                    if (em is JavaMethodDeclaration evMethod &&
+                        (evMethod.Name.StartsWith("add", StringComparison.Ordinal) ||
+                         evMethod.Name.StartsWith("remove", StringComparison.Ordinal)))
+                    {
+                        evMethod.Body = null;
+                        evMethod.IsBodyExpression = false;
+                        javaInterface.Methods.Add(evMethod);
+                    }
+                }
+                break;
+
+            case ClassDeclarationSyntax nestedClass:
+                // Fix 3: Nested type declarations inside interfaces
+                var nestedClassTransformer = factory.CreateClassTransformer();
+                var nestedClassResult = nestedClassTransformer.Transform(nestedClass, context);
+                if (nestedClassResult is JavaClassDeclaration jc)
+                {
+                    jc.Modifiers |= JavaModifiers.Static;
+                    javaInterface.NestedTypes.Add(jc);
+                }
+                break;
+
+            case InterfaceDeclarationSyntax nestedInterface:
+                var nestedInterfaceTransformer = factory.CreateInterfaceTransformer();
+                var nestedInterfaceResult = nestedInterfaceTransformer.Transform(nestedInterface, context);
+                if (nestedInterfaceResult is JavaInterfaceDeclaration ji)
+                {
+                    ji.Modifiers |= JavaModifiers.Static;
+                    javaInterface.NestedTypes.Add(ji);
+                }
+                break;
+
+            case EnumDeclarationSyntax nestedEnum:
+                var enumTransformer = new EnumTransformer();
+                var nestedEnumResult = enumTransformer.TransformEnum(nestedEnum, context);
+                if (nestedEnumResult is JavaEnumDeclaration je)
+                {
+                    je.Modifiers |= JavaModifiers.Static;
+                    javaInterface.NestedTypes.Add(je);
                 }
                 break;
         }

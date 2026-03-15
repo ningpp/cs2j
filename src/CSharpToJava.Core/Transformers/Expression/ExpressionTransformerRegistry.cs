@@ -1,7 +1,13 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
+using CSharpToJava.Core.Context;
+using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Linq;
+using System.Reflection;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
@@ -12,23 +18,66 @@ public static class ExpressionTransformerRegistry
 {
     private static readonly ConcurrentDictionary<SyntaxKind, IExpressionTransformer> _transformers = new();
 
-    // Explicitly trigger static constructors to ensure all transformers are registered
+    // Fix 3: Auto-discover all transformers that declare [TransformerRegistration] attribute.
+    // This eliminates the brittle hard-coded list of transformer Instance touches and ensures
+    // new transformers are discovered automatically without editing this file.
     static ExpressionTransformerRegistry()
     {
-        // Touch each transformer type to trigger its static constructor
-        _ = BinaryExpressionTransformer.Instance;
-        _ = UnaryExpressionTransformer.Instance;
-        _ = AssignmentTransformer.Instance;
-        _ = InvocationExpressionTransformer.Instance;
-        _ = IdentifierExpressionTransformer.Instance;
-        _ = LiteralExpressionTransformer.Instance;
-        _ = ObjectCreationTransformer.Instance;
-        _ = StringExpressionTransformer.Instance;
-        _ = QueryExpressionTransformer.Instance;
-        _ = LambdaTransformer.Instance;
-        _ = ElementAccessTransformer.Instance;
-        _ = ControlFlowTransformer.Instance;
-        _ = TypeOperationTransformer.Instance;
+        // Trigger static constructors of all transformer types that opt in via attribute
+        foreach (var type in typeof(ExpressionTransformerRegistry).Assembly.GetTypes()
+            .Where(t => t.GetCustomAttribute<TransformerRegistrationAttribute>() != null))
+        {
+            var instanceProp = type.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
+            instanceProp?.GetValue(null);
+        }
+
+        // Fix 1: Register missing C# 9–12 expression kinds with inline handlers.
+        // These kinds have no dedicated transformer class; simple rules are applied inline.
+        Register(new[] { SyntaxKind.TupleExpression },
+            new DelegateExpressionTransformer((node, ctx) =>
+            {
+                var tuple = (TupleExpressionSyntax)node;
+                var elements = string.Join(", ", tuple.Arguments.Select(a =>
+                    ExpressionTransformerFacade.Instance.Transform(a.Expression, ctx)));
+                return $"/* TODO: tuple */ new Object[]{{ {elements} }}";
+            }));
+
+        Register(new[] { SyntaxKind.DeclarationExpression },
+            new DelegateExpressionTransformer((node, ctx) =>
+            {
+                var decl = (DeclarationExpressionSyntax)node;
+                return $"/* TODO: out var {decl.Designation} */";
+            }));
+
+        Register(new[] { SyntaxKind.RefExpression },
+            new DelegateExpressionTransformer((node, ctx) =>
+                ExpressionTransformerFacade.Instance.Transform(((RefExpressionSyntax)node).Expression, ctx)));
+
+        Register(new[] { SyntaxKind.StackAllocArrayCreationExpression },
+            new DelegateExpressionTransformer((node, ctx) =>
+            {
+                var stackAlloc = (StackAllocArrayCreationExpressionSyntax)node;
+                // Approximate stackalloc T[n] as new T[n]
+                return $"new {stackAlloc.Type}";
+            }));
+
+        Register(new[] { SyntaxKind.ImplicitStackAllocArrayCreationExpression },
+            new DelegateExpressionTransformer((node, ctx) =>
+            {
+                var stackAlloc = (ImplicitStackAllocArrayCreationExpressionSyntax)node;
+                var elements = string.Join(", ", stackAlloc.Initializer.Expressions.Select(e =>
+                    ExpressionTransformerFacade.Instance.Transform(e, ctx)));
+                return $"new Object[]{{ {elements} }}";
+            }));
+
+        Register(new[] { SyntaxKind.CollectionExpression },
+            new DelegateExpressionTransformer((node, ctx) =>
+            {
+                var coll = (CollectionExpressionSyntax)node;
+                var elements = string.Join(", ", coll.Elements.OfType<ExpressionElementSyntax>()
+                    .Select(e => ExpressionTransformerFacade.Instance.Transform(e.Expression, ctx)));
+                return $"java.util.List.of({elements})";
+            }));
     }
 
     /// <summary>
@@ -41,6 +90,9 @@ public static class ExpressionTransformerRegistry
     {
         foreach (var kind in kinds)
         {
+            // Fix 4 (Issue 5): Warn on duplicate registration during debug builds
+            if (_transformers.ContainsKey(kind))
+                Debug.WriteLine($"[ExpressionTransformerRegistry] WARNING: {kind} already registered; overwriting.");
             _transformers[kind] = transformer;
         }
     }
@@ -60,4 +112,14 @@ public static class ExpressionTransformerRegistry
     /// <returns>True if a transformer is registered for this kind.</returns>
     public static bool IsRegistered(SyntaxKind kind)
         => _transformers.ContainsKey(kind);
+
+    /// <summary>
+    /// Wraps a delegate as an IExpressionTransformer for inline/anonymous registrations.
+    /// </summary>
+    private sealed class DelegateExpressionTransformer : IExpressionTransformer
+    {
+        private readonly Func<ExpressionSyntax, ConversionContext, string> _func;
+        public DelegateExpressionTransformer(Func<ExpressionSyntax, ConversionContext, string> func) => _func = func;
+        public string Transform(ExpressionSyntax node, ConversionContext context) => _func(node, context);
+    }
 }

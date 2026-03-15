@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Context;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace CSharpToJava.Core.Transformers.Expression.Utilities;
 
@@ -12,19 +13,26 @@ namespace CSharpToJava.Core.Transformers.Expression.Utilities;
 /// </summary>
 public static class ExpressionTransformerHelpers
 {
+    private static readonly Regex _numericLiteralPattern = new Regex(
+        @"^[+\-]?(0[xX][0-9a-fA-F_]+|0[bB][01_]+|\d[\d_]*(\.\d[\d_]*)?)([uU][lL]?|[lL][uU]?|[fF]|[dD]|[mM])?$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
     /// <summary>
     /// Returns true if the expression string is an integer or float literal.
+    /// Covers decimal, hex (0x...), binary (0b...), and unsigned (U/UL) suffixes.
     /// </summary>
-    public static bool IsNumericLiteral(string expr)
+    public static bool IsNumericLiteral(string? expr)
     {
-        return System.Text.RegularExpressions.Regex.IsMatch(expr.Trim(), @"^-?\d+(\.\d+)?[LlfFdD]?$");
+        if (string.IsNullOrWhiteSpace(expr)) return false;
+        return _numericLiteralPattern.IsMatch(expr.Trim());
     }
 
     /// <summary>
     /// Checks if the type name is a .NET system primitive type.
     /// </summary>
-    public static bool IsSystemPrimitiveType(string typeName)
+    public static bool IsSystemPrimitiveType(string? typeName)
     {
+        if (string.IsNullOrWhiteSpace(typeName)) return false;
         return typeName switch
         {
             "System.Int32" or "int" or "System.Int64" or "long" or
@@ -43,8 +51,9 @@ public static class ExpressionTransformerHelpers
     /// <summary>
     /// Checks if the type name is a C# basic primitive type.
     /// </summary>
-    public static bool IsCSharpPrimitiveType(string typeName)
+    public static bool IsCSharpPrimitiveType(string? typeName)
     {
+        if (string.IsNullOrWhiteSpace(typeName)) return false;
         return typeName switch
         {
             "int" or "double" or "float" or "long" or "short" or
@@ -86,8 +95,8 @@ public static class ExpressionTransformerHelpers
             "float" => "Float",
             "long" => "Long",
             "short" => "Short",
-            "byte" => "Byte",
-            "sbyte" => "Byte",
+            "byte" => "short",
+            "sbyte" => "byte",
             "char" => "Character",
             "bool" => "Boolean",
             _ => csharpPrimitive
@@ -96,9 +105,11 @@ public static class ExpressionTransformerHelpers
 
     /// <summary>
     /// Checks if the type name is a Java wrapper type.
+    /// Note: 'Byte' maps to C# sbyte (signed); C# byte (unsigned) is mapped to 'Short'.
     /// </summary>
-    public static bool IsJavaWrapperType(string typeName)
+    public static bool IsJavaWrapperType(string? typeName)
     {
+        if (string.IsNullOrWhiteSpace(typeName)) return false;
         return typeName switch
         {
             "System.Int32" or "int" or "System.Int64" or "long" or

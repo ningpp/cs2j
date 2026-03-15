@@ -10,6 +10,7 @@ namespace CSharpToJava.Core.Transformers.Expression;
 /// <summary>
 /// Handles type-related expressions (cast, is, as, typeof, default, checked, unchecked).
 /// </summary>
+[TransformerRegistration]
 public class TypeOperationTransformer : IExpressionTransformer
 {
     static TypeOperationTransformer()
@@ -23,7 +24,8 @@ public class TypeOperationTransformer : IExpressionTransformer
             SyntaxKind.TypeOfExpression,
             SyntaxKind.DefaultExpression,
             SyntaxKind.CheckedExpression,
-            SyntaxKind.UncheckedExpression
+            SyntaxKind.UncheckedExpression,
+            SyntaxKind.SizeOfExpression
         }, new TypeOperationTransformer());
     }
 
@@ -41,6 +43,7 @@ public class TypeOperationTransformer : IExpressionTransformer
             SyntaxKind.DefaultExpression => TransformDefault((DefaultExpressionSyntax)node, context),
             SyntaxKind.CheckedExpression => TransformChecked((CheckedExpressionSyntax)node, context),
             SyntaxKind.UncheckedExpression => TransformUnchecked((CheckedExpressionSyntax)node, context),
+            SyntaxKind.SizeOfExpression => TransformSizeOf((SizeOfExpressionSyntax)node, context),
             _ => throw new NotSupportedException($"Type operation kind {node.Kind()} not supported.")
         };
 
@@ -103,9 +106,7 @@ public class TypeOperationTransformer : IExpressionTransformer
         {
             DeclarationPatternSyntax declPattern => TransformDeclarationPattern(expression, declPattern, context),
             ConstantPatternSyntax constPattern => TransformConstantPattern(expression, constPattern, context),
-            RecursivePatternSyntax recPattern when recPattern.PositionalPatternClause == null =>
-                // Simple type pattern without deconstruction
-                $"{expression} instanceof {context.MapTypeFromSyntax(recPattern.Type)}",
+            RecursivePatternSyntax recPattern => TransformRecursivePattern(expression, recPattern, context),
             _ => $"/* TODO: complex pattern */ {expression}"
         };
     }
@@ -137,8 +138,8 @@ public class TypeOperationTransformer : IExpressionTransformer
         }
         else
         {
-            // Older Java - need explicit cast
-            return $"({expression} instanceof {targetType})";
+            // Older Java - explicit cast and assignment
+            return $"{expression} instanceof {targetType} && ({variableName} = ({targetType}){expression}) != null";
         }
     }
 
@@ -155,6 +156,61 @@ public class TypeOperationTransformer : IExpressionTransformer
 
         // Other constant patterns
         return $"{expression} == {constant}";
+    }
+
+    private string TransformRecursivePattern(string expression, RecursivePatternSyntax pattern, ConversionContext context)
+    {
+        // Determine the type name for the instanceof check
+        string? typeName = null;
+        if (pattern.Type != null)
+        {
+            var typeInfo = context.SemanticModel?.GetTypeInfo(pattern.Type);
+            typeName = (typeInfo.HasValue && typeInfo.Value.Type != null)
+                ? context.MapType(typeInfo.Value.Type)
+                : context.MapTypeFromSyntax(pattern.Type);
+        }
+
+        var conditions = new List<string>();
+        if (typeName != null)
+            conditions.Add($"{expression} instanceof {typeName}");
+
+        // Translate property pattern subpatterns to getter calls + comparisons
+        if (pattern.PropertyPatternClause != null && typeName != null)
+        {
+            var cast = $"(({typeName}){expression})";
+            foreach (var sub in pattern.PropertyPatternClause.Subpatterns)
+            {
+                string? propName = sub.NameColon?.Name.Identifier.Text
+                    ?? (sub.ExpressionColon?.Expression is IdentifierNameSyntax idName ? idName.Identifier.Text : null);
+                if (propName == null) continue;
+                string getter = $"{cast}.get{char.ToUpperInvariant(propName[0])}{propName[1..]}()";
+                string cond = TransformSubPattern(getter, sub.Pattern, context);
+                conditions.Add(cond);
+            }
+        }
+
+        return conditions.Count > 0
+            ? string.Join(" && ", conditions)
+            : $"/* TODO: recursive pattern */ {expression}";
+    }
+
+    private string TransformSubPattern(string subject, PatternSyntax pattern, ConversionContext context)
+    {
+        var facade = ExpressionTransformerFacade.Instance;
+        return pattern switch
+        {
+            ConstantPatternSyntax constPat when constPat.Expression is LiteralExpressionSyntax lit
+                && lit.IsKind(SyntaxKind.NullLiteralExpression)
+                => $"{subject} == null",
+            ConstantPatternSyntax constPat
+                => $"{subject} == {facade.Transform(constPat.Expression, context)}",
+            RelationalPatternSyntax relPat
+                => $"{subject} {relPat.OperatorToken.Text} {facade.Transform(relPat.Expression, context)}",
+            UnaryPatternSyntax { Pattern: ConstantPatternSyntax { Expression: LiteralExpressionSyntax nullLit } }
+                when nullLit.IsKind(SyntaxKind.NullLiteralExpression)
+                => $"{subject} != null",
+            _ => $"/* TODO: sub-pattern */ {subject}"
+        };
     }
 
     private string TransformAs(BinaryExpressionSyntax node, ConversionContext context)
@@ -176,7 +232,7 @@ public class TypeOperationTransformer : IExpressionTransformer
 
         // C#: obj as Type  → Java doesn't have direct equivalent
         // We use: obj instanceof Type ? (Type)obj : null
-        return $"({expression} instanceof {targetType} ? ({targetType})({expression}) : null)";
+        return $"({expression} instanceof {targetType} ? ({targetType})({expression}) : null) /* result may be null — check before use */";
     }
 
     private string TransformTypeOf(TypeOfExpressionSyntax node, ConversionContext context)
@@ -193,6 +249,9 @@ public class TypeOperationTransformer : IExpressionTransformer
             typeName = context.MapTypeFromSyntax(node.Type);
         }
 
+        // Warn if type parameter (subject to type erasure in Java)
+        if (typeInfo.HasValue && typeInfo.Value.Type is ITypeParameterSymbol)
+            return $"/* WARNING: type parameter erased at runtime; T.class may fail */ {typeName}.class";
         // C#: typeof(Type)  → Java: Type.class
         return $"{typeName}.class";
     }
@@ -214,6 +273,9 @@ public class TypeOperationTransformer : IExpressionTransformer
             }
 
             // C#: default(Type)  → Java default values
+            // For struct/value types, emit new T()
+            if (typeInfo.HasValue && typeInfo.Value.Type is INamedTypeSymbol { TypeKind: TypeKind.Struct })
+                return $"new {typeName}()";
             return typeName switch
             {
                 "int" => "0",
@@ -252,6 +314,26 @@ public class TypeOperationTransformer : IExpressionTransformer
 
         // C# unchecked context - Java's default behavior
         return expression;
+    }
+
+    private string TransformSizeOf(SizeOfExpressionSyntax node, ConversionContext context)
+    {
+        // Map C# built-in types to their byte sizes (platform-independent for well-known types).
+        if (node.Type is PredefinedTypeSyntax predefined)
+        {
+            return predefined.Keyword.Text switch
+            {
+                "byte" or "sbyte" or "bool" => "1",
+                "short" or "ushort" or "char" => "2",
+                "int" or "uint" or "float" => "4",
+                "long" or "ulong" or "double" => "8",
+                "decimal" => "16",
+                _ => $"/* sizeof({node.Type}) */"
+            };
+        }
+        // For user-defined struct types, emit a comment — Java has no sizeof operator.
+        var typeName = context.MapTypeFromSyntax(node.Type);
+        return $"/* sizeof({typeName}) */";
     }
 
     // Helper methods

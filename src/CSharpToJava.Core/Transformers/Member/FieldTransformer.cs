@@ -43,6 +43,15 @@ public class FieldTransformer : IMemberTransformer
         if (fieldDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.FixedKeyword)))
             context.Diagnostics.Error("Java doesn't support fixed-size buffers. Field needs manual conversion.", fieldDecl.GetLocation());
 
+        // Issue 5: volatile non-primitive field needs a heads-up comment.
+        bool isVolatile = fieldDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.VolatileKeyword));
+        bool isJavaPrimitive = javaType is "int" or "long" or "short" or "byte" or
+                                            "float" or "double" or "char" or "boolean";
+
+        // Issue 4: track variable names declared earlier in the same multi-variable declaration
+        // so we can warn when a subsequent initializer cross-references a prior variable.
+        var declaredNames = new HashSet<string>();
+
         foreach (var variable in fieldDecl.Declaration.Variables)
         {
             var javaField = new JavaFieldDeclaration
@@ -52,10 +61,21 @@ public class FieldTransformer : IMemberTransformer
                 Modifiers = modifiers
             };
 
+            // Issue 4: warn when this initializer references an earlier variable in the same declaration.
+            if (declaredNames.Count > 0 && variable.Initializer != null)
+            {
+                bool crossRef = variable.Initializer
+                    .DescendantNodes()
+                    .OfType<IdentifierNameSyntax>()
+                    .Any(id => declaredNames.Contains(id.Identifier.Text));
+                if (crossRef)
+                    javaField.LeadingComment = "NOTE: Initializer order may differ from C# instance field semantics.";
+            }
+            declaredNames.Add(variable.Identifier.Text);
+
             if (variable.Initializer != null)
             {
-                var exprTransformer = new Transformers.Expression.ExpressionTransformer();
-                javaField.Initializer = exprTransformer.Transform(variable.Initializer.Value, context);
+                javaField.Initializer = Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(variable.Initializer.Value, context);
                 // Java cannot auto-box int to Double/Float (only int→Integer is supported).
                 // When a boxed Double/Float field is initialized with an int literal, widen it.
                 if (javaType == "Double" && IsIntegerLiteralString(javaField.Initializer))
@@ -63,6 +83,10 @@ public class FieldTransformer : IMemberTransformer
                 else if (javaType == "Float" && IsIntegerLiteralString(javaField.Initializer))
                     javaField.Initializer += "f";
             }
+
+            // Issue 5: suggest AtomicReference for volatile fields of non-primitive types.
+            if (isVolatile && !isJavaPrimitive)
+                javaField.LeadingComment = "Consider replacing with AtomicReference<T> for idiomatic Java concurrency.";
 
             yield return javaField;
         }

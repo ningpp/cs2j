@@ -10,6 +10,7 @@ namespace CSharpToJava.Core.Transformers.Expression;
 /// <summary>
 /// Handles binary expressions (arithmetic, logical, bitwise, comparison, coalesce).
 /// </summary>
+[TransformerRegistration]
 public class BinaryExpressionTransformer : IExpressionTransformer
 {
     static BinaryExpressionTransformer()
@@ -34,7 +35,8 @@ public class BinaryExpressionTransformer : IExpressionTransformer
             SyntaxKind.BitwiseOrExpression,
             SyntaxKind.ExclusiveOrExpression,
             SyntaxKind.LeftShiftExpression,
-            SyntaxKind.RightShiftExpression
+            SyntaxKind.RightShiftExpression,
+            SyntaxKind.UnsignedRightShiftExpression
         }, new BinaryExpressionTransformer());
     }
 
@@ -63,6 +65,7 @@ public class BinaryExpressionTransformer : IExpressionTransformer
             SyntaxKind.ExclusiveOrExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, "^", context),
             SyntaxKind.LeftShiftExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, "<<", context),
             SyntaxKind.RightShiftExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, ">>", context),
+            SyntaxKind.UnsignedRightShiftExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, ">>>", context),
             _ => throw new NotSupportedException($"Binary expression kind {node.Kind()} not supported.")
         };
 
@@ -88,11 +91,35 @@ public class BinaryExpressionTransformer : IExpressionTransformer
         var left = facade.Transform(node.Left, context);
         var right = facade.Transform(node.Right, context);
 
+        // String == / != must use .equals() in Java
+        if ((op == "==" || op == "!=") && context.SemanticModel != null)
+        {
+            bool leftIsString = IsStringType(node.Left, context.SemanticModel);
+            bool rightIsString = IsStringType(node.Right, context.SemanticModel);
+            if (leftIsString || rightIsString)
+            {
+                // null comparisons remain as == / !=
+                bool leftIsNull = node.Left.IsKind(SyntaxKind.NullLiteralExpression);
+                bool rightIsNull = node.Right.IsKind(SyntaxKind.NullLiteralExpression);
+                if (!leftIsNull && !rightIsNull)
+                {
+                    string eq = $"{left}.equals({right})";
+                    return op == "!=" ? $"!({eq})" : eq;
+                }
+            }
+        }
+
         // Wrap operands in parentheses when needed for operator precedence
         left = WrapOperandIfNeeded(node.Left, left, op, true);
         right = WrapOperandIfNeeded(node.Right, right, op, false);
 
         return $"{left} {op} {right}";
+    }
+
+    private static bool IsStringType(ExpressionSyntax expr, SemanticModel semanticModel)
+    {
+        var typeInfo = semanticModel.GetTypeInfo(expr);
+        return typeInfo.Type?.SpecialType == SpecialType.System_String;
     }
 
     private static bool IsBuiltInType(INamedTypeSymbol type)
@@ -146,35 +173,11 @@ public class BinaryExpressionTransformer : IExpressionTransformer
 
     private static string GetOperatorMethodName(IMethodSymbol operatorSymbol)
     {
-        // Map C# operator names to Java method names (matching OperatorTransformer)
-        return operatorSymbol.Name switch
-        {
-            "op_Addition" => "add",
-            "op_Subtraction" => "subtract",
-            "op_Multiply" => "multiply",
-            "op_Division" => "divide",
-            "op_Modulus" => "mod",
-            "op_Equality" => "equals",
-            "op_Inequality" => "notEquals",
-            "op_GreaterThan" => "greaterThan",
-            "op_LessThan" => "lessThan",
-            "op_GreaterThanOrEqual" => "greaterThanOrEqual",
-            "op_LessThanOrEqual" => "lessThanOrEqual",
-            "op_BitwiseAnd" => "and",
-            "op_BitwiseOr" => "or",
-            "op_ExclusiveOr" => "xor",
-            "op_LogicalNot" => "not",
-            "op_OnesComplement" => "onesComplement",
-            "op_Increment" => "increment",
-            "op_Decrement" => "decrement",
-            "op_True" => "isTrue",
-            "op_False" => "isFalse",
-            "op_LeftShift" => "leftShift",
-            "op_RightShift" => "rightShift",
-            "op_UnaryNegation" => "negate",
-            "op_UnaryPlus" => "plus",
-            _ => operatorSymbol.Name
-        };
+        // Use the shared operator-name map from OperatorTransformer to avoid divergence
+        return CSharpToJava.Core.Transformers.Member.OperatorTransformer.OpSymbolToJavaName
+            .TryGetValue(operatorSymbol.Name, out var name)
+            ? name
+            : operatorSymbol.Name;
     }
 
     private static bool IsInSameCompilationUnit(ConversionContext context, INamedTypeSymbol type)
@@ -224,7 +227,7 @@ public class BinaryExpressionTransformer : IExpressionTransformer
             SyntaxKind.EqualsExpression or SyntaxKind.NotEqualsExpression => 8,
             SyntaxKind.LessThanExpression or SyntaxKind.LessThanOrEqualExpression or
             SyntaxKind.GreaterThanExpression or SyntaxKind.GreaterThanOrEqualExpression => 9,
-            SyntaxKind.LeftShiftExpression or SyntaxKind.RightShiftExpression => 10,
+            SyntaxKind.LeftShiftExpression or SyntaxKind.RightShiftExpression or SyntaxKind.UnsignedRightShiftExpression => 10,
             SyntaxKind.AddExpression or SyntaxKind.SubtractExpression => 11,
             SyntaxKind.MultiplyExpression or SyntaxKind.DivideExpression or SyntaxKind.ModuloExpression => 12,
             _ => 0
@@ -242,7 +245,7 @@ public class BinaryExpressionTransformer : IExpressionTransformer
             "&" => 7,
             "==" or "!=" => 8,
             "<" or "<=" or ">" or ">=" => 9,
-            "<<" or ">>" => 10,
+            "<<" or ">>" or ">>>" => 10,
             "+" or "-" => 11,
             "*" or "/" or "%" => 12,
             _ => 0
@@ -255,7 +258,22 @@ public class BinaryExpressionTransformer : IExpressionTransformer
         var left = facade.Transform(node.Left, context);
         var right = facade.Transform(node.Right, context);
 
-        // C# a ?? b  → Java  a != null ? a : b
-        return $"{left} != null ? {left} : {right}";
+        // Avoid evaluating the left operand twice when it has side effects.
+        // Simple identifiers and single-level member accesses are safe to repeat.
+        bool isSafeToRepeat = node.Left is IdentifierNameSyntax
+            || node.Left is MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax };
+
+        if (isSafeToRepeat)
+        {
+            // C# a ?? b  → Java  a != null ? a : b
+            return $"{left} != null ? {left} : {right}";
+        }
+        else
+        {
+            // Use a temp variable so the left expression is evaluated only once
+            var tmpName = context.GenerateSyntheticName("_coalesce");
+            context.AddPreStatement($"var {tmpName} = {left};");
+            return $"{tmpName} != null ? {tmpName} : {right}";
+        }
     }
 }

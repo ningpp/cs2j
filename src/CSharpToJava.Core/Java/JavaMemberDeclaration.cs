@@ -12,10 +12,20 @@ public class JavaFieldDeclaration : JavaSyntaxNode
     public string Type { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? Initializer { get; set; }
+    /// <summary>
+    /// Optional comment emitted on the line immediately before this field declaration.
+    /// </summary>
+    public string? LeadingComment { get; set; }
 
     public override string ToString(string indentation)
     {
         var sb = new StringBuilder();
+
+        if (!string.IsNullOrEmpty(LeadingComment))
+        {
+            sb.AppendLine($"// {LeadingComment}");
+            sb.Append(indentation);
+        }
 
         foreach (var annotation in Annotations)
         {
@@ -58,10 +68,19 @@ public class JavaMethodDeclaration : JavaSyntaxNode
     public List<string> ThrownExceptions { get; } = new();
     public string? Body { get; set; }
     public bool IsBodyExpression { get; set; }
+    /// <summary>
+    /// Optional comment emitted verbatim on the line immediately before this method declaration.
+    /// </summary>
+    public string? LeadingComment { get; set; }
 
     public override string ToString(string indentation)
     {
         var sb = new StringBuilder();
+
+        if (!string.IsNullOrEmpty(LeadingComment))
+        {
+            sb.AppendLine($"{indentation}{LeadingComment}");
+        }
 
         foreach (var annotation in Annotations)
         {
@@ -143,6 +162,11 @@ public class JavaConstructorDeclaration : JavaSyntaxNode
     public List<JavaParameter> Parameters { get; } = new();
     public List<string> ThrownExceptions { get; } = new();
     public string? Body { get; set; }
+    /// <summary>
+    /// Optional super/this constructor call emitted as the first statement in the body.
+    /// e.g. "super(a, b)" or "this(x)".
+    /// </summary>
+    public string? Initializer { get; set; }
 
     public override string ToString(string indentation)
     {
@@ -172,13 +196,17 @@ public class JavaConstructorDeclaration : JavaSyntaxNode
         }
 
         // 方法体
-        if (Body == null)
+        if (Body == null && Initializer == null)
         {
             sb.Append(';');
         }
         else
         {
             sb.AppendLine(" {");
+            if (!string.IsNullOrEmpty(Initializer))
+            {
+                sb.AppendLine($"{indentation}    {Initializer};");
+            }
             if (!string.IsNullOrEmpty(Body))
             {
                 var lines = Body.Split('\n');
@@ -239,6 +267,29 @@ public class JavaParameter
 
         sb.Append(' ').Append(Name);
 
+        return sb.ToString();
+    }
+}
+
+/// <summary>
+/// Java static initializer block: static { ... }
+/// </summary>
+public class JavaStaticInitializerBlock : JavaSyntaxNode
+{
+    public List<string> Statements { get; } = new();
+
+    public override string ToString(string indentation)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("static {");
+        foreach (var stmt in Statements)
+        {
+            if (!string.IsNullOrWhiteSpace(stmt))
+            {
+                sb.AppendLine($"{indentation}    {stmt.Trim()}");
+            }
+        }
+        sb.Append(indentation).Append('}');
         return sb.ToString();
     }
 }

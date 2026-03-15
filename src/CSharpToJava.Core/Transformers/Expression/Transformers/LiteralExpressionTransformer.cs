@@ -3,12 +3,14 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using System.Text;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
 /// <summary>
 /// Handles literal expressions (numeric, string, char, null, true/false).
 /// </summary>
+[TransformerRegistration]
 public class LiteralExpressionTransformer : IExpressionTransformer
 {
     // Self-register on type initialization
@@ -21,7 +23,8 @@ public class LiteralExpressionTransformer : IExpressionTransformer
             SyntaxKind.CharacterLiteralExpression,
             SyntaxKind.NullLiteralExpression,
             SyntaxKind.TrueLiteralExpression,
-            SyntaxKind.FalseLiteralExpression
+            SyntaxKind.FalseLiteralExpression,
+            SyntaxKind.Utf8StringLiteralExpression,
         }, new LiteralExpressionTransformer());
     }
 
@@ -31,60 +34,106 @@ public class LiteralExpressionTransformer : IExpressionTransformer
     public string Transform(ExpressionSyntax node, ConversionContext context)
         => node.Kind() switch
         {
-            SyntaxKind.NumericLiteralExpression => TransformNumericLiteral((LiteralExpressionSyntax)node),
-            SyntaxKind.StringLiteralExpression => TransformStringLiteral((LiteralExpressionSyntax)node),
+            SyntaxKind.NumericLiteralExpression => TransformNumericLiteral((LiteralExpressionSyntax)node, context),
+            SyntaxKind.StringLiteralExpression => TransformStringLiteral((LiteralExpressionSyntax)node, context),
             SyntaxKind.CharacterLiteralExpression => TransformCharacterLiteral((LiteralExpressionSyntax)node),
             SyntaxKind.NullLiteralExpression => "null",
             SyntaxKind.TrueLiteralExpression => "true",
             SyntaxKind.FalseLiteralExpression => "false",
+            SyntaxKind.Utf8StringLiteralExpression => TransformUtf8StringLiteral((LiteralExpressionSyntax)node),
             _ => throw new NotSupportedException($"Literal kind {node.Kind()} not supported.")
         };
 
-    private string TransformNumericLiteral(LiteralExpressionSyntax node)
+    private string TransformNumericLiteral(LiteralExpressionSyntax node, ConversionContext context)
     {
         var token = node.Token;
         var text = token.Text;
 
+        // Fix 5: Guard digit separators on Java version (Java 7+ required)
+        string literal = ((int)context.Options.TargetJavaVersion < 7 && text.Contains('_'))
+            ? text.Replace("_", "")
+            : text;
+
         // Handle suffixes
-        if (text.EndsWith("f") || text.EndsWith("F"))
+        if (literal.EndsWith("f") || literal.EndsWith("F"))
         {
-            return text.TrimEnd('f', 'F') + "f";
+            return literal.TrimEnd('f', 'F') + "f";
         }
-        if (text.EndsWith("d") || text.EndsWith("D"))
+        if (literal.EndsWith("d") || literal.EndsWith("D"))
         {
-            return text.TrimEnd('d', 'D');
+            return literal.TrimEnd('d', 'D');
         }
-        if (text.EndsWith("m") || text.EndsWith("M"))
+        // Fix 1: Map decimal (m/M suffix) to BigDecimal
+        if (literal.EndsWith("m", StringComparison.OrdinalIgnoreCase))
         {
-            return "/* TODO: decimal */ " + text.TrimEnd('m', 'M');
+            string decStr = literal.TrimEnd('m', 'M');
+            context.AddImport("java.math.BigDecimal");
+            return $"new BigDecimal(\"{decStr}\")";
         }
-        if (text.EndsWith("ul") || text.EndsWith("UL"))
+        // Fix 2: Handle UL/ul/Lu/LU suffix — ulong literals that may exceed long.MaxValue
+        if (literal.EndsWith("ul", StringComparison.OrdinalIgnoreCase) ||
+            literal.EndsWith("lu", StringComparison.OrdinalIgnoreCase))
         {
-            return text.TrimEnd('u', 'U', 'l', 'L') + "L"; // Java long
+            string numPart = literal.TrimEnd('u', 'U', 'l', 'L');
+            if (TryParseNumericValue(numPart, out ulong ulongValue) && ulongValue > (ulong)long.MaxValue)
+            {
+                context.AddImport("java.math.BigInteger");
+                return $"new BigInteger(\"{ulongValue}\")";
+            }
+            return numPart + "L"; // fits in Java long
         }
-        if (text.EndsWith("u") || text.EndsWith("U"))
+        // Fix 2: Handle U/u suffix — uint literals that may exceed int.MaxValue
+        if (literal.EndsWith("u") || literal.EndsWith("U"))
         {
-            return text.TrimEnd('u', 'U'); // Java has no unsigned
+            string numPart = literal.TrimEnd('u', 'U');
+            if (TryParseNumericValue(numPart, out ulong uintValue) && uintValue > (ulong)int.MaxValue)
+                return numPart + "L"; // widen to Java long
+            return numPart;
         }
-        if (text.EndsWith("l") || text.EndsWith("L"))
+        if (literal.EndsWith("l") || literal.EndsWith("L"))
         {
-            return text.TrimEnd('l', 'L') + "L";
+            return literal.TrimEnd('l', 'L') + "L";
         }
 
-        return text;
+        return literal;
     }
 
-    private string TransformStringLiteral(LiteralExpressionSyntax node)
+    private string TransformStringLiteral(LiteralExpressionSyntax node, ConversionContext context)
     {
-        // Handle verbatim strings (@"...")
-        if (node.Token.IsKind(SyntaxKind.StringLiteralToken))
+        var token = node.Token;
+
+        // Fix 3: Handle raw string literals (C# 11 """...""")
+        if (token.IsKind(SyntaxKind.MultiLineRawStringLiteralToken) ||
+            token.IsKind(SyntaxKind.SingleLineRawStringLiteralToken))
         {
-            var text = node.Token.Text;
+            if ((int)context.Options.TargetJavaVersion >= 15)
+            {
+                // Emit as Java text block
+                string content = token.ValueText;
+                if (!content.EndsWith("\n"))
+                    content += "\n";
+                return $"\"\"\"\n{content}\"\"\"";
+            }
+            // Fallback: escape and emit as regular string
+            var escaped = token.ValueText
+                .Replace("\\", "\\\\")   // \ → \\
+                .Replace("\"", "\\\"")   // " → \"
+                .Replace("\r\n", "\\n")  // CRLF → \n
+                .Replace("\n", "\\n")    // LF → \n
+                .Replace("\r", "\\n")    // CR → \n
+                .Replace("\t", "\\t");   // TAB → \t
+            return "\"" + escaped + "\"";
+        }
+
+        // Handle verbatim strings (@"...")
+        if (token.IsKind(SyntaxKind.StringLiteralToken))
+        {
+            var text = token.Text;
             if (text.StartsWith("@") || text.StartsWith("$@") || text.StartsWith("@$"))
             {
                 // Use the semantic value (already decoded from C# verbatim encoding)
                 // and re-encode for Java string literals
-                var value = node.Token.ValueText;
+                var value = token.ValueText;
                 var javaContent = value
                     .Replace("\\", "\\\\")   // \ → \\
                     .Replace("\"", "\\\"")   // " → \"
@@ -98,7 +147,7 @@ public class LiteralExpressionTransformer : IExpressionTransformer
             return text;
         }
 
-        return node.Token.Text;
+        return token.Text;
     }
 
     private string TransformCharacterLiteral(LiteralExpressionSyntax node)
@@ -111,5 +160,38 @@ public class LiteralExpressionTransformer : IExpressionTransformer
             "'\\0'" => "'\\0'",
             _ => node.Token.Text
         };
+    }
+
+    // Fix 4: Emit a byte-array literal for UTF-8 string literals ("..."u8)
+    private static string TransformUtf8StringLiteral(LiteralExpressionSyntax node)
+    {
+        var value = node.Token.ValueText;
+        var bytes = Encoding.UTF8.GetBytes(value);
+        var byteArr = string.Join(", ", bytes.Select(b => $"(byte)0x{b:X2}"));
+        return $"new byte[]{{ {byteArr} }}";
+    }
+
+    /// <summary>
+    /// Parse a numeric literal string (decimal, hex 0x, binary 0b) to a ulong.
+    /// Handles digit separators (underscores).
+    /// </summary>
+    private static bool TryParseNumericValue(string text, out ulong value)
+    {
+        try
+        {
+            string cleaned = text.Replace("_", "");
+            if (cleaned.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+                value = Convert.ToUInt64(cleaned.Substring(2), 16);
+            else if (cleaned.StartsWith("0b", StringComparison.OrdinalIgnoreCase))
+                value = Convert.ToUInt64(cleaned.Substring(2), 2);
+            else
+                value = ulong.Parse(cleaned);
+            return true;
+        }
+        catch
+        {
+            value = 0;
+            return false;
+        }
     }
 }

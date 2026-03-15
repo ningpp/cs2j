@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Transformers.Expression.Utilities;
 using System.Collections.Generic;
 
 namespace CSharpToJava.Core.Transformers.Expression;
@@ -10,6 +11,7 @@ namespace CSharpToJava.Core.Transformers.Expression;
 /// <summary>
 /// Handles identifier and member access expressions.
 /// </summary>
+[TransformerRegistration]
 public class IdentifierExpressionTransformer : IExpressionTransformer
 {
     static IdentifierExpressionTransformer()
@@ -31,7 +33,7 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
         => node.Kind() switch
         {
             SyntaxKind.IdentifierName => TransformIdentifier((IdentifierNameSyntax)node, context),
-            SyntaxKind.PredefinedType => BoxedTypeName((PredefinedTypeSyntax)node),
+            SyntaxKind.PredefinedType => TransformPredefinedType((PredefinedTypeSyntax)node),
             SyntaxKind.GenericName => TransformGenericName((GenericNameSyntax)node, context),
             SyntaxKind.SimpleMemberAccessExpression => TransformMemberAccess((MemberAccessExpressionSyntax)node, context),
             SyntaxKind.PointerMemberAccessExpression => TransformPointerMemberAccess((MemberAccessExpressionSyntax)node, context),
@@ -42,19 +44,41 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
     {
         var name = node.Identifier.Text;
 
-        // Check for using aliases
+        // Fix 2: resolve LINQ 'let' clause variables inlined via QueryLetAliases
+        if (context.QueryLetAliases.TryGetValue(name, out var letAlias))
+            return letAlias;
+
+        // Check for using aliases — Fix 5: chain alias resolution through type-registry
         if (context.IsAlias(name))
         {
             var javaType = context.MapAliasToJavaType(name);
-            if (javaType != null) return javaType;
+            if (javaType != null)
+            {
+                // If MapAliasToJavaType returned a simple (unqualified) name, apply a
+                // secondary type-registry lookup to pick up any package-mapping entries.
+                if (!javaType.Contains('.'))
+                {
+                    var remapped = context.TypeMappings.MapType(javaType);
+                    if (remapped != javaType)
+                        return remapped;
+                }
+                return javaType;
+            }
         }
 
         return ConversionContext.EscapeJavaKeyword(name);
     }
 
-    private string BoxedTypeName(PredefinedTypeSyntax node)
+    // Fix 3 & 4: Replaced duplicate local BoxedTypeName with TransformPredefinedType.
+    // Uses boxed types in generic-argument positions; delegates to ExpressionTransformerHelpers
+    // (the canonical BoxedTypeName source) to avoid divergence.
+    private string TransformPredefinedType(PredefinedTypeSyntax node)
     {
-        // Map C# predefined types to Java types
+        // Fix 3: generic type arguments require boxed types (e.g., List<Integer> not List<int>)
+        if (node.Parent is TypeArgumentListSyntax)
+            return ExpressionTransformerHelpers.BoxedTypeName(node);
+
+        // Non-generic context: use Java primitive / value types
         var typeName = node.Keyword.Text;
         return typeName switch
         {
@@ -102,7 +126,27 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
     {
         var facade = ExpressionTransformerFacade.Instance;
         var target = facade.Transform(node.Expression, context);
-        var member = ConversionContext.EscapeJavaKeyword(node.Name.Identifier.Text);
+        var memberName = node.Name.Identifier.Text;
+
+        // Fix 1 & 2: consult member-name mapping and generate property getters
+        if (context.SemanticModel?.GetSymbolInfo(node).Symbol is IPropertySymbol prop)
+        {
+            // Fix 1: check TypeMappings for a configured method/member name mapping
+            var typeName = prop.ContainingType.ToDisplayString();
+            var mappedMethod = context.TypeMappings.MapMethod(typeName, prop.Name);
+            if (mappedMethod != null)
+                return $"{target}.{mappedMethod}";
+
+            // Fix 2: no mapping configured — generate getXxx() for read accesses
+            bool isLhsOfAssignment = node.Parent is AssignmentExpressionSyntax assign && assign.Left == node;
+            if (!isLhsOfAssignment)
+            {
+                var getter = "get" + char.ToUpperInvariant(prop.Name[0]) + prop.Name[1..];
+                return $"{target}.{getter}()";
+            }
+        }
+
+        var member = ConversionContext.EscapeJavaKeyword(memberName);
         return $"{target}.{member}";
     }
 
@@ -113,6 +157,7 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
         var facade = ExpressionTransformerFacade.Instance;
         var target = facade.Transform(node.Expression, context);
         var member = ConversionContext.EscapeJavaKeyword(node.Name.Identifier.Text);
-        return $"/* unsafe: pointer member access */ {target}.{member}";
+        // Fix 6: note that unsafe pointer semantics cannot be reproduced in Java
+        return $"/* WARNING: C# unsafe pointer dereference — Java does not support pointer arithmetic. */ {target}.{member}";
     }
 }

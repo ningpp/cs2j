@@ -20,16 +20,21 @@ public class ExpressionTransformerFacade : IExpressionTransformer
 
     /// <summary>
     /// Transform a C# expression to Java code.
+    /// Emits a TODO comment for unregistered expression kinds instead of throwing.
     /// </summary>
     /// <param name="node">The C# expression syntax node.</param>
     /// <param name="context">The conversion context.</param>
     /// <returns>Java code string.</returns>
-    /// <exception cref="NotSupportedException">Thrown when the expression kind is not supported.</exception>
     public string Transform(ExpressionSyntax node, ConversionContext context)
     {
-        var transformer = ExpressionTransformerRegistry.GetTransformer(node.Kind())
-            ?? throw new NotSupportedException($"Expression kind {node.Kind()} is not supported.");
-
+        var transformer = ExpressionTransformerRegistry.GetTransformer(node.Kind());
+        if (transformer == null)
+        {
+            context.Diagnostics.Warning(
+                $"Expression kind {node.Kind()} is not yet supported. Emitting TODO comment.",
+                node.GetLocation());
+            return $"/* TODO: {node.Kind()} – {node.ToFullString().Trim()} */";
+        }
         return transformer.Transform(node, context);
     }
 
@@ -42,7 +47,7 @@ public class ExpressionTransformerFacade : IExpressionTransformer
     /// <param name="objExpr">The object expression to substitute.</param>
     /// <param name="context">The conversion context.</param>
     /// <returns>Java code string.</returns>
-    internal string TransformWhenNotNull(ExpressionSyntax expr, string objExpr, ConversionContext context)
+    public string TransformWhenNotNull(ExpressionSyntax expr, string objExpr, ConversionContext context)
     {
         switch (expr)
         {
@@ -63,8 +68,13 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                 var elIdx = string.Join(", ", elementAccess.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)));
                 return $"{elTarget}.get({elIdx})";
 
+            case ConditionalAccessExpressionSyntax nested:
+                var nestedObj = TransformWhenNotNull(nested.Expression, objExpr, context);
+                return $"({nestedObj} != null ? {TransformWhenNotNull(nested.WhenNotNull, nestedObj, context)} : null)";
+
             default:
-                // Unknown structure; fall back to transformed C# text (best effort)
+                // Unknown structure; fall back to Transform(), which now emits a TODO comment
+                // for unregistered kinds rather than throwing.
                 return Transform(expr, context);
         }
     }

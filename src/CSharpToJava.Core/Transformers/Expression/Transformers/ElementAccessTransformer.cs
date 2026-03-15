@@ -9,6 +9,7 @@ namespace CSharpToJava.Core.Transformers.Expression;
 /// <summary>
 /// Handles element access expressions (array/index access, index expressions).
 /// </summary>
+[TransformerRegistration]
 public class ElementAccessTransformer : IExpressionTransformer
 {
     static ElementAccessTransformer()
@@ -60,6 +61,18 @@ public class ElementAccessTransformer : IExpressionTransformer
         if (node.ArgumentList.Arguments.Count == 1)
         {
             var arg = node.ArgumentList.Arguments[0].Expression;
+
+            // Fix 2 companion: handle arr[lo..hi] range slicing directly here so the result
+            // is not double-wrapped by the general [idx] path below.
+            if (arg.IsKind(SyntaxKind.RangeExpression) && arg is RangeExpressionSyntax range)
+            {
+                var lo = range.LeftOperand != null ? facade.Transform(range.LeftOperand, context) : "0";
+                var hi = range.RightOperand != null ? facade.Transform(range.RightOperand, context)
+                    : isArray ? $"{expr}.length" : $"{expr}.size()";
+                context.AddImport("java.util.Arrays");
+                return $"Arrays.copyOfRange({expr}, {lo}, {hi})";
+            }
+
             if (arg.IsKind(SyntaxKind.IndexExpression) && arg is PrefixUnaryExpressionSyntax fromEnd)
             {
                 // C# ^n (index from end)
@@ -76,20 +89,26 @@ public class ElementAccessTransformer : IExpressionTransformer
             if (isString) return $"{expr}.charAt({idx})";
             if (isMap) return $"{expr}.get({idx})";
             if (isList) return $"{expr}.get({idx})";
-            // Default: use .get() for object types, [] for arrays
+            // Fallback for unknown/dynamic/unresolved types — check String by display name too
+            var typeDisplayName = exprType?.ToDisplayString() ?? "";
+            if (typeDisplayName == "string" || typeDisplayName.EndsWith("String"))
+                return $"{expr}.charAt({idx})";
             return exprType?.TypeKind == TypeKind.Array ? $"{expr}[{idx}]" : $"{expr}.get({idx})";
         }
 
-        // Multi-argument (e.g., 2D arrays)
-        var args = string.Join(", ", node.ArgumentList.Arguments.Select(a => facade.Transform(a.Expression, context)));
-        return $"{expr}[{args}]";
+        // Multi-argument (e.g., 2D arrays or custom 2D indexers)
+        var argList = node.ArgumentList.Arguments.Select(a => facade.Transform(a.Expression, context)).ToList();
+        if (isArray)
+            return string.Concat(argList.Select(a => $"[{a}]").Prepend(expr));
+        else
+            return $"{expr}.get({string.Join(", ", argList)})";
     }
 
     private string TransformFromEndIndex(PrefixUnaryExpressionSyntax node, ConversionContext context)
     {
-        // ^n as standalone expression — emit a placeholder since we need the collection to compute length
+        // ^n as standalone expression — no direct Java equivalent; emit a comment only
         var facade = ExpressionTransformerFacade.Instance;
         var operand = facade.Transform(node.Operand, context);
-        return $"/* ^{operand} */(-{operand})";
+        return $"/* C# from-end index ^{operand} — requires array name to resolve */";
     }
 }

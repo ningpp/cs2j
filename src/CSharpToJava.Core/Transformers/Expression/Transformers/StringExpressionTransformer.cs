@@ -5,12 +5,14 @@ using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using System.Text;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
 /// <summary>
 /// Handles string expressions (interpolated strings).
 /// </summary>
+[TransformerRegistration]
 public class StringExpressionTransformer : IExpressionTransformer
 {
     static StringExpressionTransformer()
@@ -33,14 +35,27 @@ public class StringExpressionTransformer : IExpressionTransformer
 
     private string TransformInterpolatedString(InterpolatedStringExpressionSyntax node, ConversionContext context)
     {
+        // Fix 3: Detect string kind via start token (handles $@"..." verbatim and $"""...""" raw)
+        var startTokenKind = node.StringStartToken.Kind();
+        var isVerbatim = startTokenKind == SyntaxKind.InterpolatedVerbatimStringStartToken;
+        var isRaw = startTokenKind == SyntaxKind.InterpolatedSingleLineRawStringStartToken
+                 || startTokenKind == SyntaxKind.InterpolatedMultiLineRawStringStartToken;
+
+        // Fix 5: Choose output strategy based on whether any interpolation has a format specifier
+        bool hasFormatSpecifiers = node.Contents
+            .OfType<InterpolationSyntax>()
+            .Any(i => i.FormatClause != null);
+
+        if (hasFormatSpecifiers)
+            return EmitStringFormat(node, isVerbatim, isRaw, context);
+
+        return ConcatenateOnly(node, isVerbatim, isRaw, context);
+    }
+
+    // Fix 5: Concatenation path — used when no interpolation has a format specifier
+    private string ConcatenateOnly(InterpolatedStringExpressionSyntax node, bool isVerbatim, bool isRaw, ConversionContext context)
+    {
         var facade = ExpressionTransformerFacade.Instance;
-        var result = new StringBuilder();
-
-        // Determine the format string start
-        var startQuote = node.StringStartToken.Text; // $" or $@" or $"""
-        var isVerbatim = startQuote.Contains("@");
-        var isMultiLine = startQuote.Count(c => c == '"') > 2;
-
         var parts = new List<string>();
         var currentText = new StringBuilder();
 
@@ -48,87 +63,106 @@ public class StringExpressionTransformer : IExpressionTransformer
         {
             if (content is InterpolatedStringTextSyntax textSyntax)
             {
-                // Escape special characters for Java
-                var text = textSyntax.TextToken.Text;
-                if (isVerbatim)
-                {
-                    // Remove line breaks in verbatim strings for Java
-                    text = text.Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " ");
-                }
-                text = EscapeJavaString(text);
-                currentText.Append(text);
+                currentText.Append(GetProcessedText(textSyntax.TextToken.Text, isVerbatim, isRaw));
             }
             else if (content is InterpolationSyntax interpolation)
             {
-                // Add any accumulated text first
                 if (currentText.Length > 0)
                 {
                     parts.Add($"\"{currentText}\"");
                     currentText.Clear();
                 }
 
-                // Transform the expression
                 var expr = facade.Transform(interpolation.Expression, context);
-
-                // Handle format strings like $"{value:D4}"
-                if (interpolation.AlignmentClause != null || interpolation.FormatClause != null)
+                var exprType = context.SemanticModel?.GetTypeInfo(interpolation.Expression);
+                if (exprType.HasValue && exprType.Value.Type != null)
                 {
-                    // For formatted interpolations, use String.format()
-                    var formatString = "";
-                    if (interpolation.FormatClause != null)
+                    var typeName = context.MapType(exprType.Value.Type);
+                    if (!IsStringType(typeName) && !IsPrimitiveType(typeName))
                     {
-                        formatString = interpolation.FormatClause.FormatStringToken.Text;
-                        formatString = ConvertCSharpFormatToJava(formatString);
+                        expr = $"String.valueOf({expr})";
                     }
-                    else
-                    {
-                        formatString = "%s";
-                    }
-
-                    parts.Add($"String.format(\"{formatString}\", {expr})");
                 }
-                else
-                {
-                    // Simple concatenation
-                    // For non-string types, we need to convert to string
-                    var exprType = context.SemanticModel?.GetTypeInfo(interpolation.Expression);
-                    if (exprType.HasValue && exprType.Value.Type != null)
-                    {
-                        var typeName = context.MapType(exprType.Value.Type);
-                        if (!IsStringType(typeName) && !IsPrimitiveType(typeName))
-                        {
-                            expr = $"String.valueOf({expr})";
-                        }
-                    }
-                    parts.Add(expr);
-                }
+                parts.Add(expr);
             }
         }
 
-        // Add any remaining text
         if (currentText.Length > 0)
-        {
             parts.Add($"\"{currentText}\"");
+
+        if (parts.Count == 0) return "\"\"";
+        if (parts.Count == 1) return parts[0];
+
+        // Fix 2: Use StringBuilder for strings with 4+ concatenation parts
+        if (parts.Count >= 4)
+        {
+            string appends = string.Join("", parts.Select(p => $".append({p})"));
+            return $"new StringBuilder(){appends}.toString()";
         }
 
-        // Build the result
-        if (parts.Count == 0)
+        return string.Join(" + ", parts);
+    }
+
+    // Fix 5: String.format path — used when at least one interpolation has a format specifier
+    private string EmitStringFormat(InterpolatedStringExpressionSyntax node, bool isVerbatim, bool isRaw, ConversionContext context)
+    {
+        var facade = ExpressionTransformerFacade.Instance;
+        var formatSb = new StringBuilder();
+        var args = new List<string>();
+
+        foreach (var content in node.Contents)
         {
-            return "\"\"";
+            if (content is InterpolatedStringTextSyntax textSyntax)
+            {
+                var text = GetProcessedText(textSyntax.TextToken.Text, isVerbatim, isRaw);
+                // Escape literal % characters so they don't become format specifiers
+                text = text.Replace("%", "%%");
+                formatSb.Append(text);
+            }
+            else if (content is InterpolationSyntax interpolation)
+            {
+                string formatSpec = interpolation.FormatClause != null
+                    ? ConvertCSharpFormatToJava(interpolation.FormatClause.FormatStringToken.Text)
+                    : "%s";
+                formatSb.Append(formatSpec);
+
+                var expr = facade.Transform(interpolation.Expression, context);
+                args.Add(expr);
+            }
         }
-        else if (parts.Count == 1)
+
+        string argsStr = args.Count > 0 ? ", " + string.Join(", ", args) : "";
+        return $"String.format(\"{formatSb}\"{argsStr})";
+    }
+
+    // Fix 3 & Fix 4: Centralised text processing for all interpolated string kinds
+    private static string GetProcessedText(string rawText, bool isVerbatim, bool isRaw)
+    {
+        string text = rawText;
+
+        if (isVerbatim)
         {
-            return parts[0];
+            // Verbatim strings ($@"..."): collapse embedded line breaks into spaces
+            text = text.Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " ");
         }
-        else
+        // Fix 3: Raw strings ($"""..."""): let EscapeJavaString handle newlines as \n escapes
+        // (newline chars → "\\n", literal backslashes → "\\\\") — no pre-processing needed
+
+        text = EscapeJavaString(text);
+
+        if (isVerbatim)
         {
-            return string.Join(" + ", parts);
+            // Fix 4: In verbatim strings, "" encodes a literal double-quote.
+            // EscapeJavaString turns each " into \", so "" becomes \"\".
+            // Collapse \"\" → \" so the Java string contains a single escaped quote.
+            text = text.Replace("\\\"\\\"", "\\\"");
         }
+
+        return text;
     }
 
     private static string EscapeJavaString(string text)
     {
-        // Escape backslashes and quotes for Java string literals
         return text
             .Replace("\\", "\\\\")
             .Replace("\"", "\\\"")
@@ -137,25 +171,34 @@ public class StringExpressionTransformer : IExpressionTransformer
             .Replace("\r", "\\r");
     }
 
+    // Fix 1: Complete C# → Java format specifier conversion table
     private static string ConvertCSharpFormatToJava(string csharpFormat)
     {
-        // Convert C# format specifiers to Java format specifiers
-        // C# uses format strings like "D4", "F2", "X", etc.
-        // Java uses format strings like "%04d", "%.2f", "%x", etc.
-        return csharpFormat switch
+        if (string.IsNullOrEmpty(csharpFormat)) return "%s";
+
+        var upper = csharpFormat.ToUpperInvariant();
+        var precision = upper.Length > 1 ? upper[1..] : "";
+
+        return upper[0] switch
         {
-            // Numeric formats
-            "D" or "d" => "%d",
-            "F" or "f" => "%f",
-            "N" or "n" => "%,f",
-            "P" or "p" => "%%",
-            "X" or "x" => "%x",
-            // If contains precision (e.g., "F2"), convert accordingly
-            var f when f.StartsWith("F", StringComparison.OrdinalIgnoreCase) =>
-                "%." + (f.Length > 1 ? f.Substring(1) : "0") + "f",
-            var d when d.StartsWith("D", StringComparison.OrdinalIgnoreCase) =>
-                "%0" + (d.Length > 1 ? d.Substring(1) : "0") + "d",
-            _ => "%s" // Default fallback
+            // D / d  — integer, optional zero-padded width:  D4 → %04d
+            'D' => string.IsNullOrEmpty(precision) ? "%d" : $"%0{precision}d",
+            // F / f  — fixed-point decimal:  F2 → %.2f
+            'F' => string.IsNullOrEmpty(precision) ? "%f" : $"%.{precision}f",
+            // E / e  — scientific notation:  E3 → %.3e
+            'E' => string.IsNullOrEmpty(precision) ? "%e" : $"%.{precision}e",
+            // X / x  — hexadecimal, preserve case:  X → %X, x4 → %4x
+            'X' => string.IsNullOrEmpty(precision)
+                    ? (csharpFormat[0] == 'X' ? "%X" : "%x")
+                    : $"%{precision}{(csharpFormat[0] == 'X' ? 'X' : 'x')}",
+            // N / n  — thousands-separated decimal:  N0 → %,.0f, N2 → %,.2f
+            'N' => string.IsNullOrEmpty(precision) ? "%,.0f" : $"%,.{precision}f",
+            // G / g  — general (shortest of E or F):  G4 → %.4g
+            'G' => string.IsNullOrEmpty(precision) ? "%g" : $"%.{precision}g",
+            // P / p  — percentage:  P → %.0f%%, P2 → %.2f%%
+            'P' => string.IsNullOrEmpty(precision) ? "%.0f%%" : $"%.{precision}f%%",
+            // Unknown specifier — emit %s with a comment so the caller can spot it
+            _ => $"%s /* TODO: format specifier {csharpFormat} */"
         };
     }
 

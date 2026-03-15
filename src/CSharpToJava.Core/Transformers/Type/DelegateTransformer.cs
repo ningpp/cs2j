@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 
@@ -11,7 +12,7 @@ namespace CSharpToJava.Core.Transformers.Type;
 /// Example:  delegate void ShowGraph(GeometryGraph g);
 /// Becomes:  @FunctionalInterface public interface ShowGraph { void invoke(GeometryGraph g); }
 /// </summary>
-public class DelegateTransformer
+public class DelegateTransformer : IDelegateTransformer
 {
     public JavaTypeDeclaration? TransformDelegate(DelegateDeclarationSyntax node, ConversionContext context)
     {
@@ -31,20 +32,18 @@ public class DelegateTransformer
         var sym = context.SemanticModel?.GetDeclaredSymbol(node) as INamedTypeSymbol;
         if (sym != null)
         {
+            var enclosingParams = new List<JavaTypeParameter>();
             var cur = sym.ContainingType;
             while (cur != null)
             {
-                foreach (var tp in cur.TypeParameters)
-                {
-                    if (!allTypeParams.Contains(tp.Name))
-                    {
-                        allTypeParams.Insert(0, tp.Name);
-                        var jtp = new JavaTypeParameter(tp.Name);
-                        javaInterface.TypeParameters.Insert(0, jtp);
-                    }
-                }
+                enclosingParams.InsertRange(0, cur.TypeParameters
+                    .Where(tp => !allTypeParams.Contains(tp.Name) && enclosingParams.All(ep => ep.Name != tp.Name))
+                    .Select(tp => new JavaTypeParameter(tp.Name)));
                 cur = cur.ContainingType;
             }
+            foreach (var ep in enclosingParams)
+                allTypeParams.Add(ep.Name);
+            javaInterface.TypeParameters.InsertRange(0, enclosingParams);
         }
 
         // 2. Delegate's own type parameters
@@ -71,36 +70,34 @@ public class DelegateTransformer
 
         foreach (var param in node.ParameterList?.Parameters ?? Enumerable.Empty<ParameterSyntax>())
         {
-            var typeInfo = context.SemanticModel?.GetTypeInfo(param.Type!);
-            var javaType = typeInfo.HasValue && typeInfo.Value.Type != null
-                ? context.MapType(typeInfo.Value.Type)
-                : "Object";
+            var (javaType, isVarArgs) = ResolveParamType(param, context);
             var paramName = ConversionContext.EscapeJavaKeyword(param.Identifier.Text);
-
-            // Handle ref/out by wrapping with holder type
-            foreach (var mod in param.Modifiers)
-            {
-                if (mod.IsKind(SyntaxKind.RefKeyword) || mod.IsKind(SyntaxKind.OutKeyword))
-                {
-                    javaType = GetHolderType(javaType);
-                    break;
-                }
-                if (mod.IsKind(SyntaxKind.ParamsKeyword))
-                {
-                    // varargs - keep type but add ... indicator via IsVarArgs
-                    var jp2 = new JavaParameter(javaType, paramName) { IsVarArgs = true };
-                    invokeMethod.Parameters.Add(jp2);
-                    goto nextParam;
-                }
-            }
-
-            invokeMethod.Parameters.Add(new JavaParameter(javaType, paramName));
-            nextParam:;
+            invokeMethod.Parameters.Add(new JavaParameter(javaType, paramName) { IsVarArgs = isVarArgs });
         }
 
         javaInterface.Methods.Add(invokeMethod);
 
         return javaInterface;
+    }
+
+    private (string javaType, bool isVarArgs) ResolveParamType(ParameterSyntax param, ConversionContext context)
+    {
+        var typeInfo = context.SemanticModel?.GetTypeInfo(param.Type!);
+        var javaType = typeInfo.HasValue && typeInfo.Value.Type != null
+            ? context.MapType(typeInfo.Value.Type)
+            : "Object";
+
+        foreach (var mod in param.Modifiers)
+        {
+            if (mod.IsKind(SyntaxKind.RefKeyword) || mod.IsKind(SyntaxKind.OutKeyword))
+                return (GetHolderType(javaType), false);
+            if (mod.IsKind(SyntaxKind.InKeyword))
+                return (javaType, false); // in == read-only ref; in Java just pass by value
+            if (mod.IsKind(SyntaxKind.ParamsKeyword))
+                return (javaType, true);
+        }
+
+        return (javaType, false);
     }
 
     private string GetReturnType(DelegateDeclarationSyntax node, ConversionContext context)
@@ -164,6 +161,11 @@ public class DelegateTransformer
         }
     }
 
+    /// <summary>
+    /// Converts a Java type to its corresponding holder class name for ref/out parameters.
+    /// Generated Java code must include holder class definitions (e.g., IntHolder, ObjectHolder&lt;T&gt;)
+    /// in the runtime library that accompanies the converted sources.
+    /// </summary>
     internal static string GetHolderType(string javaType)
     {
         return javaType switch

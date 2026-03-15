@@ -45,3 +45,27 @@ public interface ITypeTransformer : ITransformer<TypeDeclarationSyntax, Java.Jav
 public interface IMemberTransformer : ITransformer<MemberDeclarationSyntax, Java.JavaSyntaxNode>
 {
 }
+
+/// <summary>
+/// Delegate transformer interface — converts C# delegate declarations to Java @FunctionalInterface types.
+/// </summary>
+public interface IDelegateTransformer
+{
+    Java.JavaTypeDeclaration? TransformDelegate(DelegateDeclarationSyntax node, ConversionContext context);
+}
+
+/// <summary>
+/// Event-field transformer interface — converts C# event field/explicit-event declarations to Java listener scaffolding.
+/// </summary>
+public interface IEventFieldTransformer
+{
+    List<Java.JavaSyntaxNode> TransformEvent(EventFieldDeclarationSyntax node, ConversionContext context);
+    List<Java.JavaSyntaxNode> TransformExplicitEvent(EventDeclarationSyntax node, ConversionContext context);
+}
+
+/// <summary>
+/// Marks a transformer class for automatic registration discovery by ExpressionTransformerRegistry.
+/// The class must expose a public static Instance property and a self-registering static constructor.
+/// </summary>
+[AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
+public sealed class TransformerRegistrationAttribute : Attribute { }

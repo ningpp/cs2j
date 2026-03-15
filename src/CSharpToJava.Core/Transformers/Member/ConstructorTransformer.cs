@@ -20,6 +20,18 @@ public class ConstructorTransformer : IMemberTransformer
             throw new ArgumentException($"Expected ConstructorDeclarationSyntax, got {node.GetType()}");
         }
 
+        // Issue 1: Static constructors → Java static initializer block
+        if (ctorDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)))
+        {
+            var staticBlock = new JavaStaticInitializerBlock();
+            if (ctorDecl.Body != null)
+            {
+                var statementTransformer = new Transformers.Statement.StatementTransformer();
+                staticBlock.Statements.AddRange(statementTransformer.TransformStatements(ctorDecl.Body.Statements, context));
+            }
+            return staticBlock;
+        }
+
         var className = context.CurrentType?.Name ?? ctorDecl.Identifier.Text;
 
         var javaCtor = new JavaConstructorDeclaration
@@ -57,18 +69,16 @@ public class ConstructorTransformer : IMemberTransformer
         {
             var args = GetInitializerArguments(ctorDecl.Initializer, context);
 
-            // 只有当有参数时才生成 this() 或 super() 调用
-            // 空的 this() 调用在 Java 中是无效的（会递归调用自己）
-            if (args.Count > 0 || ctorDecl.Initializer.ThisOrBaseKeyword.IsKind(SyntaxKind.BaseKeyword))
+            // Issue 3: Only emit this()/super() when there are actual arguments.
+            // Java implicitly calls super() with no args, so an empty super() call is redundant.
+            if (args.Count > 0)
             {
                 if (ctorDecl.Initializer.ThisOrBaseKeyword.IsKind(SyntaxKind.ThisKeyword))
                 {
-                    // this() 调用 - 只有在有参数时才生成
                     initializerStatements.Add($"this({string.Join(", ", args)});");
                 }
                 else if (ctorDecl.Initializer.ThisOrBaseKeyword.IsKind(SyntaxKind.BaseKeyword))
                 {
-                    // base() 调用 - 在 Java 中是 super()
                     initializerStatements.Add($"super({string.Join(", ", args)});");
                 }
             }
@@ -84,8 +94,18 @@ public class ConstructorTransformer : IMemberTransformer
         }
         else if (ctorDecl.ExpressionBody != null)
         {
+            // Issue 4: Validate that the expression is void-compatible before emitting as a statement.
+            var expr = ctorDecl.ExpressionBody.Expression;
             var exprTransformer = ExpressionTransformerFacade.Instance;
-            bodyStatements.Add(exprTransformer.Transform(ctorDecl.ExpressionBody.Expression, context) + ";");
+            var transformed = exprTransformer.Transform(expr, context);
+            bool isVoidCompatible = expr is AssignmentExpressionSyntax
+                || expr is InvocationExpressionSyntax
+                || expr is PostfixUnaryExpressionSyntax
+                || expr is PrefixUnaryExpressionSyntax;
+            if (isVoidCompatible)
+                bodyStatements.Add(transformed + ";");
+            else
+                bodyStatements.Add($"// TODO: verify expression body semantics: {transformed};");
         }
 
         // 组合初始值设定项和主体
@@ -98,6 +118,15 @@ public class ConstructorTransformer : IMemberTransformer
         {
             // Empty block body (e.g., public Set() {}) → generate empty body, not abstract semicolon
             javaCtor.Body = "";
+        }
+
+        // Issue 5: For 'protected internal', annotate the body so readers know the access intent.
+        if (IsProtectedInternal(ctorDecl.Modifiers))
+        {
+            var comment = "// C# 'protected internal' → Java 'protected' (package-private semantic is implicit via protected)";
+            javaCtor.Body = javaCtor.Body == null
+                ? comment
+                : comment + "\n        " + javaCtor.Body;
         }
 
         return javaCtor;
@@ -124,6 +153,17 @@ public class ConstructorTransformer : IMemberTransformer
     {
         JavaModifiers result = JavaModifiers.None;
 
+        // Issue 5: Detect 'protected internal' before folding individual modifiers.
+        // In Java the broadest equivalent is 'protected'; emit that with an informational comment.
+        bool hasProtected = modifiers.Any(m => m.IsKind(SyntaxKind.ProtectedKeyword));
+        bool hasInternal  = modifiers.Any(m => m.IsKind(SyntaxKind.InternalKeyword));
+        if (hasProtected && hasInternal)
+        {
+            // 'protected internal' → Java 'protected' (broader access, package-private is implicit)
+            // Other modifiers (private, static, …) are still processed below.
+            result |= JavaModifiers.Protected;
+        }
+
         foreach (var modifier in modifiers)
         {
             result |= modifier.Kind() switch
@@ -131,7 +171,8 @@ public class ConstructorTransformer : IMemberTransformer
                 SyntaxKind.PublicKeyword => JavaModifiers.Public,
                 SyntaxKind.ProtectedKeyword => JavaModifiers.Protected,
                 SyntaxKind.PrivateKeyword => JavaModifiers.Private,
-                SyntaxKind.InternalKeyword => JavaModifiers.Public,
+                // Issue 5: 'internal' maps to package-private (no modifier) in Java, not public.
+                SyntaxKind.InternalKeyword => JavaModifiers.None,
                 SyntaxKind.StaticKeyword => JavaModifiers.Static,
                 SyntaxKind.ExternKeyword => JavaModifiers.Native,
                 SyntaxKind.UnsafeKeyword => JavaModifiers.None,
@@ -140,5 +181,11 @@ public class ConstructorTransformer : IMemberTransformer
         }
 
         return result;
+    }
+
+    private bool IsProtectedInternal(SyntaxTokenList modifiers)
+    {
+        return modifiers.Any(m => m.IsKind(SyntaxKind.ProtectedKeyword))
+            && modifiers.Any(m => m.IsKind(SyntaxKind.InternalKeyword));
     }
 }

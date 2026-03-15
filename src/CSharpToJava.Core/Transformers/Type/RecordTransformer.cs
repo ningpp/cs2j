@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.Transformers.Expression;
 
 namespace CSharpToJava.Core.Transformers.Type;
 
@@ -17,6 +18,13 @@ public class RecordTransformer : ITypeTransformer
         if (node is not RecordDeclarationSyntax recordDecl)
         {
             throw new ArgumentException($"Expected RecordDeclarationSyntax, got {node.GetType()}");
+        }
+
+        // Fix 4: record struct has value semantics — route to mutable class path
+        bool isRecordStruct = recordDecl.ClassOrStructKeyword.IsKind(SyntaxKind.StructKeyword);
+        if (isRecordStruct)
+        {
+            return CreateMutableRecordStruct(recordDecl, context);
         }
 
         // 如果目标 Java 版本支持 record (Java 14+)，使用 record
@@ -43,16 +51,18 @@ public class RecordTransformer : ITypeTransformer
             Modifiers = ConvertModifiers(recordDecl.Modifiers)
         };
 
-        // 处理位置参数（record 的主要组件）
+        // Fix 1: Populate positional record component list so Java record header includes (Type name, ...)
+        var positionalNames = new HashSet<string>(StringComparer.Ordinal);
         foreach (var param in recordDecl.ParameterList?.Parameters ?? Enumerable.Empty<ParameterSyntax>())
         {
-            // Java record 参数直接在声明中，不需要额外处理
-            // 记录参数类型以便后续使用
             var typeInfo = context.SemanticModel?.GetTypeInfo(param.Type!);
-            if (typeInfo.HasValue && typeInfo.Value.Type != null)
-            {
-                // 可以在这里记录类型信息
-            }
+            var javaType = typeInfo.HasValue && typeInfo.Value.Type != null
+                ? context.MapType(typeInfo.Value.Type)
+                : "Object";
+            var componentName = ToCamelCase(param.Identifier.Text);
+            javaRecord.RecordComponents.Add(new JavaRecordComponent(javaType, componentName));
+            positionalNames.Add(param.Identifier.Text);
+            positionalNames.Add(componentName);
         }
 
         // 处理基类/接口
@@ -77,7 +87,7 @@ public class RecordTransformer : ITypeTransformer
         // 处理附加成员
         foreach (var member in recordDecl.Members)
         {
-            ProcessRecordMember(member, javaRecord, context);
+            ProcessRecordMember(member, javaRecord, context, positionalNames);
         }
 
         return javaRecord;
@@ -114,8 +124,24 @@ public class RecordTransformer : ITypeTransformer
 
         javaClass.Fields.AddRange(fields);
 
+        // Fix 3: collect base constructor arguments from the record's primary constructor base type
+        // e.g. record Derived(int A) : Base(A) → super(a) in constructor
+        ArgumentListSyntax? baseCtorArgs = null;
+        if (recordDecl.BaseList != null)
+        {
+            foreach (var baseType in recordDecl.BaseList.Types)
+            {
+                if (baseType is PrimaryConstructorBaseTypeSyntax primaryBase &&
+                    primaryBase.ArgumentList?.Arguments.Count > 0)
+                {
+                    baseCtorArgs = primaryBase.ArgumentList;
+                    break;
+                }
+            }
+        }
+
         // 创建构造函数
-        if (constructorParams.Count > 0)
+        if (constructorParams.Count > 0 || baseCtorArgs != null)
         {
             var ctor = new JavaConstructorDeclaration
             {
@@ -127,6 +153,14 @@ public class RecordTransformer : ITypeTransformer
             foreach (var param in constructorParams)
             {
                 ctor.Parameters.Add(param);
+            }
+            // Fix 3: emit super(...) when base record constructor takes arguments
+            if (baseCtorArgs != null)
+            {
+                var exprTransformer = ExpressionTransformerFacade.Instance;
+                var argList = string.Join(", ",
+                    baseCtorArgs.Arguments.Select(a => exprTransformer.Transform(a.Expression, context)));
+                ctor.Initializer = $"super({argList})";
             }
             javaClass.Constructors.Add(ctor);
         }
@@ -196,10 +230,11 @@ public class RecordTransformer : ITypeTransformer
 
     private void GenerateObjectMethods(JavaClassDeclaration javaClass)
     {
-        var fieldNames = javaClass.Fields.Select(f => f.Name).ToList();
+        var fields = javaClass.Fields;
+        var fieldNames = fields.Select(f => f.Name).ToList();
         var className = javaClass.Name;
 
-        // equals
+        // equals — Fix 2: use Arrays.equals for array-typed fields
         string equalsBody;
         if (fieldNames.Count == 0)
         {
@@ -207,8 +242,13 @@ public class RecordTransformer : ITypeTransformer
         }
         else
         {
-            var comparisons = string.Join(" &&\n           ", fieldNames.Select(f =>
-                $"java.util.Objects.equals(this.{f}, other.{f})"));
+            var comparisons = string.Join(" &&\n           ", fields.Select(f =>
+            {
+                bool isArray = f.Type.EndsWith("[]");
+                return isArray
+                    ? $"java.util.Arrays.equals(this.{f.Name}, other.{f.Name})"
+                    : $"java.util.Objects.equals(this.{f.Name}, other.{f.Name})";
+            }));
             equalsBody = $"if (this == o) return true;\n" +
                          $"if (!(o instanceof {className})) return false;\n" +
                          $"{className} other = ({className}) o;\n" +
@@ -223,13 +263,37 @@ public class RecordTransformer : ITypeTransformer
             Body = equalsBody
         });
 
-        // hashCode
+        // hashCode — Fix 2: use Arrays.hashCode for array-typed fields
+        string hashCodeBody;
+        bool hasArrayFields = fields.Any(f => f.Type.EndsWith("[]"));
+        if (fieldNames.Count == 0)
+        {
+            hashCodeBody = $"return java.util.Objects.hash();";
+        }
+        else if (!hasArrayFields)
+        {
+            hashCodeBody = $"return java.util.Objects.hash({string.Join(", ", fieldNames)});";
+        }
+        else
+        {
+            // Mixed or all-array fields: build hash manually so Arrays.hashCode can be applied per field
+            var sb = new System.Text.StringBuilder("int result = 1;\n");
+            foreach (var f in fields)
+            {
+                if (f.Type.EndsWith("[]"))
+                    sb.Append($"result = 31 * result + java.util.Arrays.hashCode({f.Name});\n");
+                else
+                    sb.Append($"result = 31 * result + java.util.Objects.hashCode({f.Name});\n");
+            }
+            sb.Append("return result;");
+            hashCodeBody = sb.ToString();
+        }
         javaClass.Methods.Add(new JavaMethodDeclaration
         {
             Name = "hashCode",
             ReturnType = "int",
             Modifiers = JavaModifiers.Public | JavaModifiers.Override,
-            Body = $"return java.util.Objects.hash({string.Join(", ", fieldNames)});"
+            Body = hashCodeBody
         });
 
         // toString
@@ -245,13 +309,38 @@ public class RecordTransformer : ITypeTransformer
         });
     }
 
-    private void ProcessRecordMember(MemberDeclarationSyntax member, JavaClassDeclaration javaRecord, ConversionContext context)
+    private void ProcessRecordMember(MemberDeclarationSyntax member, JavaClassDeclaration javaRecord, ConversionContext context, HashSet<string> positionalNames)
     {
         // 处理 record 中的附加方法等
         var factory = new Transformers.TransformerFactory();
 
         switch (member)
         {
+            case PropertyDeclarationSyntax propDecl:
+                // Fix 5: skip properties whose name matches a positional component (getter already auto-generated)
+                if (positionalNames.Contains(propDecl.Identifier.Text) ||
+                    positionalNames.Contains(ToCamelCase(propDecl.Identifier.Text)))
+                    break;
+                var propTransformer = factory.CreatePropertyTransformer();
+                var props = propTransformer.Transform(propDecl, context);
+                if (props is JavaMemberCollection collection)
+                {
+                    foreach (var prop in collection.Members)
+                    {
+                        if (prop is JavaFieldDeclaration jf) javaRecord.Fields.Add(jf);
+                        if (prop is JavaMethodDeclaration jm) javaRecord.Methods.Add(jm);
+                    }
+                }
+                else if (props is JavaFieldDeclaration jField)
+                {
+                    javaRecord.Fields.Add(jField);
+                }
+                else if (props is JavaMethodDeclaration jMethod)
+                {
+                    javaRecord.Methods.Add(jMethod);
+                }
+                break;
+
             case MethodDeclarationSyntax methodDecl:
                 var methodTransformer = factory.CreateMethodTransformer();
                 var method = methodTransformer.Transform(methodDecl, context);
@@ -262,11 +351,71 @@ public class RecordTransformer : ITypeTransformer
                 break;
 
             case OperatorDeclarationSyntax opDecl:
-                var opTransformer = new Transformers.Member.OperatorTransformer();
+                var opTransformer = factory.CreateOperatorTransformer();
                 var opMethod = opTransformer.Transform(opDecl, context);
                 if (opMethod != null)
                     javaRecord.Methods.Add(opMethod);
                 break;
+
+            case ConversionOperatorDeclarationSyntax convDecl:
+                var convOpTransformer = factory.CreateOperatorTransformer();
+                var convOpMethod = convOpTransformer.TransformConversion(convDecl, context);
+                if (convOpMethod != null)
+                    javaRecord.Methods.Add(convOpMethod);
+                break;
         }
+    }
+
+    // Fix 4: record struct has value semantics — produce a mutable Java class (non-final fields, all-args ctor, no generated equals/hashCode)
+    private JavaTypeDeclaration CreateMutableRecordStruct(RecordDeclarationSyntax recordDecl, ConversionContext context)
+    {
+        var javaClass = new JavaClassDeclaration
+        {
+            Name = recordDecl.Identifier.Text,
+            Modifiers = ConvertModifiers(recordDecl.Modifiers)
+        };
+
+        var constructorParams = new List<JavaParameter>();
+
+        foreach (var param in recordDecl.ParameterList?.Parameters ?? Enumerable.Empty<ParameterSyntax>())
+        {
+            var typeInfo = context.SemanticModel?.GetTypeInfo(param.Type!);
+            var javaType = typeInfo.HasValue && typeInfo.Value.Type != null
+                ? context.MapType(typeInfo.Value.Type)
+                : "Object";
+            var paramName = ToCamelCase(param.Identifier.Text);
+
+            // Mutable public fields (no Final modifier) for record struct
+            javaClass.Fields.Add(new JavaFieldDeclaration
+            {
+                Type = javaType,
+                Name = paramName,
+                Modifiers = JavaModifiers.Public
+            });
+
+            constructorParams.Add(new JavaParameter(javaType, paramName));
+        }
+
+        // All-args constructor
+        if (constructorParams.Count > 0)
+        {
+            var ctor = new JavaConstructorDeclaration
+            {
+                ClassName = javaClass.Name,
+                Modifiers = JavaModifiers.Public,
+                Body = GenerateConstructorBody(javaClass.Fields.Select(f => f.Name).ToList())
+            };
+            foreach (var param in constructorParams)
+                ctor.Parameters.Add(param);
+            javaClass.Constructors.Add(ctor);
+        }
+
+        // Process extra members (no positional names to skip since fields are public, not as property accessors)
+        foreach (var member in recordDecl.Members)
+        {
+            ProcessRecordMember(member, javaClass, context, new HashSet<string>());
+        }
+
+        return javaClass;
     }
 }

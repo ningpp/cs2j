@@ -11,6 +11,7 @@ namespace CSharpToJava.Core.Transformers.Expression;
 /// <summary>
 /// Handles object and array creation expressions.
 /// </summary>
+[TransformerRegistration]
 public class ObjectCreationTransformer : IExpressionTransformer
 {
     static ObjectCreationTransformer()
@@ -22,7 +23,8 @@ public class ObjectCreationTransformer : IExpressionTransformer
             SyntaxKind.AnonymousObjectCreationExpression,
             SyntaxKind.ArrayCreationExpression,
             SyntaxKind.ImplicitArrayCreationExpression,
-            SyntaxKind.ArrayInitializerExpression
+            SyntaxKind.ArrayInitializerExpression,
+            SyntaxKind.StackAllocArrayCreationExpression
         }, new ObjectCreationTransformer());
     }
 
@@ -38,6 +40,7 @@ public class ObjectCreationTransformer : IExpressionTransformer
             SyntaxKind.ArrayCreationExpression => TransformArrayCreation((ArrayCreationExpressionSyntax)node, context),
             SyntaxKind.ImplicitArrayCreationExpression => TransformImplicitArrayCreation((ImplicitArrayCreationExpressionSyntax)node, context),
             SyntaxKind.ArrayInitializerExpression => TransformArrayInitializer((InitializerExpressionSyntax)node, context),
+            SyntaxKind.StackAllocArrayCreationExpression => TransformStackAlloc((StackAllocArrayCreationExpressionSyntax)node, context),
             _ => throw new NotSupportedException($"Object creation kind {node.Kind()} not supported.")
         };
 
@@ -80,6 +83,12 @@ public class ObjectCreationTransformer : IExpressionTransformer
             return TransformObjectCreationWithInitializer(typeName, node.ArgumentList, node.Initializer, context);
         }
 
+        // Check if there's a collection initializer
+        if (node.Initializer != null && node.Initializer.Kind() == SyntaxKind.CollectionInitializerExpression)
+        {
+            return TransformCollectionCreationWithInitializer(typeName, node.Initializer, context);
+        }
+
         return TransformObjectCreationWithArgs(typeName, node.ArgumentList, context);
     }
 
@@ -108,15 +117,14 @@ public class ObjectCreationTransformer : IExpressionTransformer
         if (argumentList != null)
         {
             foreach (var arg in argumentList.Arguments)
-            {
                 args.Add(facade.Transform(arg.Expression, context));
-            }
         }
 
-        // For Java, we need to create the object, then set properties
-        // Since Java doesn't have object initializers, we'll use double-brace initialization
-
-        var initializers = new List<string>();
+        // Emit the object creation and setter calls as pre-statements, then return the temp var.
+        // This avoids the double-brace anonymous-subclass anti-pattern which leaks memory,
+        // prevents the type from being final, and breaks equals() checks.
+        string tmpVar = context.GenerateSyntheticName("_obj");
+        context.AddPreStatement($"var {tmpVar} = new {typeName}({string.Join(", ", args)});");
 
         foreach (var expr in initializer.Expressions)
         {
@@ -124,30 +132,27 @@ public class ObjectCreationTransformer : IExpressionTransformer
             {
                 var value = facade.Transform(assignExpr.Right, context);
 
-                // Convert property assignment to setter call
-                if (assignExpr.Left is MemberAccessExpressionSyntax memberAccess)
+                if (assignExpr.Left is IdentifierNameSyntax idName)
+                {
+                    var propertyName = ConversionContext.EscapeJavaKeyword(idName.Identifier.Text);
+                    var setterName = ConvertToSetter(propertyName);
+                    context.AddPreStatement($"{tmpVar}.{setterName}({value});");
+                }
+                else if (assignExpr.Left is MemberAccessExpressionSyntax memberAccess)
                 {
                     var propertyName = ConversionContext.EscapeJavaKeyword(memberAccess.Name.Identifier.Text);
                     var setterName = ConvertToSetter(propertyName);
-                    initializers.Add($"this.{setterName}({value})");
+                    context.AddPreStatement($"{tmpVar}.{setterName}({value});");
                 }
                 else
                 {
                     var target = facade.Transform(assignExpr.Left, context);
-                    initializers.Add($"this.{target} = {value}");
+                    context.AddPreStatement($"{tmpVar}.{target} = {value};");
                 }
             }
         }
 
-        // Java double-brace initialization pattern
-        if (initializers.Count > 0)
-        {
-            var initStr = string.Join("; ", initializers);
-            // The outer braces create an anonymous class, the inner braces are instance initializer
-            return $"new {typeName}() {{ {{ {initStr}; }} }}";
-        }
-
-        return $"new {typeName}({string.Join(", ", args)})";
+        return tmpVar;
     }
 
     private static string ConvertToSetter(string propertyName)
@@ -332,5 +337,99 @@ public class ObjectCreationTransformer : IExpressionTransformer
         }
 
         return $" {{ {string.Join(", ", values)} }}";
+    }
+
+    /// <summary>
+    /// Handles collection initializers: new List&lt;T&gt; { ... }, new HashSet&lt;T&gt; { ... },
+    /// new Dictionary&lt;K,V&gt; { { k, v }, ... }.
+    /// </summary>
+    private string TransformCollectionCreationWithInitializer(
+        string typeName, InitializerExpressionSyntax initializer, ConversionContext context)
+    {
+        var facade = ExpressionTransformerFacade.Instance;
+
+        // Dictionary-like: each element is a ComplexElementInitializerExpression ({ key, value })
+        bool isDictionaryLike = initializer.Expressions.Count > 0 &&
+            initializer.Expressions.All(e => e.Kind() == SyntaxKind.ComplexElementInitializerExpression);
+
+        if (isDictionaryLike)
+        {
+            string tmpVar = context.GenerateSyntheticName("_map");
+            context.AddPreStatement($"var {tmpVar} = new {typeName}();");
+            foreach (var element in initializer.Expressions)
+            {
+                if (element is InitializerExpressionSyntax complexInit && complexInit.Expressions.Count == 2)
+                {
+                    var key = facade.Transform(complexInit.Expressions[0], context);
+                    var value = facade.Transform(complexInit.Expressions[1], context);
+                    context.AddPreStatement($"{tmpVar}.put({key}, {value});");
+                }
+            }
+            return tmpVar;
+        }
+
+        // Set-like or List-like: emit as a single constructor expression
+        var items = initializer.Expressions.Select(e => facade.Transform(e, context)).ToList();
+        var itemsStr = string.Join(", ", items);
+
+        bool isSetLike = typeName.StartsWith("HashSet", StringComparison.Ordinal) ||
+                         typeName.StartsWith("TreeSet", StringComparison.Ordinal) ||
+                         typeName.StartsWith("LinkedHashSet", StringComparison.Ordinal);
+
+        if (isSetLike)
+        {
+            if (context.Options.TargetJavaVersion >= JavaVersion.Java11)
+            {
+                context.AddImport("java.util.Set");
+                return $"new {typeName}(Set.of({itemsStr}))";
+            }
+            context.AddImport("java.util.Arrays");
+            return $"new {typeName}(Arrays.asList({itemsStr}))";
+        }
+
+        // Default: List-like
+        context.AddImport("java.util.Arrays");
+        return $"new {typeName}(Arrays.asList({itemsStr}))";
+    }
+
+    /// <summary>
+    /// Maps C# stackalloc to a Java heap allocation with an explanatory comment.
+    /// stackalloc has no Java equivalent; semantics differ (stack vs heap) but behavior is equivalent.
+    /// </summary>
+    private string TransformStackAlloc(StackAllocArrayCreationExpressionSyntax node, ConversionContext context)
+    {
+        // stackalloc has no Java equivalent; heap-allocate instead
+        var facade = ExpressionTransformerFacade.Instance;
+        // node.Type is TypeSyntax but stackalloc always produces an ArrayTypeSyntax
+        var arrayTypeSyntax = (ArrayTypeSyntax)node.Type;
+        string elementType = context.MapTypeFromSyntax(arrayTypeSyntax.ElementType);
+
+        var sizes = new List<string>();
+        foreach (var rankSpec in arrayTypeSyntax.RankSpecifiers)
+        {
+            if (rankSpec.Sizes.Count > 0)
+            {
+                foreach (var size in rankSpec.Sizes)
+                    sizes.Add(facade.Transform(size, context));
+            }
+            else
+            {
+                sizes.Add("");
+            }
+        }
+
+        var sb = new StringBuilder("new ");
+        sb.Append(elementType);
+        foreach (var s in sizes)
+        {
+            sb.Append('[');
+            sb.Append(s);
+            sb.Append(']');
+        }
+
+        if (node.Initializer != null)
+            sb.Append(TransformArrayInitializer(node.Initializer, context));
+
+        return $"/* C# stackalloc — allocated on heap in Java */ {sb}";
     }
 }

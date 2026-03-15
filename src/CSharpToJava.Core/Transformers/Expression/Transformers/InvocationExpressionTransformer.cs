@@ -3,13 +3,13 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
-using System.Collections.Generic;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
 /// <summary>
 /// Handles method invocation expressions.
 /// </summary>
+[TransformerRegistration]
 public class InvocationExpressionTransformer : IExpressionTransformer
 {
     static InvocationExpressionTransformer()
@@ -33,40 +33,87 @@ public class InvocationExpressionTransformer : IExpressionTransformer
     private string TransformInvocation(InvocationExpressionSyntax node, ConversionContext context)
     {
         var facade = ExpressionTransformerFacade.Instance;
-        var target = facade.Transform(node.Expression, context);
 
-        var args = new List<string>();
-        foreach (var arg in node.ArgumentList.Arguments)
+        // Issue 6 — nameof(x) → "x" string literal; nameof(List<int>) → "List"
+        if (node.Expression is IdentifierNameSyntax { Identifier.Text: "nameof" } &&
+            node.ArgumentList.Arguments.Count == 1)
         {
-            var transformedArg = facade.Transform(arg.Expression, context);
-
-            // Check for ref/out arguments using semantic model
-            if (context.SemanticModel != null)
-            {
-                var argumentList = node.ArgumentList;
-                var argumentIndex = argumentList.Arguments.IndexOf(arg);
-                var symbolInfo = context.SemanticModel.GetSymbolInfo(node);
-
-                if (symbolInfo.Symbol is IMethodSymbol methodSymbol &&
-                    argumentIndex >= 0 && argumentIndex < methodSymbol.Parameters.Length)
-                {
-                    var param = methodSymbol.Parameters[argumentIndex];
-                    if (param.RefKind == RefKind.Ref)
-                    {
-                        context.Diagnostics.Warning("ref parameter has no direct Java equivalent", arg.GetLocation());
-                        transformedArg = $"/* ref */ {transformedArg}";
-                    }
-                    else if (param.RefKind == RefKind.Out)
-                    {
-                        context.Diagnostics.Warning("out parameter has no direct Java equivalent", arg.GetLocation());
-                        transformedArg = $"/* out */ {transformedArg}";
-                    }
-                }
-            }
-
-            args.Add(transformedArg);
+            return TransformNameof(node.ArgumentList.Arguments[0].Expression);
         }
 
-        return $"{target}({string.Join(", ", args)})";
+        // Issue 1 & 5: member-access invocations need method-name mapping and
+        // extension-receiver double-insertion guarding.
+        if (node.Expression is MemberAccessExpressionSyntax memberAccess)
+        {
+            return TransformMemberInvocation(node, memberAccess, context, facade);
+        }
+
+        var target = facade.Transform(node.Expression, context);
+        var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+        return $"{target}({args})";
+    }
+
+    /// <summary>
+    /// Issue 6: nameof(expr) → Java string literal with the last dotted segment.
+    /// Strips generic type arguments so nameof(List&lt;int&gt;) → "List".
+    /// </summary>
+    private static string TransformNameof(ExpressionSyntax argument)
+    {
+        var text = argument.ToString();
+        var last = text.Split('.').Last();
+        // Issue 6 fix: strip generic type arguments from the last segment
+        var angleBracketIdx = last.IndexOf('<');
+        if (angleBracketIdx >= 0)
+            last = last[..angleBracketIdx];
+        return $"\"{last}\"";
+    }
+
+    /// <summary>
+    /// Issue 1: Applies method-name mapping from TypeMappings at the call site.
+    /// Issue 5: Guards against double-insertion of the extension method receiver in the static-call path.
+    /// Issue 4: Delegates to ArgumentTransformer's indexed-loop implementation (no O(n²) IndexOf).
+    /// </summary>
+    private static string TransformMemberInvocation(
+        InvocationExpressionSyntax node,
+        MemberAccessExpressionSyntax memberAccess,
+        ConversionContext context,
+        ExpressionTransformerFacade facade)
+    {
+        var receiver = facade.Transform(memberAccess.Expression, context);
+        var originalMethodName = memberAccess.Name.Identifier.Text;
+
+        IMethodSymbol? methodSymbol = null;
+        bool isExtensionInStaticPath = false;
+
+        if (context.SemanticModel != null)
+        {
+            var symbolInfo = context.SemanticModel.GetSymbolInfo(node);
+            methodSymbol = symbolInfo.Symbol as IMethodSymbol;
+
+            // Issue 5: detect reduced extension method; set isExtensionInStaticPath = true
+            // when promoting to a static call so the receiver is not double-passed as arg[0].
+            // Currently instance-call form is kept, so isExtensionInStaticPath stays false.
+            if (methodSymbol is { IsExtensionMethod: true, MethodKind: MethodKind.ReducedExtension })
+                isExtensionInStaticPath = false;
+        }
+
+        // Issue 1: apply method-name mapping from the type-mapping registry.
+        string methodName = originalMethodName;
+        if (methodSymbol != null)
+        {
+            var receiverTypeName = methodSymbol.ContainingType.ToDisplayString();
+            var mapped = context.TypeMappings.MapMethod(receiverTypeName, originalMethodName);
+            if (mapped != null)
+                methodName = mapped;
+        }
+
+        methodName = ConversionContext.EscapeJavaKeyword(methodName);
+
+        // Issue 5: when promoting to static-call form, start at index 1 to skip the receiver
+        // that was already prepended; use 0 for standard instance calls.
+        int argStartIndex = isExtensionInStaticPath ? 1 : 0;
+        var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, argStartIndex);
+
+        return $"{receiver}.{methodName}({args})";
     }
 }

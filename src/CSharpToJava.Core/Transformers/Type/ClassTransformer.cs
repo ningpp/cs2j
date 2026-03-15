@@ -39,12 +39,23 @@ public class ClassTransformer : ITypeTransformer
         var baseType = mergedType.TypeSymbol.BaseType;
         if (baseType != null && baseType.SpecialType != SpecialType.System_Object)
         {
-            // Skip MarshalByRefObject - it doesn't exist in Java
-            if (baseType.Name != "MarshalByRefObject" && baseType.ToDisplayString() != "System.MarshalByRefObject")
+            // Skip MarshalByRefObject - it doesn't exist in Java (use ToDisplayString for alias-safe comparison)
+            if (baseType.ToDisplayString() != "System.MarshalByRefObject")
             {
                 javaClass.ExtendedType = context.MapType(baseType);
             }
         }
+
+        // Pre-scan members to determine if the class provides its own ICollection<T> implementation.
+        // Only substitute ICollection→Iterable when the class does NOT declare ICollection members,
+        // to avoid incorrectly mapping a full ICollection implementation to the weaker Iterable contract.
+        var icollectionCheckNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Add", "Remove", "Contains", "Count" };
+        bool hasICollectionImpl = mergedType.OriginalSyntaxNodes.Any(n => n.Members.Any(m => m switch
+        {
+            MethodDeclarationSyntax md => icollectionCheckNames.Contains(md.Identifier.Text),
+            PropertyDeclarationSyntax pd => icollectionCheckNames.Contains(pd.Identifier.Text),
+            _ => false
+        }));
 
         // 处理接口 - 使用符号信息
         foreach (var iface in mergedType.TypeSymbol.AllInterfaces)
@@ -73,15 +84,16 @@ public class ClassTransformer : ITypeTransformer
 
             if (isDirect)
             {
-                // Skip MarshalByRefObject - it doesn't exist in Java
-                if (iface.Name != "MarshalByRefObject" && iface.ToDisplayString() != "System.MarshalByRefObject")
+                // Skip MarshalByRefObject - it doesn't exist in Java (use ToDisplayString for alias-safe comparison)
+                if (iface.ToDisplayString() != "System.MarshalByRefObject")
                 {
                     var mappedIface = context.MapType(iface);
                     // ICollection<T> maps to java.util.Collection<T> for type bounds (CollectionUtilities),
                     // but when used as an IMPLEMENTED interface it requires all abstract methods to be
                     // implemented (addAll, retainAll, containsAll, etc). Use Iterable instead since
                     // custom collection classes typically don't implement the full Collection contract.
-                    if (iface.Name == "ICollection" && iface.ContainingNamespace?.ToString()?.StartsWith("System") == true)
+                    // Only substitute when the class does NOT declare ICollection members itself.
+                    if (iface.Name == "ICollection" && iface.ContainingNamespace?.ToString()?.StartsWith("System") == true && !hasICollectionImpl)
                         mappedIface = mappedIface.Replace("Collection", "Iterable");
                     javaClass.ImplementedTypes.Add(mappedIface);
                 }
@@ -132,11 +144,25 @@ public class ClassTransformer : ITypeTransformer
                     PropertyDeclarationSyntax p => $"p:{p.Identifier.Text}",
                     FieldDeclarationSyntax f => $"f:{string.Join(",", f.Declaration.Variables.Select(v => v.Identifier.Text))}",
                     ConstructorDeclarationSyntax c => $"ctor:{string.Join(",", c.ParameterList?.Parameters.Select(p => ParamKey(p)) ?? Enumerable.Empty<string>())}",
+                    EventDeclarationSyntax e => $"ev:{e.Identifier.Text}",
+                    DelegateDeclarationSyntax d => $"del:{d.Identifier.Text}",
+                    TypeDeclarationSyntax t => $"type:{t.Identifier.Text}",
                     _ => $"other:{member.GetHashCode()}"
                 };
                 if (seenMemberKeys.Add(key))
                     ProcessMember(member, javaClass, context);
             }
+        }
+
+        // static class → private no-arg constructor to prevent instantiation (Java has no static class keyword)
+        if (classDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)) && javaClass.Constructors.Count == 0)
+        {
+            javaClass.Constructors.Add(new JavaConstructorDeclaration
+            {
+                ClassName = javaClass.Name,
+                Modifiers = JavaModifiers.Private,
+                Body = ""
+            });
         }
 
         RemoveCompareToBridgeConflicts(javaClass);
@@ -176,6 +202,17 @@ public class ClassTransformer : ITypeTransformer
             Modifiers = ConvertModifiers(classDecl.Modifiers, context),
         };
 
+        // Pre-scan members to determine if the class provides its own ICollection<T> implementation.
+        // Only substitute ICollection→Iterable when the class does NOT declare ICollection members,
+        // to avoid incorrectly mapping a full ICollection implementation to the weaker Iterable contract.
+        var icollectionCheckNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Add", "Remove", "Contains", "Count" };
+        bool hasICollectionImpl = classDecl.Members.Any(m => m switch
+        {
+            MethodDeclarationSyntax md => icollectionCheckNames.Contains(md.Identifier.Text),
+            PropertyDeclarationSyntax pd => icollectionCheckNames.Contains(pd.Identifier.Text),
+            _ => false
+        });
+
         // 处理基类
         if (classDecl.BaseList != null)
         {
@@ -191,9 +228,8 @@ public class ClassTransformer : ITypeTransformer
                 if (!typeInfo.HasValue || typeInfo.Value.Type == null) continue;
 
                 var resolvedType = typeInfo.Value.Type;
-                // Skip MarshalByRefObject - it doesn't exist in Java
-                if (resolvedType.Name == "MarshalByRefObject" ||
-                    resolvedType.ToDisplayString() == "System.MarshalByRefObject") continue;
+                // Skip MarshalByRefObject - it doesn't exist in Java (use ToDisplayString for alias-safe comparison)
+                if (resolvedType.ToDisplayString() == "System.MarshalByRefObject") continue;
 
                 if (resolvedType.TypeKind == TypeKind.Class)
                 {
@@ -202,10 +238,12 @@ public class ClassTransformer : ITypeTransformer
                 else if (resolvedType.TypeKind == TypeKind.Interface)
                 {
                     var mappedIface = context.MapType(resolvedType);
-                    // ICollection<T> as an implemented interface → use Iterable to avoid requiring all abstract Collection methods
+                    // ICollection<T> as an implemented interface → use Iterable to avoid requiring all abstract Collection methods.
+                    // Only substitute when the class does NOT declare ICollection members itself.
                     if (resolvedType is INamedTypeSymbol namedIface &&
                         namedIface.Name == "ICollection" &&
-                        namedIface.ContainingNamespace?.ToString()?.StartsWith("System") == true)
+                        namedIface.ContainingNamespace?.ToString()?.StartsWith("System") == true &&
+                        !hasICollectionImpl)
                         mappedIface = mappedIface.Replace("Collection", "Iterable");
                     javaClass.ImplementedTypes.Add(mappedIface);
                 }
@@ -238,6 +276,18 @@ public class ClassTransformer : ITypeTransformer
         AddComparableBridgeMethods(javaClass);
         AddListInterfaceBridgeMethods(javaClass);
         AddIRectangleBridgeMethods(javaClass);
+
+        // static class → private no-arg constructor to prevent instantiation (Java has no static class keyword)
+        if (classDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)) && javaClass.Constructors.Count == 0)
+        {
+            javaClass.Constructors.Add(new JavaConstructorDeclaration
+            {
+                ClassName = javaClass.Name,
+                Modifiers = JavaModifiers.Private,
+                Body = ""
+            });
+        }
+
         context.LeaveType();
 
         return javaClass;
@@ -314,6 +364,10 @@ public class ClassTransformer : ITypeTransformer
                 _ => JavaModifiers.None
             };
         }
+
+        // protected internal → protected (not public protected, which is invalid in Java)
+        if ((result & JavaModifiers.Protected) != 0 && (result & JavaModifiers.Public) != 0)
+            result &= ~JavaModifiers.Public;
 
         // In C#, top-level types with no accessibility modifier default to 'internal'.
         // Map this to Java 'public' so the type is accessible across packages.
@@ -834,10 +888,17 @@ public class ClassTransformer : ITypeTransformer
                 break;
 
             case OperatorDeclarationSyntax opDecl:
-                var opTransformer = new Transformers.Member.OperatorTransformer();
+                var opTransformer = factory.CreateOperatorTransformer();
                 var opMethod = opTransformer.Transform(opDecl, context);
                 if (opMethod != null)
                     AddMethodIfNotDuplicate(javaClass, opMethod);
+                break;
+
+            case ConversionOperatorDeclarationSyntax convDecl:
+                var convOpTransformer = factory.CreateOperatorTransformer();
+                var convOpMethod = convOpTransformer.TransformConversion(convDecl, context);
+                if (convOpMethod != null)
+                    AddMethodIfNotDuplicate(javaClass, convOpMethod);
                 break;
 
             case ConstructorDeclarationSyntax ctorDecl:
@@ -846,6 +907,10 @@ public class ClassTransformer : ITypeTransformer
                 if (ctor is JavaConstructorDeclaration javaCtor)
                 {
                     AddCtorIfNotDuplicate(javaClass, javaCtor);
+                }
+                else if (ctor is JavaStaticInitializerBlock staticInitBlock)
+                {
+                    javaClass.StaticInitializers.Add(staticInitBlock);
                 }
                 break;
 

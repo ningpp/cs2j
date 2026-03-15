@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using System.Text.RegularExpressions;
 
 namespace CSharpToJava.Core.Transformers.Member;
 
@@ -26,6 +27,13 @@ public class IndexerTransformer : IMemberTransformer
             ? context.MapType(typeInfo.Value.Type)
             : "Object";
 
+        // Fix 1: use context-aware method name selection to avoid Map/List collisions.
+        // The getter name is always "get" (same across List, Map, and default).
+        // The setter name is "put" when the containing class implements Map (to match Map.put contract).
+        bool implementsMap = context.ImplementsInterface("Map");
+        string getterName = "get";
+        string setterName = implementsMap ? "put" : "set";
+
         // 获取参数列表
         var parameters = new List<JavaParameter>();
         foreach (var param in indexerDecl.ParameterList?.Parameters ?? Enumerable.Empty<ParameterSyntax>())
@@ -37,6 +45,9 @@ public class IndexerTransformer : IMemberTransformer
             parameters.Add(new JavaParameter(javaType, param.Identifier.Text));
         }
 
+        // Fix 2: detect multi-parameter indexers so we can post-process bracket syntax.
+        bool isMultiParam = parameters.Count > 1;
+
         // 生成 getter 方法
         var getAccessor = indexerDecl.AccessorList?.Accessors
             .FirstOrDefault(a => a.IsKind(SyntaxKind.GetAccessorDeclaration));
@@ -45,7 +56,7 @@ public class IndexerTransformer : IMemberTransformer
         {
             var getter = new JavaMethodDeclaration
             {
-                Name = "get",
+                Name = getterName,
                 ReturnType = returnType,
                 Modifiers = GetAccessorModifiers(getAccessor, indexerDecl.Modifiers) | JavaModifiers.Public
             };
@@ -59,33 +70,56 @@ public class IndexerTransformer : IMemberTransformer
             if (getAccessor?.Body != null)
             {
                 var statementTransformer = new Transformers.Statement.StatementTransformer();
-                getter.Body = statementTransformer.TransformBlock(getAccessor.Body, context);
+                var body = statementTransformer.TransformBlock(getAccessor.Body, context);
+                // Fix 2: replace C# multi-dim bracket syntax [a, b] with [a][b] in the body.
+                getter.Body = isMultiParam ? FixMultiDimBrackets(body) : body;
             }
             else if (getAccessor?.ExpressionBody != null)
             {
-                var exprTransformer = new Transformers.Expression.ExpressionTransformer();
-                getter.Body = exprTransformer.Transform(getAccessor.ExpressionBody.Expression, context);
+                var body = Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(
+                    getAccessor.ExpressionBody.Expression, context);
+                // Fix 2: same bracket normalisation for expression bodies.
+                getter.Body = isMultiParam ? FixMultiDimBrackets(body) : body;
                 getter.IsBodyExpression = true;
             }
 
             results.Add(getter);
         }
 
-        // 生成 setter 方法
+        // Fix 4: treat init accessor similarly to set accessor, but annotate the method.
         var setAccessor = indexerDecl.AccessorList?.Accessors
             .FirstOrDefault(a => a.IsKind(SyntaxKind.SetAccessorDeclaration));
+        var initAccessor = indexerDecl.AccessorList?.Accessors
+            .FirstOrDefault(a => a.IsKind(SyntaxKind.InitAccessorDeclaration));
 
-        if (setAccessor != null)
+        // setterAccessor is whichever accessor should produce the Java setter method.
+        var setterAccessor = setAccessor ?? initAccessor;
+
+        // Fix 5: in interface context, only emit a setter when there is an explicit 'set' accessor.
+        //        A get-only interface indexer (or one with only 'init') must not generate a setter stub.
+        if (context.IsInInterfaceBody && setAccessor == null)
+        {
+            setterAccessor = null;
+        }
+
+        if (setterAccessor != null)
         {
             var setter = new JavaMethodDeclaration
             {
-                Name = "set",
-                // Return the set value (returnType) rather than void, so that compound indexer
-                // assignment (e.g. CdtEdge edge = Edges[i] = value) works in Java:
-                // edge = Edges.set(i, value)  → returns value (the newly-set item).
+                Name = setterName,
+                // Return the set value so that compound indexer assignment (e.g. Edges[i] = value)
+                // can be chained in Java as: edge = Edges.set(i, value).
+                // Fix 3: for Map.put the contract also returns the previous value; we emit
+                //        "return null;" as a placeholder since the previous value is not tracked.
                 ReturnType = returnType,
-                Modifiers = GetAccessorModifiers(setAccessor, indexerDecl.Modifiers) | JavaModifiers.Public
+                Modifiers = GetAccessorModifiers(setterAccessor, indexerDecl.Modifiers) | JavaModifiers.Public
             };
+
+            // Fix 4: annotate init-only accessors so callers know the intended restriction.
+            if (initAccessor != null && setAccessor == null)
+            {
+                setter.LeadingComment = "// C# init-only: should only be called during construction";
+            }
 
             // 添加参数
             foreach (var param in parameters)
@@ -94,23 +128,41 @@ public class IndexerTransformer : IMemberTransformer
             }
             setter.Parameters.Add(new JavaParameter(returnType, "value"));
 
-            if (setAccessor?.Body != null)
+            // Fix 3: Map.put should return null (previous-value placeholder) rather than the new value.
+            string returnStatement = (setterName == "put") ? "\nreturn null;" : "\nreturn value;";
+
+            if (setterAccessor.Body != null)
             {
                 var statementTransformer = new Transformers.Statement.StatementTransformer();
-                setter.Body = statementTransformer.TransformBlock(setAccessor.Body, context) + "\nreturn value;";
+                var body = statementTransformer.TransformBlock(setterAccessor.Body, context);
+                // Fix 2: normalise multi-dim bracket syntax in setter body as well.
+                setter.Body = (isMultiParam ? FixMultiDimBrackets(body) : body) + returnStatement;
             }
-            else if (setAccessor?.ExpressionBody != null)
+            else if (setterAccessor.ExpressionBody != null)
             {
-                var exprTransformer = new Transformers.Expression.ExpressionTransformer();
-                setter.Body = exprTransformer.Transform(setAccessor.ExpressionBody.Expression, context);
+                var body = Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(
+                    setterAccessor.ExpressionBody.Expression, context);
+                body = isMultiParam ? FixMultiDimBrackets(body) : body;
                 setter.IsBodyExpression = false; // need a block with return
-                setter.Body += ";\nreturn value;";
+                setter.Body = body + ";" + returnStatement;
             }
 
             results.Add(setter);
         }
 
         return new Java.JavaMemberCollection(results.Cast<Java.JavaSyntaxNode>().ToList());
+    }
+
+    /// <summary>
+    /// Fix 2: Replace C# multi-dimensional bracket syntax <c>expr[a, b]</c> with
+    /// chained Java bracket syntax <c>expr[a][b]</c>.
+    /// Only applied when the indexer has more than one parameter.
+    /// </summary>
+    private static string FixMultiDimBrackets(string body)
+    {
+        // Match two-argument bracket expressions: [expr1, expr2]
+        // Avoid matching array/collection literals with more commas.
+        return Regex.Replace(body, @"\[([^\[\],]+),\s*([^\[\],]+)\]", "[$1][$2]");
     }
 
     private JavaModifiers GetAccessorModifiers(AccessorDeclarationSyntax? accessor, SyntaxTokenList modifiers)

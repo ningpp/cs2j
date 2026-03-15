@@ -46,6 +46,12 @@ public class ConversionOptions
     /// 是否启用 LINQ 预处理（将 LINQ 转换为过程化代码）
     /// </summary>
     public bool EnableLinqRewrite { get; set; } = true;
+
+    /// <summary>
+    /// When enabled, extension methods on known types are promoted to instance methods on those types,
+    /// and the receiver ('this') parameter is stripped from the Java method signature.
+    /// </summary>
+    public bool RewriteExtensionMethods { get; set; } = false;
 }
 
 /// <summary>
@@ -103,6 +109,25 @@ public class ConversionContext
     /// 是否在 yield return 方法中（转换为列表积累模式）
     /// </summary>
     public bool IsInYieldMethod { get; set; }
+
+    /// <summary>
+    /// Whether the current type being converted is an interface body.
+    /// </summary>
+    public bool IsInInterfaceBody => CurrentType is Java.JavaInterfaceDeclaration;
+
+    /// <summary>
+    /// Checks whether the current Java type implements the given interface name (e.g. "Map", "List").
+    /// Matches both the raw name and generic forms like Map&lt;K,V&gt;.
+    /// </summary>
+    public bool ImplementsInterface(string interfaceName)
+    {
+        if (CurrentType is Java.JavaClassDeclaration classDecl)
+        {
+            return classDecl.ImplementedTypes.Any(t =>
+                t == interfaceName || t.StartsWith(interfaceName + "<"));
+        }
+        return false;
+    }
 
     /// <summary>
     /// 收集的导入语句

@@ -4,12 +4,14 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Transformers.Statement;
+using System.Text.RegularExpressions;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
 /// <summary>
 /// Handles lambda and anonymous method expressions.
 /// </summary>
+[TransformerRegistration]
 public class LambdaTransformer : IExpressionTransformer
 {
     static LambdaTransformer()
@@ -38,7 +40,13 @@ public class LambdaTransformer : IExpressionTransformer
     {
         var facade = ExpressionTransformerFacade.Instance;
 
-        // Collect parameters
+        // Fix 4: Detect static lambdas (C# 9) — static has no Java equivalent; strip it silently
+        bool isStaticLambda = node.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword));
+
+        // Fix 1: Detect async lambdas
+        bool isAsync = node.Modifiers.Any(m => m.IsKind(SyntaxKind.AsyncKeyword));
+
+        // Fix 2: Collect parameters, emitting explicit types when present
         IEnumerable<ParameterSyntax> parameters = node switch
         {
             SimpleLambdaExpressionSyntax simple => [simple.Parameter],
@@ -47,22 +55,89 @@ public class LambdaTransformer : IExpressionTransformer
         };
 
         var javaParams = parameters
-            .Select(p => ConversionContext.EscapeJavaKeyword(p.Identifier.Text))
+            .Select(p =>
+            {
+                string name = ConversionContext.EscapeJavaKeyword(p.Identifier.Text);
+                // Fix 2: emit explicit type when the parameter carries a declared type
+                if (p.Type != null)
+                {
+                    string javaType = context.MapTypeFromSyntax(p.Type);
+                    return $"{javaType} {name}";
+                }
+                return name;
+            })
             .ToList();
 
         var paramStr = javaParams.Count == 1 ? javaParams[0] : $"({string.Join(", ", javaParams)})";
+
+        // Fix 3: Detect mutated captured variables and add array-holder pre-statements
+        var mutatedCaptures = GetMutatedCaptures(node, context);
+        foreach (var (capName, capType) in mutatedCaptures)
+        {
+            context.AddPreStatement($"{capType}[] _{capName} = {{ {capName} }};");
+        }
 
         // Generate body
         if (node.Block != null)
         {
             var stmtTransformer = new StatementTransformer();
-            var body = stmtTransformer.TransformBlock(node.Block, context);
-            return $"{paramStr} -> {{\n{body}\n}}";
+            string body = stmtTransformer.TransformBlock(node.Block, context);
+
+            // Fix 3: replace mutated captured variable usages with array-element access
+            foreach (var (capName, _) in mutatedCaptures)
+            {
+                body = Regex.Replace(body, $@"\b{Regex.Escape(capName)}\b", $"_{capName}[0]");
+            }
+
+            string result = $"{paramStr} -> {{\n{body}\n}}";
+
+            // Fix 1: wrap async block-body lambdas in CompletableFuture
+            if (isAsync)
+            {
+                context.AddImport("java.util.concurrent.CompletableFuture");
+                bool isVoid = IsVoidAsyncLambda(node, context);
+                result = isVoid
+                    ? $"CompletableFuture.runAsync(() -> {{\n{body}\n}})"
+                    : $"CompletableFuture.supplyAsync(() -> {{\n{body}\n}})";
+            }
+
+            // Fix 4: add comment for static lambdas
+            if (isStaticLambda)
+                result = $"/* C# static lambda — does not capture outer scope */ {result}";
+
+            return result;
         }
         else if (node.ExpressionBody != null)
         {
-            var body = facade.Transform(node.ExpressionBody, context);
-            return $"{paramStr} -> {body}";
+            string body = facade.Transform(node.ExpressionBody, context);
+
+            // Fix 3: replace mutated captured variable usages with array-element access
+            foreach (var (capName, _) in mutatedCaptures)
+            {
+                body = Regex.Replace(body, $@"\b{Regex.Escape(capName)}\b", $"_{capName}[0]");
+            }
+
+            string result;
+
+            // Fix 1: wrap async expression-body lambdas in CompletableFuture
+            if (isAsync)
+            {
+                context.AddImport("java.util.concurrent.CompletableFuture");
+                bool isVoid = IsVoidAsyncLambda(node, context);
+                result = isVoid
+                    ? $"CompletableFuture.runAsync(() -> {body})"
+                    : $"CompletableFuture.supplyAsync(() -> {body})";
+            }
+            else
+            {
+                result = $"{paramStr} -> {body}";
+            }
+
+            // Fix 4: add comment for static lambdas
+            if (isStaticLambda)
+                result = $"/* C# static lambda — does not capture outer scope */ {result}";
+
+            return result;
         }
 
         return $"{paramStr} -> null";
@@ -72,6 +147,7 @@ public class LambdaTransformer : IExpressionTransformer
     {
         var stmtTransformer = new StatementTransformer();
 
+        // Fix 5: Emit () for anonymous methods with null or empty parameter list
         string paramStr;
         if (node.ParameterList != null && node.ParameterList.Parameters.Count > 0)
         {
@@ -87,6 +163,84 @@ public class LambdaTransformer : IExpressionTransformer
 
         var body = stmtTransformer.TransformBlock(node.Block, context);
         return $"{paramStr} -> {{\n{body}\n}}";
+    }
+
+    /// <summary>
+    /// Fix 1: Determines whether an async lambda has a void return type (→ runAsync vs supplyAsync).
+    /// Uses the semantic model when available; defaults to supplyAsync (non-void) when not.
+    /// </summary>
+    private static bool IsVoidAsyncLambda(LambdaExpressionSyntax lambda, ConversionContext context)
+    {
+        if (context.SemanticModel == null) return false;
+        var typeInfo = context.SemanticModel.GetTypeInfo(lambda);
+        if (typeInfo.ConvertedType is INamedTypeSymbol namedType)
+        {
+            var invokeMethod = namedType.DelegateInvokeMethod;
+            if (invokeMethod != null)
+                return invokeMethod.ReturnType.SpecialType == SpecialType.System_Void;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Fix 3: Identifies local variables from enclosing scopes that are mutated inside the lambda body.
+    /// Java requires captured variables to be effectively final; mutated ones must be wrapped in a
+    /// single-element array holder to allow mutation via the array element.
+    /// </summary>
+    private static IReadOnlyList<(string Name, string JavaType)> GetMutatedCaptures(
+        LambdaExpressionSyntax lambda, ConversionContext context)
+    {
+        var result = new List<(string, string)>();
+        if (context.SemanticModel == null) return result;
+
+        // Collect lambda parameter names to exclude from capture detection
+        var paramNames = lambda switch
+        {
+            SimpleLambdaExpressionSyntax s => new HashSet<string> { s.Parameter.Identifier.Text },
+            ParenthesizedLambdaExpressionSyntax p =>
+                new HashSet<string>(p.ParameterList.Parameters.Select(pm => pm.Identifier.Text)),
+            _ => new HashSet<string>()
+        };
+
+        SyntaxNode? body = (SyntaxNode?)lambda.Block ?? lambda.ExpressionBody;
+        if (body == null) return result;
+
+        var seen = new HashSet<string>();
+
+        foreach (var node in body.DescendantNodes())
+        {
+            // Match assignment targets and ++ / -- operands
+            IdentifierNameSyntax? targetId = node switch
+            {
+                AssignmentExpressionSyntax assign when assign.Left is IdentifierNameSyntax id => id,
+                PrefixUnaryExpressionSyntax pre when
+                    (pre.IsKind(SyntaxKind.PreIncrementExpression) || pre.IsKind(SyntaxKind.PreDecrementExpression)) &&
+                    pre.Operand is IdentifierNameSyntax pid => pid,
+                PostfixUnaryExpressionSyntax post when
+                    (post.IsKind(SyntaxKind.PostIncrementExpression) || post.IsKind(SyntaxKind.PostDecrementExpression)) &&
+                    post.Operand is IdentifierNameSyntax ppid => ppid,
+                _ => null
+            };
+
+            if (targetId == null) continue;
+            string name = targetId.Identifier.Text;
+            if (paramNames.Contains(name) || seen.Contains(name)) continue;
+
+            var symbol = context.SemanticModel.GetSymbolInfo(targetId).Symbol;
+            if (symbol is ILocalSymbol local)
+            {
+                // Confirm the declaration is outside the lambda span
+                var declLocation = local.Locations.FirstOrDefault();
+                if (declLocation != null && !lambda.Span.Contains(declLocation.SourceSpan))
+                {
+                    seen.Add(name);
+                    string javaType = context.MapType(local.Type);
+                    result.Add((name, javaType));
+                }
+            }
+        }
+
+        return result;
     }
 }
 

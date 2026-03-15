@@ -38,10 +38,25 @@ public class EnumTransformer : ITypeTransformer
             };
 
             // Register in context so that type references to this enum return "int"
+            // Register both short name and fully-qualified name to cover cross-namespace references
             context.RegisterFlagsEnum(enumDecl.Identifier.Text);
+            var fqn = string.IsNullOrEmpty(context.CurrentNamespace)
+                ? enumDecl.Identifier.Text
+                : $"{context.CurrentNamespace}.{enumDecl.Identifier.Text}";
+            if (fqn != enumDecl.Identifier.Text)
+                context.RegisterFlagsEnum(fqn);
+
+            // Determine if the underlying type is long/ulong → use "long" for constants and methods
+            bool useLong = false;
+            if (enumDecl.BaseList != null)
+            {
+                var baseTypeName = enumDecl.BaseList.Types.FirstOrDefault()?.Type.ToString() ?? "";
+                useLong = baseTypeName is "long" or "ulong" or "System.Int64" or "System.UInt64";
+            }
+            string numType = useLong ? "long" : "int";
 
             // Determine declared values
-            int nextValue = 0;
+            long nextValue = 0;
             foreach (var member in enumDecl.Members)
             {
                 if (member is EnumMemberDeclarationSyntax enumMember)
@@ -51,14 +66,15 @@ public class EnumTransformer : ITypeTransformer
                     {
                         var valueStr = enumMember.EqualsValue.Value.ToString().Trim();
                         // Preserve the original expression for the Java constant initializer
-                        // (hex literals like 0x01 are valid Java; binary 0b... needs conversion)
+                        // (hex literals like 0x01 are valid Java; binary 0b... is valid in Java 7+
+                        //  but we convert to decimal for clarity)
                         if (valueStr.StartsWith("0b", StringComparison.OrdinalIgnoreCase))
                         {
-                            // Binary literal: convert to decimal for Java compatibility
+                            // Binary literal 0b... is valid in Java 7+ but we convert to decimal for clarity.
                             try
                             {
-                                nextValue = Convert.ToInt32(valueStr.Substring(2), 2);
-                                fieldValue = nextValue.ToString();
+                                nextValue = Convert.ToInt64(valueStr.Substring(2), 2);
+                                fieldValue = useLong ? nextValue.ToString() + "L" : nextValue.ToString();
                             }
                             catch { fieldValue = valueStr; }
                         }
@@ -66,20 +82,23 @@ public class EnumTransformer : ITypeTransformer
                         {
                             // Keep hex/decimal as-is for Java (both are valid)
                             fieldValue = valueStr;
+                            // Append L suffix for long constants that don't already have it
+                            if (useLong && !fieldValue.EndsWith("L", StringComparison.OrdinalIgnoreCase))
+                                fieldValue += "L";
                             // Update nextValue for auto-increment tracking
                             if (valueStr.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
-                                int.TryParse(valueStr.Substring(2), NumberStyles.HexNumber, null, out nextValue);
+                                long.TryParse(valueStr.Substring(2), NumberStyles.HexNumber, null, out nextValue);
                             else
-                                int.TryParse(valueStr, out nextValue);
+                                long.TryParse(valueStr.TrimEnd('L', 'l'), out nextValue);
                         }
                     }
                     else
                     {
-                        fieldValue = nextValue.ToString();
+                        fieldValue = useLong ? nextValue.ToString() + "L" : nextValue.ToString();
                     }
                     flagsClass.Fields.Add(new JavaFieldDeclaration
                     {
-                        Type = "int",
+                        Type = numType,
                         Name = enumMember.Identifier.Text,
                         Initializer = fieldValue,
                         Modifiers = JavaModifiers.Public | JavaModifiers.Static | JavaModifiers.Final
@@ -89,21 +108,21 @@ public class EnumTransformer : ITypeTransformer
             }
 
             // Add static utility methods used by the converter for bitwise operations on this type
-            void AddFlagsMethod(string name, string body, params JavaParameter[] args)
+            void AddFlagsMethod(string name, string returnType, string body, params JavaParameter[] args)
             {
                 var m = new JavaMethodDeclaration
                 {
-                    ReturnType = "int", Name = name,
+                    ReturnType = returnType, Name = name,
                     Modifiers = JavaModifiers.Public | JavaModifiers.Static,
                     Body = body
                 };
                 m.Parameters.AddRange(args);
                 flagsClass.Methods.Add(m);
             }
-            AddFlagsMethod("and",        "return a & b;", new JavaParameter("int", "a"), new JavaParameter("int", "b"));
-            AddFlagsMethod("or",         "return a | b;", new JavaParameter("int", "a"), new JavaParameter("int", "b"));
-            AddFlagsMethod("bitwiseOr",  "return a | b;", new JavaParameter("int", "a"), new JavaParameter("int", "b"));
-            AddFlagsMethod("complement", "return ~a;",    new JavaParameter("int", "a"));
+            AddFlagsMethod("and",        numType,   "return a & b;",               new JavaParameter(numType, "a"), new JavaParameter(numType, "b"));
+            AddFlagsMethod("or",         numType,   "return a | b;",               new JavaParameter(numType, "a"), new JavaParameter(numType, "b"));
+            AddFlagsMethod("complement", numType,   "return ~a;",                  new JavaParameter(numType, "a"));
+            AddFlagsMethod("has",        "boolean", "return (flags & flag) != 0;", new JavaParameter(numType, "flags"), new JavaParameter(numType, "flag"));
             return flagsClass;
         }
 
@@ -113,25 +132,71 @@ public class EnumTransformer : ITypeTransformer
             Modifiers = ConvertModifiers(enumDecl.Modifiers)
         };
 
-        // 处理枚举成员
-        foreach (var member in enumDecl.Members)
+        // Check if any member has an explicit value initializer
+        bool hasExplicitValues = enumDecl.Members.OfType<EnumMemberDeclarationSyntax>()
+            .Any(m => m.EqualsValue != null);
+
+        if (hasExplicitValues)
         {
-            if (member is EnumMemberDeclarationSyntax enumMember)
+            // Java enums cannot have plain integer ordinals assigned at the call site.
+            // Use a constructor-based value field pattern:
+            //   enum Status { Open(10), Closed(20); private final int value; ... }
+            int nextVal = 0;
+            foreach (var member in enumDecl.Members)
             {
-                var value = enumMember.Identifier.Text;
-
-                // 处理枚举值初始化
-                if (enumMember.EqualsValue != null)
+                if (member is EnumMemberDeclarationSyntax enumMember)
                 {
-                    // C# 枚举可以有显式值，Java 枚举不支持
-                    // 添加注释说明原始值
-                    context.Diagnostics.Warning(
-                        $"Java enum doesn't support explicit values. {value} originally had value: {enumMember.EqualsValue.Value}",
-                        member.GetLocation()
-                    );
+                    string valStr;
+                    if (enumMember.EqualsValue != null)
+                    {
+                        valStr = enumMember.EqualsValue.Value.ToString().Trim();
+                        int.TryParse(valStr, out nextVal);
+                    }
+                    else
+                    {
+                        valStr = nextVal.ToString();
+                    }
+                    javaEnum.Values.Add($"{enumMember.Identifier.Text}({valStr})");
+                    nextVal++;
                 }
+            }
 
-                javaEnum.Values.Add(value);
+            // Add private final int value field
+            javaEnum.Fields.Add(new JavaFieldDeclaration
+            {
+                Type = "int",
+                Name = "value",
+                Modifiers = JavaModifiers.Private | JavaModifiers.Final
+            });
+
+            // Add enum constructor (implicitly private in Java)
+            var ctor = new JavaConstructorDeclaration
+            {
+                ClassName = javaEnum.Name,
+                Modifiers = JavaModifiers.None,
+                Body = "this.value = v;"
+            };
+            ctor.Parameters.Add(new JavaParameter("int", "v"));
+            javaEnum.Constructors.Add(ctor);
+
+            // Add getValue() accessor
+            javaEnum.Methods.Add(new JavaMethodDeclaration
+            {
+                ReturnType = "int",
+                Name = "getValue",
+                Modifiers = JavaModifiers.Public,
+                Body = "return value;"
+            });
+        }
+        else
+        {
+            // 处理枚举成员
+            foreach (var member in enumDecl.Members)
+            {
+                if (member is EnumMemberDeclarationSyntax enumMember)
+                {
+                    javaEnum.Values.Add(enumMember.Identifier.Text);
+                }
             }
         }
 

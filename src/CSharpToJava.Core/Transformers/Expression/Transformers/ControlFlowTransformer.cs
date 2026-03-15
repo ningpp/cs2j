@@ -9,6 +9,7 @@ namespace CSharpToJava.Core.Transformers.Expression;
 /// <summary>
 /// Handles control flow expressions (conditional, conditional access, await, throw, switch, this, base, etc.).
 /// </summary>
+[TransformerRegistration]
 public class ControlFlowTransformer : IExpressionTransformer
 {
     static ControlFlowTransformer()
@@ -48,8 +49,8 @@ public class ControlFlowTransformer : IExpressionTransformer
             SyntaxKind.ParenthesizedExpression => $"({ExpressionTransformerFacade.Instance.Transform(((ParenthesizedExpressionSyntax)node).Expression, context)})",
             SyntaxKind.ArgListExpression => "/* TODO: __arglist */",
             SyntaxKind.MakeRefExpression or SyntaxKind.RefTypeExpression or SyntaxKind.RefValueExpression => "/* TODO: ref expression */",
-            SyntaxKind.WithExpression => "/* TODO: with expression */",
-            SyntaxKind.RangeExpression => "/* TODO: range expression */",
+            SyntaxKind.WithExpression => TransformWithExpression((WithExpressionSyntax)node, context),  // Fix 1
+            SyntaxKind.RangeExpression => TransformRangeExpression((RangeExpressionSyntax)node, context),  // Fix 2
             _ => throw new NotSupportedException($"Control flow expression kind {node.Kind()} not supported.")
         };
 
@@ -67,8 +68,36 @@ public class ControlFlowTransformer : IExpressionTransformer
         var facade = ExpressionTransformerFacade.Instance;
         var objExpr = facade.Transform(node.Expression, context);
         var whenNotNull = facade.TransformWhenNotNull(node.WhenNotNull, objExpr, context);
-        return $"({objExpr} != null ? {whenNotNull} : null)";
+
+        // Fix 4: if the expression is consumed as a non-nullable primitive, emit its default
+        // rather than null (null cannot be unboxed to a primitive in Java).
+        string falseBranch = "null";
+        if (context.SemanticModel != null)
+        {
+            var typeInfo = context.SemanticModel.GetTypeInfo(node);
+            var convertedType = typeInfo.ConvertedType;
+            // ConvertedType is the primitive when implicit unboxing is applied by the compiler.
+            if (convertedType?.IsValueType == true
+                && convertedType is not INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T })
+            {
+                falseBranch = GetPrimitiveDefaultValue(convertedType.SpecialType);
+            }
+        }
+        return $"({objExpr} != null ? {whenNotNull} : {falseBranch})";
     }
+
+    private static string GetPrimitiveDefaultValue(SpecialType specialType) => specialType switch
+    {
+        SpecialType.System_Boolean => "false",
+        SpecialType.System_Char => "'\\0'",
+        SpecialType.System_Single or SpecialType.System_Double => "0.0",
+        SpecialType.System_Byte or SpecialType.System_SByte
+            or SpecialType.System_Int16 or SpecialType.System_UInt16
+            or SpecialType.System_Int32 or SpecialType.System_UInt32
+            or SpecialType.System_Int64 or SpecialType.System_UInt64
+            or SpecialType.System_Decimal => "0",
+        _ => "null"
+    };
 
     private string TransformAwait(AwaitExpressionSyntax node, ConversionContext context)
     {
@@ -128,6 +157,14 @@ public class ControlFlowTransformer : IExpressionTransformer
                 => "true",
             UnaryPatternSyntax np when np.OperatorToken.IsKind(SyntaxKind.NotKeyword)
                 => $"!({BuildSwitchArmCondition(expr, np.Pattern, context)})",
+            // Fix 5: relational patterns (> 0, <= 10, etc.)
+            RelationalPatternSyntax rel
+                => $"({expr} {rel.OperatorToken.Text} {facade.Transform(rel.Expression, context)})",
+            // Fix 5: combined patterns (and, or)
+            BinaryPatternSyntax bin when bin.IsKind(SyntaxKind.AndPattern)
+                => $"({BuildSwitchArmCondition(expr, bin.Left, context)} && {BuildSwitchArmCondition(expr, bin.Right, context)})",
+            BinaryPatternSyntax bin when bin.IsKind(SyntaxKind.OrPattern)
+                => $"({BuildSwitchArmCondition(expr, bin.Left, context)} || {BuildSwitchArmCondition(expr, bin.Right, context)})",
             _ => $"/* TODO: pattern {pattern.GetType().Name} */ true"
         };
     }
@@ -142,5 +179,38 @@ public class ControlFlowTransformer : IExpressionTransformer
             _ => "_unused"
         };
         return $"({expr} instanceof {mappedType} {designation})";
+    }
+
+    // Fix 1: with expression — clone source and apply property setters as pre-statements.
+    private string TransformWithExpression(WithExpressionSyntax node, ConversionContext context)
+    {
+        var facade = ExpressionTransformerFacade.Instance;
+        var sourceExpr = facade.Transform(node.Expression, context);
+        var tmpVar = context.GenerateSyntheticName("__withCopy");
+        context.AddPreStatement($"var {tmpVar} = {sourceExpr}.clone();");
+        foreach (var init in node.Initializer.Expressions)
+        {
+            if (init is AssignmentExpressionSyntax assignment)
+            {
+                var propName = assignment.Left.ToString();
+                var propValue = facade.Transform(assignment.Right, context);
+                var setterName = $"set{char.ToUpperInvariant(propName[0])}{propName.Substring(1)}";
+                context.AddPreStatement($"{tmpVar}.{setterName}({propValue});");
+            }
+        }
+        return tmpVar;
+    }
+
+    // Fix 2: range expression — emit Arrays.copyOfRange for the standalone case.
+    // The common arr[lo..hi] case is handled earlier in ElementAccessTransformer.
+    private string TransformRangeExpression(RangeExpressionSyntax node, ConversionContext context)
+    {
+        if (node.LeftOperand == null && node.RightOperand == null)
+            return "/* full range */";
+        var facade = ExpressionTransformerFacade.Instance;
+        string lo = node.LeftOperand != null ? facade.Transform(node.LeftOperand, context) : "0";
+        string hi = node.RightOperand != null ? facade.Transform(node.RightOperand, context) : "/* length */";
+        context.AddImport("java.util.Arrays");
+        return $"Arrays.copyOfRange(/* array */, {lo}, {hi})";
     }
 }

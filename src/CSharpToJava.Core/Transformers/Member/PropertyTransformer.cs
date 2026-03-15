@@ -34,14 +34,16 @@ public class PropertyTransformer : IMemberTransformer
         var hasGetter = propDecl.AccessorList != null &&
                         propDecl.AccessorList.Accessors.Any(a => a.IsKind(SyntaxKind.GetAccessorDeclaration));
         var hasSetter = propDecl.AccessorList != null &&
-                        propDecl.AccessorList.Accessors.Any(a => a.IsKind(SyntaxKind.SetAccessorDeclaration));
+                        propDecl.AccessorList.Accessors.Any(a => a.IsKind(SyntaxKind.SetAccessorDeclaration) || a.IsKind(SyntaxKind.InitAccessorDeclaration));
 
         var getAccessor = propDecl.AccessorList?.Accessors.FirstOrDefault(a => a.IsKind(SyntaxKind.GetAccessorDeclaration));
-        var setAccessor = propDecl.AccessorList?.Accessors.FirstOrDefault(a => a.IsKind(SyntaxKind.SetAccessorDeclaration));
+        var setAccessor = propDecl.AccessorList?.Accessors.FirstOrDefault(a => a.IsKind(SyntaxKind.SetAccessorDeclaration) || a.IsKind(SyntaxKind.InitAccessorDeclaration));
 
         // 处理自动属性 vs 显式属性
-        var isAutoProperty = (getAccessor?.Body == null && getAccessor?.ExpressionBody == null) ||
-                             (setAccessor?.Body == null && setAccessor?.ExpressionBody == null);
+        var isAutoProperty = getAccessor?.Body == null
+                          && getAccessor?.ExpressionBody == null
+                          && (setAccessor == null
+                              || (setAccessor.Body == null && setAccessor.ExpressionBody == null));
 
         // 检查是否是只读属性（只有 getter）
         var isReadOnly = hasGetter && !hasSetter;
@@ -57,10 +59,10 @@ public class PropertyTransformer : IMemberTransformer
 
         // 创建后备字段 - 只有自动属性才需要后备字段
         // 显式属性（有body的getter/setter）直接在getter/setter中操作现有字段，不需要生成后备字段
-        var hasExplicitGetterBody = getAccessor?.Body != null || getAccessor?.ExpressionBody != null;
-        var hasExplicitSetterBody = setAccessor?.Body != null || setAccessor?.ExpressionBody != null;
-        var needsBackingField = (hasGetter && !hasExplicitGetterBody) || (hasSetter && !hasExplicitSetterBody) ||
-                                (propDecl.Initializer != null);
+        var isAbstract = propDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.AbstractKeyword));
+        var needsBackingField = (isAutoProperty || propDecl.Initializer != null)
+                             && !isAbstract
+                             && !context.IsInInterfaceBody;
 
         var field = new JavaFieldDeclaration
         {
@@ -72,8 +74,7 @@ public class PropertyTransformer : IMemberTransformer
         // 如果有默认值
         if (propDecl.Initializer != null)
         {
-            var exprTransformer = new Transformers.Expression.ExpressionTransformer();
-            field.Initializer = exprTransformer.Transform(propDecl.Initializer.Value, context);
+            field.Initializer = Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(propDecl.Initializer.Value, context);
         }
 
         if (needsBackingField)
@@ -93,6 +94,13 @@ public class PropertyTransformer : IMemberTransformer
             {
                 getterModifiers = JavaModifiers.Public | (modifiers & ~(JavaModifiers.Public | JavaModifiers.Protected | JavaModifiers.Private));
             }
+            // If the accessor has an explicit access modifier, use that instead of the property-level one
+            if (getAccessor?.Modifiers.Any() == true)
+            {
+                var accessorVisibility = ConvertModifiers(getAccessor.Modifiers, isStatic: false);
+                getterModifiers = (getterModifiers & ~(JavaModifiers.Public | JavaModifiers.Protected | JavaModifiers.Private))
+                                | (accessorVisibility & (JavaModifiers.Public | JavaModifiers.Protected | JavaModifiers.Private));
+            }
             // 确保只有一个访问修饰符
             getterModifiers = GetSingleAccessModifier(getterModifiers);
 
@@ -102,7 +110,7 @@ public class PropertyTransformer : IMemberTransformer
                 ReturnType = propType,
                 Modifiers = getterModifiers,
                 Body = getAccessor?.ExpressionBody != null
-                    ? new Transformers.Expression.ExpressionTransformer().Transform(getAccessor.ExpressionBody.Expression, context)
+                    ? Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(getAccessor.ExpressionBody.Expression, context)
                     : $"return {fieldName};",
                 IsBodyExpression = getAccessor?.ExpressionBody != null
             };
@@ -147,6 +155,13 @@ public class PropertyTransformer : IMemberTransformer
             {
                 setterModifiers = JavaModifiers.Public | (modifiers & ~(JavaModifiers.Public | JavaModifiers.Protected | JavaModifiers.Private));
             }
+            // If the accessor has an explicit access modifier, use that instead of the property-level one
+            if (setAccessor?.Modifiers.Any() == true)
+            {
+                var accessorVisibility = ConvertModifiers(setAccessor.Modifiers, isStatic: false);
+                setterModifiers = (setterModifiers & ~(JavaModifiers.Public | JavaModifiers.Protected | JavaModifiers.Private))
+                                | (accessorVisibility & (JavaModifiers.Public | JavaModifiers.Protected | JavaModifiers.Private));
+            }
             // 确保只有一个访问修饰符
             setterModifiers = GetSingleAccessModifier(setterModifiers);
 
@@ -157,7 +172,7 @@ public class PropertyTransformer : IMemberTransformer
                 Modifiers = setterModifiers,
                 Parameters = { new JavaParameter(propType, "value") },
                 Body = setAccessor?.ExpressionBody != null
-                    ? new Transformers.Expression.ExpressionTransformer().Transform(setAccessor.ExpressionBody.Expression, context)
+                    ? Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(setAccessor.ExpressionBody.Expression, context)
                     : (isStatic ? $"{fieldName} = value;" : $"this.{fieldName} = value;"),
                 IsBodyExpression = setAccessor?.ExpressionBody != null
             };
@@ -169,6 +184,11 @@ public class PropertyTransformer : IMemberTransformer
                 setter.Body = statementTransformer.TransformBlock(setAccessor.Body, context);
                 setter.IsBodyExpression = false;
             }
+
+            // Detect C# 9 init-only setter and annotate the generated Java setter
+            bool isInitSetter = setAccessor?.IsKind(SyntaxKind.InitAccessorDeclaration) == true;
+            if (isInitSetter)
+                setter.LeadingComment = "/** @implNote Set during construction only (C# init accessor). */";
 
             results.Add(setter);
         }
@@ -234,7 +254,7 @@ public class PropertyTransformer : IMemberTransformer
     private string ToPascalCase(string name)
     {
         if (string.IsNullOrEmpty(name)) return name;
-        return char.ToUpper(name[0]) + name.Substring(1);
+        return char.ToUpperInvariant(name[0]) + name.Substring(1);
     }
 
     private static string? PropertyYieldExtractElementType(string javaType)
