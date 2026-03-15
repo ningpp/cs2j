@@ -50,6 +50,17 @@ public class CSharpToJavaVisitor : CSharpSyntaxVisitor<JavaSyntaxNode?>
             }
         }
 
+        // Flush imports accumulated during type-body visitation (fields, methods, parameters).
+        // ProcessUsings runs before the members are visited, so any AddImport calls from
+        // type transformers are not yet reflected in compilation.Imports at that point.
+        foreach (var import in _context.ImportedTypes)
+        {
+            if (!compilation.Imports.Any(i => i.Name == import))
+            {
+                compilation.Imports.Add(new JavaImport(import));
+            }
+        }
+
         return compilation;
     }
 
