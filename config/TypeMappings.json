@@ -2881,6 +2881,31 @@
                                "type":  "System.Array",
                                "method":  "get_Length",
                                "javaMethod":  "length"
+                           },
+                           {
+                               "type":  "System.Random",
+                               "method":  "Next",
+                               "javaMethod":  "nextInt"
+                           },
+                           {
+                               "type":  "System.Random",
+                               "method":  "NextDouble",
+                               "javaMethod":  "nextDouble"
+                           },
+                           {
+                               "type":  "System.Random",
+                               "method":  "NextSingle",
+                               "javaMethod":  "nextFloat"
+                           },
+                           {
+                               "type":  "System.Random",
+                               "method":  "NextInt64",
+                               "javaMethod":  "nextLong"
+                           },
+                           {
+                               "type":  "System.Random",
+                               "method":  "NextBytes",
+                               "javaMethod":  "nextBytes"
                            }
                        ],
     "namespaceMappings":  [
