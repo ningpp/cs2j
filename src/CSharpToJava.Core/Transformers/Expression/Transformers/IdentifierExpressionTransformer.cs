@@ -81,6 +81,16 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
             return char.ToLower(identProp.Name[0]) + identProp.Name[1..];
         }
 
+        // When this identifier is an out/ref parameter, any use as a receiver must go through
+        // .value so that member accesses like p.X or p.X = 1 become p.value.X / p.value.setX(1).
+        // Direct assignment (p = value → p.value = value) is handled separately by AssignmentTransformer
+        // with an early return that never reaches this path.
+        if (context.SemanticModel?.GetSymbolInfo(node).Symbol is IParameterSymbol outParam
+            && (outParam.RefKind == RefKind.Out || outParam.RefKind == RefKind.Ref))
+        {
+            return $"{ConversionContext.EscapeJavaKeyword(outParam.Name)}.value";
+        }
+
         return ConversionContext.EscapeJavaKeyword(name);
     }
 
