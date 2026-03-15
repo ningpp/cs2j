@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Transformers.Expression.Utilities;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
@@ -48,9 +49,19 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return TransformMemberInvocation(node, memberAccess, context, facade);
         }
 
+        // Fix: Explicit generic method call — C# Method<T, U>(args) → Java Method(args).
+        // Java does not support specifying type arguments at the call site in statement position;
+        // type inference is used instead.  Strip the type arguments from the method name.
+        if (node.Expression is GenericNameSyntax genericMethodName)
+        {
+            var methodName = ConversionContext.EscapeJavaKeyword(genericMethodName.Identifier.Text);
+            var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+            return $"{methodName}({args})";
+        }
+
         var target = facade.Transform(node.Expression, context);
-        var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
-        return $"{target}({args})";
+        var args2 = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+        return $"{target}({args2})";
     }
 
     /// <summary>
@@ -81,6 +92,15 @@ public class InvocationExpressionTransformer : IExpressionTransformer
     {
         var receiver = facade.Transform(memberAccess.Expression, context);
         var originalMethodName = memberAccess.Name.Identifier.Text;
+
+        // Fix: Primitive type static method call — C# double.IsInfinity(x) → Java Double.isInfinite(x).
+        if (memberAccess.Expression is PredefinedTypeSyntax primTypeSyntax)
+        {
+            var boxedReceiver = ExpressionTransformerHelpers.BoxedTypeName(primTypeSyntax);
+            var mappedMethod  = MapPrimitiveStaticMethodName(primTypeSyntax.Keyword.Text, originalMethodName);
+            var primArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+            return $"{boxedReceiver}.{mappedMethod}({primArgs})";
+        }
 
         IMethodSymbol? methodSymbol = null;
         bool isExtensionInStaticPath = false;
@@ -116,4 +136,27 @@ public class InvocationExpressionTransformer : IExpressionTransformer
 
         return $"{receiver}.{methodName}({args})";
     }
+
+    /// <summary>
+    /// Maps C# built-in primitive static method names to their Java equivalents.
+    /// e.g. double.IsInfinity → Double.isInfinite, int.Parse → Integer.parseInt
+    /// </summary>
+    private static string MapPrimitiveStaticMethodName(string primitiveKeyword, string methodName)
+        => methodName switch
+        {
+            "IsInfinity" or "IsPositiveInfinity" or "IsNegativeInfinity" => "isInfinite",
+            "IsNaN"    => "isNaN",
+            "IsFinite" => "isFinite",
+            "Parse"    => primitiveKeyword switch
+            {
+                "int"    => "parseInt",
+                "long"   => "parseLong",
+                "double" => "parseDouble",
+                "float"  => "parseFloat",
+                "short"  => "parseShort",
+                "byte"   => "parseByte",
+                _        => "parse" + char.ToUpperInvariant(primitiveKeyword[0]) + primitiveKeyword[1..]
+            },
+            _ => methodName
+        };
 }

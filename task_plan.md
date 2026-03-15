@@ -5,7 +5,7 @@ Convert the MSAGL (Microsoft Automatic Graph Layout) C# project to Java and fix 
 
 ## Constraints
 - **Source**: `C:\automatic-graph-layout-master\GraphLayout\MSAGL`
-- **Destination**: `C:\agl\v20260314`
+- **Destination**: `C:\agl\v20260315`
 - **Java version**: Java 25
 - **Maven generation**: Enabled
 - **NEVER** modify MSAGL C# source code
@@ -27,7 +27,7 @@ Convert the MSAGL (Microsoft Automatic Graph Layout) C# project to Java and fix 
 
 ### Phase 3: Compile & Error Collection
 - [ ] Install Java 25+ if needed (verify with `java -version`)
-- [ ] Run `mvn compile` in C:\agl\v20260314
+- [ ] Run `mvn compile` in C:\agl\v20260315
 - [ ] Collect all compilation errors to findings.md
 
 ### Phase 4: Fix Converter Errors (iterate)

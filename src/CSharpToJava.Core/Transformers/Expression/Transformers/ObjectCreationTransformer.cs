@@ -217,19 +217,10 @@ public class ObjectCreationTransformer : IExpressionTransformer
     {
         var facade = ExpressionTransformerFacade.Instance;
 
-        // Get the element type
-        var typeInfo = context.SemanticModel?.GetTypeInfo(node);
-        string elementType;
-        if (typeInfo.HasValue && typeInfo.Value.Type is IArrayTypeSymbol arrayType)
-        {
-            elementType = context.MapType(arrayType.ElementType);
-        }
-        else
-        {
-            // Fallback: parse from syntax
-            var typeStr = node.Type?.ElementType?.ToString() ?? "Object";
-            elementType = context.MapTypeFromSyntax(node.Type!.ElementType);
-        }
+        // Fix: Always use SYNTAX element type to get the innermost type (e.g. double for double[][]).
+        // Using the semantic model's ElementType for double[][] gives double[] (nested), which
+        // would produce double[][n][] instead of the correct double[n][].
+        string elementType = context.MapTypeFromSyntax(node.Type.ElementType);
 
         // Get dimensions
         var sizes = new List<string>();
@@ -241,7 +232,12 @@ public class ObjectCreationTransformer : IExpressionTransformer
                 {
                     foreach (var size in rankSpec.Sizes)
                     {
-                        sizes.Add(facade.Transform(size, context));
+                        // Fix: OmittedArraySizeExpression (from e.g. new T[n][])
+                        // should produce an empty bracket [], not a TODO comment.
+                        if (size.IsKind(SyntaxKind.OmittedArraySizeExpression))
+                            sizes.Add(""); // empty — Java uses [] for unspecified dimensions
+                        else
+                            sizes.Add(facade.Transform(size, context));
                     }
                 }
                 else

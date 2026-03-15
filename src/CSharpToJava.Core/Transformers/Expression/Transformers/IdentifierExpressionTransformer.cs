@@ -125,6 +125,25 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
     private string TransformMemberAccess(MemberAccessExpressionSyntax node, ConversionContext context)
     {
         var facade = ExpressionTransformerFacade.Instance;
+
+        // Fix: Generic type static member access — C# allows Set<T>.Method() but Java requires Set.Method().
+        // Strip type arguments from the receiver whenever it is a generic name expression.
+        if (node.Expression is GenericNameSyntax genericExprName)
+        {
+            var rawReceiver = ConversionContext.EscapeJavaKeyword(genericExprName.Identifier.Text);
+            var rawMember   = ConversionContext.EscapeJavaKeyword(node.Name.Identifier.Text);
+            return $"{rawReceiver}.{rawMember}";
+        }
+
+        // Fix: Primitive type static member access — C# double.MaxValue → Java Double.MAX_VALUE etc.
+        if (node.Expression is PredefinedTypeSyntax primTypeSyntax)
+        {
+            var boxedName  = ExpressionTransformerHelpers.BoxedTypeName(primTypeSyntax);
+            var rawMember  = node.Name.Identifier.Text;
+            var mappedMember = MapPrimitiveStaticFieldName(primTypeSyntax.Keyword.Text, rawMember);
+            return $"{boxedName}.{mappedMember}";
+        }
+
         var target = facade.Transform(node.Expression, context);
         var memberName = node.Name.Identifier.Text;
 
@@ -149,6 +168,31 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
         var member = ConversionContext.EscapeJavaKeyword(memberName);
         return $"{target}.{member}";
     }
+
+    /// <summary>
+    /// Maps C# primitive-type static field/property names to their Java equivalents.
+    /// e.g. double.MaxValue → MAX_VALUE, double.PositiveInfinity → POSITIVE_INFINITY
+    /// Note: for double/float, MinValue in C# is the most-negative finite value
+    ///       (-MAX_VALUE in Java), not the smallest positive value (Java's MIN_VALUE).
+    /// </summary>
+    private static string MapPrimitiveStaticFieldName(string primitiveKeyword, string memberName)
+        => (primitiveKeyword, memberName) switch
+        {
+            // Double/float MinValue = most negative finite → negate MAX_VALUE
+            ("double" or "float", "MinValue") => $"(-{(primitiveKeyword == "double" ? "Double" : "Float")}.MAX_VALUE)",
+            (_, "MaxValue")          => "MAX_VALUE",
+            (_, "MinValue")          => "MIN_VALUE",
+            (_, "Epsilon")           => "MIN_VALUE",
+            (_, "PositiveInfinity")  => "POSITIVE_INFINITY",
+            (_, "NegativeInfinity")  => "NEGATIVE_INFINITY",
+            (_, "NaN")               => "NaN",
+            // Static methods used as non-invocation members — pass through
+            (_, "IsInfinity")        => "isInfinite",
+            (_, "IsPositiveInfinity")=> "isInfinite",
+            (_, "IsNegativeInfinity")=> "isInfinite",
+            (_, "IsNaN")             => "isNaN",
+            _                        => memberName
+        };
 
     private string TransformPointerMemberAccess(MemberAccessExpressionSyntax node, ConversionContext context)
     {
