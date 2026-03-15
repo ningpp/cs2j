@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using System.Collections.Generic;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
@@ -31,7 +32,41 @@ public class InvocationExpressionTransformer : IExpressionTransformer
 
     private string TransformInvocation(InvocationExpressionSyntax node, ConversionContext context)
     {
-        // TODO: Implement invocation transformation
-        return $"/* TODO: invocation */ {node}";
+        var facade = ExpressionTransformerFacade.Instance;
+        var target = facade.Transform(node.Expression, context);
+
+        var args = new List<string>();
+        foreach (var arg in node.ArgumentList.Arguments)
+        {
+            var transformedArg = facade.Transform(arg.Expression, context);
+
+            // Check for ref/out arguments using semantic model
+            if (context.SemanticModel != null)
+            {
+                var argumentList = node.ArgumentList;
+                var argumentIndex = argumentList.Arguments.IndexOf(arg);
+                var symbolInfo = context.SemanticModel.GetSymbolInfo(node);
+
+                if (symbolInfo.Symbol is IMethodSymbol methodSymbol &&
+                    argumentIndex >= 0 && argumentIndex < methodSymbol.Parameters.Length)
+                {
+                    var param = methodSymbol.Parameters[argumentIndex];
+                    if (param.RefKind == RefKind.Ref)
+                    {
+                        context.Diagnostics.Warning("ref parameter has no direct Java equivalent", arg.GetLocation());
+                        transformedArg = $"/* ref */ {transformedArg}";
+                    }
+                    else if (param.RefKind == RefKind.Out)
+                    {
+                        context.Diagnostics.Warning("out parameter has no direct Java equivalent", arg.GetLocation());
+                        transformedArg = $"/* out */ {transformedArg}";
+                    }
+                }
+            }
+
+            args.Add(transformedArg);
+        }
+
+        return $"{target}({string.Join(", ", args)})";
     }
 }

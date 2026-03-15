@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using System.Collections.Generic;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
@@ -39,31 +40,79 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
 
     private string TransformIdentifier(IdentifierNameSyntax node, ConversionContext context)
     {
-        // TODO: Implement identifier transformation
-        return $"/* TODO: identifier */ {node}";
+        var name = node.Identifier.Text;
+
+        // Check for using aliases
+        if (context.IsAlias(name))
+        {
+            var javaType = context.MapAliasToJavaType(name);
+            if (javaType != null) return javaType;
+        }
+
+        return ConversionContext.EscapeJavaKeyword(name);
     }
 
     private string BoxedTypeName(PredefinedTypeSyntax node)
     {
-        // TODO: Implement boxed type name transformation
-        return $"/* TODO: boxed type name */ {node}";
+        // Map C# predefined types to Java types
+        var typeName = node.Keyword.Text;
+        return typeName switch
+        {
+            "int" => "int",
+            "long" => "long",
+            "short" => "short",
+            "byte" => "byte",
+            "sbyte" => "byte",
+            "uint" => "int",
+            "ulong" => "long",
+            "ushort" => "short",
+            "float" => "float",
+            "double" => "double",
+            "bool" => "boolean",
+            "char" => "char",
+            "string" => "String",
+            "object" => "Object",
+            "void" => "void",
+            _ => typeName
+        };
     }
 
     private string TransformGenericName(GenericNameSyntax node, ConversionContext context)
     {
-        // TODO: Implement generic name transformation
-        return $"/* TODO: generic name */ {node}";
+        var name = ConversionContext.EscapeJavaKeyword(node.Identifier.Text);
+        var typeArgs = new List<string>();
+
+        foreach (var typeArg in node.TypeArgumentList.Arguments)
+        {
+            var typeInfo = context.SemanticModel?.GetTypeInfo(typeArg);
+            if (typeInfo.HasValue && typeInfo.Value.Type != null)
+            {
+                typeArgs.Add(context.MapType(typeInfo.Value.Type));
+            }
+            else
+            {
+                typeArgs.Add(typeArg.ToString());
+            }
+        }
+
+        return $"{name}<{string.Join(", ", typeArgs)}>";
     }
 
     private string TransformMemberAccess(MemberAccessExpressionSyntax node, ConversionContext context)
     {
-        // TODO: Implement member access transformation
-        return $"/* TODO: member access */ {node}";
+        var facade = ExpressionTransformerFacade.Instance;
+        var target = facade.Transform(node.Expression, context);
+        var member = ConversionContext.EscapeJavaKeyword(node.Name.Identifier.Text);
+        return $"{target}.{member}";
     }
 
     private string TransformPointerMemberAccess(MemberAccessExpressionSyntax node, ConversionContext context)
     {
-        // TODO: Implement pointer member access transformation
-        return $"/* TODO: pointer member access */ {node}";
+        // C# pointer member access (ptr->member) has no direct Java equivalent
+        context.Diagnostics.Warning("Pointer member access (->) has no Java equivalent - unsafe code not supported", node.GetLocation());
+        var facade = ExpressionTransformerFacade.Instance;
+        var target = facade.Transform(node.Expression, context);
+        var member = ConversionContext.EscapeJavaKeyword(node.Name.Identifier.Text);
+        return $"/* unsafe: pointer member access */ {target}.{member}";
     }
 }

@@ -51,7 +51,10 @@ public class AssignmentTransformer : IExpressionTransformer
 
     private string TransformAssignment(AssignmentExpressionSyntax node, string op, ConversionContext context)
     {
-        // TODO: Implement assignment transformation
-        return $"/* TODO: assignment */ {node}";
+        var facade = ExpressionTransformerFacade.Instance;
+        var left = facade.Transform(node.Left, context);
+        var right = facade.Transform(node.Right, context);
+
+        return $"{left} {op} {right}";
     }
 }

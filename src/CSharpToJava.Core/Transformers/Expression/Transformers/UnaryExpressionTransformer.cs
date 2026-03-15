@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using System.Collections.Generic;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
@@ -49,31 +50,166 @@ public class UnaryExpressionTransformer : IExpressionTransformer
 
     private string TransformUnaryExpression(PrefixUnaryExpressionSyntax node, string op, ConversionContext context)
     {
-        // TODO: Implement unary expression transformation
-        return $"/* TODO: unary expression */ {node}";
+        // Check if this is a user-defined unary operator
+        if (context.SemanticModel != null)
+        {
+            var symbolInfo = context.SemanticModel.GetSymbolInfo(node);
+            if (symbolInfo.Symbol is IMethodSymbol methodSymbol && methodSymbol.ContainingType != null)
+            {
+                // Only convert to method call if it's a user-defined type
+                if (!IsBuiltInType(methodSymbol.ContainingType))
+                {
+                    return TransformUserDefinedUnaryOperator(node, methodSymbol, context);
+                }
+            }
+        }
+
+        var facade = ExpressionTransformerFacade.Instance;
+        var operand = facade.Transform(node.Operand, context);
+
+        // Wrap in parentheses if operand is a binary expression
+        if (node.Operand is BinaryExpressionSyntax)
+        {
+            operand = $"({operand})";
+        }
+
+        return $"{op}{operand}";
+    }
+
+    private static bool IsBuiltInType(INamedTypeSymbol type)
+    {
+        var typeName = type.ToDisplayString();
+        return type.TypeKind == TypeKind.Enum ||
+               type.SpecialType != SpecialType.None ||
+               BuiltInTypeNames.Contains(typeName);
+    }
+
+    private static readonly HashSet<string> BuiltInTypeNames = new(StringComparer.Ordinal)
+    {
+        "int", "long", "short", "byte", "sbyte", "uint", "ulong", "ushort",
+        "float", "double", "decimal",
+        "bool", "boolean",
+        "char", "string",
+        "object",
+        "System.Int32", "System.Int64", "System.Int16", "System.Byte",
+        "System.SByte", "System.UInt32", "System.UInt64", "System.UInt16",
+        "System.Single", "System.Double", "System.Decimal",
+        "System.Boolean", "System.Char", "System.String", "System.Object"
+    };
+
+    private string TransformUserDefinedUnaryOperator(PrefixUnaryExpressionSyntax node, IMethodSymbol operatorSymbol, ConversionContext context)
+    {
+        var facade = ExpressionTransformerFacade.Instance;
+        var operand = facade.Transform(node.Operand, context);
+
+        return TransformUserDefinedUnaryOperatorCore(operand, operatorSymbol, context);
+    }
+
+    private string TransformUserDefinedUnaryOperator(PostfixUnaryExpressionSyntax node, IMethodSymbol operatorSymbol, ConversionContext context)
+    {
+        var facade = ExpressionTransformerFacade.Instance;
+        var operand = facade.Transform(node.Operand, context);
+
+        return TransformUserDefinedUnaryOperatorCore(operand, operatorSymbol, context);
+    }
+
+    private string TransformUserDefinedUnaryOperatorCore(string operand, IMethodSymbol operatorSymbol, ConversionContext context)
+    {
+        // Get the Java method name for this operator
+        var javaMethodName = GetOperatorMethodName(operatorSymbol);
+        var containingType = context.MapType(operatorSymbol.ContainingType);
+        var currentType = context.CurrentType?.Name;
+
+        if (containingType == currentType || IsInSameCompilationUnit(context, operatorSymbol.ContainingType))
+        {
+            return $"{javaMethodName}({operand})";
+        }
+        else
+        {
+            return $"{containingType}.{javaMethodName}({operand})";
+        }
+    }
+
+    private static string GetOperatorMethodName(IMethodSymbol operatorSymbol)
+    {
+        return operatorSymbol.Name switch
+        {
+            "op_UnaryNegation" => "negate",
+            "op_UnaryPlus" => "plus",
+            "op_LogicalNot" => "not",
+            "op_OnesComplement" => "onesComplement",
+            "op_Increment" => "increment",
+            "op_Decrement" => "decrement",
+            "op_True" => "isTrue",
+            "op_False" => "isFalse",
+            _ => operatorSymbol.Name
+        };
+    }
+
+    private static bool IsInSameCompilationUnit(ConversionContext context, INamedTypeSymbol type)
+    {
+        var currentNs = context.CurrentNamespace;
+        var typeNs = type.ContainingNamespace?.ToDisplayString() ?? "";
+        return currentNs == typeNs || string.IsNullOrEmpty(typeNs);
     }
 
     private string TransformAddressOf(PrefixUnaryExpressionSyntax node, ConversionContext context)
     {
-        // TODO: Implement address of transformation
-        return $"/* TODO: address of */ {node}";
+        // C# & operator (address of) has no direct Java equivalent
+        context.Diagnostics.Warning("Address-of operator (&) has no Java equivalent - converting to unsafe memory access", node.GetLocation());
+        var facade = ExpressionTransformerFacade.Instance;
+        var operand = facade.Transform(node.Operand, context);
+        return $"/* unsafe: address of */ {operand}";
     }
 
     private string TransformPointerIndirection(PrefixUnaryExpressionSyntax node, ConversionContext context)
     {
-        // TODO: Implement pointer indirection transformation
-        return $"/* TODO: pointer indirection */ {node}";
+        // C# * operator (pointer indirection) has no direct Java equivalent
+        context.Diagnostics.Warning("Pointer indirection operator (*) has no Java equivalent - unsafe code not supported", node.GetLocation());
+        var facade = ExpressionTransformerFacade.Instance;
+        var operand = facade.Transform(node.Operand, context);
+        return $"/* unsafe: pointer deref */ {operand}";
     }
 
     private string TransformPostfix(PostfixUnaryExpressionSyntax node, string op, ConversionContext context)
     {
-        // TODO: Implement postfix transformation
-        return $"/* TODO: postfix */ {node}";
+        // Check if this is a user-defined postfix operator (++, --)
+        if (context.SemanticModel != null)
+        {
+            var symbolInfo = context.SemanticModel.GetSymbolInfo(node);
+            if (symbolInfo.Symbol is IMethodSymbol methodSymbol && methodSymbol.ContainingType != null)
+            {
+                // Only convert to method call if it's a user-defined type
+                if (!IsBuiltInType(methodSymbol.ContainingType))
+                {
+                    return TransformUserDefinedUnaryOperator(node, methodSymbol, context);
+                }
+            }
+        }
+
+        var facade = ExpressionTransformerFacade.Instance;
+        var operand = facade.Transform(node.Operand, context);
+        return $"{operand}{op}";
     }
 
     private string TransformPrefix(PrefixUnaryExpressionSyntax node, string op, ConversionContext context)
     {
-        // TODO: Implement prefix transformation
-        return $"/* TODO: prefix */ {node}";
+        // Check if this is a user-defined prefix operator (++, --)
+        if (context.SemanticModel != null)
+        {
+            var symbolInfo = context.SemanticModel.GetSymbolInfo(node);
+            if (symbolInfo.Symbol is IMethodSymbol methodSymbol && methodSymbol.ContainingType != null)
+            {
+                // Only convert to method call if it's a user-defined type
+                if (!IsBuiltInType(methodSymbol.ContainingType))
+                {
+                    return TransformUserDefinedUnaryOperator(node, methodSymbol, context);
+                }
+            }
+        }
+
+        var facade = ExpressionTransformerFacade.Instance;
+        var operand = facade.Transform(node.Operand, context);
+        return $"{op}{operand}";
     }
 }

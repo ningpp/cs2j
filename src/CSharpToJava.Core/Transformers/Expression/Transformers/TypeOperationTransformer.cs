@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using System.Text;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
@@ -45,49 +46,246 @@ public class TypeOperationTransformer : IExpressionTransformer
 
     private string TransformCast(CastExpressionSyntax node, ConversionContext context)
     {
-        // TODO: Implement cast transformation
-        return $"/* TODO: cast */ {node}";
+        var facade = ExpressionTransformerFacade.Instance;
+        var expression = facade.Transform(node.Expression, context);
+
+        // Get the target type
+        var typeInfo = context.SemanticModel?.GetTypeInfo(node.Type);
+        string targetType;
+        if (typeInfo.HasValue && typeInfo.Value.Type != null)
+        {
+            targetType = context.MapType(typeInfo.Value.Type);
+        }
+        else
+        {
+            targetType = context.MapTypeFromSyntax(node.Type);
+        }
+
+        // Java cast syntax: (Type)expression
+        // For primitives to wrapper types, use valueOf
+        if (IsPrimitiveToWrapperCast(node.Expression, targetType, context))
+        {
+            return $"{targetNameOf(targetType)}({expression})";
+        }
+
+        return $"({targetType})({expression})";
     }
 
     private string TransformIs(BinaryExpressionSyntax node, ConversionContext context)
     {
-        // TODO: Implement is transformation
-        return $"/* TODO: is */ {node}";
+        var facade = ExpressionTransformerFacade.Instance;
+        var left = facade.Transform(node.Left, context);
+
+        // Get the type being checked
+        var typeInfo = context.SemanticModel?.GetTypeInfo(node.Right);
+        string targetType;
+        if (typeInfo.HasValue && typeInfo.Value.Type != null)
+        {
+            targetType = context.MapType(typeInfo.Value.Type);
+        }
+        else
+        {
+            targetType = context.MapTypeFromSyntax(node.Right as TypeSyntax ?? throw new ArgumentException("Expected type"));
+        }
+
+        // C#: obj is Type  → Java: obj instanceof Type
+        return $"{left} instanceof {targetType}";
     }
 
     private string TransformIsPattern(IsPatternExpressionSyntax node, ConversionContext context)
     {
-        // TODO: Implement is pattern transformation
-        return $"/* TODO: is pattern */ {node}";
+        var facade = ExpressionTransformerFacade.Instance;
+        var expression = facade.Transform(node.Expression, context);
+
+        // Handle different pattern types
+        var pattern = node.Pattern;
+        return pattern switch
+        {
+            DeclarationPatternSyntax declPattern => TransformDeclarationPattern(expression, declPattern, context),
+            ConstantPatternSyntax constPattern => TransformConstantPattern(expression, constPattern, context),
+            RecursivePatternSyntax recPattern when recPattern.PositionalPatternClause == null =>
+                // Simple type pattern without deconstruction
+                $"{expression} instanceof {context.MapTypeFromSyntax(recPattern.Type)}",
+            _ => $"/* TODO: complex pattern */ {expression}"
+        };
+    }
+
+    private string TransformDeclarationPattern(string expression, DeclarationPatternSyntax pattern, ConversionContext context)
+    {
+        var facade = ExpressionTransformerFacade.Instance;
+
+        // C#: obj is Type variable  → Java needs instanceof check then cast
+        var typeInfo = context.SemanticModel?.GetTypeInfo(pattern.Type);
+        string targetType;
+        if (typeInfo.HasValue && typeInfo.Value.Type != null)
+        {
+            targetType = context.MapType(typeInfo.Value.Type);
+        }
+        else
+        {
+            targetType = context.MapTypeFromSyntax(pattern.Type);
+        }
+
+        var variableName = ConversionContext.EscapeJavaKeyword(pattern.Designation.ToString());
+
+        // In Java, we use: expression instanceof Type && ((Type)expression).property
+        // Or for newer Java: expression instanceof Type variableName
+        if ((int)context.Options.TargetJavaVersion >= 16)
+        {
+            // Java 16+ pattern matching
+            return $"{expression} instanceof {targetType} {variableName}";
+        }
+        else
+        {
+            // Older Java - need explicit cast
+            return $"({expression} instanceof {targetType})";
+        }
+    }
+
+    private string TransformConstantPattern(string expression, ConstantPatternSyntax pattern, ConversionContext context)
+    {
+        var facade = ExpressionTransformerFacade.Instance;
+        var constant = facade.Transform(pattern.Expression, context);
+
+        // C#: obj is null  → Java: obj == null
+        if (pattern.Expression is LiteralExpressionSyntax lit && lit.IsKind(SyntaxKind.NullLiteralExpression))
+        {
+            return $"{expression} == null";
+        }
+
+        // Other constant patterns
+        return $"{expression} == {constant}";
     }
 
     private string TransformAs(BinaryExpressionSyntax node, ConversionContext context)
     {
-        // TODO: Implement as transformation
-        return $"/* TODO: as */ {node}";
+        var facade = ExpressionTransformerFacade.Instance;
+        var expression = facade.Transform(node.Left, context);
+
+        // Get the target type
+        var typeInfo = context.SemanticModel?.GetTypeInfo(node.Right);
+        string targetType;
+        if (typeInfo.HasValue && typeInfo.Value.Type != null)
+        {
+            targetType = context.MapType(typeInfo.Value.Type);
+        }
+        else
+        {
+            targetType = context.MapTypeFromSyntax(node.Right as TypeSyntax ?? throw new ArgumentException("Expected type"));
+        }
+
+        // C#: obj as Type  → Java doesn't have direct equivalent
+        // We use: obj instanceof Type ? (Type)obj : null
+        return $"({expression} instanceof {targetType} ? ({targetType})({expression}) : null)";
     }
 
     private string TransformTypeOf(TypeOfExpressionSyntax node, ConversionContext context)
     {
-        // TODO: Implement typeof transformation
-        return $"/* TODO: typeof */ {node}";
+        // Get the type
+        var typeInfo = context.SemanticModel?.GetTypeInfo(node.Type);
+        string typeName;
+        if (typeInfo.HasValue && typeInfo.Value.Type != null)
+        {
+            typeName = context.MapType(typeInfo.Value.Type);
+        }
+        else
+        {
+            typeName = context.MapTypeFromSyntax(node.Type);
+        }
+
+        // C#: typeof(Type)  → Java: Type.class
+        return $"{typeName}.class";
     }
 
     private string TransformDefault(DefaultExpressionSyntax node, ConversionContext context)
     {
-        // TODO: Implement default transformation
-        return $"/* TODO: default */ {node}";
+        if (node.Type != null)
+        {
+            // Get the type
+            var typeInfo = context.SemanticModel?.GetTypeInfo(node.Type);
+            string typeName;
+            if (typeInfo.HasValue && typeInfo.Value.Type != null)
+            {
+                typeName = context.MapType(typeInfo.Value.Type);
+            }
+            else
+            {
+                typeName = context.MapTypeFromSyntax(node.Type);
+            }
+
+            // C#: default(Type)  → Java default values
+            return typeName switch
+            {
+                "int" => "0",
+                "long" => "0L",
+                "short" => "(short)0",
+                "byte" => "(byte)0",
+                "float" => "0.0f",
+                "double" => "0.0",
+                "boolean" => "false",
+                "char" => "'\\0'",
+                _ => "null" // Reference types default to null
+            };
+        }
+        else
+        {
+            // default literal (C# 7.1+) - infer from context
+            return "/* TODO: default literal */ null";
+        }
     }
 
     private string TransformChecked(CheckedExpressionSyntax node, ConversionContext context)
     {
-        // TODO: Implement checked transformation
-        return $"/* TODO: checked */ {node}";
+        var facade = ExpressionTransformerFacade.Instance;
+        var expression = facade.Transform(node.Expression, context);
+
+        // C# checked context - Java doesn't have overflow checking by default
+        // For Java, we might want to add Math.addExact(), etc. but that's complex
+        // For now, emit the expression with a comment
+        return $"/* checked */ {expression}";
     }
 
     private string TransformUnchecked(CheckedExpressionSyntax node, ConversionContext context)
     {
-        // TODO: Implement unchecked transformation
-        return $"/* TODO: unchecked */ {node}";
+        var facade = ExpressionTransformerFacade.Instance;
+        var expression = facade.Transform(node.Expression, context);
+
+        // C# unchecked context - Java's default behavior
+        return expression;
+    }
+
+    // Helper methods
+
+    private static bool IsPrimitiveToWrapperCast(ExpressionSyntax expr, string targetType, ConversionContext context)
+    {
+        // Check if we're casting from a primitive type to its wrapper
+        var typeInfo = context.SemanticModel?.GetTypeInfo(expr);
+        if (!typeInfo.HasValue || typeInfo.Value.Type == null) return false;
+
+        var sourceType = context.MapType(typeInfo.Value.Type);
+
+        return (sourceType, targetType) switch
+        {
+            ("int", "Integer") or ("long", "Long") or ("short", "Short") or
+            ("byte", "Byte") or ("float", "Float") or ("double", "Double") or
+            ("boolean", "Boolean") or ("char", "Character") => true,
+            _ => false
+        };
+    }
+
+    private static string targetNameOf(string wrapperType)
+    {
+        return wrapperType switch
+        {
+            "Integer" => "Integer.valueOf",
+            "Long" => "Long.valueOf",
+            "Short" => "Short.valueOf",
+            "Byte" => "Byte.valueOf",
+            "Float" => "Float.valueOf",
+            "Double" => "Double.valueOf",
+            "Boolean" => "Boolean.valueOf",
+            "Character" => "Character.valueOf",
+            _ => wrapperType
+        };
     }
 }

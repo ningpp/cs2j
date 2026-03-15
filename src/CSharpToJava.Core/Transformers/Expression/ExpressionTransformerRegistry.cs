@@ -12,6 +12,25 @@ public static class ExpressionTransformerRegistry
 {
     private static readonly ConcurrentDictionary<SyntaxKind, IExpressionTransformer> _transformers = new();
 
+    // Explicitly trigger static constructors to ensure all transformers are registered
+    static ExpressionTransformerRegistry()
+    {
+        // Touch each transformer type to trigger its static constructor
+        _ = BinaryExpressionTransformer.Instance;
+        _ = UnaryExpressionTransformer.Instance;
+        _ = AssignmentTransformer.Instance;
+        _ = InvocationExpressionTransformer.Instance;
+        _ = IdentifierExpressionTransformer.Instance;
+        _ = LiteralExpressionTransformer.Instance;
+        _ = ObjectCreationTransformer.Instance;
+        _ = StringExpressionTransformer.Instance;
+        _ = QueryExpressionTransformer.Instance;
+        _ = LambdaTransformer.Instance;
+        _ = ElementAccessTransformer.Instance;
+        _ = ControlFlowTransformer.Instance;
+        _ = TypeOperationTransformer.Instance;
+    }
+
     /// <summary>
     /// Register a transformer for the specified SyntaxKind values.
     /// Called by transformer static constructors.
