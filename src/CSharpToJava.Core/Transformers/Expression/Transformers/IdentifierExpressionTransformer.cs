@@ -141,6 +141,10 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
             var boxedName  = ExpressionTransformerHelpers.BoxedTypeName(primTypeSyntax);
             var rawMember  = node.Name.Identifier.Text;
             var mappedMember = MapPrimitiveStaticFieldName(primTypeSyntax.Keyword.Text, rawMember);
+            // If the mapping already produced a self-contained expression (e.g. "(-Double.MAX_VALUE)")
+            // don't prefix it with the boxed type name — that would create "Double.(-Double.MAX_VALUE)".
+            if (mappedMember.StartsWith("(") || mappedMember.StartsWith("-"))
+                return mappedMember;
             return $"{boxedName}.{mappedMember}";
         }
 

@@ -172,7 +172,7 @@ public class StatementTransformer : IStatementTransformer
         if (context.HasPendingPreStatements)
         {
             var preStmts = context.DrainPreStatements();
-            var preStmtLines = string.Join("\n", preStmts.Select(s => s + ";"));
+            var preStmtLines = string.Join("\n", preStmts.Select(s => s.TrimEnd(';') + ";"));
             // If the main expression is just a simple variable or an out-param holder field access
             // (from chain-assignment hoisting), skip it as a statement — e.g. "anchors.value;" is
             // not valid Java. Valid Java statements must be method calls, assignments, etc.
@@ -182,7 +182,7 @@ public class StatementTransformer : IStatementTransformer
             if (context.HasPendingPostStatements)
             {
                 var postStmts = context.DrainPostStatements();
-                stmtBlock += "\n" + string.Join("\n", postStmts.Select(s => s + ";"));
+                stmtBlock += "\n" + string.Join("\n", postStmts.Select(s => s.TrimEnd(';') + ";"));
             }
             return new JavaStatementNode(stmtBlock);
         }
@@ -1193,6 +1193,12 @@ public class StatementTransformer : IStatementTransformer
             return $"{ConversionContext.EscapeJavaKeyword(v.Identifier.Text)}{init}";
         }));
 
+        if (context.HasPendingPreStatements)
+        {
+            var pendingPre = context.DrainPreStatements();
+            var preCode = string.Join("\n", pendingPre.Select(s => s.TrimEnd(';') + ";")) + "\n";
+            return new JavaStatementNode($"{preCode}{javaType} {declarations};");
+        }
         return new JavaStatementNode($"{javaType} {declarations};");
     }
 
