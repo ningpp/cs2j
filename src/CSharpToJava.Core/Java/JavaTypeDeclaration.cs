@@ -234,7 +234,7 @@ public class JavaInterfaceDeclaration : JavaTypeDeclaration
         // 字段（默认 public static final）
         foreach (var field in Fields)
         {
-            sb.Append(innerIndentation).AppendLine(field.ToString());
+            sb.Append(innerIndentation).AppendLine(field.ToString(innerIndentation));
         }
 
         if (Fields.Count > 0 && Methods.Count > 0)
@@ -278,24 +278,29 @@ public class JavaEnumDeclaration : JavaTypeDeclaration
         sb.AppendLine(" {");
 
         // 枚举值
+        bool hasEnumBody = Fields.Count > 0 || Constructors.Count > 0 || Methods.Count > 0;
         for (int i = 0; i < Values.Count; i++)
         {
             sb.Append(innerIndentation).Append(Values[i]);
-            if (i < Values.Count - 1 || Fields.Count > 0 || Constructors.Count > 0 || Methods.Count > 0)
+            bool isLast = i == Values.Count - 1;
+            if (!isLast)
             {
                 sb.Append(",");
+            }
+            else if (hasEnumBody)
+            {
+                sb.Append(";");
             }
             sb.AppendLine();
         }
 
-        if (Fields.Count > 0 || Constructors.Count > 0 || Methods.Count > 0)
+        if (hasEnumBody)
         {
-            sb.AppendLine(";");
             sb.AppendLine();
 
             foreach (var field in Fields)
             {
-                sb.Append(innerIndentation).AppendLine(field.ToString());
+                sb.Append(innerIndentation).AppendLine(field.ToString(innerIndentation));
             }
 
             if (Fields.Count > 0 && (Constructors.Count > 0 || Methods.Count > 0))

@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.Transformers.Expression.Utilities;
 using System.Globalization;
 
 namespace CSharpToJava.Core.Transformers.Type;
@@ -80,8 +81,8 @@ public class EnumTransformer : ITypeTransformer
                         }
                         else
                         {
-                            // Keep hex/decimal as-is for Java (both are valid)
-                            fieldValue = valueStr;
+                            // Transform complex expressions (e.g. int.MaxValue → Integer.MAX_VALUE)
+                            fieldValue = TransformEnumValueExpression(enumMember.EqualsValue.Value);
                             // Append L suffix for long constants that don't already have it
                             if (useLong && !fieldValue.EndsWith("L", StringComparison.OrdinalIgnoreCase))
                                 fieldValue += "L";
@@ -149,7 +150,7 @@ public class EnumTransformer : ITypeTransformer
                     string valStr;
                     if (enumMember.EqualsValue != null)
                     {
-                        valStr = enumMember.EqualsValue.Value.ToString().Trim();
+                        valStr = TransformEnumValueExpression(enumMember.EqualsValue.Value);
                         int.TryParse(valStr, out nextVal);
                     }
                     else
@@ -211,6 +212,34 @@ public class EnumTransformer : ITypeTransformer
         }
 
         return javaEnum;
+    }
+
+    /// <summary>
+    /// Converts a C# enum member value expression to its Java equivalent.
+    /// Handles primitive static constants (e.g. int.MaxValue → Integer.MAX_VALUE).
+    /// Falls back to the raw syntax string for simple numeric literals.
+    /// </summary>
+    private static string TransformEnumValueExpression(ExpressionSyntax expr)
+    {
+        if (expr is MemberAccessExpressionSyntax memberAccess &&
+            memberAccess.Expression is PredefinedTypeSyntax primType)
+        {
+            var boxed = ExpressionTransformerHelpers.BoxedTypeName(primType);
+            var member = memberAccess.Name.Identifier.Text;
+            var mapped = (primType.Keyword.Text, member) switch
+            {
+                ("double" or "float", "MinValue") => $"(-{(primType.Keyword.Text == "double" ? "Double" : "Float")}.MAX_VALUE)",
+                (_, "MaxValue")          => "MAX_VALUE",
+                (_, "MinValue")          => "MIN_VALUE",
+                (_, "Epsilon")           => "MIN_VALUE",
+                (_, "PositiveInfinity")  => "POSITIVE_INFINITY",
+                (_, "NegativeInfinity")  => "NEGATIVE_INFINITY",
+                (_, "NaN")              => "NaN",
+                _                        => member
+            };
+            return $"{boxed}.{mapped}";
+        }
+        return expr.ToString().Trim();
     }
 
     private static JavaModifiers ConvertModifiers(SyntaxTokenList modifiers)
