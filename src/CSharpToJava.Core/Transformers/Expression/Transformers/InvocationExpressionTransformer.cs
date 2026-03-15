@@ -69,7 +69,16 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         // type inference is used instead.  Strip the type arguments from the method name.
         if (node.Expression is GenericNameSyntax genericMethodName)
         {
-            var methodName = ConversionContext.EscapeJavaKeyword(genericMethodName.Identifier.Text);
+            var methodName = ApplyCamelCaseAndMappings(genericMethodName.Identifier.Text, node, context);
+            var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+            return $"{methodName}({args})";
+        }
+
+        // Bare identifier call: e.g. LandmarkClassicalScaling(...) → landmarkClassicalScaling(...)
+        // Apply the same camelCase + TypeMappings conversion used for member-access calls.
+        if (node.Expression is IdentifierNameSyntax bareIdent)
+        {
+            var methodName = ApplyCamelCaseAndMappings(bareIdent.Identifier.Text, node, context);
             var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
             return $"{methodName}({args})";
         }
@@ -92,6 +101,38 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         if (angleBracketIdx >= 0)
             last = last[..angleBracketIdx];
         return $"\"{last}\"";
+    }
+
+    /// <summary>
+    /// Applies TypeMappings lookup then camelCase conversion to a bare (unqualified) method name.
+    /// Used for calls without a receiver: Foo(...) and Foo&lt;T&gt;(...).
+    /// </summary>
+    private static string ApplyCamelCaseAndMappings(string originalName, InvocationExpressionSyntax node, ConversionContext context)
+    {
+        var methodName = originalName;
+
+        // Try TypeMappings via semantic model (receiver type required for lookup, skip if unavailable)
+        if (context.SemanticModel?.GetSymbolInfo(node).Symbol is IMethodSymbol sym)
+        {
+            var typeName = sym.ContainingType.ToDisplayString();
+            var mapped = context.TypeMappings.MapMethod(typeName, originalName);
+            if (mapped != null)
+                return ConversionContext.EscapeJavaKeyword(mapped);
+        }
+
+        // Apply the same well-known renames + camelCase used in TransformMemberInvocation
+        methodName = methodName switch
+        {
+            "GetHashCode"   => "hashCode",
+            "GetEnumerator" => "iterator",
+            "GetType"       => "getClass",
+            "Dispose"       => "close",
+            _ when methodName.Length > 0
+                => char.ToLowerInvariant(methodName[0]) + methodName[1..],
+            _ => methodName
+        };
+
+        return ConversionContext.EscapeJavaKeyword(methodName);
     }
 
     /// <summary>
