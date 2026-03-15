@@ -133,9 +133,115 @@ public class AssignmentTransformer : IExpressionTransformer
             }
         }
 
+        // Compound assignment where the operator is user-defined (e.g. Point2 += Point2).
+        // Java has no operator overloading, so expand: lhs op= rhs → lhs = TypeName.method(lhs, rhs)
+        // For property LHS this must also go through getter/setter.
+        if (op != "=" && context.SemanticModel != null)
+        {
+            var symbolInfo = context.SemanticModel.GetSymbolInfo(node);
+            if (symbolInfo.Symbol is IMethodSymbol opMethod
+                && opMethod.MethodKind == MethodKind.UserDefinedOperator)
+            {
+                return ExpandCompoundOperatorOverload(node, opMethod, context);
+            }
+        }
+
         var left = facade.Transform(leftNode, context);
         var rightStr = facade.Transform(rightNode, context);
         return $"{left} {op} {rightStr}";
+    }
+
+    /// <summary>
+    /// Expands a compound assignment whose operator is user-defined into an explicit assignment
+    /// that calls the static Java operator method, respecting property getter/setter conventions.
+    /// e.g. LeftTop += new Point2()  →  setLeftTop(Point2.add(getLeftTop(), new Point2()))
+    /// e.g. this.pos += delta        →  this.pos = Point2.add(this.pos, delta)
+    /// </summary>
+    private string ExpandCompoundOperatorOverload(
+        AssignmentExpressionSyntax node,
+        IMethodSymbol opMethod,
+        ConversionContext context)
+    {
+        var facade = ExpressionTransformerFacade.Instance;
+        var leftNode = node.Left;
+        var right = facade.Transform(node.Right, context);
+
+        // Resolve Java method name, qualified with the containing class if necessary.
+        string javaMethod = CSharpToJava.Core.Transformers.Member.OperatorTransformer.OpSymbolToJavaName
+            .TryGetValue(opMethod.Name, out var m) ? m : opMethod.Name;
+        string qualifiedMethod = BuildQualifiedOperatorCall(opMethod, javaMethod, context);
+
+        // Case 1: Bare identifier (e.g. LeftTop += rhs; inside instance method/property accessor)
+        if (leftNode is IdentifierNameSyntax)
+        {
+            var lhsSymbol = context.SemanticModel?.GetSymbolInfo(leftNode).Symbol;
+            if (lhsSymbol is IPropertySymbol bareProp)
+            {
+                string getter = "get" + char.ToUpperInvariant(bareProp.Name[0]) + bareProp.Name[1..];
+                string setter = "set" + char.ToUpperInvariant(bareProp.Name[0]) + bareProp.Name[1..];
+                return $"{setter}({qualifiedMethod}({getter}(), {right}))";
+            }
+            // Field or local variable — simple expand
+            var lhsStr = facade.Transform(leftNode, context);
+            return $"{lhsStr} = {qualifiedMethod}({lhsStr}, {right})";
+        }
+
+        // Case 2: Member access (e.g. obj.LeftTop += rhs  or  this.field += rhs)
+        if (leftNode is MemberAccessExpressionSyntax ma)
+        {
+            var memberSymbol = context.SemanticModel?.GetSymbolInfo(leftNode).Symbol;
+            var receiverExpr = ma.Expression;
+            string memberName = ConversionContext.EscapeJavaKeyword(ma.Name.Identifier.Text);
+
+            if (memberSymbol is IPropertySymbol memberProp)
+            {
+                string getter = "get" + char.ToUpperInvariant(memberProp.Name[0]) + memberProp.Name[1..];
+                string setter = "set" + char.ToUpperInvariant(memberProp.Name[0]) + memberProp.Name[1..];
+
+                // Simple receivers (identifier, this, this.Member) are safe to evaluate twice
+                bool simpleReceiver = receiverExpr is IdentifierNameSyntax
+                    || receiverExpr is ThisExpressionSyntax
+                    || (receiverExpr is MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax });
+                if (simpleReceiver)
+                {
+                    var recv = facade.Transform(receiverExpr, context);
+                    return $"{recv}.{setter}({qualifiedMethod}({recv}.{getter}(), {right}))";
+                }
+                // Complex receiver — extract to temp variable to avoid double evaluation
+                var tmpName = context.GenerateSyntheticName("__opTemp");
+                var recvStr = facade.Transform(receiverExpr, context);
+                context.AddPreStatement($"var {tmpName} = {recvStr}");
+                return $"{tmpName}.{setter}({qualifiedMethod}({tmpName}.{getter}(), {right}))";
+            }
+
+            // Non-property member (field in member-access form)
+            var receiverStr = facade.Transform(receiverExpr, context);
+            var lhs = $"{receiverStr}.{memberName}";
+            return $"{lhs} = {qualifiedMethod}({lhs}, {right})";
+        }
+
+        // Fallback: expand as-is (best effort for indexers etc.)
+        var fallbackLhs = facade.Transform(leftNode, context);
+        return $"{fallbackLhs} = {qualifiedMethod}({fallbackLhs}, {right})";
+    }
+
+    private static string BuildQualifiedOperatorCall(
+        IMethodSymbol opMethod,
+        string javaMethod,
+        ConversionContext context)
+    {
+        var currentTypeName = context.CurrentType?.Name;
+        var operatorTypeName = opMethod.ContainingType.Name;
+
+        // If call site is inside the operator's own class, no qualifier needed
+        if (currentTypeName != null && operatorTypeName == currentTypeName)
+            return javaMethod;
+
+        var containingType = context.MapType(opMethod.ContainingType);
+        // Strip generic type parameters — Java doesn't allow them on static call qualifiers
+        var angleIdx = containingType.IndexOf('<');
+        if (angleIdx > 0) containingType = containingType[..angleIdx];
+        return $"{containingType}.{javaMethod}";
     }
 
     // Fix 3 + Fix 5: Handle ??= (CoalesceAssignment), avoiding double evaluation of complex LHS
