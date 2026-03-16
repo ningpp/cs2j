@@ -139,6 +139,46 @@ public class StatementTransformer : IStatementTransformer
             }
         }
 
+        // Special case: Debug.Assert / Trace.Assert / Contract.Requires / Contract.Assert
+        // Java's 'assert' is a statement keyword, not a callable method — emit it directly
+        // so the call never reaches the generic name-lowering + EscapeJavaKeyword path that
+        // would produce the wrong "System.assertValue(...)" output.
+        if (stmt.Expression is InvocationExpressionSyntax assertInvoc &&
+            assertInvoc.Expression is MemberAccessExpressionSyntax assertMa &&
+            assertInvoc.ArgumentList.Arguments.Count >= 1 &&
+            assertMa.Name.Identifier.Text is "Assert" or "Requires")
+        {
+            bool isAssertLike = false;
+            if (context.SemanticModel != null &&
+                context.SemanticModel.GetSymbolInfo(assertInvoc).Symbol is IMethodSymbol assertSym)
+            {
+                var typeName = assertSym.ContainingType.ToDisplayString();
+                isAssertLike = typeName is "System.Diagnostics.Debug"
+                                         or "System.Diagnostics.Trace"
+                                         or "System.Diagnostics.Contracts.Contract";
+            }
+            if (!isAssertLike)
+            {
+                // Syntactic fallback: semantic model absent or couldn't resolve the symbol
+                var receiver = assertMa.Expression.ToString();
+                isAssertLike = receiver is "Debug" or "Trace" or "Contract"
+                                         or "System.Diagnostics.Debug"
+                                         or "System.Diagnostics.Trace"
+                                         or "System.Diagnostics.Contracts.Contract";
+            }
+
+            if (isAssertLike)
+            {
+                var condition = exprTransformer.Transform(assertInvoc.ArgumentList.Arguments[0].Expression, context);
+                if (assertInvoc.ArgumentList.Arguments.Count >= 2)
+                {
+                    var message = exprTransformer.Transform(assertInvoc.ArgumentList.Arguments[1].Expression, context);
+                    return new JavaStatementNode($"assert {condition} : {message};");
+                }
+                return new JavaStatementNode($"assert {condition};");
+            }
+        }
+
         // Fix 4: Tuple deconstruction — var (first, second) = GetPair();
         // ExpressionStatement > AssignmentExpression where LHS is DeclarationExpression with ParenthesizedVariableDesignation
         if (stmt.Expression is AssignmentExpressionSyntax tupleAssign
