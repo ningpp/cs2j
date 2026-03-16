@@ -163,10 +163,47 @@ public class ArgumentTransformer
             return $"/* out */ {transformer.Transform(arg.Expression, context)}";
         }
 
-        if (refKind == SyntaxKind.RefKeyword || refKind == SyntaxKind.InKeyword)
+        if (refKind == SyntaxKind.RefKeyword)
         {
-            // Java has no ref/in semantics — pass the value directly
-            context.Diagnostics.Warning("ref/in parameter has no direct Java equivalent; passing by value", arg.GetLocation());
+            // Bug 1: if the argument is already a ref/out parameter (e.g. forwarding ref d2 to another ref method),
+            // the IdentifierExpressionTransformer would emit "d2.value" — but we must pass the holder itself.
+            if (arg.Expression is IdentifierNameSyntax refIdent)
+            {
+                if (context.SemanticModel?.GetSymbolInfo(refIdent).Symbol is IParameterSymbol refParam
+                    && (refParam.RefKind == RefKind.Ref || refParam.RefKind == RefKind.Out))
+                {
+                    // Already a holder — pass it directly with no wrapping.
+                    return ConversionContext.EscapeJavaKeyword(refParam.Name);
+                }
+
+                // Bug 2: local variable (or non-ref parameter) passed as ref — wrap it in a holder
+                // so it can be mutated by the callee and the new value written back afterward.
+                var varName = refIdent.Identifier.Text;
+                var refHolderName = $"_{varName}Ref";
+                var javaType = "Object";
+                if (context.SemanticModel != null)
+                {
+                    var typeInfo = context.SemanticModel.GetTypeInfo(refIdent);
+                    if (typeInfo.Type != null)
+                        javaType = context.MapType(typeInfo.Type);
+                }
+                var refHolderType = DelegateTransformer.GetHolderType(javaType);
+                var refHolderInit = refHolderType.StartsWith("ObjectHolder<")
+                    ? $"new ObjectHolder<>({varName})"
+                    : $"new {refHolderType}({varName})";
+                context.AddPreStatement($"{refHolderType} {refHolderName} = {refHolderInit}");
+                context.AddPostStatement($"{ConversionContext.EscapeJavaKeyword(varName)} = {refHolderName}.value");
+                return refHolderName;
+            }
+
+            // Complex expression (e.g. ref field, ref array element) — no holder support; pass by value.
+            context.Diagnostics.Warning("ref argument with complex expression has no direct Java equivalent; passing by value", arg.GetLocation());
+            return transformer.Transform(arg.Expression, context);
+        }
+
+        if (refKind == SyntaxKind.InKeyword)
+        {
+            // 'in' is read-only — pass the value directly (no write-back needed).
             return transformer.Transform(arg.Expression, context);
         }
 

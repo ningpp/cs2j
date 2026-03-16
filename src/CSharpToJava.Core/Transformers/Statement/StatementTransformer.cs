@@ -307,6 +307,32 @@ public class StatementTransformer : IStatementTransformer
             }
         }
 
+        // Bug 3: drain any pre/post statements produced while transforming the return expression
+        // (e.g., ref argument wrapping adds pre-statements for holder init and post-statements for write-back).
+        if (context.HasPendingPreStatements || context.HasPendingPostStatements)
+        {
+            var sb = new System.Text.StringBuilder();
+            if (context.HasPendingPreStatements)
+            {
+                var preStmts = context.DrainPreStatements();
+                sb.Append(string.Join("\n", preStmts.Select(s => s.TrimEnd(';') + ";")));
+                sb.Append("\n");
+            }
+            if (context.HasPendingPostStatements)
+            {
+                // Capture the return value in a temp variable, emit post-stmts, then return it.
+                var postStmts = context.DrainPostStatements();
+                sb.Append($"var _ret = {expr};\n");
+                sb.Append(string.Join("\n", postStmts.Select(s => s.TrimEnd(';') + ";")));
+                sb.Append("\nreturn _ret;");
+            }
+            else
+            {
+                sb.Append($"return {expr};");
+            }
+            return new JavaStatementNode(sb.ToString());
+        }
+
         return new JavaStatementNode($"return {expr};");
     }
 
