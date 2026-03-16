@@ -78,7 +78,11 @@ public class AssignmentTransformer : IExpressionTransformer
             if (context.SemanticModel?.GetSymbolInfo(leftNode).Symbol is IPropertySymbol prop)
             {
                 var receiver = facade.Transform(propMa.Expression, context);
-                var right = facade.Transform(rightNode, context);
+                // If RHS is itself a property setter assignment, hoist to avoid void-return nesting
+                // e.g. p1.X = p2.X = p3.X  →  var _chainVal0 = p3.getX(); p2.setX(_chainVal0); p1.setX(_chainVal0)
+                var right = IsPropertySetterAssignment(rightNode, context)
+                    ? HoistChainedPropertyAssignment(rightNode, context)
+                    : facade.Transform(rightNode, context);
                 string setter = "set" + char.ToUpperInvariant(prop.Name[0]) + prop.Name[1..];
                 return $"{receiver}.{setter}({right})";
             }
@@ -116,7 +120,9 @@ public class AssignmentTransformer : IExpressionTransformer
         {
             if (context.SemanticModel?.GetSymbolInfo(leftNode).Symbol is IPropertySymbol bareIdentProp)
             {
-                var right = facade.Transform(rightNode, context);
+                var right = IsPropertySetterAssignment(rightNode, context)
+                    ? HoistChainedPropertyAssignment(rightNode, context)
+                    : facade.Transform(rightNode, context);
                 string setter = "set" + char.ToUpperInvariant(bareIdentProp.Name[0]) + bareIdentProp.Name[1..];
                 return $"{setter}({right})";
             }
@@ -147,8 +153,80 @@ public class AssignmentTransformer : IExpressionTransformer
         }
 
         var left = facade.Transform(leftNode, context);
+        // Guard: if the RHS is a property setter assignment, hoist it so we don't embed a void call
+        // as the RHS of a plain assignment. e.g. a = p2.X = p3.X → pre: ...; a = _chainVal0
+        if (op == "=" && IsPropertySetterAssignment(rightNode, context))
+        {
+            var tmpName = HoistChainedPropertyAssignment(rightNode, context);
+            return $"{left} = {tmpName}";
+        }
         var rightStr = facade.Transform(rightNode, context);
         return $"{left} {op} {rightStr}";
+    }
+
+    /// <summary>
+    /// Returns true when <paramref name="expr"/> is a simple (=) assignment whose LHS resolves to
+    /// an <see cref="IPropertySymbol"/>. Used to detect chained property assignments whose setter
+    /// calls would produce invalid void-return nesting in Java if left un-hoisted.
+    /// </summary>
+    private bool IsPropertySetterAssignment(ExpressionSyntax expr, ConversionContext context)
+    {
+        if (expr is not AssignmentExpressionSyntax assign
+            || assign.Kind() != SyntaxKind.SimpleAssignmentExpression)
+            return false;
+
+        return context.SemanticModel?.GetSymbolInfo(assign.Left).Symbol is IPropertySymbol;
+    }
+
+    /// <summary>
+    /// Recursively hoists a chained property-setter assignment into pre-statements so each setter
+    /// is emitted as a separate void statement, returning the name of the temp variable that holds
+    /// the innermost value. All levels of the chain share the same temp, so every property in the
+    /// chain receives the same final value — matching C# chained-assignment semantics.
+    /// <example>
+    /// <code>
+    /// // C#:   p1.X = p2.X = p3.X
+    /// // pre-stmt 1 → var _chainVal0 = p3.getX();
+    /// // pre-stmt 2 → p2.setX(_chainVal0);
+    /// // main stmt  → p1.setX(_chainVal0);
+    /// </code>
+    /// </example>
+    /// </summary>
+    private string HoistChainedPropertyAssignment(ExpressionSyntax expr, ConversionContext context)
+    {
+        var facade = ExpressionTransformerFacade.Instance;
+
+        if (expr is AssignmentExpressionSyntax assign
+            && assign.Kind() == SyntaxKind.SimpleAssignmentExpression)
+        {
+            // MemberAccess property LHS: receiver.Prop = rhs
+            if (assign.Left is MemberAccessExpressionSyntax ma
+                && context.SemanticModel?.GetSymbolInfo(ma).Symbol is IPropertySymbol maProp)
+            {
+                var tmpName = HoistChainedPropertyAssignment(assign.Right, context);
+                var receiver = facade.Transform(ma.Expression, context);
+                string setter = "set" + char.ToUpperInvariant(maProp.Name[0]) + maProp.Name[1..];
+                context.AddPreStatement($"{receiver}.{setter}({tmpName})");
+                return tmpName;
+            }
+
+            // Bare identifier property LHS: Prop = rhs (inside instance method)
+            if (assign.Left is IdentifierNameSyntax id
+                && context.SemanticModel?.GetSymbolInfo(id).Symbol is IPropertySymbol idProp)
+            {
+                var tmpName = HoistChainedPropertyAssignment(assign.Right, context);
+                string setter = "set" + char.ToUpperInvariant(idProp.Name[0]) + idProp.Name[1..];
+                context.AddPreStatement($"{setter}({tmpName})");
+                return tmpName;
+            }
+        }
+
+        // Base case: any other expression (getter call, literal, local variable, non-property assignment)
+        // — transform it and capture to a temp so callers can reference the value without re-evaluating.
+        var tmpVal = facade.Transform(expr, context);
+        var tmp = context.GenerateSyntheticName("_chainVal");
+        context.AddPreStatement($"var {tmp} = {tmpVal}");
+        return tmp;
     }
 
     /// <summary>
