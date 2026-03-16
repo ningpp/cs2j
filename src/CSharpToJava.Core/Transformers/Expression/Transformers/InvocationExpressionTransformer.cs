@@ -78,6 +78,20 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         // Apply the same camelCase + TypeMappings conversion used for member-access calls.
         if (node.Expression is IdentifierNameSyntax bareIdent)
         {
+            // Delegate invocation: sequence(m) where sequence is a Func/Action field/local/param.
+            // Roslyn resolves the invoked method as DelegateInvoke; map it to .apply()/.get()/etc.
+            if (context.SemanticModel != null)
+            {
+                var symInfo = context.SemanticModel.GetSymbolInfo(node);
+                if (symInfo.Symbol is IMethodSymbol { MethodKind: MethodKind.DelegateInvoke } delegateInvoke)
+                {
+                    var containingTypeName = delegateInvoke.ContainingType.ToDisplayString();
+                    var javaMethod = context.TypeMappings.MapMethod(containingTypeName, "Invoke") ?? "apply";
+                    var delegateArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                    return $"{bareIdent.Identifier.Text}.{javaMethod}({delegateArgs})";
+                }
+            }
+
             var methodName = ApplyCamelCaseAndMappings(bareIdent.Identifier.Text, node, context);
             var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
             return $"{methodName}({args})";

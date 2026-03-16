@@ -1165,23 +1165,23 @@
                          },
                          {
                              "csharp":  "System.Func`1",
-                             "java":  "Function0",
+                             "java":  "Supplier",
                              "imports":  [
-                                             "io.vavr.Function0"
+                                             "java.util.function.Supplier"
                                          ]
                          },
                          {
                              "csharp":  "System.Func`2",
-                             "java":  "Function1",
+                             "java":  "Function",
                              "imports":  [
-                                             "io.vavr.Function1"
+                                             "java.util.function.Function"
                                          ]
                          },
                          {
                              "csharp":  "System.Func`3",
-                             "java":  "Function2",
+                             "java":  "BiFunction",
                              "imports":  [
-                                             "io.vavr.Function2"
+                                             "java.util.function.BiFunction"
                                          ]
                          },
                          {
@@ -1700,7 +1700,7 @@
                            {
                                "type":  "System.Func`1",
                                "method":  "Invoke",
-                               "javaMethod":  "apply"
+                               "javaMethod":  "get"
                            },
                            {
                                "type":  "System.Func`2",
