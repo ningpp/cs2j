@@ -1919,11 +1919,6 @@
                            },
                            {
                                "type":  "System.String",
-                               "method":  "GetLength",
-                               "javaMethod":  "length"
-                           },
-                           {
-                               "type":  "System.String",
                                "method":  "get_Length",
                                "javaMethod":  "length"
                            },

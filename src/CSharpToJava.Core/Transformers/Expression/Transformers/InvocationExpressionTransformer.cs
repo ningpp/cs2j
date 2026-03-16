@@ -251,6 +251,37 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return $"Arrays.stream({arrayArg}).forEach({actionArg})";
         }
 
+        // Fix: array.GetLength(dim) → Java dimensional length access.
+        // Java represents multi-dimensional arrays as jagged arrays (arrays of arrays).
+        // Dimension n length: array + "[0]" × n + ".length"
+        //   GetLength(0) → matrix.length
+        //   GetLength(1) → matrix[0].length
+        //   GetLength(2) → matrix[0][0].length
+        if (originalMethodName == "GetLength"
+            && node.ArgumentList.Arguments.Count == 1
+            && context.SemanticModel != null)
+        {
+            var receiverType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type;
+            if (receiverType is IArrayTypeSymbol)
+            {
+                var dimArg = node.ArgumentList.Arguments[0].Expression;
+                int dim = -1;
+                var constVal = context.SemanticModel.GetConstantValue(dimArg);
+                if (constVal.HasValue && constVal.Value is int constInt)
+                    dim = constInt;
+                else if (int.TryParse(dimArg.ToString(), out var parsed))
+                    dim = parsed;
+                if (dim >= 0)
+                {
+                    var indexers = string.Concat(Enumerable.Repeat("[0]", dim));
+                    return $"{receiver}{indexers}.length";
+                }
+                // Non-constant dimension: emit dimension 0 with a comment as best-effort fallback.
+                var dimExpr = facade.Transform(dimArg, context);
+                return $"/* GetLength({dimExpr}) not directly translatable */ {receiver}.length";
+            }
+        }
+
         // Issue 1: apply method-name mapping from the type-mapping registry.
         string methodName = originalMethodName;
         if (methodSymbol != null)
