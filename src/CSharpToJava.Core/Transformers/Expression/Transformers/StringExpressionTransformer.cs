@@ -172,7 +172,7 @@ public class StringExpressionTransformer : IExpressionTransformer
     }
 
     // Fix 1: Complete C# → Java format specifier conversion table
-    private static string ConvertCSharpFormatToJava(string csharpFormat)
+    internal static string ConvertCSharpFormatToJava(string csharpFormat)
     {
         if (string.IsNullOrEmpty(csharpFormat)) return "%s";
 

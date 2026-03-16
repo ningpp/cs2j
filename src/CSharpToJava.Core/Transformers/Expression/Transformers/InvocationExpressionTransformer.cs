@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -284,6 +285,15 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             {
                 var containingTypeName = methodSymbol.ContainingType.ToDisplayString();
                 receiver = context.TypeMappings.MapType(containingTypeName);
+                // Roslyn's ToDisplayString() uses C# keyword aliases for well-known types:
+                // e.g. System.String → "string", System.Object → "object".
+                // TypeMappings.json keys use the fully-qualified form ("System.String"),
+                // so the alias lookup misses. Retry with the FQN as a fallback.
+                if (receiver == containingTypeName)
+                {
+                    var fqn = $"{methodSymbol.ContainingType.ContainingNamespace}.{methodSymbol.ContainingType.Name}";
+                    receiver = context.TypeMappings.MapType(fqn);
+                }
                 // Box any primitive type so static methods are called on the wrapper class.
                 // e.g. System.Int32 maps to "int", but Int32.Parse → Integer.parseInt not int.parseInt.
                 receiver = ExpressionTransformerHelpers.BoxJavaPrimitiveType(receiver);
@@ -349,7 +359,29 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return $"{receiver}.{methodName}({splitArgs})";
         }
 
-        var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, argStartIndex);
+        // Fix: String.Format("{0}  {1}", a, b) → String.format("%s  %s", a, b)
+        // C# uses {N} / {N:specifier} placeholders; Java uses printf-style % specifiers.
+        // Only rewrite when the first argument is a string literal — dynamic format strings
+        // cannot be statically rewritten and are left as-is.
+        bool isStringFormat = originalMethodName == "Format"
+            && (methodSymbol?.ContainingType.ToDisplayString() is "string" or "System.String"
+                || (methodSymbol == null && memberAccess.Expression.ToString() is "String" or "string" or "System.String"));
+        if (isStringFormat && node.ArgumentList.Arguments.Count > argStartIndex)
+        {
+            var firstArg = node.ArgumentList.Arguments[argStartIndex];
+            if (firstArg.Expression is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.StringLiteralExpression } strLit)
+            {
+                var rewrittenFormat = RewriteStringFormatLiteral(strLit.Token.ValueText);
+                var remainingArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, argStartIndex + 1);
+                var formatCall = string.IsNullOrEmpty(remainingArgs)
+                    ? $"{receiver}.{methodName}({rewrittenFormat})"
+                    : $"{receiver}.{methodName}({rewrittenFormat}, {remainingArgs})";
+                return formatCall;
+            }
+        }
+
+        var args = ArgumentTransformer.TransformArgumentList(
+            node.ArgumentList, context, facade, argStartIndex);
 
         return $"{receiver}.{methodName}({args})";
     }
@@ -392,6 +424,28 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         if (ch.Length == 1 && @"\.^$*+?{}[]|()".Contains(ch[0]))
             return @"\" + ch;
         return ch;
+    }
+
+    /// <summary>
+    /// Rewrites a C# String.Format literal format string to Java's printf-style format.
+    /// Escapes any bare '%' characters, then converts {N} placeholders to %s and
+    /// {N:specifier} placeholders to the corresponding Java format specifier.
+    /// Returns the rewritten string as a Java string literal (with surrounding double-quotes).
+    /// </summary>
+    private static string RewriteStringFormatLiteral(string formatValue)
+    {
+        // Escape existing '%' to '%%' so they are treated as literal percent signs in Java.
+        var escaped = formatValue.Replace("%", "%%");
+        // Match {index} or {index:formatSpec} — index is one or more digits.
+        var result = Regex.Replace(escaped, @"\{(\d+)(?::([^}]*))?\}", m =>
+        {
+            var spec = m.Groups[2].Success ? m.Groups[2].Value : "";
+            return string.IsNullOrEmpty(spec)
+                ? "%s"
+                : StringExpressionTransformer.ConvertCSharpFormatToJava(spec);
+        });
+        // Wrap in Java string literal quotes.
+        return $"\"{result}\"";
     }
 
     /// <summary>
