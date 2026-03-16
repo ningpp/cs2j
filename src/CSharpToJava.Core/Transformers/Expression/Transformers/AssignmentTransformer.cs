@@ -100,11 +100,18 @@ public class AssignmentTransformer : IExpressionTransformer
                 if (argList.Count == 1)
                 {
                     var argExpr = argList[0].Expression;
-                    var argType = context.SemanticModel?.GetTypeInfo(argExpr).Type;
-                    bool isIntIndex = argType?.SpecialType is
-                        SpecialType.System_Int32 or SpecialType.System_Int64 or
-                        SpecialType.System_Int16 or SpecialType.System_Byte;
-                    string method = isIntIndex ? "set" : "put";
+                    var containerType = context.SemanticModel?.GetTypeInfo(ela.Expression).Type;
+                    string method = "put"; // default: maps / unknown
+                    if (containerType is INamedTypeSymbol namedContainer)
+                    {
+                        var fullName = namedContainer.OriginalDefinition.ToDisplayString();
+                        bool isListContainer = fullName is
+                            "System.Collections.Generic.List<T>"
+                            or "System.Collections.Generic.IList<T>"
+                            or "System.Collections.Generic.IReadOnlyList<T>"
+                            or "System.Collections.Immutable.ImmutableArray<T>";
+                        if (isListContainer) method = "set";
+                    }
                     var arg0 = facade.Transform(argExpr, context);
                     return $"{target}.{method}({arg0}, {right})";
                 }
