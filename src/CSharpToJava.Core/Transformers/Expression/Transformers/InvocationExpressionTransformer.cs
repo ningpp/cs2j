@@ -88,7 +88,10 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                     var containingTypeName = delegateInvoke.ContainingType.ToDisplayString();
                     var javaMethod = context.TypeMappings.MapMethod(containingTypeName, "Invoke") ?? "apply";
                     var delegateArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
-                    return $"{bareIdent.Identifier.Text}.{javaMethod}({delegateArgs})";
+                    // Use facade.Transform so properties are emitted as getXxx() rather than bare identifier.
+                    // e.g. Sequence(m) where Sequence is a Func<int,double> property → getSequence().apply(m)
+                    var delegateReceiver = facade.Transform(bareIdent, context);
+                    return $"{delegateReceiver}.{javaMethod}({delegateArgs})";
                 }
             }
 

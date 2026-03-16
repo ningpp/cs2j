@@ -134,4 +134,40 @@ public class FuncDelegateInvocationTests
         Assert.Contains("factory.get()", result.GeneratedCode);
         Assert.DoesNotContain("return factory()", result.GeneratedCode);
     }
+
+    // ── Bug 3 ──────────────────────────────────────────────────────────────────
+    // When Sequence is a Func<int,double> *property*, calling Sequence(m) must
+    // emit getSequence().apply(m), not Sequence.apply(m).
+
+    [Fact]
+    public void Func2_PropertyDelegateInvocation_EmitsGetterThenApply()
+    {
+        const string code = """
+            class UnimodalSequenceProperty
+            {
+                System.Func<int, double> sequence;
+
+                internal System.Func<int, double> Sequence
+                {
+                    get { return sequence; }
+                    set { sequence = value; }
+                }
+
+                public double FindSequenceScore(int m)
+                {
+                    return Sequence(m);
+                }
+            }
+            """;
+
+        var result = Convert(code);
+
+        Assert.True(result.Success,
+            $"Conversion failed:\n{string.Join("\n", result.Diagnostics.Select(d => d.Message))}");
+        // Property getter must be called first, then .apply() on the result.
+        Assert.Contains("getSequence().apply(m)", result.GeneratedCode);
+        // Must NOT appear as a bare property call or a plain method call.
+        Assert.DoesNotContain("Sequence(m)", result.GeneratedCode);
+        Assert.DoesNotContain("Sequence.apply", result.GeneratedCode);
+    }
 }
