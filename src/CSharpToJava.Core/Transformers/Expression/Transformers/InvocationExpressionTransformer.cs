@@ -100,6 +100,22 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return $"{methodName}({args})";
         }
 
+        // Delegate invocation via non-identifier expressions (e.g. dict[key](args)).
+        // The existing IdentifierNameSyntax path above only handles bare identifiers;
+        // this catches element-access, member-access, and other expression targets.
+        if (context.SemanticModel != null)
+        {
+            var symInfo = context.SemanticModel.GetSymbolInfo(node);
+            if (symInfo.Symbol is IMethodSymbol { MethodKind: MethodKind.DelegateInvoke } delegateInvoke)
+            {
+                var containingTypeName = delegateInvoke.ContainingType.ToDisplayString();
+                var javaMethod = context.TypeMappings.MapMethod(containingTypeName, "Invoke") ?? "apply";
+                var delegateArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                var delegateReceiver = facade.Transform(node.Expression, context);
+                return $"{delegateReceiver}.{javaMethod}({delegateArgs})";
+            }
+        }
+
         var target = facade.Transform(node.Expression, context);
         var args2 = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
         return $"{target}({args2})";
@@ -217,6 +233,21 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             && methodSymbol?.ContainingType.ToDisplayString() == "System.Linq.Enumerable")
         {
             return $"{receiver}.iterator().hasNext()";
+        }
+
+        // Fix: Array.ForEach(array, action) → Arrays.stream(array).forEach(action)
+        // System.Array maps to "Object" in TypeMappings which has no static forEach method.
+        // Use Arrays.stream().forEach() to produce a valid expression (works in lambda bodies).
+        // Check both via semantic model and syntactic fallback (missing assembly reference).
+        if (originalMethodName == "ForEach"
+            && node.ArgumentList.Arguments.Count >= 2
+            && (methodSymbol?.ContainingType.ToDisplayString() == "System.Array"
+                || (methodSymbol == null && memberAccess.Expression.ToString() is "Array" or "System.Array")))
+        {
+            var arrayArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var actionArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            context.AddImport("java.util.Arrays");
+            return $"Arrays.stream({arrayArg}).forEach({actionArg})";
         }
 
         // Issue 1: apply method-name mapping from the type-mapping registry.

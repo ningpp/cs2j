@@ -91,6 +91,26 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
             return $"{ConversionContext.EscapeJavaKeyword(outParam.Name)}.value";
         }
 
+        // Fix: Bare identifier method group used as value (not invoked) → Java method reference.
+        // e.g. Action<int> a = Process; → Consumer<Integer> a = this::process;
+        if (context.SemanticModel?.GetSymbolInfo(node).Symbol is IMethodSymbol bareMethodGroup
+            && !(node.Parent is InvocationExpressionSyntax invNode && invNode.Expression == node)
+            && !(node.Parent is MemberAccessExpressionSyntax))
+        {
+            var javaName = name switch
+            {
+                "GetHashCode"   => "hashCode",
+                "GetEnumerator" => "iterator",
+                "GetType"       => "getClass",
+                "Dispose"       => "close",
+                _ when name.Length > 0
+                    => char.ToLowerInvariant(name[0]) + name[1..],
+                _ => name
+            };
+            var prefix = bareMethodGroup.IsStatic ? bareMethodGroup.ContainingType.Name : "this";
+            return $"{prefix}::{ConversionContext.EscapeJavaKeyword(javaName)}";
+        }
+
         return ConversionContext.EscapeJavaKeyword(name);
     }
 
@@ -175,6 +195,29 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
 
         var target = facade.Transform(node.Expression, context);
         var memberName = node.Name.Identifier.Text;
+
+        // Fix: Method group used as value (not invoked) → Java method reference (receiver::method).
+        // e.g. C# `Parallel.Invoke` as a delegate value → Java `Parallel::invoke`.
+        if (context.SemanticModel?.GetSymbolInfo(node).Symbol is IMethodSymbol methodGroupSym
+            && !(node.Parent is InvocationExpressionSyntax inv && inv.Expression == node))
+        {
+            var javaMethodName = memberName switch
+            {
+                "GetHashCode"   => "hashCode",
+                "GetEnumerator" => "iterator",
+                "GetType"       => "getClass",
+                "Dispose"       => "close",
+                _ when memberName.Length > 0
+                    => char.ToLowerInvariant(memberName[0]) + memberName[1..],
+                _ => memberName
+            };
+            // Check TypeMappings for an explicit method name override
+            var typeName = methodGroupSym.ContainingType.ToDisplayString();
+            var mapped = context.TypeMappings.MapMethod(typeName, memberName);
+            if (mapped != null)
+                javaMethodName = mapped;
+            return $"{target}::{ConversionContext.EscapeJavaKeyword(javaMethodName)}";
+        }
 
         // Fix 1 & 2: consult member-name mapping and generate property getters
         if (context.SemanticModel?.GetSymbolInfo(node).Symbol is IPropertySymbol prop)

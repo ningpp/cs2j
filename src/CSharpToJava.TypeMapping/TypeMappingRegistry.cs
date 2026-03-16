@@ -243,7 +243,11 @@ public class TypeMappingRegistry
         {
             if (key.MethodName != methodName) continue;
 
-            if (typeName.StartsWith(key.TypeName))
+            // Guard: ensure the startsWith match is exact or a namespace prefix (dot),
+            // not a false positive where "System.Action<string>" matches "System.Action" (non-generic).
+            // Generic type lookups with angle brackets should fall through to the backtick normalization below.
+            if (typeName.StartsWith(key.TypeName)
+                && (typeName.Length == key.TypeName.Length || typeName[key.TypeName.Length] == '.'))
                 return value.JavaMethodName;
 
             // Normalize backtick suffix: "HashSet`1" → "HashSet", then match "HashSet<..."

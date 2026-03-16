@@ -1698,6 +1698,31 @@
                      ],
     "methodMappings":  [
                            {
+                               "type":  "System.Action",
+                               "method":  "Invoke",
+                               "javaMethod":  "run"
+                           },
+                           {
+                               "type":  "System.Action`1",
+                               "method":  "Invoke",
+                               "javaMethod":  "accept"
+                           },
+                           {
+                               "type":  "System.Action`2",
+                               "method":  "Invoke",
+                               "javaMethod":  "accept"
+                           },
+                           {
+                               "type":  "System.Action`3",
+                               "method":  "Invoke",
+                               "javaMethod":  "accept"
+                           },
+                           {
+                               "type":  "System.Action`4",
+                               "method":  "Invoke",
+                               "javaMethod":  "accept"
+                           },
+                           {
                                "type":  "System.Func`1",
                                "method":  "Invoke",
                                "javaMethod":  "get"
