@@ -206,6 +206,16 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             }
         }
 
+        // Fix: Any() with no arguments on IEnumerable<T> → receiver.iterator().hasNext().
+        // anyMatch(Predicate) is a Stream<T> terminal op and must not be emitted on Iterable<T>.
+        // Any(predicate) with arguments is handled by the LinqRewriter (rewritten to a for-loop).
+        if (originalMethodName == "Any"
+            && node.ArgumentList.Arguments.Count == 0
+            && methodSymbol?.ContainingType.ToDisplayString() == "System.Linq.Enumerable")
+        {
+            return $"{receiver}.iterator().hasNext()";
+        }
+
         // Issue 1: apply method-name mapping from the type-mapping registry.
         string methodName = originalMethodName;
         if (methodSymbol != null)

@@ -1,3 +1,4 @@
+using System.IO;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -122,7 +123,12 @@ public class ConversionPipeline
                     // System.Console is in its own assembly on .NET Core; without this Roslyn cannot
                     // resolve Console/System.Console and method-name mapping (WriteLine → out.println) fails.
                     MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
-                },
+                    // System.Linq is in its own assembly on .NET Core. Without this, Roslyn cannot
+                    // resolve IEnumerable<T> extension methods (Any, Count, First, etc.) to
+                    // System.Linq.Enumerable, so argument-count-aware special-casing of
+                    // e.g. Any() → iterator().hasNext() would never trigger.
+                    MetadataReference.CreateFromFile(typeof(System.Linq.Enumerable).Assembly.Location),
+                }.Concat(GetFrameworkSupplementalReferences()).ToArray(),
                 options: new CSharpCompilationOptions(
                     OutputKind.DynamicallyLinkedLibrary,
                     // Implicit global usings mirror the default C# project template.
@@ -303,5 +309,27 @@ public class ConversionPipeline
             Diagnostics = context.Diagnostics.Messages.ToList(),
             FileName = fileName
         };
+    }
+
+    /// <summary>
+    /// Returns supplemental framework references (System.Runtime.dll and related) from the
+    /// same directory as System.Private.CoreLib so that type identities unify correctly.
+    /// Without System.Runtime.dll, extension methods in System.Linq.dll that reference
+    /// IEnumerable&lt;T&gt; from System.Runtime cannot be matched to the CoreLib version, preventing
+    /// LINQ extension methods from being resolved semantically.
+    /// </summary>
+    private static IEnumerable<MetadataReference> GetFrameworkSupplementalReferences()
+    {
+        var frameworkDir = Path.GetDirectoryName(typeof(object).Assembly.Location);
+        if (string.IsNullOrEmpty(frameworkDir))
+            yield break;
+
+        var supplemental = new[] { "System.Runtime.dll", "netstandard.dll" };
+        foreach (var name in supplemental)
+        {
+            var path = Path.Combine(frameworkDir, name);
+            if (File.Exists(path))
+                yield return MetadataReference.CreateFromFile(path);
+        }
     }
 }
