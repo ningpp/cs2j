@@ -1,3 +1,4 @@
+using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline;
 
 namespace CSharpToJava.Tests;
@@ -6,13 +7,18 @@ namespace CSharpToJava.Tests;
 /// Tests for LINQ method chain conversion via LinqRewriter.
 /// Validates that LINQ method chains are correctly rewritten to procedural
 /// loops before Java conversion.
+/// These tests explicitly opt into the procedural (LinqRewriter) path.
 /// </summary>
 public class LinqMethodChainTests
 {
     private static ConversionResult Convert(string csharpCode)
     {
         var pipeline = new ConversionPipeline();
-        return pipeline.Convert(new ConversionRequest { SourceCode = csharpCode });
+        return pipeline.Convert(new ConversionRequest
+        {
+            SourceCode = csharpCode,
+            Options = new ConversionOptions { PreferStreamApi = false }
+        });
     }
 
     private static void AssertConverts(string code, params string[] mustContain)

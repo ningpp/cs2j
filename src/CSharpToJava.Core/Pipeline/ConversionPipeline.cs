@@ -147,7 +147,10 @@ public class ConversionPipeline
             context.SemanticModel = compilation.GetSemanticModel(syntaxTree);
 
             // LINQ 预处理：将 LINQ 转换为过程化代码
-            if (request.Options.EnableLinqRewrite)
+            // When PreferStreamApi is active, skip procedural rewriting — let the Stream API
+            // fallback in InvocationExpressionTransformer handle LINQ chains instead.
+            var runLinqRewrite = request.Options.EnableLinqRewrite && !request.Options.EffectivePreferStreamApi;
+            if (runLinqRewrite)
             {
                 try
                 {

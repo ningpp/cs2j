@@ -49,6 +49,19 @@ public class ConversionOptions
     public bool EnableLinqRewrite { get; set; } = true;
 
     /// <summary>
+    /// When true, LINQ chains are converted to Java Stream API calls (.stream().filter().map()...)
+    /// instead of procedural loops via LinqRewriter. Default: true for Java 9+, false for Java 8.
+    /// When set explicitly, overrides the version-based default.
+    /// </summary>
+    public bool? PreferStreamApi { get; set; }
+
+    /// <summary>
+    /// Resolved value: uses explicit setting if provided, otherwise defaults based on Java version.
+    /// Java 9+ defaults to Stream API; Java 8 defaults to procedural (LinqRewriter).
+    /// </summary>
+    public bool EffectivePreferStreamApi => PreferStreamApi ?? (TargetJavaVersion >= JavaVersion.Java11);
+
+    /// <summary>
     /// When enabled, extension methods on known types are promoted to instance methods on those types,
     /// and the receiver ('this') parameter is stripped from the Java method signature.
     /// </summary>

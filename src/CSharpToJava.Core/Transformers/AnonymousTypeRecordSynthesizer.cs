@@ -61,7 +61,7 @@ public static class AnonymousTypeRecordSynthesizer
         ConversionContext context,
         Func<ExpressionSyntax, string> transformExpression)
     {
-        var fields = ExtractFields(node, context);
+        var fields = ExtractFields(node, context, transformExpression);
         var structuralKey = BuildStructuralKey(fields);
 
         // Check for an existing record with the same structure
@@ -85,7 +85,8 @@ public static class AnonymousTypeRecordSynthesizer
     /// </summary>
     private static List<SynthesizedRecordField> ExtractFields(
         AnonymousObjectCreationExpressionSyntax node,
-        ConversionContext context)
+        ConversionContext context,
+        Func<ExpressionSyntax, string> transformExpression)
     {
         var fields = new List<SynthesizedRecordField>();
         foreach (var member in node.Initializers)
@@ -112,6 +113,13 @@ public static class AnonymousTypeRecordSynthesizer
                 if (typeInfo.Type != null && !typeInfo.Type.IsAnonymousType)
                 {
                     javaType = context.MapType(typeInfo.Type);
+                }
+                else if (typeInfo.Type != null && typeInfo.Type.IsAnonymousType
+                         && member.Expression is AnonymousObjectCreationExpressionSyntax nestedAnon)
+                {
+                    // Recursively synthesize a record for nested anonymous types
+                    var (nestedRecord, _) = SynthesizeForAnonymousType(nestedAnon, context, transformExpression);
+                    javaType = nestedRecord.RecordName;
                 }
             }
 
@@ -177,7 +185,8 @@ public static class AnonymousTypeRecordSynthesizer
 
     /// <summary>
     /// Attempt to singularize and PascalCase a variable name.
-    /// e.g. "highEarners" → "HighEarner", "items" → "Item", "result" → "Result"
+    /// e.g. "highEarners" → "HighEarner", "items" → "Item", "result" → "Result",
+    ///      "categories" → "Category", "addresses" → "Address"
     /// </summary>
     private static string SingularizePascalCase(string name)
     {
@@ -186,8 +195,30 @@ public static class AnonymousTypeRecordSynthesizer
         // PascalCase
         var pascal = char.ToUpper(name[0]) + name.Substring(1);
 
-        // Simple singularization: strip trailing 's' if length > 3
-        if (pascal.Length > 3 && pascal.EndsWith("s", StringComparison.Ordinal)
+        // Singularization rules (ordered from most specific to least):
+        // "ies" → "y" (e.g. Categories → Category, Entries → Entry)
+        if (pascal.Length > 4 && pascal.EndsWith("ies", StringComparison.Ordinal))
+        {
+            pascal = pascal.Substring(0, pascal.Length - 3) + "y";
+        }
+        // "ves" → "fe" (e.g. Wives → Wife, Knives → Knife)
+        else if (pascal.Length > 4 && pascal.EndsWith("ves", StringComparison.Ordinal))
+        {
+            pascal = pascal.Substring(0, pascal.Length - 3) + "fe";
+        }
+        // "ses" / "xes" / "zes" / "ches" / "shes" → strip "es" (e.g. Addresses → Address, Boxes → Box)
+        else if (pascal.Length > 4
+            && pascal.EndsWith("es", StringComparison.Ordinal)
+            && (pascal.EndsWith("ses", StringComparison.Ordinal)
+                || pascal.EndsWith("xes", StringComparison.Ordinal)
+                || pascal.EndsWith("zes", StringComparison.Ordinal)
+                || pascal.EndsWith("ches", StringComparison.Ordinal)
+                || pascal.EndsWith("shes", StringComparison.Ordinal)))
+        {
+            pascal = pascal.Substring(0, pascal.Length - 2);
+        }
+        // Generic trailing "s" (not "ss", "us") → strip trailing "s"
+        else if (pascal.Length > 3 && pascal.EndsWith("s", StringComparison.Ordinal)
             && !pascal.EndsWith("ss", StringComparison.Ordinal)
             && !pascal.EndsWith("us", StringComparison.Ordinal))
         {

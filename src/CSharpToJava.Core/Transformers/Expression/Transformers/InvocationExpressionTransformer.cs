@@ -423,6 +423,44 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             }
         }
 
+        // ── Static Enumerable methods (Range, Repeat, Empty) ──────────────────
+        // These are NOT extension methods — they are static factory methods on System.Linq.Enumerable.
+        if (methodSymbol is { IsStatic: true, IsExtensionMethod: false }
+            && methodSymbol.ContainingType.ToDisplayString() == "System.Linq.Enumerable")
+        {
+            // Enumerable.Range(start, count) → IntStream.range(start, start + count).boxed()
+            if (originalMethodName == "Range" && node.ArgumentList.Arguments.Count == 2)
+            {
+                context.AddImport("java.util.stream.IntStream");
+                var startArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var countArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                return $"IntStream.range({startArg}, {startArg} + {countArg}).boxed()";
+            }
+
+            // Enumerable.Repeat(element, count) → Stream.generate(() -> element).limit(count)
+            if (originalMethodName == "Repeat" && node.ArgumentList.Arguments.Count == 2)
+            {
+                context.AddImport("java.util.stream.Stream");
+                var elemArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var countArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                return $"Stream.generate(() -> {elemArg}).limit({countArg})";
+            }
+
+            // Enumerable.Empty<T>() → Stream.<T>empty()
+            if (originalMethodName == "Empty")
+            {
+                context.AddImport("java.util.stream.Stream");
+                if (node.Expression is MemberAccessExpressionSyntax ma
+                    && ma.Name is GenericNameSyntax gns
+                    && gns.TypeArgumentList.Arguments.Count > 0)
+                {
+                    var typeArg = facade.Transform(gns.TypeArgumentList.Arguments[0], context);
+                    return $"Stream.<{typeArg}>empty()";
+                }
+                return "Stream.empty()";
+            }
+        }
+
         // LINQ Stream API fallback: when a LINQ extension method was not rewritten by LinqRewriter
         // (e.g. chains containing OrderBy or SelectMany), inject .stream() on the collection
         // receiver and handle terminal/sorting operations.
@@ -501,15 +539,24 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 return $"{receiver}.sorted(java.util.Comparator.comparing({sortArgs}).reversed())";
             }
 
-            // Sum → mapToInt/mapToLong/mapToDouble + sum(), or just sum() if already numeric stream
+            // Sum → mapToInt/mapToLong/mapToDouble + sum()
             if (originalMethodName == "Sum")
             {
+                var mapMethod = "mapToInt";
+                if (methodSymbol.ReturnType != null)
+                {
+                    var retType = methodSymbol.ReturnType.SpecialType;
+                    if (retType == SpecialType.System_Int64)
+                        mapMethod = "mapToLong";
+                    else if (retType is SpecialType.System_Double or SpecialType.System_Single or SpecialType.System_Decimal)
+                        mapMethod = "mapToDouble";
+                }
                 if (node.ArgumentList.Arguments.Count > 0)
                 {
                     var sumArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                    return $"{receiver}.mapToInt({sumArg}).sum()";
+                    return $"{receiver}.{mapMethod}({sumArg}).sum()";
                 }
-                return $"{receiver}.mapToInt(x -> x).sum()";
+                return $"{receiver}.{mapMethod}(x -> x).sum()";
             }
 
             // Average → mapToDouble + average().orElse(0)
@@ -573,10 +620,21 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             }
 
             // SelectMany → flatMap(selector)
-            if (originalMethodName == "SelectMany" && node.ArgumentList.Arguments.Count >= 1)
+            if (originalMethodName == "SelectMany")
             {
-                var flatMapArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                return $"{receiver}.flatMap({flatMapArg})";
+                if (node.ArgumentList.Arguments.Count >= 2)
+                {
+                    // Two-arg: SelectMany(collectionSelector, resultSelector)
+                    // → flatMap(x -> collectionSelector(x).stream().map(y -> resultSelector(x, y)))
+                    var collArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    var resArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                    return $"{receiver}.flatMap({collArg}).map({resArg})";
+                }
+                if (node.ArgumentList.Arguments.Count == 1)
+                {
+                    var flatMapArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    return $"{receiver}.flatMap({flatMapArg})";
+                }
             }
 
             // Distinct → distinct()
@@ -756,14 +814,42 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 return $"{receiver}.collect(Collectors.toSet())";
             }
 
-            // Reverse() — collect to list, then Collections.reverse()
+            // Reverse() → collect to list, reverse, return
             if (originalMethodName == "Reverse")
             {
                 context.AddImport("java.util.stream.Collectors");
                 context.AddImport("java.util.Collections");
-                // There's no Stream.reverse(); collect to list and reverse in-place
-                // Use a helper expression that captures the result
-                return $"/* reverse */ {receiver}.collect(Collectors.toList())";
+                context.AddImport("java.util.ArrayList");
+                return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new), list -> {{ Collections.reverse(list); return list; }}))";
+            }
+
+            // Append(item) → Stream.concat(stream, Stream.of(item))
+            if (originalMethodName == "Append" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                context.AddImport("java.util.stream.Stream");
+                var itemArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"Stream.concat({receiver}, Stream.of({itemArg}))";
+            }
+
+            // Prepend(item) → Stream.concat(Stream.of(item), stream)
+            if (originalMethodName == "Prepend" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                context.AddImport("java.util.stream.Stream");
+                var itemArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"Stream.concat(Stream.of({itemArg}), {receiver})";
+            }
+
+            // DefaultIfEmpty() → collect and check if empty
+            if (originalMethodName == "DefaultIfEmpty")
+            {
+                context.AddImport("java.util.stream.Collectors");
+                context.AddImport("java.util.stream.Stream");
+                if (node.ArgumentList.Arguments.Count >= 1)
+                {
+                    var defaultArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toList(), list -> list.isEmpty() ? Stream.of({defaultArg}) : list.stream()))";
+                }
+                return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toList(), list -> list.isEmpty() ? Stream.of((Object) null) : list.stream()))";
             }
 
             // Aggregate(func) → reduce(func).orElseThrow()
@@ -823,22 +909,20 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 return $"java.util.stream.Stream.concat({receiver}, {otherStream}).distinct()";
             }
 
-            // Intersect(other) → filter with set membership
+            // Intersect(other) → filter with pre-constructed set membership
             if (originalMethodName == "Intersect" && node.ArgumentList.Arguments.Count >= 1)
             {
                 var otherArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                context.AddImport("java.util.stream.Collectors");
-                context.AddImport("java.util.Set");
-                return $"{receiver}.filter({otherArg}.stream().collect(Collectors.toSet())::contains)";
+                context.AddImport("java.util.HashSet");
+                return $"{receiver}.filter(new HashSet<>({otherArg})::contains)";
             }
 
             // Except(other) → filter with negated set membership
             if (originalMethodName == "Except" && node.ArgumentList.Arguments.Count >= 1)
             {
                 var otherArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                context.AddImport("java.util.stream.Collectors");
-                context.AddImport("java.util.Set");
-                return $"{receiver}.filter(x -> !{otherArg}.stream().collect(Collectors.toSet()).contains(x))";
+                context.AddImport("java.util.HashSet");
+                return $"{receiver}.filter(x -> !new HashSet<>({otherArg}).contains(x))";
             }
 
             // ElementAt(index) → skip(index).findFirst().orElseThrow()
