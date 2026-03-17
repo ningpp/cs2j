@@ -88,7 +88,7 @@ namespace CSharpToJava.Core.LinqRewrite
                     return k;
                 }
             }
-            catch (Exception ex) when (ex is InvalidCastException || ex is NotSupportedException)
+            catch (Exception ex) when (ex is InvalidCastException || ex is NotSupportedException || ex is ArgumentException)
             {
                 methodsToAddToCurrentType.RemoveRange(methodIdx, methodsToAddToCurrentType.Count - methodIdx);
             }
@@ -133,7 +133,11 @@ namespace CSharpToJava.Core.LinqRewrite
                             Lambda = new Lambda(containingForEach.Statement, new[] { CreateParameter(containingForEach.Identifier, semantic.GetTypeInfo(containingForEach.Type).ConvertedType) })
                         });
                     }
-                    if (!chain.Any(x => x.Arguments.Any(y => y is AnonymousFunctionExpressionSyntax))) return null;
+                    // Require at least one lambda argument OR a non-lambda intermediate
+                    // (Skip, Take, Distinct) that benefits from procedural rewriting.
+                    if (!chain.Any(x => x.Arguments.Any(y => y is AnonymousFunctionExpressionSyntax))
+                        && !chain.Any(x => x.MethodName == SkipMethod || x.MethodName == TakeMethod || x.MethodName == DistinctMethod))
+                        return null;
                     if (chain.Count == 1 && RootMethodsThatRequireYieldReturn.Contains(chain[0].MethodName)) return null;
 
 
@@ -184,7 +188,7 @@ namespace CSharpToJava.Core.LinqRewrite
 
 
                     var semanticReturnType = semantic.GetTypeInfo(node).Type;
-                    if (IsAnonymousType(semanticReturnType) || currentFlow.Any(x => IsAnonymousType(GetSymbolType(x.Symbol)))) return null;
+                    if (semanticReturnType == null || IsAnonymousType(semanticReturnType) || currentFlow.Any(x => IsAnonymousType(GetSymbolType(x.Symbol)))) return null;
 
 
 
@@ -284,7 +288,15 @@ namespace CSharpToJava.Core.LinqRewrite
             if (!IsSupportedMethod(name)) return false;
             if (invocation.ArgumentList.Arguments.Count != 0)
             {
-                if (name != ElementAtMethod && name != ElementAtOrDefaultMethod && name != ContainsMethod)
+                // Methods that take non-lambda arguments
+                if (name == ElementAtMethod || name == ElementAtOrDefaultMethod || name == ContainsMethod
+                    || name == SkipMethod || name == TakeMethod
+                    || name == ConcatMethod || name == UnionMethod || name == IntersectMethod || name == ExceptMethod
+                    || name == AggregateWithSeedMethod || name == SequenceEqualMethod)
+                {
+                    // These accept non-lambda args, allow them
+                }
+                else
                 {
                     // Passing things like .Select(Method) is not supported.
                     if (invocation.ArgumentList.Arguments.Any(x => !(x.Expression is AnonymousFunctionExpressionSyntax)))
@@ -440,6 +452,52 @@ namespace CSharpToJava.Core.LinqRewrite
 
         delegate StatementSyntax AggregationDelegate(LinqStep invocation, ArgumentListSyntax arguments, ParameterSyntax param);
         private AggregationDelegate currentAggregation;
+
+        /// <summary>
+        /// Scans the chain for intermediate operators that need prologue variables
+        /// (e.g., Distinct needs a HashSet, Skip needs a counter, etc.)
+        /// </summary>
+        private IEnumerable<StatementSyntax> GetIntermediatePrologue(List<LinqStep> chain)
+        {
+            var result = new List<StatementSyntax>();
+            foreach (var step in chain)
+            {
+                if (step.MethodName == DistinctMethod)
+                {
+                    result.Add(CreateLocalVariableDeclaration("_seen",
+                        SyntaxFactory.ObjectCreationExpression(
+                            SyntaxFactory.ParseTypeName("System.Collections.Generic.HashSet<" + GetIntermediateItemTypeForStep(step) + ">"),
+                            CreateArguments(Enumerable.Empty<ExpressionSyntax>()), null)));
+                }
+                else if (step.MethodName == SkipMethod)
+                {
+                    result.Add(CreateLocalVariableDeclaration("_skipCount", SyntaxFactory.IdentifierName("_skipCount_param")));
+                }
+                else if (step.MethodName == TakeMethod)
+                {
+                    result.Add(CreateLocalVariableDeclaration("_takeCount", SyntaxFactory.IdentifierName("_takeCount_param")));
+                }
+                else if (step.MethodName == SkipWhileMethod)
+                {
+                    result.Add(CreateLocalVariableDeclaration("_skipWhileActive",
+                        SyntaxFactory.LiteralExpression(SyntaxKind.TrueLiteralExpression)));
+                }
+            }
+            return result;
+        }
+
+        private string GetIntermediateItemTypeForStep(LinqStep step)
+        {
+            // Use the semantic model to get the item type from the invocation
+            if (step.Invocation != null)
+            {
+                var typeInfo = semantic.GetTypeInfo(step.Invocation);
+                var itemType = GetItemType(typeInfo.Type);
+                if (itemType != null) return itemType.ToDisplayString();
+            }
+            return "object";
+        }
+
         private ExpressionSyntax RewriteAsLoop(TypeSyntax returnType, IEnumerable<StatementSyntax> prologue, IEnumerable<StatementSyntax> epilogue, ExpressionSyntax collection, List<LinqStep> chain, AggregationDelegate k, bool noaggregation = false, IEnumerable<Tuple<ParameterSyntax, ExpressionSyntax>> additionalParameters = null)
         {
             var old = currentAggregation;
@@ -453,12 +511,32 @@ namespace CSharpToJava.Core.LinqRewrite
             var parameters =  new[] { CreateParameter(ItemsName, collectionSemanticType) }.Concat(currentFlow.Select(x => CreateParameter(x.Name, GetSymbolType(x.Symbol)).WithRef(x.Changes)));
             if (additionalParameters != null) parameters = parameters.Concat(additionalParameters.Select(x => x.Item1));
 
-            
+            // Add parameters for intermediates that need non-lambda arguments passed in
+            var intermediateParams = new List<Tuple<ParameterSyntax, ExpressionSyntax>>();
+            foreach (var step in chain)
+            {
+                if (step.MethodName == SkipMethod && step.Arguments.Count > 0)
+                {
+                    intermediateParams.Add(Tuple.Create(
+                        CreateParameter("_skipCount_param", CreatePrimitiveType(SyntaxKind.IntKeyword)),
+                        step.Arguments[0]));
+                }
+                else if (step.MethodName == TakeMethod && step.Arguments.Count > 0)
+                {
+                    intermediateParams.Add(Tuple.Create(
+                        CreateParameter("_takeCount_param", CreatePrimitiveType(SyntaxKind.IntKeyword)),
+                        step.Arguments[0]));
+                }
+            }
+            if (intermediateParams.Count > 0) parameters = parameters.Concat(intermediateParams.Select(x => x.Item1));
 
             var functionName = GetUniqueName(currentMethodName + "_ProceduralLinq");
             var arguments = CreateArguments(new[] { SyntaxFactory.Argument(SyntaxFactory.IdentifierName(ItemName)) }.Concat(currentFlow.Select(x => SyntaxFactory.Argument(SyntaxFactory.IdentifierName(x.Name)).WithRef(x.Changes))));
 
             var loopContent = CreateProcessingStep(chain, chain.Count - 1, SyntaxFactory.ParseTypeName(collectionItemType.ToDisplayString()), ItemName, arguments, noaggregation);
+
+            // Build intermediate prologue (HashSet for Distinct, counters for Skip/Take, etc.)
+            var intermediatePrologue = GetIntermediatePrologue(chain);
 
             StatementSyntax foreachStatement;
             if (collectionType.ToDisplayString().StartsWith("System.Collections.Generic.List<") || collectionType is IArrayTypeSymbol)
@@ -485,7 +563,7 @@ namespace CSharpToJava.Core.LinqRewrite
                         .WithParameterList(CreateParameters(parameters))
                         .WithBody(SyntaxFactory.Block((collectionSemanticType.IsValueType ? Enumerable.Empty<StatementSyntax>() : new[] {
                             SyntaxFactory.IfStatement(SyntaxFactory.BinaryExpression(SyntaxKind.EqualsExpression, SyntaxFactory.IdentifierName(ItemsName) ,SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression)), CreateThrowException("System.ArgumentNullException"))
-                        }).Concat(prologue).Concat(new[] {
+                        }).Concat(prologue).Concat(intermediatePrologue).Concat(new[] {
                             foreachStatement
                         }).Concat(epilogue)))
                         .WithStatic(currentMethodIsStatic)
@@ -496,6 +574,7 @@ namespace CSharpToJava.Core.LinqRewrite
 
             IEnumerable<ArgumentSyntax> args = new[] { SyntaxFactory.Argument((ExpressionSyntax)Visit(collection)) }.Concat(arguments.Arguments.Skip(1));
             if (additionalParameters != null) args = args.Concat(additionalParameters.Select(x => SyntaxFactory.Argument(x.Item2)));
+            if (intermediateParams.Count > 0) args = args.Concat(intermediateParams.Select(x => SyntaxFactory.Argument(x.Item2)));
             var inv = SyntaxFactory.InvocationExpression(GetMethodNameSyntaxWithCurrentTypeParameters(functionName), CreateArguments(args));
 
             currentAggregation = old;
@@ -633,7 +712,16 @@ namespace CSharpToJava.Core.LinqRewrite
         private SyntaxList<TypeParameterConstraintClauseSyntax> currentMethodConstraintClauses;
 
 
-        
+        public override SyntaxNode VisitQueryExpression(QueryExpressionSyntax node)
+        {
+            // Desugaring creates synthetic InvocationExpressionSyntax nodes via SyntaxFactory.
+            // These nodes are NOT in the semantic model's syntax tree, so any call to
+            // semantic.GetSymbolInfo / GetTypeInfo / AnalyzeDataFlow on them throws.
+            // Fall through to base visitor; QueryExpressionTransformer handles query syntax
+            // during the main Java conversion phase.
+            return base.VisitQueryExpression(node);
+        }
+
         public override SyntaxNode VisitClassDeclaration(ClassDeclarationSyntax node)
         {
             return VisitTypeDeclaration(node);

@@ -2535,7 +2535,7 @@
                            {
                                "type":  "System.Linq.Enumerable",
                                "method":  "GroupBy",
-                               "javaMethod":  "groupingBy"
+                               "javaMethod":  "collect"
                            },
                            {
                                "type":  "System.Linq.Enumerable",
@@ -2565,12 +2565,12 @@
                            {
                                "type":  "System.Linq.Enumerable",
                                "method":  "Sum",
-                               "javaMethod":  "mapToLong"
+                               "javaMethod":  "sum"
                            },
                            {
                                "type":  "System.Linq.Enumerable",
                                "method":  "Average",
-                               "javaMethod":  "mapToDouble"
+                               "javaMethod":  "average"
                            },
                            {
                                "type":  "System.Linq.Enumerable",
@@ -2581,6 +2581,46 @@
                                "type":  "System.Linq.Enumerable",
                                "method":  "Max",
                                "javaMethod":  "max"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "SelectMany",
+                               "javaMethod":  "flatMap"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "OrderByDescending",
+                               "javaMethod":  "sorted"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "ThenByDescending",
+                               "javaMethod":  "sorted"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "SkipWhile",
+                               "javaMethod":  "dropWhile"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "TakeWhile",
+                               "javaMethod":  "takeWhile"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "Aggregate",
+                               "javaMethod":  "reduce"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "Concat",
+                               "javaMethod":  "concat"
+                           },
+                           {
+                               "type":  "System.Linq.Enumerable",
+                               "method":  "Zip",
+                               "javaMethod":  "zip"
                            },
                            {
                                "type":  "System.Collections.Generic.IEnumerable`1",

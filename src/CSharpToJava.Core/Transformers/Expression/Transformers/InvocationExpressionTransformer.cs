@@ -411,6 +411,122 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             }
         }
 
+        // LINQ Stream API fallback: when a LINQ extension method was not rewritten by LinqRewriter
+        // (e.g. chains containing OrderBy or SelectMany), inject .stream() on the collection
+        // receiver and handle terminal/sorting operations.
+        if (methodSymbol?.ContainingType.ToDisplayString() == "System.Linq.Enumerable"
+            && methodSymbol.IsExtensionMethod
+            && context.SemanticModel != null)
+        {
+            if (!IsReceiverLinqExtension(memberAccess.Expression, context))
+            {
+                var receiverType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type;
+                if (receiverType is IArrayTypeSymbol)
+                {
+                    context.AddImport("java.util.Arrays");
+                    receiver = $"Arrays.stream({receiver})";
+                }
+                else
+                {
+                    receiver = $"{receiver}.stream()";
+                }
+            }
+
+            // ToList → collect(Collectors.toList())
+            if (originalMethodName == "ToList")
+            {
+                context.AddImport("java.util.stream.Collectors");
+                return $"{receiver}.collect(Collectors.toList())";
+            }
+
+            // ToDictionary → collect(Collectors.toMap(keySelector, valueSelector))
+            if (originalMethodName == "ToDictionary" && node.ArgumentList.Arguments.Count >= 2)
+            {
+                context.AddImport("java.util.stream.Collectors");
+                var keyArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var valArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                return $"{receiver}.collect(Collectors.toMap({keyArg}, {valArg}))";
+            }
+
+            // OrderBy/ThenBy → sorted(Comparator.comparing(lambda))
+            if (originalMethodName is "OrderBy" or "ThenBy")
+            {
+                var sortArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, argStartIndex);
+                return string.IsNullOrEmpty(sortArgs)
+                    ? $"{receiver}.sorted()"
+                    : $"{receiver}.sorted(java.util.Comparator.comparing({sortArgs}))";
+            }
+
+            // OrderByDescending/ThenByDescending → sorted(Comparator.comparing(lambda).reversed())
+            if (originalMethodName is "OrderByDescending" or "ThenByDescending")
+            {
+                var sortArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, argStartIndex);
+                return string.IsNullOrEmpty(sortArgs)
+                    ? $"{receiver}.sorted(java.util.Comparator.reverseOrder())"
+                    : $"{receiver}.sorted(java.util.Comparator.comparing({sortArgs}).reversed())";
+            }
+
+            // Sum → mapToInt/mapToLong/mapToDouble + sum(), or just sum() if already numeric stream
+            if (originalMethodName == "Sum")
+            {
+                if (node.ArgumentList.Arguments.Count > 0)
+                {
+                    var sumArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    return $"{receiver}.mapToInt({sumArg}).sum()";
+                }
+                return $"{receiver}.mapToInt(x -> x).sum()";
+            }
+
+            // Average → mapToDouble + average().orElse(0)
+            if (originalMethodName == "Average")
+            {
+                if (node.ArgumentList.Arguments.Count > 0)
+                {
+                    var avgArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    return $"{receiver}.mapToDouble({avgArg}).average().orElse(0)";
+                }
+                return $"{receiver}.mapToDouble(x -> x).average().orElse(0)";
+            }
+
+            // GroupBy → collect(Collectors.groupingBy(keySelector))
+            if (originalMethodName == "GroupBy")
+            {
+                context.AddImport("java.util.stream.Collectors");
+                if (node.ArgumentList.Arguments.Count >= 2)
+                {
+                    var keyArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    var elemArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                    return $"{receiver}.collect(Collectors.groupingBy({keyArg}, Collectors.mapping({elemArg}, Collectors.toList())))";
+                }
+                if (node.ArgumentList.Arguments.Count == 1)
+                {
+                    var keyArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    return $"{receiver}.collect(Collectors.groupingBy({keyArg}))";
+                }
+            }
+
+            // Contains → anyMatch(x -> x.equals(value))
+            if (originalMethodName == "Contains" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var valArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{receiver}.anyMatch(x -> java.util.Objects.equals(x, {valArg}))";
+            }
+
+            // Concat → Stream.concat(stream, other.stream())
+            if (originalMethodName == "Concat" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var otherArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var otherType = context.SemanticModel.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type;
+                var otherStream = otherType is IArrayTypeSymbol
+                    ? $"Arrays.stream({otherArg})"
+                    : $"{otherArg}.stream()";
+                return $"java.util.stream.Stream.concat({receiver}, {otherStream})";
+            }
+
+            // For all other LINQ methods (Where→filter, Select→map, etc.),
+            // the mapped methodName and default return handle them correctly.
+        }
+
         var args = ArgumentTransformer.TransformArgumentList(
             node.ArgumentList, context, facade, argStartIndex);
 
@@ -477,6 +593,18 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         });
         // Wrap in Java string literal quotes.
         return $"\"{result}\"";
+    }
+
+    /// <summary>
+    /// Checks if the given expression is itself a LINQ extension method call (from System.Linq.Enumerable).
+    /// Used to avoid injecting .stream() twice in a method chain.
+    /// </summary>
+    private static bool IsReceiverLinqExtension(ExpressionSyntax expr, ConversionContext context)
+    {
+        if (context.SemanticModel == null) return false;
+        if (expr is not InvocationExpressionSyntax invocation) return false;
+        var sym = context.SemanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+        return sym?.ContainingType.ToDisplayString() == "System.Linq.Enumerable";
     }
 
     /// <summary>
