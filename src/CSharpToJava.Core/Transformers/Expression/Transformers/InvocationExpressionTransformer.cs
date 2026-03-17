@@ -187,10 +187,11 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             : facade.Transform(memberAccess.Expression, context);
         var originalMethodName = memberAccess.Name.Identifier.Text;
 
-        // Fix: Delegate invocation via member access (this.sequence(i), obj.callback(x)).
+        // Fix: Delegate invocation via member access (this.sequence(i), this.Sequence(i), obj.cb(x)).
         // Roslyn reports MethodKind.DelegateInvoke when the accessed member is a Func/Action/delegate.
-        // `receiver` is the LHS of the member access (e.g. "this" for this.sequence(i)); the full
-        // delegate target is `receiver.memberName` (e.g. "this.sequence") → emit "this.sequence.apply(i)".
+        // `receiver` is the LHS (e.g. "this"); `originalMethodName` is the member name (field or property).
+        // For fields:     this.sequence(i) → this.sequence.apply(i)
+        // For properties: this.Sequence(i) → this.getSequence().apply(i)  (Java getter convention)
         if (context.SemanticModel != null)
         {
             var delegateSymInfo = context.SemanticModel.GetSymbolInfo(node);
@@ -199,8 +200,21 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 var containingTypeName = delegateInvoke.ContainingType.ToDisplayString();
                 var javaMethod = context.TypeMappings.MapMethod(containingTypeName, "Invoke") ?? "apply";
                 var delegateArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
-                // The delegate field/property is `receiver.originalMethodName`; call javaMethod on it.
-                return $"{receiver}.{originalMethodName}.{javaMethod}({delegateArgs})";
+
+                // If the accessed member is a property, emit the Java getter call.
+                var memberSymbol = context.SemanticModel.GetSymbolInfo(memberAccess).Symbol;
+                string delegateTarget;
+                if (memberSymbol is IPropertySymbol prop)
+                {
+                    var getterName = "get" + char.ToUpperInvariant(prop.Name[0]) + prop.Name[1..];
+                    delegateTarget = $"{receiver}.{getterName}()";
+                }
+                else
+                {
+                    delegateTarget = $"{receiver}.{originalMethodName}";
+                }
+
+                return $"{delegateTarget}.{javaMethod}({delegateArgs})";
             }
         }
 

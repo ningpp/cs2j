@@ -201,4 +201,41 @@ public class FuncDelegateInvocationTests
         // Must NOT appear as a bare member invocation
         Assert.DoesNotContain("this.sequence(i)", result.GeneratedCode);
     }
+
+    // ── Bug 5 ──────────────────────────────────────────────────────────────────────────────────────
+    // Invoking a Func<int, double> *property* via this.Sequence(m) must emit
+    // this.getSequence().apply(m), not this.Sequence.apply(m).
+    // (Properties require getter-call syntax in Java; fields do not.)
+
+    [Fact]
+    public void Func2_MemberAccessPropertyDelegateInvocation_EmitsGetterThenApply()
+    {
+        const string code = """
+            class UnimodalSequence
+            {
+                System.Func<int, double> sequence;
+
+                internal System.Func<int, double> Sequence
+                {
+                    get { return sequence; }
+                    set { sequence = value; }
+                }
+
+                System.Func<int, double> GetForMinimum()
+                {
+                    return delegate (int i) { return System.Math.Min(this.Sequence(i), 3.14); };
+                }
+            }
+            """;
+
+        var result = Convert(code);
+
+        Assert.True(result.Success,
+            $"Conversion failed:\n{string.Join("\n", result.Diagnostics.Select(d => d.Message))}");
+        // Property getter must be called first, then .apply() on the result.
+        Assert.Contains("this.getSequence().apply(i)", result.GeneratedCode);
+        // Must NOT emit the property name directly or as a bare invocation.
+        Assert.DoesNotContain("this.Sequence.apply", result.GeneratedCode);
+        Assert.DoesNotContain("this.Sequence(i)", result.GeneratedCode);
+    }
 }
