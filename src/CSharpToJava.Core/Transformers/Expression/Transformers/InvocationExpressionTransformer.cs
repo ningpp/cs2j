@@ -444,9 +444,13 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 }
             }
 
-            // ToList → collect(Collectors.toList())
+            // ToList → .toList() (Java 16+) or collect(Collectors.toList())
             if (originalMethodName == "ToList")
             {
+                if (context.Options.TargetJavaVersion >= JavaVersion.Java21)
+                {
+                    return $"{receiver}.toList()";
+                }
                 context.AddImport("java.util.stream.Collectors");
                 return $"{receiver}.collect(Collectors.toList())";
             }
@@ -461,21 +465,40 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             }
 
             // OrderBy/ThenBy → sorted(Comparator.comparing(lambda))
+            // ThenBy/ThenByDescending merge into the preceding sorted() call's comparator
+            // to produce .sorted(Comparator.comparing(a).thenComparing(b)) instead of
+            // two separate .sorted() calls.
             if (originalMethodName is "OrderBy" or "ThenBy")
             {
                 var sortArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, argStartIndex);
-                return string.IsNullOrEmpty(sortArgs)
-                    ? $"{receiver}.sorted()"
-                    : $"{receiver}.sorted(java.util.Comparator.comparing({sortArgs}))";
+                if (string.IsNullOrEmpty(sortArgs))
+                    return $"{receiver}.sorted()";
+
+                var comparator = $"java.util.Comparator.comparing({sortArgs})";
+
+                // Merge ThenBy into preceding sorted() if possible
+                if (originalMethodName == "ThenBy" && TryExtractSortedComparator(receiver, out var baseReceiver, out var prevComparator))
+                {
+                    return $"{baseReceiver}.sorted({prevComparator}.thenComparing({sortArgs}))";
+                }
+
+                return $"{receiver}.sorted({comparator})";
             }
 
             // OrderByDescending/ThenByDescending → sorted(Comparator.comparing(lambda).reversed())
             if (originalMethodName is "OrderByDescending" or "ThenByDescending")
             {
                 var sortArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, argStartIndex);
-                return string.IsNullOrEmpty(sortArgs)
-                    ? $"{receiver}.sorted(java.util.Comparator.reverseOrder())"
-                    : $"{receiver}.sorted(java.util.Comparator.comparing({sortArgs}).reversed())";
+                if (string.IsNullOrEmpty(sortArgs))
+                    return $"{receiver}.sorted(java.util.Comparator.reverseOrder())";
+
+                // Merge ThenByDescending into preceding sorted() if possible
+                if (originalMethodName == "ThenByDescending" && TryExtractSortedComparator(receiver, out var baseReceiver, out var prevComparator))
+                {
+                    return $"{baseReceiver}.sorted({prevComparator}.thenComparing(java.util.Comparator.comparing({sortArgs}).reversed()))";
+                }
+
+                return $"{receiver}.sorted(java.util.Comparator.comparing({sortArgs}).reversed())";
             }
 
             // Sum → mapToInt/mapToLong/mapToDouble + sum(), or just sum() if already numeric stream
@@ -949,4 +972,44 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             },
             _ => methodName
         };
+
+    /// <summary>
+    /// Attempts to extract the comparator expression from a receiver string that ends
+    /// with <c>.sorted(comparatorExpr)</c>. This enables ThenBy/ThenByDescending to
+    /// merge into the preceding sort as <c>.sorted(prevComparator.thenComparing(...))</c>.
+    /// </summary>
+    private static bool TryExtractSortedComparator(string receiver, out string baseReceiver, out string comparator)
+    {
+        baseReceiver = "";
+        comparator = "";
+
+        const string sortedPrefix = ".sorted(";
+        int sortedIdx = receiver.LastIndexOf(sortedPrefix, StringComparison.Ordinal);
+        if (sortedIdx < 0 || !receiver.EndsWith(")"))
+            return false;
+
+        // Find the matching closing paren by counting parens from the sorted( position
+        int openPos = sortedIdx + sortedPrefix.Length - 1; // position of '('
+        int depth = 0;
+        int closePos = -1;
+        for (int i = openPos; i < receiver.Length; i++)
+        {
+            if (receiver[i] == '(') depth++;
+            else if (receiver[i] == ')') depth--;
+            if (depth == 0) { closePos = i; break; }
+        }
+
+        // Only match if the sorted() call is the terminal operation (closePos == end)
+        if (closePos != receiver.Length - 1)
+            return false;
+
+        baseReceiver = receiver.Substring(0, sortedIdx);
+        comparator = receiver.Substring(openPos + 1, closePos - openPos - 1);
+
+        // Don't merge if previous sorted() was empty (natural order) or reverseOrder
+        if (string.IsNullOrEmpty(comparator) || comparator.Contains("reverseOrder"))
+            return false;
+
+        return true;
+    }
 }

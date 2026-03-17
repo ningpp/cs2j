@@ -168,9 +168,18 @@ public class ObjectCreationTransformer : IExpressionTransformer
 
     private string TransformAnonymousObjectCreation(AnonymousObjectCreationExpressionSyntax node, ConversionContext context)
     {
-        // C# anonymous objects map to Map<String, Object> in Java
-        context.AddImport("java.util.Map");
         var facade = ExpressionTransformerFacade.Instance;
+
+        // When targeting Java 17+ with records enabled, synthesize a Java record instead of Map
+        if (context.Options.UseRecords && context.Options.TargetJavaVersion >= JavaVersion.Java17)
+        {
+            var (record, ctorCall) = AnonymousTypeRecordSynthesizer.SynthesizeForAnonymousType(
+                node, context, expr => facade.Transform(expr, context));
+            return ctorCall;
+        }
+
+        // Fallback: C# anonymous objects map to Map<String, Object> in Java
+        context.AddImport("java.util.Map");
 
         var pairs = new List<(string key, string value)>();
         foreach (var member in node.Initializers)

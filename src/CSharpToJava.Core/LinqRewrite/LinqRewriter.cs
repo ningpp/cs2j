@@ -30,18 +30,30 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using CSharpToJava.Core.Context;
 
 namespace CSharpToJava.Core.LinqRewrite
 {
     public partial class LinqRewriter : CSharpSyntaxRewriter
     {
         private SemanticModel semantic;
+        private readonly ConversionOptions? _options;
 
         
-        public LinqRewriter(SemanticModel semantic)
+        public LinqRewriter(SemanticModel semantic, ConversionOptions? options = null)
         {
             this.semantic = semantic;
+            this._options = options;
         }
+
+        /// <summary>
+        /// Whether synthesized Java records are available for anonymous types
+        /// (Java 17+ with UseRecords enabled).
+        /// </summary>
+        private bool CanUseRecordsForAnonymousTypes =>
+            _options != null
+            && _options.UseRecords
+            && _options.TargetJavaVersion >= JavaVersion.Java17;
         public int RewrittenMethods { get; private set; }
         public int RewrittenLinqQueries { get; private set; }
         public List<string> SkippedLinqChains { get; } = new();
@@ -197,11 +209,12 @@ namespace CSharpToJava.Core.LinqRewrite
 
                     var collection = ((MemberAccessExpressionSyntax)lastNode.Expression).Expression;
 
-                    if (IsAnonymousType(semantic.GetTypeInfo(collection).Type)) return null;
+                    if (!CanUseRecordsForAnonymousTypes && IsAnonymousType(semantic.GetTypeInfo(collection).Type)) return null;
 
 
                     var semanticReturnType = semantic.GetTypeInfo(node).Type;
-                    if (semanticReturnType == null || IsAnonymousType(semanticReturnType) || currentFlow.Any(x => IsAnonymousType(GetSymbolType(x.Symbol)))) return null;
+                    if (semanticReturnType == null) return null;
+                    if (!CanUseRecordsForAnonymousTypes && (IsAnonymousType(semanticReturnType) || currentFlow.Any(x => IsAnonymousType(GetSymbolType(x.Symbol))))) return null;
 
 
 
@@ -805,7 +818,7 @@ namespace CSharpToJava.Core.LinqRewrite
             }
             var message = "roslyn-linq-rewrite exception while processing '" + path + "', method " + currentMethodName + ": " + ex.Message + " -- " + ex.StackTrace?.Replace("\n", "");
 
-            return Diagnostic.Create("LQRW1001", "Compiler", new LiteralString(message), DiagnosticSeverity.Error, DiagnosticSeverity.Error, true, 0);
+            return Diagnostic.Create("LQRW1001", "Compiler", new LiteralString(message), Microsoft.CodeAnalysis.DiagnosticSeverity.Error, Microsoft.CodeAnalysis.DiagnosticSeverity.Error, true, 0);
         }
 
     }

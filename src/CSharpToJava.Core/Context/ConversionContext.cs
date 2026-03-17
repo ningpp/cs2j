@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.PartialType;
+using CSharpToJava.Core.Transformers;
 using System.Text;
 
 namespace CSharpToJava.Core.Context;
@@ -155,6 +156,59 @@ public class ConversionContext
     /// 类型符号到 Java 类型的缓存
     /// </summary>
     public Dictionary<ITypeSymbol, string> TypeCache { get; } = new();
+
+    /// <summary>
+    /// Synthesized Java record definitions generated from C# anonymous types.
+    /// Key is the structural key (ordered "name:type" pairs), value is the record info.
+    /// </summary>
+    private readonly Dictionary<string, SynthesizedRecordInfo> _synthesizedRecords = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Names already used by synthesized records, to avoid conflicts.
+    /// </summary>
+    private readonly HashSet<string> _synthesizedRecordNames = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// All synthesized records registered during conversion.
+    /// </summary>
+    public IReadOnlyCollection<SynthesizedRecordInfo> SynthesizedRecords => _synthesizedRecords.Values;
+
+    /// <summary>
+    /// Try to find an existing synthesized record with the given structural key.
+    /// </summary>
+    public bool TryGetSynthesizedRecord(string structuralKey, out SynthesizedRecordInfo? record)
+    {
+        return _synthesizedRecords.TryGetValue(structuralKey, out record);
+    }
+
+    /// <summary>
+    /// Register a new synthesized record. If the name conflicts with an existing record,
+    /// a numeric suffix is appended.
+    /// </summary>
+    public void RegisterSynthesizedRecord(SynthesizedRecordInfo record)
+    {
+        // Ensure unique name
+        var name = record.RecordName;
+        if (_synthesizedRecordNames.Contains(name))
+        {
+            int suffix = 2;
+            while (_synthesizedRecordNames.Contains(name + suffix))
+                suffix++;
+            name = name + suffix;
+            record = new SynthesizedRecordInfo(name, record.Fields, record.StructuralKey);
+        }
+        _synthesizedRecordNames.Add(name);
+        _synthesizedRecords[record.StructuralKey] = record;
+    }
+
+    /// <summary>
+    /// Clear synthesized records (per-file reset).
+    /// </summary>
+    public void ClearSynthesizedRecords()
+    {
+        _synthesizedRecords.Clear();
+        _synthesizedRecordNames.Clear();
+    }
 
     /// <summary>
     /// 需要合成的唯一名称计数器

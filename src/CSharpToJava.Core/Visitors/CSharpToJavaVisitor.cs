@@ -61,6 +61,39 @@ public class CSharpToJavaVisitor : CSharpSyntaxVisitor<JavaSyntaxNode?>
             }
         }
 
+        // Emit synthesized records from anonymous type projections as nested types
+        // of the last class, or as top-level types if no class exists.
+        if (_context.SynthesizedRecords.Count > 0)
+        {
+            var lastClass = compilation.TypeDeclarations.OfType<JavaClassDeclaration>().LastOrDefault();
+            foreach (var rec in _context.SynthesizedRecords)
+            {
+                var recordDecl = new JavaClassDeclaration
+                {
+                    Name = rec.RecordName,
+                    IsRecord = true,
+                    // Nested records are implicitly static; top-level records don't need static
+                    Modifiers = lastClass != null
+                        ? JavaModifiers.Private | JavaModifiers.Static
+                        : JavaModifiers.None,
+                };
+                foreach (var field in rec.Fields)
+                {
+                    recordDecl.RecordComponents.Add(new JavaRecordComponent(field.JavaType, field.Name));
+                }
+
+                if (lastClass != null)
+                {
+                    lastClass.NestedTypes.Add(recordDecl);
+                }
+                else
+                {
+                    compilation.TypeDeclarations.Add(recordDecl);
+                }
+            }
+            _context.ClearSynthesizedRecords();
+        }
+
         return compilation;
     }
 

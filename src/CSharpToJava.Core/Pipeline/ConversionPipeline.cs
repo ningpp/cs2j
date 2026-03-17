@@ -151,7 +151,7 @@ public class ConversionPipeline
             {
                 try
                 {
-                    var rewriter = new LinqRewriter(context.SemanticModel);
+                    var rewriter = new LinqRewriter(context.SemanticModel, request.Options);
                     var rewrittenRoot = (CompilationUnitSyntax)rewriter.Visit(syntaxTree.GetRoot());
                     syntaxTree = syntaxTree.WithRootAndOptions(rewrittenRoot, syntaxTree.Options);
 
