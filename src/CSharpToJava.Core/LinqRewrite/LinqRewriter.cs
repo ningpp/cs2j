@@ -44,6 +44,7 @@ namespace CSharpToJava.Core.LinqRewrite
         }
         public int RewrittenMethods { get; private set; }
         public int RewrittenLinqQueries { get; private set; }
+        public List<string> SkippedLinqChains { get; } = new();
         static LinqRewriter()
         {
 
@@ -91,6 +92,8 @@ namespace CSharpToJava.Core.LinqRewrite
             catch (Exception ex) when (ex is InvalidCastException || ex is NotSupportedException || ex is ArgumentException)
             {
                 methodsToAddToCurrentType.RemoveRange(methodIdx, methodsToAddToCurrentType.Count - methodIdx);
+                var location = node.GetLocation().GetLineSpan();
+                SkippedLinqChains.Add($"Line {location.StartLinePosition.Line + 1}: {ex.GetType().Name} – {ex.Message}");
             }
             return null;
         }
@@ -102,12 +105,22 @@ namespace CSharpToJava.Core.LinqRewrite
             if (memberAccess != null)
             {
                 var symbol = semantic.GetSymbolInfo(memberAccess).Symbol as IMethodSymbol;
-                var owner = node.AncestorsAndSelf().FirstOrDefault(x => x is MethodDeclarationSyntax);
+                var owner = node.AncestorsAndSelf().FirstOrDefault(x => x is MethodDeclarationSyntax || x is LocalFunctionStatementSyntax);
                 if (owner == null) return null;
-                currentMethodIsStatic = semantic.GetDeclaredSymbol((MethodDeclarationSyntax)owner).IsStatic;
-                currentMethodName = ((MethodDeclarationSyntax)owner).Identifier.ValueText;
-                currentMethodTypeParameters = ((MethodDeclarationSyntax)owner).TypeParameterList;
-                currentMethodConstraintClauses = ((MethodDeclarationSyntax)owner).ConstraintClauses;
+                if (owner is MethodDeclarationSyntax methodOwner)
+                {
+                    currentMethodIsStatic = semantic.GetDeclaredSymbol(methodOwner)?.IsStatic ?? false;
+                    currentMethodName = methodOwner.Identifier.ValueText;
+                    currentMethodTypeParameters = methodOwner.TypeParameterList;
+                    currentMethodConstraintClauses = methodOwner.ConstraintClauses;
+                }
+                else if (owner is LocalFunctionStatementSyntax localFunc)
+                {
+                    currentMethodIsStatic = localFunc.Modifiers.Any(SyntaxKind.StaticKeyword);
+                    currentMethodName = localFunc.Identifier.ValueText;
+                    currentMethodTypeParameters = localFunc.TypeParameterList;
+                    currentMethodConstraintClauses = localFunc.ConstraintClauses;
+                }
 
           
                 if (IsSupportedMethod(node))

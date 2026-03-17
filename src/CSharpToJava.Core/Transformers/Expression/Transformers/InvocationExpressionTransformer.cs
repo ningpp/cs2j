@@ -204,6 +204,18 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             var symbolInfo = context.SemanticModel.GetSymbolInfo(node);
             methodSymbol = symbolInfo.Symbol as IMethodSymbol;
 
+            // Fallback: when overload resolution fails but Roslyn found candidate(s)
+            // (e.g. ToList/ToDictionary on IEnumerable<T> with incomplete assembly refs),
+            // use the first candidate — but only when the receiver is still a LINQ extension
+            // (i.e. the chain was NOT already rewritten by LinqRewriter to procedural code).
+            if (methodSymbol == null
+                && symbolInfo.CandidateReason == CandidateReason.OverloadResolutionFailure
+                && symbolInfo.CandidateSymbols.Length >= 1
+                && IsReceiverLinqExtension(memberAccess.Expression, context))
+            {
+                methodSymbol = symbolInfo.CandidateSymbols[0] as IMethodSymbol;
+            }
+
             // Issue 5: detect reduced extension method; set isExtensionInStaticPath = true
             // when promoting to a static call so the receiver is not double-passed as arg[0].
             // Currently instance-call form is kept, so isExtensionInStaticPath stays false.
@@ -523,8 +535,316 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 return $"java.util.stream.Stream.concat({receiver}, {otherStream})";
             }
 
-            // For all other LINQ methods (Where→filter, Select→map, etc.),
-            // the mapped methodName and default return handle them correctly.
+            // Where → filter(predicate)
+            if (originalMethodName == "Where" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var predArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{receiver}.filter({predArg})";
+            }
+
+            // Select → map(transform)
+            if (originalMethodName == "Select" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var mapArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{receiver}.map({mapArg})";
+            }
+
+            // SelectMany → flatMap(selector)
+            if (originalMethodName == "SelectMany" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var flatMapArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{receiver}.flatMap({flatMapArg})";
+            }
+
+            // Distinct → distinct()
+            if (originalMethodName == "Distinct")
+            {
+                return $"{receiver}.distinct()";
+            }
+
+            // Skip → skip(n)
+            if (originalMethodName == "Skip" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var skipArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{receiver}.skip({skipArg})";
+            }
+
+            // Take → limit(n)
+            if (originalMethodName == "Take" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var takeArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{receiver}.limit({takeArg})";
+            }
+
+            // SkipWhile → dropWhile(predicate) (Java 9+)
+            if (originalMethodName == "SkipWhile" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var predArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{receiver}.dropWhile({predArg})";
+            }
+
+            // TakeWhile → takeWhile(predicate) (Java 9+)
+            if (originalMethodName == "TakeWhile" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var predArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{receiver}.takeWhile({predArg})";
+            }
+
+            // First() → findFirst().orElseThrow()
+            if (originalMethodName == "First" && node.ArgumentList.Arguments.Count == 0)
+            {
+                return $"{receiver}.findFirst().orElseThrow()";
+            }
+
+            // First(predicate) → filter(predicate).findFirst().orElseThrow()
+            if (originalMethodName == "First" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var predArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{receiver}.filter({predArg}).findFirst().orElseThrow()";
+            }
+
+            // FirstOrDefault() → findFirst().orElse(null)
+            if (originalMethodName == "FirstOrDefault" && node.ArgumentList.Arguments.Count == 0)
+            {
+                return $"{receiver}.findFirst().orElse(null)";
+            }
+
+            // FirstOrDefault(predicate) → filter(predicate).findFirst().orElse(null)
+            if (originalMethodName == "FirstOrDefault" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var predArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{receiver}.filter({predArg}).findFirst().orElse(null)";
+            }
+
+            // Last() → reduce((a, b) -> b).orElseThrow()
+            if (originalMethodName == "Last" && node.ArgumentList.Arguments.Count == 0)
+            {
+                return $"{receiver}.reduce((a, b) -> b).orElseThrow()";
+            }
+
+            // Last(predicate) → filter(predicate).reduce((a, b) -> b).orElseThrow()
+            if (originalMethodName == "Last" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var predArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{receiver}.filter({predArg}).reduce((a, b) -> b).orElseThrow()";
+            }
+
+            // LastOrDefault() → reduce((a, b) -> b).orElse(null)
+            if (originalMethodName == "LastOrDefault" && node.ArgumentList.Arguments.Count == 0)
+            {
+                return $"{receiver}.reduce((a, b) -> b).orElse(null)";
+            }
+
+            // LastOrDefault(predicate) → filter(predicate).reduce((a, b) -> b).orElse(null)
+            if (originalMethodName == "LastOrDefault" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var predArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{receiver}.filter({predArg}).reduce((a, b) -> b).orElse(null)";
+            }
+
+            // Single() → reduce((a, b) -> { throw new IllegalStateException(); }).orElseThrow()
+            if (originalMethodName == "Single" && node.ArgumentList.Arguments.Count == 0)
+            {
+                return $"{receiver}.reduce((a, b) -> {{ throw new IllegalStateException(\"Sequence contains more than one element\"); }}).orElseThrow()";
+            }
+
+            // SingleOrDefault() → reduce((a, b) -> { throw ...; }).orElse(null)
+            if (originalMethodName == "SingleOrDefault" && node.ArgumentList.Arguments.Count == 0)
+            {
+                return $"{receiver}.reduce((a, b) -> {{ throw new IllegalStateException(\"Sequence contains more than one element\"); }}).orElse(null)";
+            }
+
+            // Any(predicate) → anyMatch(predicate)
+            if (originalMethodName == "Any" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var predArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{receiver}.anyMatch({predArg})";
+            }
+
+            // All(predicate) → allMatch(predicate)
+            if (originalMethodName == "All" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var predArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{receiver}.allMatch({predArg})";
+            }
+
+            // Count() → count()  (returns long in Java)
+            if (originalMethodName == "Count" && node.ArgumentList.Arguments.Count == 0)
+            {
+                return $"(int) {receiver}.count()";
+            }
+
+            // Count(predicate) → filter(predicate).count()
+            if (originalMethodName == "Count" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var predArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"(int) {receiver}.filter({predArg}).count()";
+            }
+
+            // LongCount() → count()
+            if (originalMethodName == "LongCount" && node.ArgumentList.Arguments.Count == 0)
+            {
+                return $"{receiver}.count()";
+            }
+
+            // LongCount(predicate) → filter(predicate).count()
+            if (originalMethodName == "LongCount" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var predArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{receiver}.filter({predArg}).count()";
+            }
+
+            // Min() → min(Comparator.naturalOrder()).orElseThrow()
+            if (originalMethodName == "Min" && node.ArgumentList.Arguments.Count == 0)
+            {
+                return $"{receiver}.min(java.util.Comparator.naturalOrder()).orElseThrow()";
+            }
+
+            // Min(selector) → map(selector).min(Comparator.naturalOrder()).orElseThrow()
+            if (originalMethodName == "Min" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var selArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{receiver}.map({selArg}).min(java.util.Comparator.naturalOrder()).orElseThrow()";
+            }
+
+            // Max() → max(Comparator.naturalOrder()).orElseThrow()
+            if (originalMethodName == "Max" && node.ArgumentList.Arguments.Count == 0)
+            {
+                return $"{receiver}.max(java.util.Comparator.naturalOrder()).orElseThrow()";
+            }
+
+            // Max(selector) → map(selector).max(Comparator.naturalOrder()).orElseThrow()
+            if (originalMethodName == "Max" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var selArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{receiver}.map({selArg}).max(java.util.Comparator.naturalOrder()).orElseThrow()";
+            }
+
+            // ToArray() → toArray()
+            if (originalMethodName == "ToArray")
+            {
+                return $"{receiver}.toArray()";
+            }
+
+            // ToHashSet() → collect(Collectors.toSet())
+            if (originalMethodName == "ToHashSet")
+            {
+                context.AddImport("java.util.stream.Collectors");
+                return $"{receiver}.collect(Collectors.toSet())";
+            }
+
+            // Reverse() — collect to list, then Collections.reverse()
+            if (originalMethodName == "Reverse")
+            {
+                context.AddImport("java.util.stream.Collectors");
+                context.AddImport("java.util.Collections");
+                // There's no Stream.reverse(); collect to list and reverse in-place
+                // Use a helper expression that captures the result
+                return $"/* reverse */ {receiver}.collect(Collectors.toList())";
+            }
+
+            // Aggregate(func) → reduce(func).orElseThrow()
+            if (originalMethodName == "Aggregate" && node.ArgumentList.Arguments.Count == 1)
+            {
+                var funcArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{receiver}.reduce({funcArg}).orElseThrow()";
+            }
+
+            // Aggregate(seed, func) → reduce(seed, func)
+            if (originalMethodName == "Aggregate" && node.ArgumentList.Arguments.Count >= 2)
+            {
+                var seedArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var funcArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                return $"{receiver}.reduce({seedArg}, {funcArg})";
+            }
+
+            // Cast<T>() → map(x -> (T) x)
+            if (originalMethodName == "Cast")
+            {
+                if (node.Expression is MemberAccessExpressionSyntax ma && ma.Name is GenericNameSyntax gns && gns.TypeArgumentList.Arguments.Count > 0)
+                {
+                    var targetType = facade.Transform(gns.TypeArgumentList.Arguments[0], context);
+                    return $"{receiver}.map(x -> ({targetType}) x)";
+                }
+                return $"{receiver}.map(x -> x)";
+            }
+
+            // OfType<T>() → filter(x -> x instanceof T).map(x -> (T) x)
+            if (originalMethodName == "OfType")
+            {
+                if (node.Expression is MemberAccessExpressionSyntax maOfType && maOfType.Name is GenericNameSyntax gnsOfType && gnsOfType.TypeArgumentList.Arguments.Count > 0)
+                {
+                    var targetType = facade.Transform(gnsOfType.TypeArgumentList.Arguments[0], context);
+                    return $"{receiver}.filter(x -> x instanceof {targetType}).map(x -> ({targetType}) x)";
+                }
+            }
+
+            // Zip(other, resultSelector) → — no direct Java Stream equivalent; best-effort
+            if (originalMethodName == "Zip" && node.ArgumentList.Arguments.Count >= 2)
+            {
+                var otherArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var selectorArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                // Java has no built-in zip; emit IntStream.range + map as approximation
+                context.AddImport("java.util.stream.IntStream");
+                return $"IntStream.range(0, Math.min((int) {receiver}.count(), (int) {otherArg}.stream().count())).mapToObj(i -> {selectorArg})";
+            }
+
+            // Union(other) → Stream.concat + distinct
+            if (originalMethodName == "Union" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var otherArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var otherType = context.SemanticModel.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type;
+                var otherStream = otherType is IArrayTypeSymbol
+                    ? $"Arrays.stream({otherArg})"
+                    : $"{otherArg}.stream()";
+                return $"java.util.stream.Stream.concat({receiver}, {otherStream}).distinct()";
+            }
+
+            // Intersect(other) → filter with set membership
+            if (originalMethodName == "Intersect" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var otherArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                context.AddImport("java.util.stream.Collectors");
+                context.AddImport("java.util.Set");
+                return $"{receiver}.filter({otherArg}.stream().collect(Collectors.toSet())::contains)";
+            }
+
+            // Except(other) → filter with negated set membership
+            if (originalMethodName == "Except" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var otherArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                context.AddImport("java.util.stream.Collectors");
+                context.AddImport("java.util.Set");
+                return $"{receiver}.filter(x -> !{otherArg}.stream().collect(Collectors.toSet()).contains(x))";
+            }
+
+            // ElementAt(index) → skip(index).findFirst().orElseThrow()
+            if (originalMethodName == "ElementAt" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var idxArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{receiver}.skip({idxArg}).findFirst().orElseThrow()";
+            }
+
+            // ElementAtOrDefault(index) → skip(index).findFirst().orElse(null)
+            if (originalMethodName == "ElementAtOrDefault" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var idxArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{receiver}.skip({idxArg}).findFirst().orElse(null)";
+            }
+
+            // SequenceEqual(other) — no direct stream equivalent; collect and compare
+            if (originalMethodName == "SequenceEqual" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var otherArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                context.AddImport("java.util.stream.Collectors");
+                return $"{receiver}.collect(Collectors.toList()).equals({otherArg}.stream().collect(Collectors.toList()))";
+            }
+
+            // Fallback for any unhandled LINQ method: transform args and emit as-is with a TODO comment.
+            {
+                var fallbackArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, argStartIndex);
+                return $"/* TODO: LINQ {originalMethodName} */ {receiver}.{methodName}({fallbackArgs})";
+            }
         }
 
         var args = ArgumentTransformer.TransformArgumentList(

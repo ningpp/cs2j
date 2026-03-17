@@ -35,6 +35,8 @@ public class QueryExpressionTransformer : IExpressionTransformer
         var facade = ExpressionTransformerFacade.Instance;
         var sb = new System.Text.StringBuilder();
 
+        try
+        {
         // from clause — seed the stream
         var fromClause = node.FromClause;
         var rangeVar = ConversionContext.EscapeJavaKeyword(fromClause.Identifier.Text);
@@ -174,9 +176,12 @@ public class QueryExpressionTransformer : IExpressionTransformer
                     break;
             }
         }
-
-        // Clear let-alias mappings so they don't leak into subsequent code
-        context.QueryLetAliases.Clear();
+        }
+        finally
+        {
+            // Always clear let-alias mappings so they don't leak into subsequent code
+            context.QueryLetAliases.Clear();
+        }
 
         return sb.ToString();
     }

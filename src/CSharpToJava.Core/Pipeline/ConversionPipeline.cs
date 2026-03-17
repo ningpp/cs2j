@@ -155,6 +155,12 @@ public class ConversionPipeline
                     var rewrittenRoot = (CompilationUnitSyntax)rewriter.Visit(syntaxTree.GetRoot());
                     syntaxTree = syntaxTree.WithRootAndOptions(rewrittenRoot, syntaxTree.Options);
 
+                    // Report any LINQ chains that were skipped (fell back to Stream API)
+                    foreach (var skipped in rewriter.SkippedLinqChains)
+                    {
+                        context.Diagnostics.Warning($"LINQ rewrite skipped: {skipped} (will use Stream API fallback)");
+                    }
+
                     // 重新创建编译和语义模型；保留 Options（含隐式 usings）和全局 using 树
                     compilation = CSharpCompilation.Create(
                         "TempAssembly",
