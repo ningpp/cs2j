@@ -524,6 +524,15 @@ public class ConversionContext
         {
             var baseType = namedType.Name;
 
+            // Expression<TDelegate> (System.Linq.Expressions) has no Java equivalent.
+            // Strip the wrapper and map the inner delegate type to its Java functional interface.
+            if (namedType.Name == "Expression"
+                && namedType.ContainingNamespace?.ToDisplayString() == "System.Linq.Expressions"
+                && namedType.TypeArguments.Length == 1)
+            {
+                return MapType(namedType.TypeArguments[0]);
+            }
+
             // 获取未绑定的泛型类型定义，用于查找映射
             var originalDefinition = namedType.OriginalDefinition ?? namedType.ConstructedFrom;
 

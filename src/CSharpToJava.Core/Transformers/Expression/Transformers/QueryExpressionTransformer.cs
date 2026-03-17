@@ -34,6 +34,7 @@ public class QueryExpressionTransformer : IExpressionTransformer
     {
         var facade = ExpressionTransformerFacade.Instance;
         var sb = new System.Text.StringBuilder();
+        bool groupJoinHandled = false;
 
         try
         {
@@ -46,9 +47,11 @@ public class QueryExpressionTransformer : IExpressionTransformer
         if (isArraySource) context.AddImport("java.util.Arrays");
         sb.Append(isArraySource ? $"Arrays.stream({source})" : $"{source}.stream()");
 
-        // intermediate clauses
-        foreach (var clause in node.Body.Clauses)
+        // intermediate clauses — use index loop for look-ahead on join…into
+        var clauseList = node.Body.Clauses.ToList();
+        for (int ci = 0; ci < clauseList.Count; ci++)
         {
+            var clause = clauseList[ci];
             switch (clause)
             {
                 case WhereClauseSyntax where:
@@ -88,8 +91,8 @@ public class QueryExpressionTransformer : IExpressionTransformer
                         context.QueryLetAliases[letVar] = letExpr;
                     break;
 
-                case JoinClauseSyntax join:
-                    // Fix 1: implement join via flatMap + filter on equality
+                case JoinClauseSyntax join when join.Into == null:
+                    // Fix 1: regular equi-join via flatMap + filter on equality
                     var joinVar = ConversionContext.EscapeJavaKeyword(join.Identifier.Text);
                     var joinInExpr = facade.Transform(join.InExpression, context);
                     var joinLeftExpr = facade.Transform(join.LeftExpression, context);
@@ -98,36 +101,100 @@ public class QueryExpressionTransformer : IExpressionTransformer
                               $"\n        .filter({joinVar} -> java.util.Objects.equals({joinLeftExpr}, {joinRightExpr})))");
                     rangeVar = joinVar;
                     break;
+
+                case JoinClauseSyntax joinInto when joinInto.Into != null:
+                {
+                    // GroupJoin pattern: join y in src on x equals y into g
+                    // Typically followed by: from y in g.DefaultIfEmpty()
+                    // Together these form a LEFT OUTER JOIN.
+                    var capturedOuter = rangeVar;
+                    var intoId = ConversionContext.EscapeJavaKeyword(joinInto.Into.Identifier.Text);
+                    var jiVar = ConversionContext.EscapeJavaKeyword(joinInto.Identifier.Text);
+                    var jiInSrc = facade.Transform(joinInto.InExpression, context);
+                    var jiLeft = facade.Transform(joinInto.LeftExpression, context);
+                    var jiRight = facade.Transform(joinInto.RightExpression, context);
+
+                    // Look ahead: next clause should be "from y in g.DefaultIfEmpty()"
+                    string innerLoopVar = jiVar;
+                    if (ci + 1 < clauseList.Count && clauseList[ci + 1] is FromClauseSyntax fromGroup)
+                    {
+                        innerLoopVar = ConversionContext.EscapeJavaKeyword(fromGroup.Identifier.Text);
+                        ci++;
+                    }
+
+                    // Collect any following inner-scope where clauses
+                    var innerPipe = new System.Text.StringBuilder();
+                    while (ci + 1 < clauseList.Count && clauseList[ci + 1] is WhereClauseSyntax innerWhere)
+                    {
+                        var innerCond2 = facade.Transform(innerWhere.Condition, context);
+                        innerPipe.Append($".filter({innerLoopVar} -> {innerCond2})");
+                        ci++;
+                    }
+
+                    // Resolve the terminal select expression so we can inline it in the flatMap
+                    string terminalMapExpr = "";
+                    if (node.Body.SelectOrGroup is SelectClauseSyntax finalSelect)
+                    {
+                        var termExpr = facade.Transform(finalSelect.Expression, context);
+                        if (termExpr != innerLoopVar)
+                            terminalMapExpr = termExpr;
+                    }
+
+                    context.AddImport("java.util.stream.Collectors");
+                    context.AddImport("java.util.Collections");
+                    sb.Append($"\n    .flatMap({capturedOuter} -> {{");
+                    sb.Append($"\n        var {intoId} = {jiInSrc}.stream()");
+                    sb.Append($"\n            .filter({jiVar} -> java.util.Objects.equals({jiLeft}, {jiRight}))");
+                    sb.Append($"\n            .collect(java.util.stream.Collectors.toList());");
+                    sb.Append($"\n        var _{intoId} = {intoId}.isEmpty() ? java.util.Collections.singletonList((Object)null) : {intoId};");
+                    if (!string.IsNullOrEmpty(terminalMapExpr))
+                        sb.Append($"\n        return _{intoId}.stream(){innerPipe}.map({innerLoopVar} -> {terminalMapExpr});");
+                    else
+                        sb.Append($"\n        return _{intoId}.stream(){innerPipe};");
+                    sb.Append("\n    })");
+                    groupJoinHandled = true;
+                    ci = clauseList.Count; // skip remaining — terminal emitted inline
+                    break;
+                }
             }
         }
 
-        // terminal: select or group
-        switch (node.Body.SelectOrGroup)
+        if (!groupJoinHandled)
         {
-            case SelectClauseSyntax select:
-                var selectExpr = facade.Transform(select.Expression, context);
-                if (selectExpr != rangeVar)
-                    sb.Append($"\n    .map({rangeVar} -> {selectExpr})");
-                sb.Append("\n    .collect(java.util.stream.Collectors.toList())");
-                context.AddImport("java.util.stream.Collectors");
-                break;
+            // terminal: select or group
+            switch (node.Body.SelectOrGroup)
+            {
+                case SelectClauseSyntax select:
+                    var selectExpr = facade.Transform(select.Expression, context);
+                    if (selectExpr != rangeVar)
+                        sb.Append($"\n    .map({rangeVar} -> {selectExpr})");
+                    sb.Append("\n    .collect(java.util.stream.Collectors.toList())");
+                    context.AddImport("java.util.stream.Collectors");
+                    break;
 
-            case GroupClauseSyntax group:
-                var groupExpr = facade.Transform(group.GroupExpression, context);
-                var byExpr = facade.Transform(group.ByExpression, context);
-                // Fix 3: when groupExpr != rangeVar, use Collectors.mapping instead of a
-                // preceding .map() so both lambdas close over the correct original rangeVar
-                if (groupExpr != rangeVar)
-                    sb.Append($"\n    .collect(java.util.stream.Collectors.groupingBy({rangeVar} -> {byExpr}," +
-                              $" java.util.stream.Collectors.mapping({rangeVar} -> {groupExpr}, java.util.stream.Collectors.toList())))");
-                else
-                    sb.Append($"\n    .collect(java.util.stream.Collectors.groupingBy({rangeVar} -> {byExpr}))");
-                context.AddImport("java.util.stream.Collectors");
-                break;
+                case GroupClauseSyntax group:
+                    var groupExpr = facade.Transform(group.GroupExpression, context);
+                    var byExpr = facade.Transform(group.ByExpression, context);
+                    // Fix 3: when groupExpr != rangeVar, use Collectors.mapping instead of a
+                    // preceding .map() so both lambdas close over the correct original rangeVar
+                    if (groupExpr != rangeVar)
+                        sb.Append($"\n    .collect(java.util.stream.Collectors.groupingBy({rangeVar} -> {byExpr}," +
+                                  $" java.util.stream.Collectors.mapping({rangeVar} -> {groupExpr}, java.util.stream.Collectors.toList())))");
+                    else
+                        sb.Append($"\n    .collect(java.util.stream.Collectors.groupingBy({rangeVar} -> {byExpr}))");
+                    context.AddImport("java.util.stream.Collectors");
+                    break;
+            }
+        }
+        else
+        {
+            // GroupJoin emitted terminal inline; add the outer collect
+            context.AddImport("java.util.stream.Collectors");
+            sb.Append("\n    .collect(java.util.stream.Collectors.toList())");
         }
 
-        // Fix 5: handle 'into' continuation
-        if (node.Body.Continuation != null)
+        // Fix 5: handle 'into' continuation (not applicable after GroupJoin handling)
+        if (node.Body.Continuation != null && !groupJoinHandled)
         {
             var cont = node.Body.Continuation;
             rangeVar = ConversionContext.EscapeJavaKeyword(cont.Identifier.Text);
@@ -144,9 +211,9 @@ public class QueryExpressionTransformer : IExpressionTransformer
                         var contFirstKey = facade.Transform(contOrderings[0].Expression, context);
                         var contFirstDesc = contOrderings[0].AscendingOrDescendingKeyword.IsKind(SyntaxKind.DescendingKeyword) ? ".reversed()" : "";
                         var contComparator = new System.Text.StringBuilder($"java.util.Comparator.comparing({rangeVar} -> {contFirstKey}){contFirstDesc}");
-                        for (int ci = 1; ci < contOrderings.Count; ci++)
+                        for (int ci2 = 1; ci2 < contOrderings.Count; ci2++)
                         {
-                            var cord = contOrderings[ci];
+                            var cord = contOrderings[ci2];
                             var ck = facade.Transform(cord.Expression, context);
                             var cd = cord.AscendingOrDescendingKeyword.IsKind(SyntaxKind.DescendingKeyword) ? ".reversed()" : "";
                             contComparator.Append($"\n        .thenComparing({rangeVar} -> {ck}){cd}");

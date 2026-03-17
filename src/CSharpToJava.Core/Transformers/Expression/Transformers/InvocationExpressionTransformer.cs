@@ -492,10 +492,59 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             }
         }
 
+        // AsQueryable/AsEnumerable → identity transform: strip the wrapper and return the receiver.
+        // In Java, IEnumerable<T> and IQueryable<T> both map to Stream/collection operations;
+        // subsequent LINQ calls on the result are handled identically via the same Stream API path.
+        // Use name-based detection as a fallback when System.Linq.Queryable.dll is not fully
+        // resolved by Roslyn (e.g. when methodSymbol is null due to missing assembly reference).
+        if (originalMethodName is "AsQueryable" or "AsEnumerable"
+            && (methodSymbol == null
+                || (methodSymbol.IsExtensionMethod
+                    && methodSymbol.ContainingType.ToDisplayString() is "System.Linq.Queryable" or "System.Linq.Enumerable")))
+        {
+            return receiver;
+        }
+
+        // Pre-LINQ-block intercept: ToDictionary may fail semantic resolution; handle by name.
+        // Only fire when the LINQ block won't handle it (methodSymbol is null or not a LINQ Enumerable/Queryable extension).
+        if (originalMethodName == "ToDictionary" && node.ArgumentList.Arguments.Count >= 2
+            && (methodSymbol == null || !methodSymbol.IsExtensionMethod
+                || methodSymbol.ContainingType.ToDisplayString() is not ("System.Linq.Enumerable" or "System.Linq.Queryable")))
+        {
+            context.AddImport("java.util.stream.Collectors");
+            string toMapRcv = receiver;
+            ITypeSymbol? rcvElemType = null;
+            if (!IsReceiverLinqExtension(memberAccess.Expression, context))
+            {
+                var rcvType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                if (rcvType is IArrayTypeSymbol tdArr)
+                {
+                    context.AddImport("java.util.Arrays");
+                    rcvElemType = tdArr.ElementType;
+                    toMapRcv = tdArr.ElementType.IsValueType ? $"Arrays.stream({toMapRcv}).boxed()" : $"Arrays.stream({toMapRcv})";
+                }
+                else
+                {
+                    // Extract collection element type (e.g. List<String> → String) for member rescue
+                    if (rcvType is INamedTypeSymbol namedRcv && namedRcv.TypeArguments.Length > 0)
+                        rcvElemType = namedRcv.TypeArguments[0];
+                    toMapRcv = $"{toMapRcv}.stream()";
+                }
+            }
+            var kArgTD = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var vArgTD = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            // Rescue C# property names that the semantic model could not resolve (e.g. x.Length → x.length())
+            vArgTD = RescueCsharpMemberNames(vArgTD, rcvElemType, context);
+            return $"{toMapRcv}.collect(Collectors.toMap({kArgTD}, {vArgTD}))";
+        }
+
         // LINQ Stream API fallback: when a LINQ extension method was not rewritten by LinqRewriter
         // (e.g. chains containing OrderBy or SelectMany), inject .stream() on the collection
         // receiver and handle terminal/sorting operations.
-        if (methodSymbol?.ContainingType.ToDisplayString() == "System.Linq.Enumerable"
+        // Also handles System.Linq.Queryable extension methods (AsQueryable() stripped above).
+        if (methodSymbol != null
+            && (methodSymbol.ContainingType.ToDisplayString() == "System.Linq.Enumerable"
+                || methodSymbol.ContainingType.ToDisplayString() == "System.Linq.Queryable")
             && methodSymbol.IsExtensionMethod
             && context.SemanticModel != null)
         {
@@ -506,6 +555,13 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 {
                     context.AddImport("java.util.Arrays");
                     receiver = $"Arrays.stream({receiver})";
+                }
+                else if (receiverType is INamedTypeSymbol grpTypeSym
+                    && grpTypeSym.OriginalDefinition?.ToDisplayString().StartsWith("System.Linq.IGrouping<") == true)
+                {
+                    // GroupBy emits .entrySet().stream(); IGrouping in C# → Map.Entry<K,List<V>>.
+                    // Stream the group elements via getValue().
+                    receiver = $"{receiver}.getValue().stream()";
                 }
                 else
                 {
@@ -530,10 +586,14 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 context.AddImport("java.util.stream.Collectors");
                 var keyArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
                 var valArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                // Roslyn sometimes fails to bind the second lambda's body when two lambdas in the same
+                // call share a parameter name (e.g. x => x, x => x.Length). Use source-type TypeMappings
+                // as a rescue pass for unresolved C# property accesses (e.g. ".Length" still uppercased).
+                valArg = RescueCsharpMemberNames(valArg, methodSymbol, context);
                 return $"{receiver}.collect(Collectors.toMap({keyArg}, {valArg}))";
             }
 
-            // OrderBy/ThenBy → sorted(Comparator.comparing(lambda))
+            // OrderBy/ThenBy → sorted(Comparator.comparing(lambda)) or sorted(Comparator.naturalOrder())
             // ThenBy/ThenByDescending merge into the preceding sorted() call's comparator
             // to produce .sorted(Comparator.comparing(a).thenComparing(b)) instead of
             // two separate .sorted() calls.
@@ -543,31 +603,126 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 if (string.IsNullOrEmpty(sortArgs))
                     return $"{receiver}.sorted()";
 
-                var comparator = $"java.util.Comparator.comparing({sortArgs})";
+                // Detect identity lambda (x -> x): use naturalOrder() to avoid type-inference failure
+                bool isIdentAsc = node.ArgumentList.Arguments.Count > argStartIndex
+                    && TryGetSingleParamLambda(node.ArgumentList.Arguments[argStartIndex].Expression, context, facade, out var idPAsc, out var idBAsc)
+                    && idBAsc.Trim() == idPAsc.Trim();
+
+                // Build comparator with explicit element-type annotation to prevent Java type-inference
+                // failure when chaining thenComparing() — e.g. comparingInt((String x) -> x.length())
+                // instead of comparing(x -> x.length()) which Java can't type-propagate.
+                string BuildOrderByComparator(bool reversed = false)
+                {
+                    if (isIdentAsc)
+                    {
+                        if (methodSymbol.TypeArguments.Length >= 1)
+                        {
+                            var srcType = methodSymbol.TypeArguments[0];
+                            var javaElem = context.TypeMappings.MapType(srcType.ToDisplayString());
+                            if (string.IsNullOrEmpty(javaElem) || javaElem == srcType.ToDisplayString())
+                                javaElem = context.TypeMappings.MapType($"{srcType.ContainingNamespace}.{srcType.Name}");
+                            if (!string.IsNullOrEmpty(javaElem))
+                            {
+                                var boxedElem = ExpressionTransformerHelpers.BoxJavaPrimitiveType(javaElem);
+                                return reversed
+                                    ? $"java.util.Comparator.<{boxedElem}>naturalOrder().reversed()"
+                                    : $"java.util.Comparator.<{boxedElem}>naturalOrder()";
+                            }
+                        }
+                        return reversed ? "java.util.Comparator.reverseOrder()" : "java.util.Comparator.naturalOrder()";
+                    }
+                    if (methodSymbol.TypeArguments.Length >= 2
+                        && TryGetSingleParamLambda(node.ArgumentList.Arguments[argStartIndex].Expression,
+                            context, facade, out var lParam, out var lBody))
+                    {
+                        var srcType  = methodSymbol.TypeArguments[0];
+                        var keyType  = methodSymbol.TypeArguments[1];
+                        var javaElem = context.TypeMappings.MapType(srcType.ToDisplayString());
+                        // Alias types like "string" won't map — retry with FQN (e.g. "System.String" → "String")
+                        if (string.IsNullOrEmpty(javaElem) || javaElem == srcType.ToDisplayString())
+                            javaElem = context.TypeMappings.MapType($"{srcType.ContainingNamespace}.{srcType.Name}");
+                        var comparingFn = keyType.SpecialType switch
+                        {
+                            SpecialType.System_Int32 or SpecialType.System_Int16 or SpecialType.System_Byte => "comparingInt",
+                            SpecialType.System_Int64  => "comparingLong",
+                            SpecialType.System_Double or SpecialType.System_Single => "comparingDouble",
+                            _ => "comparing"
+                        };
+                        var lambdaParamType = !string.IsNullOrEmpty(javaElem)
+                            ? ExpressionTransformerHelpers.BoxJavaPrimitiveType(javaElem)
+                            : "";
+                        var typedParam = !string.IsNullOrEmpty(lambdaParamType)
+                            ? $"({lambdaParamType} {lParam})" : lParam;
+                        var cmp = $"java.util.Comparator.{comparingFn}({typedParam} -> {lBody})";
+                        return reversed ? $"{cmp}.reversed()" : cmp;
+                    }
+                    // Fallback (no type info): use untyped comparing
+                    var fallback = $"java.util.Comparator.comparing({sortArgs})";
+                    return reversed ? $"{fallback}.reversed()" : fallback;
+                }
+
+                var comparator = BuildOrderByComparator();
 
                 // Merge ThenBy into preceding sorted() if possible
                 if (originalMethodName == "ThenBy" && TryExtractSortedComparator(receiver, out var baseReceiver, out var prevComparator))
                 {
-                    return $"{baseReceiver}.sorted({prevComparator}.thenComparing({sortArgs}))";
+                    return $"{baseReceiver}.sorted({prevComparator}.thenComparing({(isIdentAsc ? "java.util.Comparator.naturalOrder()" : sortArgs)}))";
                 }
 
                 return $"{receiver}.sorted({comparator})";
             }
 
-            // OrderByDescending/ThenByDescending → sorted(Comparator.comparing(lambda).reversed())
+            // OrderByDescending/ThenByDescending → sorted(Comparator.reverseOrder()) or .reversed()
             if (originalMethodName is "OrderByDescending" or "ThenByDescending")
             {
                 var sortArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, argStartIndex);
                 if (string.IsNullOrEmpty(sortArgs))
                     return $"{receiver}.sorted(java.util.Comparator.reverseOrder())";
 
+                // Detect identity lambda (x -> x): use reverseOrder() directly
+                bool isIdentDesc = node.ArgumentList.Arguments.Count > argStartIndex
+                    && TryGetSingleParamLambda(node.ArgumentList.Arguments[argStartIndex].Expression, context, facade, out var idPDesc, out var idBDesc)
+                    && idBDesc.Trim() == idPDesc.Trim();
+
+                string BuildDescendingComparator()
+                {
+                    if (methodSymbol.TypeArguments.Length >= 2
+                        && TryGetSingleParamLambda(node.ArgumentList.Arguments[argStartIndex].Expression,
+                            context, facade, out var dParam, out var dBody))
+                    {
+                        var srcType = methodSymbol.TypeArguments[0];
+                        var keyType = methodSymbol.TypeArguments[1];
+                        var javaElem = context.TypeMappings.MapType(srcType.ToDisplayString());
+                        if (string.IsNullOrEmpty(javaElem) || javaElem == srcType.ToDisplayString())
+                            javaElem = context.TypeMappings.MapType($"{srcType.ContainingNamespace}.{srcType.Name}");
+
+                        var comparingFn = keyType.SpecialType switch
+                        {
+                            SpecialType.System_Int32 or SpecialType.System_Int16 or SpecialType.System_Byte => "comparingInt",
+                            SpecialType.System_Int64  => "comparingLong",
+                            SpecialType.System_Double or SpecialType.System_Single => "comparingDouble",
+                            _ => "comparing"
+                        };
+                        var lambdaParamType = !string.IsNullOrEmpty(javaElem)
+                            ? ExpressionTransformerHelpers.BoxJavaPrimitiveType(javaElem)
+                            : "";
+                        var typedParam = !string.IsNullOrEmpty(lambdaParamType)
+                            ? $"({lambdaParamType} {dParam})" : dParam;
+                        return $"java.util.Comparator.{comparingFn}({typedParam} -> {dBody}).reversed()";
+                    }
+
+                    return $"java.util.Comparator.comparing({sortArgs}).reversed()";
+                }
+
+                var descComparator = BuildDescendingComparator();
+
                 // Merge ThenByDescending into preceding sorted() if possible
                 if (originalMethodName == "ThenByDescending" && TryExtractSortedComparator(receiver, out var baseReceiver, out var prevComparator))
                 {
-                    return $"{baseReceiver}.sorted({prevComparator}.thenComparing(java.util.Comparator.comparing({sortArgs}).reversed()))";
+                    return $"{baseReceiver}.sorted({prevComparator}.thenComparing({descComparator}))";
                 }
 
-                return $"{receiver}.sorted(java.util.Comparator.comparing({sortArgs}).reversed())";
+                return $"{receiver}.sorted({descComparator})";
             }
 
             // Sum → mapToInt/mapToLong/mapToDouble + sum()
@@ -601,20 +756,36 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 return $"{receiver}.mapToDouble(x -> x).average().orElse(0)";
             }
 
-            // GroupBy → collect(Collectors.groupingBy(keySelector))
+            // GroupBy → collect(Collectors.groupingBy(keySelector)).entrySet().stream()
+            // The entrySet().stream() makes the result chainable (downstream .map/.filter etc. work).
+            // IGrouping<K,V> lambdas translate: g.getKey() → Map.Entry.getKey(), g.stream() → g.getValue().stream()
             if (originalMethodName == "GroupBy")
             {
                 context.AddImport("java.util.stream.Collectors");
                 if (node.ArgumentList.Arguments.Count >= 2)
                 {
                     var keyArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                    var elemArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-                    return $"{receiver}.collect(Collectors.groupingBy({keyArg}, Collectors.mapping({elemArg}, Collectors.toList())))";
+                    var arg1Expr = node.ArgumentList.Arguments[1].Expression;
+                    // Detect resultSelector overload: second arg is a 2-param (key, grouping) lambda
+                    // e.g. GroupBy(x => x % 2, (k, g) => new { k, Sum = g.Sum() })
+                    if (TryGetTwoParamLambda(arg1Expr, context, facade, out var kParam, out var gParam, out var resultBody))
+                    {
+                        // Map each grouped entry: collect normally then stream entrySet for result projection
+                        context.AddImport("java.util.stream.Stream");
+                        return $"{receiver}.collect(Collectors.groupingBy({keyArg}))"
+                             + $".entrySet().stream()"
+                             + $".map(_e -> {{ var {kParam} = _e.getKey(); var {gParam} = _e.getValue(); return {resultBody}; }})"
+                             + $".collect(Collectors.toList())";
+                    }
+                    // Element-selector overload
+                    var elemArg = facade.Transform(arg1Expr, context);
+                    return $"{receiver}.collect(Collectors.groupingBy({keyArg}, Collectors.mapping({elemArg}, Collectors.toList()))).entrySet().stream()";
                 }
                 if (node.ArgumentList.Arguments.Count == 1)
                 {
                     var keyArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                    return $"{receiver}.collect(Collectors.groupingBy({keyArg}))";
+                    // entrySet().stream() makes the result chainable as Stream<Map.Entry<K,List<V>>>
+                    return $"{receiver}.collect(Collectors.groupingBy({keyArg})).entrySet().stream()";
                 }
             }
 
@@ -628,25 +799,53 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             // Concat → Stream.concat(stream, other.stream())
             if (originalMethodName == "Concat" && node.ArgumentList.Arguments.Count >= 1)
             {
+                context.AddImport("java.util.Arrays");
                 var otherArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
                 var otherType = context.SemanticModel.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type;
-                var otherStream = otherType is IArrayTypeSymbol
-                    ? $"Arrays.stream({otherArg})"
-                    : $"{otherArg}.stream()";
+                string otherStream;
+                if (otherType is IArrayTypeSymbol concatArrType)
+                    otherStream = concatArrType.ElementType.IsValueType
+                        ? $"Arrays.stream({otherArg}).boxed()"
+                        : $"Arrays.stream({otherArg})";
+                else
+                    otherStream = $"{otherArg}.stream()";
                 return $"java.util.stream.Stream.concat({receiver}, {otherStream})";
             }
 
             // Where → filter(predicate)
+            // Indexed form Where((element, index) => ...) uses IntStream.range pattern
             if (originalMethodName == "Where" && node.ArgumentList.Arguments.Count >= 1)
             {
-                var predArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var whereLambdaArg = node.ArgumentList.Arguments[0].Expression;
+                if (TryGetTwoParamLambda(whereLambdaArg, context, facade, out var whP0, out var whP1, out var whCond))
+                {
+                    // Where((x, i) => cond): collect, range, filter by index, re-select element
+                    context.AddImport("java.util.stream.IntStream");
+                    context.AddImport("java.util.stream.Collectors");
+                    return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toList(),"
+                         + $" _src -> IntStream.range(0, _src.size())"
+                         + $".filter(_i -> {{ var {whP0} = _src.get(_i); int {whP1} = _i; return {whCond}; }})"
+                         + $".mapToObj(_src::get)))";
+                }
+                var predArg = facade.Transform(whereLambdaArg, context);
                 return $"{receiver}.filter({predArg})";
             }
 
             // Select → map(transform)
+            // Indexed form Select((element, index) => ...) uses IntStream.range pattern
             if (originalMethodName == "Select" && node.ArgumentList.Arguments.Count >= 1)
             {
-                var mapArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var selectLambdaArg = node.ArgumentList.Arguments[0].Expression;
+                if (TryGetTwoParamLambda(selectLambdaArg, context, facade, out var selP0, out var selP1, out var selBody))
+                {
+                    // Select((x, i) => body): collect to list, range, project with index
+                    context.AddImport("java.util.stream.IntStream");
+                    context.AddImport("java.util.stream.Collectors");
+                    return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toList(),"
+                         + $" _src -> IntStream.range(0, _src.size())"
+                         + $".mapToObj(_i -> {{ var {selP0} = _src.get(_i); int {selP1} = _i; return {selBody}; }})))";
+                }
+                var mapArg = facade.Transform(selectLambdaArg, context);
                 return $"{receiver}.map({mapArg})";
             }
 
@@ -656,14 +855,42 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 if (node.ArgumentList.Arguments.Count >= 2)
                 {
                     // Two-arg: SelectMany(collectionSelector, resultSelector)
-                    // → flatMap(x -> collectionSelector(x).stream().map(y -> resultSelector(x, y)))
                     var collArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
                     var resArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
                     return $"{receiver}.flatMap({collArg}).map({resArg})";
                 }
                 if (node.ArgumentList.Arguments.Count == 1)
                 {
-                    var flatMapArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    // When the selector returns an array, flatMap needs Arrays.stream() wrapping.
+                    string flatMapArg;
+                    var smArg = node.ArgumentList.Arguments[0];
+                    ExpressionSyntax? smBodyExpr = smArg.Expression switch
+                    {
+                        SimpleLambdaExpressionSyntax sl => sl.ExpressionBody,
+                        ParenthesizedLambdaExpressionSyntax pl => pl.ExpressionBody,
+                        _ => null
+                    };
+                    string? smParam = smArg.Expression switch
+                    {
+                        SimpleLambdaExpressionSyntax sl => sl.Parameter.Identifier.Text,
+                        _ => null
+                    };
+                    if (smBodyExpr != null && smParam != null)
+                    {
+                        var bodyRetType = context.SemanticModel?.GetTypeInfo(smBodyExpr).Type;
+                        if (bodyRetType is IArrayTypeSymbol smArr)
+                        {
+                            context.AddImport("java.util.Arrays");
+                            string bodyStr = facade.Transform(smBodyExpr, context);
+                            flatMapArg = smArr.ElementType.IsValueType
+                                ? $"{smParam} -> java.util.Arrays.stream({bodyStr}).boxed()"
+                                : $"{smParam} -> java.util.Arrays.stream({bodyStr})";
+                        }
+                        else
+                            flatMapArg = facade.Transform(smArg.Expression, context);
+                    }
+                    else
+                        flatMapArg = facade.Transform(smArg.Expression, context);
                     return $"{receiver}.flatMap({flatMapArg})";
                 }
             }
@@ -754,10 +981,24 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 return $"{receiver}.filter({predArg}).reduce((a, b) -> b).orElse(null)";
             }
 
+            // Single(predicate) → filter(predicate).reduce((a,b) -> throw).orElseThrow()
+            if (originalMethodName == "Single" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var predArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{receiver}.filter({predArg}).reduce((a, b) -> {{ throw new IllegalStateException(\"Sequence contains more than one element\"); }}).orElseThrow()";
+            }
+
             // Single() → reduce((a, b) -> { throw new IllegalStateException(); }).orElseThrow()
             if (originalMethodName == "Single" && node.ArgumentList.Arguments.Count == 0)
             {
                 return $"{receiver}.reduce((a, b) -> {{ throw new IllegalStateException(\"Sequence contains more than one element\"); }}).orElseThrow()";
+            }
+
+            // SingleOrDefault(predicate) → filter(predicate).reduce((a,b) -> throw).orElse(null)
+            if (originalMethodName == "SingleOrDefault" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var predArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{receiver}.filter({predArg}).reduce((a, b) -> {{ throw new IllegalStateException(\"Sequence contains more than one element\"); }}).orElse(null)";
             }
 
             // SingleOrDefault() → reduce((a, b) -> { throw ...; }).orElse(null)
@@ -783,14 +1024,14 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             // Count() → count()  (returns long in Java)
             if (originalMethodName == "Count" && node.ArgumentList.Arguments.Count == 0)
             {
-                return $"(int) {receiver}.count()";
+                return $"(int)(long) {receiver}.count()";
             }
 
             // Count(predicate) → filter(predicate).count()
             if (originalMethodName == "Count" && node.ArgumentList.Arguments.Count >= 1)
             {
                 var predArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                return $"(int) {receiver}.filter({predArg}).count()";
+                return $"(int)(long) {receiver}.filter({predArg}).count()";
             }
 
             // LongCount() → count()
@@ -890,6 +1131,24 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 return $"{receiver}.reduce({funcArg}).orElseThrow()";
             }
 
+            // Aggregate(seed, func, resultSelector) → inline resultSelector applied to reduce result
+            if (originalMethodName == "Aggregate" && node.ArgumentList.Arguments.Count >= 3)
+            {
+                var seedArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var funcArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                string reduceExpr = $"{receiver}.reduce({seedArg}, {funcArg})";
+                // Inline the result selector: substitute the reduce expression for the lambda parameter.
+                // This avoids raw Function cast which fails due to type erasure (Object * 2 etc.).
+                if (TryGetSingleParamLambda(node.ArgumentList.Arguments[2].Expression, context, facade, out var rsParam, out var rsBody))
+                {
+                    var inlined = System.Text.RegularExpressions.Regex.Replace(
+                        rsBody, $@"\b{System.Text.RegularExpressions.Regex.Escape(rsParam)}\b", $"({reduceExpr})");
+                    return inlined;
+                }
+                var resultSelFallback = facade.Transform(node.ArgumentList.Arguments[2].Expression, context);
+                return $"((java.util.function.Function<Object,Object>)({resultSelFallback})).apply({reduceExpr})"; 
+            }
+
             // Aggregate(seed, func) → reduce(seed, func)
             if (originalMethodName == "Aggregate" && node.ArgumentList.Arguments.Count >= 2)
             {
@@ -919,41 +1178,73 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 }
             }
 
-            // Zip(other, resultSelector) → — no direct Java Stream equivalent; best-effort
+            // Zip(other, resultSelector) → collect both to list then IntStream.range for indexed pairing
             if (originalMethodName == "Zip" && node.ArgumentList.Arguments.Count >= 2)
             {
-                var otherArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                var selectorArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-                // Java has no built-in zip; emit IntStream.range + map as approximation
+                context.AddImport("java.util.stream.Collectors");
                 context.AddImport("java.util.stream.IntStream");
-                return $"IntStream.range(0, Math.min((int) {receiver}.count(), (int) {otherArg}.stream().count())).mapToObj(i -> {selectorArg})";
+                var zipOtherArg0 = node.ArgumentList.Arguments[0];
+                var zipOther = facade.Transform(zipOtherArg0.Expression, context);
+                var zipOtherType = context.SemanticModel.GetTypeInfo(zipOtherArg0.Expression).Type;
+                string zipOtherListExpr;
+                if (zipOtherType is IArrayTypeSymbol zipArrType && zipArrType.ElementType.IsValueType)
+                    zipOtherListExpr = $"java.util.Arrays.stream({zipOther}).boxed().collect(java.util.stream.Collectors.toList())";
+                else if (zipOtherType is IArrayTypeSymbol)
+                    zipOtherListExpr = $"java.util.Arrays.stream({zipOther}).collect(java.util.stream.Collectors.toList())";
+                else
+                    zipOtherListExpr = zipOther;
+                if (TryGetTwoParamLambda(node.ArgumentList.Arguments[1].Expression, context, facade, out var zipP0, out var zipP1, out var zipBody))
+                {
+                    return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toList(),"
+                         + $" _left -> {{ var _right = {zipOtherListExpr};"
+                         + $" return IntStream.range(0, Math.min(_left.size(), _right.size()))"
+                         + $".mapToObj(_i -> {{ var {zipP0} = _left.get(_i); var {zipP1} = _right.get(_i); return {zipBody}; }}); }}))";
+                }
+                // Fallback: no two-param lambda recognised
+                var zipSel = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toList(),"
+                     + $" _left -> {{ var _right = {zipOtherListExpr};"
+                     + $" return IntStream.range(0, Math.min(_left.size(), _right.size())).mapToObj(_i -> _left.get(_i)); }}))";
             }
 
             // Union(other) → Stream.concat + distinct
             if (originalMethodName == "Union" && node.ArgumentList.Arguments.Count >= 1)
             {
+                context.AddImport("java.util.Arrays");
                 var otherArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
                 var otherType = context.SemanticModel.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type;
-                var otherStream = otherType is IArrayTypeSymbol
-                    ? $"Arrays.stream({otherArg})"
-                    : $"{otherArg}.stream()";
+                string otherStream;
+                if (otherType is IArrayTypeSymbol unionArrType)
+                    otherStream = unionArrType.ElementType.IsValueType
+                        ? $"Arrays.stream({otherArg}).boxed()"
+                        : $"Arrays.stream({otherArg})";
+                else
+                    otherStream = $"{otherArg}.stream()";
                 return $"java.util.stream.Stream.concat({receiver}, {otherStream}).distinct()";
             }
 
-            // Intersect(other) → filter with pre-constructed set membership
+            // Intersect(other) → filter elements whose value is in the set
             if (originalMethodName == "Intersect" && node.ArgumentList.Arguments.Count >= 1)
             {
-                var otherArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                context.AddImport("java.util.stream.Collectors");
                 context.AddImport("java.util.HashSet");
-                return $"{receiver}.filter(new HashSet<>({otherArg})::contains)";
+                var isectArg0 = node.ArgumentList.Arguments[0];
+                var isectOther = facade.Transform(isectArg0.Expression, context);
+                var isectOtherType = context.SemanticModel?.GetTypeInfo(isectArg0.Expression).Type;
+                string isectSet = BuildSetExprFromOther(isectOther, isectOtherType);
+                return $"{receiver}.filter({isectSet}::contains)";
             }
 
-            // Except(other) → filter with negated set membership
+            // Except(other) → filter elements whose value is NOT in the set
             if (originalMethodName == "Except" && node.ArgumentList.Arguments.Count >= 1)
             {
-                var otherArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                context.AddImport("java.util.stream.Collectors");
                 context.AddImport("java.util.HashSet");
-                return $"{receiver}.filter(x -> !new HashSet<>({otherArg}).contains(x))";
+                var exceptArg0 = node.ArgumentList.Arguments[0];
+                var exceptOther = facade.Transform(exceptArg0.Expression, context);
+                var exceptOtherType = context.SemanticModel?.GetTypeInfo(exceptArg0.Expression).Type;
+                string exceptSet = BuildSetExprFromOther(exceptOther, exceptOtherType);
+                return $"{receiver}.filter(x -> !{exceptSet}.contains(x))";
             }
 
             // ElementAt(index) → skip(index).findFirst().orElseThrow()
@@ -973,9 +1264,190 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             // SequenceEqual(other) — no direct stream equivalent; collect and compare
             if (originalMethodName == "SequenceEqual" && node.ArgumentList.Arguments.Count >= 1)
             {
-                var otherArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
                 context.AddImport("java.util.stream.Collectors");
-                return $"{receiver}.collect(Collectors.toList()).equals({otherArg}.stream().collect(Collectors.toList()))";
+                var seqOtherArg0 = node.ArgumentList.Arguments[0];
+                var seqOtherStr = facade.Transform(seqOtherArg0.Expression, context);
+                var seqOtherType = context.SemanticModel?.GetTypeInfo(seqOtherArg0.Expression).Type;
+                string seqOtherList;
+                if (seqOtherType is IArrayTypeSymbol seqArr && seqArr.ElementType.IsValueType)
+                {
+                    context.AddImport("java.util.Arrays");
+                    seqOtherList = $"java.util.Arrays.stream({seqOtherStr}).boxed().collect(Collectors.toList())";
+                }
+                else if (seqOtherType is IArrayTypeSymbol)
+                {
+                    context.AddImport("java.util.Arrays");
+                    seqOtherList = $"java.util.Arrays.stream({seqOtherStr}).collect(Collectors.toList())";
+                }
+                else
+                    seqOtherList = $"{seqOtherStr}.stream().collect(Collectors.toList())";
+                return $"{receiver}.collect(Collectors.toList()).equals({seqOtherList})";
+            }
+
+            // TakeLast(n) → collect, then subList from the last n elements, re-stream
+            if (originalMethodName == "TakeLast" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                context.AddImport("java.util.stream.Collectors");
+                var nArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toList(),"
+                     + $" _l -> _l.subList(Math.max(0, _l.size() - {nArg}), _l.size()).stream()))";
+            }
+
+            // SkipLast(n) → collect, then subList omitting the last n elements, re-stream
+            if (originalMethodName == "SkipLast" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                context.AddImport("java.util.stream.Collectors");
+                var nArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toList(),"
+                     + $" _l -> _l.subList(0, Math.max(0, _l.size() - {nArg})).stream()))";
+            }
+
+            // MaxBy(keySelector) → max(Comparator.comparing(keySelector)).orElseThrow()
+            if (originalMethodName == "MaxBy" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var selArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{receiver}.max(java.util.Comparator.comparing({selArg})).orElseThrow()";
+            }
+
+            // MinBy(keySelector) → min(Comparator.comparing(keySelector)).orElseThrow()
+            if (originalMethodName == "MinBy" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var selArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{receiver}.min(java.util.Comparator.comparing({selArg})).orElseThrow()";
+            }
+
+            // ToLookup(keySelector) → collect(groupingBy(key))
+            // ToLookup(keySelector, elementSelector) → collect(groupingBy(key, mapping(elem, toList())))
+            if (originalMethodName == "ToLookup")
+            {
+                context.AddImport("java.util.stream.Collectors");
+                if (node.ArgumentList.Arguments.Count >= 2)
+                {
+                    var keyArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    var elemArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                    return $"{receiver}.collect(Collectors.groupingBy({keyArg}, Collectors.mapping({elemArg}, Collectors.toList())))";
+                }
+                if (node.ArgumentList.Arguments.Count >= 1)
+                {
+                    var keyArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    return $"{receiver}.collect(Collectors.groupingBy({keyArg}))";
+                }
+            }
+
+            // Chunk(n) → collect to list, then partition into fixed-size sub-lists via IntStream.range
+            if (originalMethodName == "Chunk" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                context.AddImport("java.util.stream.Collectors");
+                context.AddImport("java.util.stream.IntStream");
+                var nArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toList(),"
+                     + $" _src -> {{ int _n = {nArg}; return IntStream.range(0, (_src.size() + _n - 1) / _n)"
+                     + $".mapToObj(_i -> _src.subList(_i * _n, Math.min((_i + 1) * _n, _src.size()))); }}))";
+            }
+
+            // DistinctBy(keySelector) → groupingBy into LinkedHashMap (preserves order), take first per key
+            if (originalMethodName == "DistinctBy" && node.ArgumentList.Arguments.Count >= 1)
+            {
+                context.AddImport("java.util.stream.Collectors");
+                context.AddImport("java.util.LinkedHashMap");
+                var selArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{receiver}.collect(Collectors.collectingAndThen("
+                     + $"Collectors.groupingBy({selArg}, java.util.LinkedHashMap::new, Collectors.toList()),"
+                     + $" _m -> _m.values().stream().map(_list -> _list.get(0))))";
+            }
+
+            // UnionBy(other, keySelector) → concat + distinctBy key
+            if (originalMethodName == "UnionBy" && node.ArgumentList.Arguments.Count >= 2)
+            {
+                context.AddImport("java.util.stream.Collectors");
+                context.AddImport("java.util.LinkedHashMap");
+                context.AddImport("java.util.stream.Stream");
+                var ubOtherArg0 = node.ArgumentList.Arguments[0];
+                var ubOther = facade.Transform(ubOtherArg0.Expression, context);
+                var ubOtherType = context.SemanticModel.GetTypeInfo(ubOtherArg0.Expression).Type;
+                string ubOtherStream;
+                if (ubOtherType is IArrayTypeSymbol ubArrType && ubArrType.ElementType.IsValueType)
+                    ubOtherStream = $"java.util.Arrays.stream({ubOther}).boxed()";
+                else if (ubOtherType is IArrayTypeSymbol)
+                    ubOtherStream = $"java.util.Arrays.stream({ubOther})";
+                else
+                    ubOtherStream = $"{ubOther}.stream()";
+                var ubSel = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                return $"java.util.stream.Stream.concat({receiver}, {ubOtherStream})"
+                     + $".collect(Collectors.collectingAndThen("
+                     + $"Collectors.groupingBy({ubSel}, java.util.LinkedHashMap::new, Collectors.toList()),"
+                     + $" _m -> _m.values().stream().map(_list -> _list.get(0))))";
+            }
+
+            // IntersectBy(otherKeys, keySelector) → filter elements whose key is in the key set
+            if (originalMethodName == "IntersectBy" && node.ArgumentList.Arguments.Count >= 2)
+            {
+                context.AddImport("java.util.stream.Collectors");
+                var ibOtherArg0 = node.ArgumentList.Arguments[0];
+                var ibOther = facade.Transform(ibOtherArg0.Expression, context);
+                var ibOtherType = context.SemanticModel.GetTypeInfo(ibOtherArg0.Expression).Type;
+                string ibSetExpr = BuildSetExprFromOther(ibOther, ibOtherType);
+                if (TryGetSingleParamLambda(node.ArgumentList.Arguments[1].Expression, context, facade, out var ibP, out var ibKeyBody))
+                    return $"{receiver}.filter({ibP} -> {ibSetExpr}.contains({ibKeyBody}))";
+                var ibSel = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                return $"/* TODO: LINQ IntersectBy */ {receiver}.intersectBy({ibOther}, {ibSel})";
+            }
+
+            // ExceptBy(otherKeys, keySelector) → filter elements whose key is NOT in the key set
+            if (originalMethodName == "ExceptBy" && node.ArgumentList.Arguments.Count >= 2)
+            {
+                context.AddImport("java.util.stream.Collectors");
+                var ebOtherArg0 = node.ArgumentList.Arguments[0];
+                var ebOther = facade.Transform(ebOtherArg0.Expression, context);
+                var ebOtherType = context.SemanticModel.GetTypeInfo(ebOtherArg0.Expression).Type;
+                string ebSetExpr = BuildSetExprFromOther(ebOther, ebOtherType);
+                if (TryGetSingleParamLambda(node.ArgumentList.Arguments[1].Expression, context, facade, out var ebP, out var ebKeyBody))
+                    return $"{receiver}.filter({ebP} -> !{ebSetExpr}.contains({ebKeyBody}))";
+                var ebSel = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                return $"/* TODO: LINQ ExceptBy */ {receiver}.exceptBy({ebOther}, {ebSel})";
+            }
+
+            // Join(inner, outerKey, innerKey, resultSelector) → flatMap + filter + map
+            if (originalMethodName == "Join" && node.ArgumentList.Arguments.Count >= 4)
+            {
+                var jInnerArg0 = node.ArgumentList.Arguments[0];
+                var jInner = facade.Transform(jInnerArg0.Expression, context);
+                var jInnerType = context.SemanticModel.GetTypeInfo(jInnerArg0.Expression).Type;
+                var jInnerStream = jInnerType is IArrayTypeSymbol ? $"java.util.Arrays.stream({jInner})" : $"{jInner}.stream()";
+                TryGetSingleParamLambda(node.ArgumentList.Arguments[1].Expression, context, facade, out var jOuterP, out var jOuterKey);
+                TryGetSingleParamLambda(node.ArgumentList.Arguments[2].Expression, context, facade, out var jInnerP, out var jInnerKey);
+                TryGetTwoParamLambda(node.ArgumentList.Arguments[3].Expression, context, facade, out var jResP0, out var jResP1, out var jResBody);
+                // Ensure result body can reference outer via jOuterP (captured) and inner via jInnerP (map param)
+                string jMapBody;
+                if (jResP0 != jOuterP || jResP1 != jInnerP)
+                {
+                    var rebind = new System.Text.StringBuilder();
+                    if (jResP0 != jOuterP) rebind.Append($"var {jResP0} = {jOuterP}; ");
+                    if (jResP1 != jInnerP) rebind.Append($"var {jResP1} = {jInnerP}; ");
+                    jMapBody = $"{{ {rebind}return {jResBody}; }}";
+                }
+                else
+                    jMapBody = jResBody;
+                return $"{receiver}.flatMap({jOuterP} -> {jInnerStream}"
+                     + $".filter({jInnerP} -> java.util.Objects.equals({jOuterKey}, {jInnerKey}))"
+                     + $".map({jInnerP} -> {jMapBody}))";
+            }
+
+            // GroupJoin(inner, outerKey, innerKey, resultSelector) → map outer to (outer, groupList) pairs
+            if (originalMethodName == "GroupJoin" && node.ArgumentList.Arguments.Count >= 4)
+            {
+                context.AddImport("java.util.stream.Collectors");
+                var gjInnerArg0 = node.ArgumentList.Arguments[0];
+                var gjInner = facade.Transform(gjInnerArg0.Expression, context);
+                var gjInnerType = context.SemanticModel.GetTypeInfo(gjInnerArg0.Expression).Type;
+                var gjInnerStream = gjInnerType is IArrayTypeSymbol ? $"java.util.Arrays.stream({gjInner})" : $"{gjInner}.stream()";
+                TryGetSingleParamLambda(node.ArgumentList.Arguments[1].Expression, context, facade, out var gjOuterP, out var gjOuterKey);
+                TryGetSingleParamLambda(node.ArgumentList.Arguments[2].Expression, context, facade, out var gjInnerP, out var gjInnerKey);
+                TryGetTwoParamLambda(node.ArgumentList.Arguments[3].Expression, context, facade, out var gjResP0, out var gjResP1, out var gjResBody);
+                // Resolve result body outer param name vs actual outer param
+                string prebind = gjResP0 != gjOuterP ? $"var {gjResP0} = {gjOuterP}; " : "";
+                string gjGroupExpr = $"{gjInnerStream}.filter({gjInnerP} -> java.util.Objects.equals({gjOuterKey}, {gjInnerKey})).collect(java.util.stream.Collectors.toList())";
+                return $"{receiver}.map({gjOuterP} -> {{ {prebind}var {gjResP1} = {gjGroupExpr}; return {gjResBody}; }})";
             }
 
             // Fallback for any unhandled LINQ method: transform args and emit as-is with a TODO comment.
@@ -1062,7 +1534,10 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         if (context.SemanticModel == null) return false;
         if (expr is not InvocationExpressionSyntax invocation) return false;
         var sym = context.SemanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
-        return sym?.ContainingType.ToDisplayString() == "System.Linq.Enumerable";
+        if (sym == null) return false;
+        // AsQueryable/AsEnumerable are identity wrappers — don't count as LINQ so .stream() is still injected
+        if (sym.Name is "AsQueryable" or "AsEnumerable") return false;
+        return sym.ContainingType.ToDisplayString() is "System.Linq.Enumerable" or "System.Linq.Queryable";
     }
 
     /// <summary>
@@ -1087,6 +1562,114 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             },
             _ => methodName
         };
+
+    /// <summary>
+    /// Tries to extract the parameter name and transformed body from a single-parameter lambda.
+    /// Handles SimpleLambdaExpressionSyntax (x =&gt; ...) and 1-param ParenthesizedLambdaExpression ((x) =&gt; ...).
+    /// Returns false if the expression is not a simple 1-param lambda; body is still set to the
+    /// transformed expression as a fallback.
+    /// </summary>
+    private static bool TryGetSingleParamLambda(
+        ExpressionSyntax argExpr,
+        ConversionContext context,
+        ExpressionTransformerFacade facade,
+        out string param,
+        out string body)
+    {
+        if (argExpr is SimpleLambdaExpressionSyntax simple)
+        {
+            param = simple.Parameter.Identifier.Text;
+            body = simple.Body is ExpressionSyntax eb ? facade.Transform(eb, context) : simple.Body.ToString();
+            return true;
+        }
+        if (argExpr is ParenthesizedLambdaExpressionSyntax paren1 && paren1.ParameterList.Parameters.Count == 1)
+        {
+            param = paren1.ParameterList.Parameters[0].Identifier.Text;
+            body = paren1.Body is ExpressionSyntax eb1 ? facade.Transform(eb1, context) : paren1.Body.ToString();
+            return true;
+        }
+        param = "_x";
+        body = facade.Transform(argExpr, context);
+        return false;
+    }
+
+    /// <summary>
+    /// Tries to extract two parameter names and a transformed body from a 2-parameter lambda.
+    /// Only handles ParenthesizedLambdaExpressionSyntax ((p0, p1) =&gt; ...).
+    /// Returns false if the expression is not a 2-param lambda.
+    /// </summary>
+    private static bool TryGetTwoParamLambda(
+        ExpressionSyntax argExpr,
+        ConversionContext context,
+        ExpressionTransformerFacade facade,
+        out string param0,
+        out string param1,
+        out string body)
+    {
+        if (argExpr is ParenthesizedLambdaExpressionSyntax paren2 && paren2.ParameterList.Parameters.Count == 2)
+        {
+            param0 = paren2.ParameterList.Parameters[0].Identifier.Text;
+            param1 = paren2.ParameterList.Parameters[1].Identifier.Text;
+            body = paren2.Body is ExpressionSyntax eb2 ? facade.Transform(eb2, context) : paren2.Body.ToString();
+            return true;
+        }
+        param0 = "_p0";
+        param1 = "_p1";
+        body = facade.Transform(argExpr, context);
+        return false;
+    }
+
+    /// <summary>
+    /// Builds a Java Set expression for the given "other keys" argument.
+    /// For primitive value-type arrays, uses Arrays.stream().boxed().collect(toSet()).
+    /// For reference-type arrays, uses Arrays.stream().collect(toSet()).
+    /// For collections, uses new HashSet&lt;&gt;(other).
+    /// The resulting set is built inline per filter call (correct but O(n*m); accepted trade-off).
+    /// </summary>
+    /// <summary>
+    /// Rescues C# property-name accesses that the semantic model failed to remap (e.g. ".Length" still
+    /// uppercase, no parens). Uses the method's source-type arguments to look up TypeMappings and apply
+    /// the correct Java method name. This handles Roslyn's limitation where two lambdas with the same
+    /// parameter name in the same call (e.g. x => x, x => x.Length) may not have the second lambda's
+    /// body symbols resolved.
+    /// </summary>
+    private static string RescueCsharpMemberNames(string expr, IMethodSymbol? methodSymbol, ConversionContext context)
+    {
+        var srcType = methodSymbol?.TypeArguments.Length > 0 ? methodSymbol.TypeArguments[0] : null;
+        return RescueCsharpMemberNames(expr, srcType, context);
+    }
+
+    private static string RescueCsharpMemberNames(string expr, ITypeSymbol? srcType, ConversionContext context)
+    {
+        if (srcType == null || !expr.Contains('.'))
+            return expr;
+
+        var srcTypeName = srcType.ToDisplayString();
+        var fqnSrc = $"{srcType.ContainingNamespace}.{srcType.Name}";
+
+        // Match ".MemberName" (capital letter, no trailing parens) — a C# property not yet converted
+        return System.Text.RegularExpressions.Regex.Replace(expr,
+            @"\.([A-Z][A-Za-z0-9_]*)(?!\()",
+            m =>
+            {
+                var memberName = m.Groups[1].Value;
+                var mapped = context.TypeMappings.MapMethod(srcTypeName, memberName)
+                    ?? context.TypeMappings.MapMethod(fqnSrc, memberName);
+                if (mapped == null) return m.Value; // no mapping — leave as-is
+                return mapped.Contains('.') ? "." + mapped : $".{mapped}()";
+            });
+    }
+
+    private static string BuildSetExprFromOther(string other, ITypeSymbol? otherType)
+    {
+        if (otherType is IArrayTypeSymbol arrType)
+        {
+            if (arrType.ElementType.IsValueType)
+                return $"java.util.Arrays.stream({other}).boxed().collect(java.util.stream.Collectors.toSet())";
+            return $"java.util.Arrays.stream({other}).collect(java.util.stream.Collectors.toSet())";
+        }
+        return $"new HashSet<>({other})";
+    }
 
     /// <summary>
     /// Attempts to extract the comparator expression from a receiver string that ends

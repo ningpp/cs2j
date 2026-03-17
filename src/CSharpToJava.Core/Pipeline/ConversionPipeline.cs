@@ -128,6 +128,13 @@ public class ConversionPipeline
                     // System.Linq.Enumerable, so argument-count-aware special-casing of
                     // e.g. Any() → iterator().hasNext() would never trigger.
                     MetadataReference.CreateFromFile(typeof(System.Linq.Enumerable).Assembly.Location),
+                    // System.Linq.Queryable is in a separate assembly on .NET Core.
+                    // Without this, Roslyn cannot resolve IQueryable<T> extension methods
+                    // (AsQueryable, Queryable.Where, Queryable.Select, etc.).
+                    MetadataReference.CreateFromFile(typeof(System.Linq.Queryable).Assembly.Location),
+                    // System.Linq.Expressions is in a separate assembly. Without this, Roslyn
+                    // cannot resolve Expression<TDelegate> so the type-strip logic never fires.
+                    MetadataReference.CreateFromFile(typeof(System.Linq.Expressions.Expression).Assembly.Location),
                 }.Concat(GetFrameworkSupplementalReferences()).ToArray(),
                 options: new CSharpCompilationOptions(
                     OutputKind.DynamicallyLinkedLibrary,

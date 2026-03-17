@@ -225,6 +225,22 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
             // Fix 1: check TypeMappings for a configured method/member name mapping
             var typeName = prop.ContainingType.ToDisplayString();
             var mappedMethod = context.TypeMappings.MapMethod(typeName, prop.Name);
+            // C# uses lowercase/alias display names (e.g. "string" for System.String).
+            // TypeMappings keys use fully-qualified names; retry with FQN on alias miss.
+            if (mappedMethod == null)
+            {
+                var fqn = $"{prop.ContainingType.ContainingNamespace}.{prop.ContainingType.Name}";
+                mappedMethod = context.TypeMappings.MapMethod(fqn, prop.Name);
+            }
+            // For static properties, remap the target to the Java type name regardless of
+            // which lookup path succeeded (e.g. DateTime.Now → LocalDateTime.now()).
+            if (mappedMethod != null && prop.IsStatic)
+            {
+                var fqnForRemap = $"{prop.ContainingType.ContainingNamespace}.{prop.ContainingType.Name}";
+                var mappedType = context.TypeMappings.MapType(fqnForRemap);
+                if (!string.IsNullOrEmpty(mappedType) && mappedType != fqnForRemap)
+                    target = mappedType;
+            }
             if (mappedMethod != null)
             {
                 // If the mapped value is a fully-qualified Java field (contains a dot, e.g.
@@ -243,8 +259,31 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
             bool isLhsOfAssignment = node.Parent is AssignmentExpressionSyntax assign && assign.Left == node;
             if (!isLhsOfAssignment)
             {
+                // For anonymous types synthesized as Java records, use camelCase accessor (e.g. id() not getId())
+                if (prop.ContainingType.IsAnonymousType
+                    && context.Options.UseRecords && context.Options.TargetJavaVersion >= JavaVersion.Java17)
+                {
+                    var recordAccessor = char.ToLowerInvariant(prop.Name[0]) + prop.Name[1..];
+                    return $"{target}.{recordAccessor}()";
+                }
                 var getter = "get" + char.ToUpperInvariant(prop.Name[0]) + prop.Name[1..];
                 return $"{target}.{getter}()";
+            }
+        }
+
+        // Fix 3: GetSymbolInfo returned no IPropertySymbol (e.g. lambda param in LINQ-rewritten tree).
+        // Fall back to GetTypeInfo on the receiver expression for TypeMappings lookup.
+        if (context.SemanticModel != null)
+        {
+            var exprType = context.SemanticModel.GetTypeInfo(node.Expression).Type;
+            if (exprType != null)
+            {
+                var tn3 = exprType.ToDisplayString();
+                var mm3 = context.TypeMappings.MapMethod(tn3, memberName);
+                if (mm3 == null && exprType.ContainingNamespace != null)
+                    mm3 = context.TypeMappings.MapMethod($"{exprType.ContainingNamespace}.{exprType.Name}", memberName);
+                if (mm3 != null)
+                    return mm3.Contains('.') ? mm3 : $"{target}.{mm3}()";
             }
         }
 

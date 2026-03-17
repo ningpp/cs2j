@@ -327,6 +327,22 @@ public class ObjectCreationTransformer : IExpressionTransformer
             }
         }
 
+        // When the element type resolved to "Object" and all initializer elements are
+        // anonymous-type creations in Java-records mode, synthesize the record and use its name.
+        // This turns new Object[] { new A(1), ... } into new A[] { new A(1), ... } so that
+        // stream lambdas can call typed accessors (e.g. x.getId()) without cast failures.
+        if (elementType == "Object"
+            && node.Initializer?.Expressions.Count > 0
+            && node.Initializer.Expressions.All(e => e is AnonymousObjectCreationExpressionSyntax)
+            && context.Options.UseRecords && context.Options.TargetJavaVersion >= JavaVersion.Java17)
+        {
+            var facade2 = ExpressionTransformerFacade.Instance;
+            var firstAnon = (AnonymousObjectCreationExpressionSyntax)node.Initializer.Expressions[0];
+            var (record, _) = AnonymousTypeRecordSynthesizer.SynthesizeForAnonymousType(
+                firstAnon, context, expr => facade2.Transform(expr, context));
+            elementType = record.RecordName;
+        }
+
         var result = new StringBuilder("new ");
         result.Append(elementType);
 

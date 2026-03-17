@@ -1040,6 +1040,11 @@ public class StatementTransformer : IStatementTransformer
             // Fallback: if MapType returns empty (e.g. unresolved error type), use var to let Java infer
             if (string.IsNullOrWhiteSpace(javaType))
                 javaType = "var";
+            // LINQ extension method generic type parameters (TSource, TResult, TKey, TElement) that
+            // leak into the resolved type indicate an uninstantiated generic — use var instead.
+            if (javaType.Contains("TSource") || javaType.Contains("TResult")
+                || javaType.Contains("TKey") || javaType.Contains("TElement"))
+                javaType = "var";
         }
         else
         {
@@ -1064,9 +1069,12 @@ public class StatementTransformer : IStatementTransformer
             wasImplicitVar = true;
         }
 
-        // If we ended up with "var" and there is NO initializer, Java cannot infer the type.
-        // Try to resolve the type from the local variable symbol instead.
+        // If C# used implicit 'var' with an initializer, prefer 'var' in Java.
+        // This avoids incorrect/over-specific type annotations when C# resolves to ILookup,
+        // IEnumerable, or uninstantiated generic types that don't cleanly map to Java equivalents.
         bool hasNoInitializer = stmt.Declaration.Variables.All(v => v.Initializer == null);
+        if (wasImplicitVar && !hasNoInitializer)
+            javaType = "var";
         bool wasConvertedFromVar = false;
         if (javaType == "var" && hasNoInitializer && context.SemanticModel != null)
         {

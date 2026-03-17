@@ -62,3 +62,7 @@ nunit-*.xml
 .codex/
 .copilot/
 .codebuddy/
+
+
+*.java
+*.class
