@@ -167,4 +167,65 @@ public class RefParameterTests
         Assert.Contains("d2 = _d2Ref.value", result.GeneratedCode);
         Assert.Contains("return _ret", result.GeneratedCode);
     }
+
+    // ── Bug 4 ──────────────────────────────────────────────────────────────────
+    // When the same local variable is passed as ref to two consecutive calls in the
+    // same method body, the converter previously emitted:
+    //   - DoubleHolder _d3Ref = new DoubleHolder(d3)  ← TWICE (duplicate Java decl)
+    //   - d3 = _d3Ref.value                           ← TWICE (duplicate writeback)
+    // Fix: the second ref arg hit reuses the already-active holder via
+    // TryGetActiveRefHolder, producing no new pre/post statements.
+
+    [Fact]
+    public void RefArg_SameVarPassedRefTwiceConsecutively_NoDuplicateDeclaration()
+    {
+        const string code = """
+            class Sample
+            {
+                public double RefMethod1(ref double d1)
+                {
+                    d1 = 1.1;
+                    return d1;
+                }
+
+                public double RefMethod3(double d3)
+                {
+                    double returnValue1 = RefMethod1(ref d3);
+                    double returnValue2 = RefMethod1(ref d3);
+                    return returnValue1 + returnValue2;
+                }
+            }
+            """;
+
+        var result = Convert(code);
+
+        Assert.True(result.Success,
+            $"Conversion failed:\n{string.Join("\n", result.Diagnostics.Select(d => d.Message))}");
+
+        // Holder must be declared exactly once
+        var holderDecl = "DoubleHolder _d3Ref = new DoubleHolder(d3)";
+        var declCount = CountOccurrences(result.GeneratedCode, holderDecl);
+        Assert.True(declCount == 1,
+            $"Expected exactly 1 occurrence of '{holderDecl}', found {declCount}.\n\n{result.GeneratedCode}");
+
+        // Both calls must pass the same holder
+        Assert.Contains("refMethod1(_d3Ref)", result.GeneratedCode);
+
+        // Writeback must appear exactly once
+        var writeback = "d3 = _d3Ref.value";
+        var writebackCount = CountOccurrences(result.GeneratedCode, writeback);
+        Assert.True(writebackCount == 1,
+            $"Expected exactly 1 occurrence of '{writeback}', found {writebackCount}.\n\n{result.GeneratedCode}");
+    }
+
+    private static int CountOccurrences(string text, string pattern)
+    {
+        int count = 0, i = 0;
+        while ((i = text.IndexOf(pattern, i, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            i += pattern.Length;
+        }
+        return count;
+    }
 }

@@ -179,7 +179,15 @@ public class ArgumentTransformer
                 // Bug 2: local variable (or non-ref parameter) passed as ref — wrap it in a holder
                 // so it can be mutated by the callee and the new value written back afterward.
                 var varName = refIdent.Identifier.Text;
-                var refHolderName = $"_{varName}Ref";
+
+                // Bug 4: if a holder is already active for this variable (e.g. the same local is passed
+                // as ref a second time before the first holder's writeback has been drained), reuse the
+                // existing holder instead of allocating a new one — which would produce a duplicate Java
+                // variable declaration and a duplicate writeback post-statement.
+                if (context.TryGetActiveRefHolder(varName, out var existingHolder))
+                    return existingHolder;
+
+                var refHolderName = context.AllocateRefHolderName(varName);
                 var javaType = "Object";
                 if (context.SemanticModel != null)
                 {

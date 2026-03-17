@@ -295,10 +295,46 @@ public class ConversionContext
     {
         var result = _pendingPostStatements.ToList();
         _pendingPostStatements.Clear();
+        _activeRefHolders.Clear();  // holders' writebacks emitted; lifecycle complete
         return result;
     }
 
     public bool HasPendingPostStatements => _pendingPostStatements.Count > 0;
+
+    /// <summary>
+    /// Maps local variable names to their current active ref-holder names.
+    /// An entry is alive while the holder's writeback is still pending in _pendingPostStatements.
+    /// Cleared when post-statements are drained (writebacks emitted) or when entering a new method.
+    /// </summary>
+    private readonly Dictionary<string, string> _activeRefHolders = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Tracks how many ref holders have been allocated per variable name in the current method.
+    /// Used to generate unique names (_varRef, _varRef2, etc.) when a variable is passed as ref
+    /// in multiple independent groups of statements (i.e. after a previous holder's writeback was drained).
+    /// </summary>
+    private readonly Dictionary<string, int> _refHolderAllocCounts = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Returns true and sets holderName if an active (not-yet-drained) ref holder exists for the given variable.
+    /// </summary>
+    public bool TryGetActiveRefHolder(string varName, out string holderName)
+    {
+        return _activeRefHolders.TryGetValue(varName, out holderName!);
+    }
+
+    /// <summary>
+    /// Allocates a unique ref-holder name for the given variable and marks it active.
+    /// First allocation returns "_varRef"; subsequent (after a lifecycle drain) returns "_varRef2", "_varRef3", etc.
+    /// </summary>
+    public string AllocateRefHolderName(string varName)
+    {
+        var count = _refHolderAllocCounts.GetValueOrDefault(varName, 0);
+        _refHolderAllocCounts[varName] = count + 1;
+        var holderName = count == 0 ? $"_{varName}Ref" : $"_{varName}Ref{count + 1}";
+        _activeRefHolders[varName] = holderName;
+        return holderName;
+    }
 
     public ConversionContext(ConversionOptions options, TypeMapping.TypeMappingRegistry typeMappings)
     {
@@ -350,6 +386,9 @@ public class ConversionContext
         StreamLocalVariables.Clear();
         // Clear LINQ let-alias mappings to avoid cross-method contamination
         QueryLetAliases.Clear();
+        // Clear ref holder tracking to avoid cross-method contamination
+        _activeRefHolders.Clear();
+        _refHolderAllocCounts.Clear();
     }
 
     /// <summary>
