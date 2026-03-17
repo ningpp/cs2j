@@ -518,18 +518,17 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             {
                 var rcvType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
                 if (rcvType is IArrayTypeSymbol tdArr)
-                {
-                    context.AddImport("java.util.Arrays");
                     rcvElemType = tdArr.ElementType;
-                    toMapRcv = tdArr.ElementType.IsValueType ? $"Arrays.stream({toMapRcv}).boxed()" : $"Arrays.stream({toMapRcv})";
-                }
-                else
-                {
+                else if (rcvType is INamedTypeSymbol namedRcv && namedRcv.TypeArguments.Length > 0)
                     // Extract collection element type (e.g. List<String> → String) for member rescue
-                    if (rcvType is INamedTypeSymbol namedRcv && namedRcv.TypeArguments.Length > 0)
-                        rcvElemType = namedRcv.TypeArguments[0];
-                    toMapRcv = $"{toMapRcv}.stream()";
-                }
+                    rcvElemType = namedRcv.TypeArguments[0];
+
+                toMapRcv = BuildStreamReceiverExpression(
+                    toMapRcv,
+                    rcvType,
+                    context,
+                    boxPrimitiveArrayElements: true,
+                    preserveGroupingValueStream: false);
             }
             var kArgTD = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var vArgTD = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
@@ -551,33 +550,36 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             if (!IsReceiverLinqExtension(memberAccess.Expression, context))
             {
                 var receiverType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type;
-                if (receiverType is IArrayTypeSymbol)
-                {
-                    context.AddImport("java.util.Arrays");
-                    receiver = $"Arrays.stream({receiver})";
-                }
-                else if (receiverType is INamedTypeSymbol grpTypeSym
-                    && grpTypeSym.OriginalDefinition?.ToDisplayString().StartsWith("System.Linq.IGrouping<") == true)
-                {
-                    // GroupBy emits .entrySet().stream(); IGrouping in C# → Map.Entry<K,List<V>>.
-                    // Stream the group elements via getValue().
-                    receiver = $"{receiver}.getValue().stream()";
-                }
-                else
-                {
-                    receiver = $"{receiver}.stream()";
-                }
+                receiver = BuildStreamReceiverExpression(
+                    receiver,
+                    receiverType,
+                    context,
+                    boxPrimitiveArrayElements: false,
+                    preserveGroupingValueStream: true);
             }
 
             // ToList → .toList() (Java 16+) or collect(Collectors.toList())
             if (originalMethodName == "ToList")
             {
+                bool needsArrayListMaterialization = ShouldMaterializeArrayListForToList(node, context);
                 if (context.Options.TargetJavaVersion >= JavaVersion.Java21)
                 {
-                    return $"{receiver}.toList()";
+                    var toListExpr = $"{receiver}.toList()";
+                    if (needsArrayListMaterialization)
+                    {
+                        context.AddImport("java.util.ArrayList");
+                        return $"new ArrayList<>({toListExpr})";
+                    }
+                    return toListExpr;
                 }
                 context.AddImport("java.util.stream.Collectors");
-                return $"{receiver}.collect(Collectors.toList())";
+                var collectExpr = $"{receiver}.collect(Collectors.toList())";
+                if (needsArrayListMaterialization)
+                {
+                    context.AddImport("java.util.ArrayList");
+                    return $"new ArrayList<>({collectExpr})";
+                }
+                return collectExpr;
             }
 
             // ToDictionary → collect(Collectors.toMap(keySelector, valueSelector))
@@ -1538,6 +1540,117 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         // AsQueryable/AsEnumerable are identity wrappers — don't count as LINQ so .stream() is still injected
         if (sym.Name is "AsQueryable" or "AsEnumerable") return false;
         return sym.ContainingType.ToDisplayString() is "System.Linq.Enumerable" or "System.Linq.Queryable";
+    }
+
+    /// <summary>
+    /// Builds a Java Stream source expression for a LINQ receiver while preserving
+    /// compile validity for receivers mapped to Iterable&lt;T&gt;.
+    /// </summary>
+    private static string BuildStreamReceiverExpression(
+        string receiverExpr,
+        ITypeSymbol? receiverType,
+        ConversionContext context,
+        bool boxPrimitiveArrayElements,
+        bool preserveGroupingValueStream)
+    {
+        if (receiverType is IArrayTypeSymbol arrayType)
+        {
+            context.AddImport("java.util.Arrays");
+            if (boxPrimitiveArrayElements && arrayType.ElementType.IsValueType)
+                return $"Arrays.stream({receiverExpr}).boxed()";
+            return $"Arrays.stream({receiverExpr})";
+        }
+
+        if (preserveGroupingValueStream
+            && receiverType is INamedTypeSymbol groupingType
+            && groupingType.OriginalDefinition?.ToDisplayString().StartsWith("System.Linq.IGrouping<") == true)
+        {
+            // GroupBy emits .entrySet().stream(); IGrouping in C# → Map.Entry<K,List<V>>.
+            // Stream the group elements via getValue().
+            return $"{receiverExpr}.getValue().stream()";
+        }
+
+        if (CanCallCollectionStream(receiverType))
+            return $"{receiverExpr}.stream()";
+
+        // IEnumerable<T> maps to java.lang.Iterable<T>, which has no .stream().
+        context.AddImport("java.util.stream.StreamSupport");
+        return $"StreamSupport.stream({receiverExpr}.spliterator(), false)";
+    }
+
+    private static bool CanCallCollectionStream(ITypeSymbol? receiverType)
+    {
+        if (receiverType == null)
+            return false;
+
+        if (receiverType.OriginalDefinition?.ToDisplayString() is "System.Collections.Generic.ICollection<T>" or "System.Collections.ICollection")
+            return true;
+
+        if (receiverType is not INamedTypeSymbol namedType)
+            return false;
+
+        return namedType.AllInterfaces.Any(i =>
+            i.OriginalDefinition?.ToDisplayString() is "System.Collections.Generic.ICollection<T>" or "System.Collections.ICollection");
+    }
+
+    private static bool ShouldMaterializeArrayListForToList(InvocationExpressionSyntax node, ConversionContext context)
+    {
+        if (context.SemanticModel == null)
+            return false;
+
+        if (node.Parent is ReturnStatementSyntax)
+        {
+            var enclosingMethod = node.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
+            if (enclosingMethod != null)
+            {
+                var methodSymbol = context.SemanticModel.GetDeclaredSymbol(enclosingMethod);
+                if (methodSymbol != null && IsCsharpListType(methodSymbol.ReturnType))
+                    return true;
+            }
+        }
+
+        if (node.Parent is EqualsValueClauseSyntax eq && eq.Parent is VariableDeclaratorSyntax declarator
+            && declarator.Parent is VariableDeclarationSyntax declaration)
+        {
+            var declaredType = context.SemanticModel.GetTypeInfo(declaration.Type).Type;
+            if (declaredType != null && IsCsharpListType(declaredType))
+                return true;
+        }
+
+        if (node.Parent is AssignmentExpressionSyntax assignment && assignment.Right == node)
+        {
+            var leftType = context.SemanticModel.GetTypeInfo(assignment.Left).Type;
+            if (leftType != null && IsCsharpListType(leftType))
+                return true;
+        }
+
+        var typeInfo = context.SemanticModel.GetTypeInfo(node);
+        var listType = typeInfo.ConvertedType ?? typeInfo.Type;
+        if (listType == null)
+            return false;
+
+        if (IsCsharpListType(listType))
+            return true;
+
+        var mapped = context.TypeMappings.MapType(listType.ToDisplayString());
+        if (string.IsNullOrWhiteSpace(mapped) || mapped == listType.ToDisplayString())
+            mapped = context.TypeMappings.MapType($"{listType.ContainingNamespace}.{listType.Name}");
+        if (string.IsNullOrWhiteSpace(mapped))
+            return false;
+
+        var normalized = mapped.StartsWith("java.util.", StringComparison.Ordinal)
+            ? mapped["java.util.".Length..]
+            : mapped;
+        return normalized == "ArrayList" || normalized.StartsWith("ArrayList<", StringComparison.Ordinal);
+    }
+
+    private static bool IsCsharpListType(ITypeSymbol type)
+    {
+        if (type.ToDisplayString() == "System.Collections.ArrayList")
+            return true;
+
+        return type is INamedTypeSymbol named
+            && named.OriginalDefinition?.ToDisplayString() == "System.Collections.Generic.List<T>";
     }
 
     /// <summary>

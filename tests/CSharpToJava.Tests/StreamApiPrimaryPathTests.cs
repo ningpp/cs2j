@@ -326,6 +326,25 @@ public class StreamApiPrimaryPathTests
         Assert.DoesNotContain("Collectors.toList()", java);
     }
 
+    [Fact]
+    public void ToList_WithListReturnType_MaterializesArrayList()
+    {
+        const string code = """
+            using System.Collections.Generic;
+            using System.Linq;
+            class C
+            {
+                public List<string> Test(IEnumerable<int> nums)
+                {
+                    return nums.OrderBy(x => x).Select(x => x.ToString()).ToList();
+                }
+            }
+            """;
+        var java = ConvertAndGetCode(code);
+        Assert.Contains("new ArrayList<>(", java);
+        Assert.Contains(".toList()", java);
+    }
+
     // ── Default behavior: Java 17+ uses Stream API by default ───────────────
 
     [Fact]

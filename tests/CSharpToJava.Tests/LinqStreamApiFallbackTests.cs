@@ -399,6 +399,63 @@ public class LinqStreamApiFallbackTests
         Assert.Contains("Collectors.toMap(", java);
     }
 
+    [Fact]
+    public void IEnumerableReceiver_OrderBy_Select_ToList_UsesStreamSupport()
+    {
+        const string code = """
+            using System.Collections.Generic;
+            using System.Linq;
+            class C
+            {
+                public List<string> Test(IEnumerable<int> nums)
+                {
+                    return nums.OrderBy(x => x).Select(x => x.ToString()).ToList();
+                }
+            }
+            """;
+        var java = ConvertAndGetCode(code);
+        Assert.Contains("StreamSupport.stream(", java);
+        Assert.Contains("spliterator()", java);
+    }
+
+    [Fact]
+    public void ICollectionReceiver_OrderBy_Select_ToList_UsesCollectionStream()
+    {
+        const string code = """
+            using System.Collections.Generic;
+            using System.Linq;
+            class C
+            {
+                public List<string> Test(ICollection<int> nums)
+                {
+                    return nums.OrderBy(x => x).Select(x => x.ToString()).ToList();
+                }
+            }
+            """;
+        var java = ConvertAndGetCode(code);
+        Assert.Contains("nums.stream()", java);
+        Assert.DoesNotContain("StreamSupport.stream(nums", java);
+    }
+
+    [Fact]
+    public void IEnumerableReceiver_OrderBy_ToDictionary_UsesStreamSupport()
+    {
+        const string code = """
+            using System.Collections.Generic;
+            using System.Linq;
+            class C
+            {
+                public Dictionary<int, string> Test(IEnumerable<int> nums)
+                {
+                    return nums.OrderBy(x => x).ToDictionary(x => x, x => x.ToString());
+                }
+            }
+            """;
+        var java = ConvertAndGetCode(code);
+        Assert.Contains("StreamSupport.stream(", java);
+        Assert.Contains("Collectors.toMap(", java);
+    }
+
     // ── GroupBy ─────────────────────────────────────────────────────────────
 
     [Fact]
