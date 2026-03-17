@@ -218,6 +218,87 @@ public class RefParameterTests
             $"Expected exactly 1 occurrence of '{writeback}', found {writebackCount}.\n\n{result.GeneratedCode}");
     }
 
+    // ── out parameter forwarding (mirrors Bug 1 for ref) ────────────────────
+    // OutMethod1 has an out DoubleHolder d1 and calls OutMethod2(out d1).
+    // The argument must be the holder "d1" itself, NOT emit a new wrapper.
+
+    [Fact]
+    public void OutParam_ForwardedToAnotherOutMethod_PassesHolder()
+    {
+        const string code = """
+            class Sample
+            {
+                public double OutMethod2(out double d2)
+                {
+                    d2 = 3.14;
+                    return d2;
+                }
+
+                public double OutMethod1(out double d1)
+                {
+                    return OutMethod2(out d1);
+                }
+            }
+            """;
+
+        var result = Convert(code);
+
+        Assert.True(result.Success,
+            $"Conversion failed:\n{string.Join("\n", result.Diagnostics.Select(d => d.Message))}");
+
+        // The forwarded out argument must be the raw holder, not a new wrapper.
+        Assert.Contains("outMethod2(d1)", result.GeneratedCode);
+        Assert.DoesNotContain("_d1Holder", result.GeneratedCode);
+    }
+
+    // ── out full round-trip with plain-param caller ────────────────────────
+    // OutMethod3 takes a plain double d3 and calls OutMethod2(out d3).
+    // d3 must be wrapped in a holder, and the return statement must be split.
+
+    [Fact]
+    public void OutParam_FullRoundTrip_ThreeMethods()
+    {
+        const string code = """
+            class Sample
+            {
+                public double OutMethod1(out double d1)
+                {
+                    return OutMethod2(out d1);
+                }
+
+                public double OutMethod2(out double d2)
+                {
+                    d2 = 3.14;
+                    return d2;
+                }
+
+                public double OutMethod3(double d3)
+                {
+                    return OutMethod2(out d3);
+                }
+            }
+            """;
+
+        var result = Convert(code);
+
+        Assert.True(result.Success,
+            $"Conversion failed:\n{string.Join("\n", result.Diagnostics.Select(d => d.Message))}");
+
+        // OutMethod1 — forwards its holder directly, no extra wrapper
+        Assert.Contains("outMethod2(d1)", result.GeneratedCode);
+        Assert.DoesNotContain("_d1Holder", result.GeneratedCode);
+
+        // OutMethod2 — body: assign & return via holder
+        Assert.Contains("d2.value = 3.14", result.GeneratedCode);
+        Assert.Contains("return d2.value", result.GeneratedCode);
+
+        // OutMethod3 — wraps local double d3, splits return
+        Assert.Contains("DoubleHolder _d3Holder = new DoubleHolder()", result.GeneratedCode);
+        Assert.Contains("outMethod2(_d3Holder)", result.GeneratedCode);
+        Assert.Contains("d3 = _d3Holder.value", result.GeneratedCode);
+        Assert.Contains("return _ret", result.GeneratedCode);
+    }
+
     private static int CountOccurrences(string text, string pattern)
     {
         int count = 0, i = 0;

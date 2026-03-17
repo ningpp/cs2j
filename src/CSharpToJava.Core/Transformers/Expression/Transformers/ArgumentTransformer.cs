@@ -142,6 +142,14 @@ public class ArgumentTransformer
             // and read back the updated value into the existing variable after the call
             if (arg.Expression is IdentifierNameSyntax ident)
             {
+                // If the identifier is already a ref/out parameter (i.e. already a holder),
+                // pass it directly — same as the ref-forwarding fix (Bug 1).
+                if (context.SemanticModel?.GetSymbolInfo(ident).Symbol is IParameterSymbol outParam
+                    && (outParam.RefKind == RefKind.Ref || outParam.RefKind == RefKind.Out))
+                {
+                    return ConversionContext.EscapeJavaKeyword(outParam.Name);
+                }
+
                 var varName = ident.Identifier.Text;
                 var holderName = $"_{varName}Holder";
                 var javaType = "Object";
