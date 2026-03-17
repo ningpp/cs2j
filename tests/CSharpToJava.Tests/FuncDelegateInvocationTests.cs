@@ -170,4 +170,35 @@ public class FuncDelegateInvocationTests
         Assert.DoesNotContain("Sequence(m)", result.GeneratedCode);
         Assert.DoesNotContain("Sequence.apply", result.GeneratedCode);
     }
+
+    // ── Bug 4 ──────────────────────────────────────────────────────────────────
+    // Invoking a Func<int, double> field via member access (this.sequence(i)) must
+    // emit this.sequence.apply(i), not this.sequence(i).
+    // Reproduces the reported bug:
+    //   return delegate (int i) { return Math.Min(this.sequence(i), 3.14); };
+
+    [Fact]
+    public void Func2_MemberAccessDelegateInvocation_EmitsApply()
+    {
+        const string code = """
+            class UnimodalSequence
+            {
+                System.Func<int, double> sequence;
+
+                System.Func<int, double> GetForMinimum(System.Func<int, double> seq)
+                {
+                    return delegate (int i) { return System.Math.Min(this.sequence(i), 3.14); };
+                }
+            }
+            """;
+
+        var result = Convert(code);
+
+        Assert.True(result.Success,
+            $"Conversion failed:\n{string.Join("\n", result.Diagnostics.Select(d => d.Message))}");
+        // this.sequence(i) must be rewritten to this.sequence.apply(i)
+        Assert.Contains("this.sequence.apply(i)", result.GeneratedCode);
+        // Must NOT appear as a bare member invocation
+        Assert.DoesNotContain("this.sequence(i)", result.GeneratedCode);
+    }
 }

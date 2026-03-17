@@ -187,6 +187,23 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             : facade.Transform(memberAccess.Expression, context);
         var originalMethodName = memberAccess.Name.Identifier.Text;
 
+        // Fix: Delegate invocation via member access (this.sequence(i), obj.callback(x)).
+        // Roslyn reports MethodKind.DelegateInvoke when the accessed member is a Func/Action/delegate.
+        // `receiver` is the LHS of the member access (e.g. "this" for this.sequence(i)); the full
+        // delegate target is `receiver.memberName` (e.g. "this.sequence") → emit "this.sequence.apply(i)".
+        if (context.SemanticModel != null)
+        {
+            var delegateSymInfo = context.SemanticModel.GetSymbolInfo(node);
+            if (delegateSymInfo.Symbol is IMethodSymbol { MethodKind: MethodKind.DelegateInvoke } delegateInvoke)
+            {
+                var containingTypeName = delegateInvoke.ContainingType.ToDisplayString();
+                var javaMethod = context.TypeMappings.MapMethod(containingTypeName, "Invoke") ?? "apply";
+                var delegateArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                // The delegate field/property is `receiver.originalMethodName`; call javaMethod on it.
+                return $"{receiver}.{originalMethodName}.{javaMethod}({delegateArgs})";
+            }
+        }
+
         // Fix: Primitive type static method call — C# double.IsInfinity(x) → Java Double.isInfinite(x).
         if (memberAccess.Expression is PredefinedTypeSyntax primTypeSyntax)
         {
