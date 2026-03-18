@@ -71,7 +71,8 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         if (node.Expression is GenericNameSyntax genericMethodName)
         {
             var methodName = ApplyCamelCaseAndMappings(genericMethodName.Identifier.Text, node, context);
-            var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+            var bareMethodSym = context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol;
+            var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: bareMethodSym);
             return $"{methodName}({args})";
         }
 
@@ -97,7 +98,8 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             }
 
             var methodName = ApplyCamelCaseAndMappings(bareIdent.Identifier.Text, node, context);
-            var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+            var bareMethodSym2 = context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol;
+            var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: bareMethodSym2);
             return $"{methodName}({args})";
         }
 
@@ -118,7 +120,8 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         }
 
         var target = facade.Transform(node.Expression, context);
-        var args2 = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+        var fallbackMethodSym = context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol;
+        var args2 = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: fallbackMethodSym);
         return $"{target}({args2})";
     }
 
@@ -1075,10 +1078,10 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 return $"{receiver}.map({selArg}).max(java.util.Comparator.naturalOrder()).orElseThrow()";
             }
 
-            // ToArray() → toArray()
+            // ToArray() → typed toArray() based on element type
             if (originalMethodName == "ToArray")
             {
-                return $"{receiver}.toArray()";
+                return TransformToArrayWithElementType(receiver, methodSymbol, node, context);
             }
 
             // ToHashSet() → collect(Collectors.toSet())
@@ -1460,7 +1463,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         }
 
         var args = ArgumentTransformer.TransformArgumentList(
-            node.ArgumentList, context, facade, argStartIndex);
+            node.ArgumentList, context, facade, argStartIndex, methodSymbol);
 
         return $"{receiver}.{methodName}({args})";
     }
@@ -1540,6 +1543,88 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         // AsQueryable/AsEnumerable are identity wrappers — don't count as LINQ so .stream() is still injected
         if (sym.Name is "AsQueryable" or "AsEnumerable") return false;
         return sym.ContainingType.ToDisplayString() is "System.Linq.Enumerable" or "System.Linq.Queryable";
+    }
+
+    /// <summary>
+    /// Transforms Stream.toArray() to produce a correctly-typed array instead of Object[].
+    /// For primitive element types (int, long, double): uses mapToXxx().toArray() → primitive array.
+    /// For reference types: uses .toArray(TypeName[]::new) → typed array.
+    /// Falls back to .toArray() when element type cannot be determined.
+    /// </summary>
+    private static string TransformToArrayWithElementType(
+        string receiver,
+        IMethodSymbol? methodSymbol,
+        InvocationExpressionSyntax node,
+        ConversionContext context)
+    {
+        // Try to determine the element type from the LINQ method's receiver (IEnumerable<T>)
+        ITypeSymbol? elementType = null;
+
+        // Method 1: From the extension method's type arguments (e.g. Enumerable.ToArray<TSource>)
+        if (methodSymbol?.TypeArguments.Length >= 1)
+        {
+            elementType = methodSymbol.TypeArguments[0];
+        }
+
+        // Method 2: From the receiver's IEnumerable<T> type argument
+        if (elementType == null && methodSymbol?.ReceiverType is INamedTypeSymbol receiverNamed)
+        {
+            elementType = ExtractEnumerableElementType(receiverNamed);
+        }
+
+        // Method 3: From the assignment/declaration context
+        if (elementType == null && context.SemanticModel != null)
+        {
+            var convertedType = context.SemanticModel.GetTypeInfo(node).ConvertedType;
+            if (convertedType is IArrayTypeSymbol targetArray)
+                elementType = targetArray.ElementType;
+        }
+
+        if (elementType == null)
+            return $"{receiver}.toArray()";
+
+        // Primitive types: use mapToInt/mapToLong/mapToDouble + toArray() → returns int[]/long[]/double[]
+        var specialType = elementType.SpecialType;
+        if (specialType is SpecialType.System_Int32 or SpecialType.System_Int16 or SpecialType.System_Byte)
+        {
+            return $"{receiver}.mapToInt(Integer::intValue).toArray()";
+        }
+        if (specialType is SpecialType.System_Int64)
+        {
+            return $"{receiver}.mapToLong(Long::longValue).toArray()";
+        }
+        if (specialType is SpecialType.System_Double or SpecialType.System_Single)
+        {
+            return $"{receiver}.mapToDouble(Double::doubleValue).toArray()";
+        }
+
+        // Reference types: .toArray(TypeName[]::new)
+        var javaType = context.MapType(elementType);
+        if (!string.IsNullOrEmpty(javaType) && javaType != "Object")
+        {
+            return $"{receiver}.toArray({javaType}[]::new)";
+        }
+
+        return $"{receiver}.toArray()";
+    }
+
+    /// <summary>
+    /// Extracts the element type T from an IEnumerable&lt;T&gt;, ICollection&lt;T&gt;, or similar generic collection type.
+    /// </summary>
+    private static ITypeSymbol? ExtractEnumerableElementType(INamedTypeSymbol type)
+    {
+        if (type.TypeArguments.Length > 0
+            && type.Name is "IEnumerable" or "ICollection" or "IList" or "IOrderedEnumerable"
+                or "IReadOnlyCollection" or "IReadOnlyList" or "List" or "HashSet")
+        {
+            return type.TypeArguments[0];
+        }
+        foreach (var iface in type.AllInterfaces)
+        {
+            if (iface.Name == "IEnumerable" && iface.TypeArguments.Length > 0)
+                return iface.TypeArguments[0];
+        }
+        return null;
     }
 
     /// <summary>

@@ -308,8 +308,14 @@ public class ObjectCreationTransformer : IExpressionTransformer
         }
         else
         {
-            // Try to infer from first element
-            if (node.Initializer?.Expressions.Count > 0)
+            // Fallback 1: Try the converted type (assignment/declaration context target type)
+            var convertedType = typeInfo.HasValue ? typeInfo.Value.ConvertedType : null;
+            if (convertedType is IArrayTypeSymbol convertedArray)
+            {
+                elementType = context.MapType(convertedArray.ElementType);
+            }
+            // Fallback 2: Try to infer from first element
+            else if (node.Initializer?.Expressions.Count > 0)
             {
                 var firstTypeInfo = context.SemanticModel?.GetTypeInfo(node.Initializer.Expressions[0]);
                 if (firstTypeInfo.HasValue && firstTypeInfo.Value.Type != null)

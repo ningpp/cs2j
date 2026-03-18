@@ -67,7 +67,25 @@ public static class ExpressionTransformerRegistry
                 var stackAlloc = (ImplicitStackAllocArrayCreationExpressionSyntax)node;
                 var elements = string.Join(", ", stackAlloc.Initializer.Expressions.Select(e =>
                     ExpressionTransformerFacade.Instance.Transform(e, ctx)));
-                return $"new Object[]{{ {elements} }}";
+
+                // Infer element type from semantic model instead of defaulting to Object[]
+                string elementType = "Object";
+                var typeInfo = ctx.SemanticModel?.GetTypeInfo(node);
+                if (typeInfo.HasValue && typeInfo.Value.Type is IArrayTypeSymbol arrType)
+                {
+                    elementType = ctx.MapType(arrType.ElementType);
+                }
+                else if (typeInfo.HasValue && typeInfo.Value.ConvertedType is IArrayTypeSymbol convArr)
+                {
+                    elementType = ctx.MapType(convArr.ElementType);
+                }
+                else if (stackAlloc.Initializer.Expressions.Count > 0)
+                {
+                    var firstTypeInfo = ctx.SemanticModel?.GetTypeInfo(stackAlloc.Initializer.Expressions[0]);
+                    if (firstTypeInfo.HasValue && firstTypeInfo.Value.Type != null)
+                        elementType = ctx.MapType(firstTypeInfo.Value.Type);
+                }
+                return $"new {elementType}[]{{ {elements} }}";
             }));
 
         Register(new[] { SyntaxKind.CollectionExpression },

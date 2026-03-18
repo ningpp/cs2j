@@ -5,6 +5,7 @@ using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Transformers.Type;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 
 namespace CSharpToJava.Core.Transformers.Expression;
@@ -39,7 +40,7 @@ public class ArgumentTransformer
     /// Issue 5: index of the first argument to include. Pass 1 when in the static-extension-receiver
     /// call path to skip the receiver that has already been prepended to the argument list.
     /// </param>
-    public static string TransformArgumentList(ArgumentListSyntax? argumentList, ConversionContext context, IExpressionTransformer transformer, int argStartIndex = 0)
+    public static string TransformArgumentList(ArgumentListSyntax? argumentList, ConversionContext context, IExpressionTransformer transformer, int argStartIndex = 0, IMethodSymbol? methodSymbol = null)
     {
         if (argumentList == null) return "";
 
@@ -52,7 +53,38 @@ public class ArgumentTransformer
             : args.ToList();
 
         var orderedArgs = ReorderNamedArguments(relevantArgs, argumentList, context);
-        var transformed = orderedArgs.Select(arg => TransformSingleArgument(arg, context, transformer));
+
+        // Build parameter list from the method symbol (accounting for extension methods and argStartIndex)
+        ImmutableArray<IParameterSymbol>? parameters = null;
+        if (methodSymbol != null)
+        {
+            parameters = methodSymbol.Parameters;
+        }
+
+        var transformed = orderedArgs.Select((arg, index) =>
+        {
+            var result = TransformSingleArgument(arg, context, transformer);
+
+            // Apply type coercion when we have parameter type information
+            if (parameters.HasValue && context.SemanticModel != null)
+            {
+                // For extension methods in static path, parameters are shifted by 1
+                // (first param is the receiver). For instance-call form, argStartIndex is 0.
+                int paramIndex = index;
+                // Handle params (varargs): last param absorbs remaining args
+                if (paramIndex >= parameters.Value.Length && parameters.Value.Length > 0
+                    && parameters.Value[^1].IsParams)
+                {
+                    paramIndex = parameters.Value.Length - 1;
+                }
+                if (paramIndex < parameters.Value.Length)
+                {
+                    result = CoerceArgumentType(arg, result, parameters.Value[paramIndex], context);
+                }
+            }
+
+            return result;
+        });
         return string.Join(", ", transformed);
     }
 
@@ -235,6 +267,130 @@ public class ArgumentTransformer
         if (holderType.StartsWith("ObjectHolder<"))
             return "new ObjectHolder<>()";
         return $"new {holderType}()";
+    }
+
+    /// <summary>
+    /// Coerces an argument expression when the C# argument type does not directly match
+    /// the Java target parameter type. Handles three scenarios:
+    /// 1. Array passed where Iterable/Collection is expected → Arrays.asList(...) or stream boxing
+    /// 2. IEnumerable (Iterable) passed where Java method needs Collection → wrap to materialize
+    /// 3. Object[] (from ToArray()) assigned to primitive array → not handled here (see ToArray fix)
+    /// </summary>
+    private static string CoerceArgumentType(
+        ArgumentSyntax arg,
+        string transformedExpr,
+        IParameterSymbol targetParam,
+        ConversionContext context)
+    {
+        // Skip ref/out/in arguments — they have their own handling
+        if (arg.RefKindKeyword.Kind() is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword)
+            return transformedExpr;
+
+        if (context.SemanticModel == null)
+            return transformedExpr;
+
+        var argType = context.SemanticModel.GetTypeInfo(arg.Expression).Type;
+        if (argType == null)
+            return transformedExpr;
+
+        var paramType = targetParam.Type;
+
+        // ── Case 1: Array argument → parameter expects IEnumerable/ICollection/IList ──
+        // In Java, arrays don't implement Iterable or Collection, so we must wrap.
+        if (argType is IArrayTypeSymbol argArrayType && paramType is INamedTypeSymbol paramNamed
+            && IsEnumerableOrCollectionInterface(paramNamed))
+        {
+            // Primitive arrays (int[], long[], double[]) need boxing for generics
+            if (argArrayType.ElementType.IsValueType && IsPrimitiveSpecialType(argArrayType.ElementType.SpecialType))
+            {
+                context.AddImport("java.util.Arrays");
+                context.AddImport("java.util.stream.Collectors");
+                return $"java.util.Arrays.stream({transformedExpr}).boxed().collect(java.util.stream.Collectors.toList())";
+            }
+
+            // Reference type arrays: Arrays.asList() works directly
+            context.AddImport("java.util.Arrays");
+            return $"Arrays.asList({transformedExpr})";
+        }
+
+        // ── Case 2: IEnumerable (Iterable) argument → Java target needs Collection ──
+        // C# AddRange(IEnumerable<T>) maps to Java addAll(Collection<T>).
+        // C# IEnumerable<T> maps to Iterable<T> which does NOT extend Collection.
+        // Also applies to ICollection/IList params where the arg is IEnumerable (Iterable).
+        if (argType is INamedTypeSymbol argNamed && !IsCollectionType(argType))
+        {
+            bool argIsEnumerable = argNamed.Name is "IEnumerable"
+                && argNamed.ContainingNamespace?.ToDisplayString().StartsWith("System") == true;
+            // Check: does the C# parameter itself or the Java target require Collection?
+            bool javaTargetNeedsCollection = false;
+
+            if (paramType is INamedTypeSymbol paramNamed2)
+            {
+                // Direct: C# param is ICollection/IList → Java param is Collection/List
+                if (paramNamed2.Name is "ICollection" or "IList" or "IReadOnlyCollection" or "IReadOnlyList"
+                    && paramNamed2.ContainingNamespace?.ToDisplayString().StartsWith("System") == true)
+                {
+                    javaTargetNeedsCollection = true;
+                }
+                // Indirect: C# param is IEnumerable but Java mapped method needs Collection
+                // (e.g. AddRange(IEnumerable<T>) → addAll(Collection<T>))
+                else if (argIsEnumerable && paramNamed2.Name is "IEnumerable"
+                    && IsJavaMethodRequiringCollection(targetParam.ContainingSymbol as IMethodSymbol, context))
+                {
+                    javaTargetNeedsCollection = true;
+                }
+            }
+
+            if (argIsEnumerable && javaTargetNeedsCollection)
+            {
+                context.AddImport("java.util.ArrayList");
+                context.AddImport("java.util.stream.StreamSupport");
+                context.AddImport("java.util.stream.Collectors");
+                return $"StreamSupport.stream({transformedExpr}.spliterator(), false).collect(Collectors.toCollection(ArrayList::new))";
+            }
+        }
+
+        return transformedExpr;
+    }
+
+    /// <summary>
+    /// Checks if a C# method maps to a Java method that requires Collection parameters
+    /// (e.g. AddRange → addAll, which takes Collection not Iterable).
+    /// </summary>
+    private static bool IsJavaMethodRequiringCollection(IMethodSymbol? method, ConversionContext context)
+    {
+        if (method == null) return false;
+        var typeName = method.ContainingType.ToDisplayString();
+        var mapped = context.TypeMappings.MapMethod(typeName, method.Name);
+        if (mapped == null)
+        {
+            var fqn = $"{method.ContainingType.ContainingNamespace}.{method.ContainingType.Name}";
+            mapped = context.TypeMappings.MapMethod(fqn, method.Name);
+        }
+        // Java Collection methods that take Collection<E> as parameter
+        return mapped is "addAll" or "removeAll" or "containsAll" or "retainAll";
+    }
+
+    private static bool IsEnumerableOrCollectionInterface(INamedTypeSymbol type)
+        => type.Name is "IEnumerable" or "ICollection" or "IList" or "IReadOnlyCollection" or "IReadOnlyList"
+           && type.ContainingNamespace?.ToDisplayString().StartsWith("System") == true;
+
+    private static bool IsPrimitiveSpecialType(SpecialType st)
+        => st is SpecialType.System_Int32 or SpecialType.System_Int16 or SpecialType.System_Byte
+            or SpecialType.System_Int64 or SpecialType.System_Double or SpecialType.System_Single
+            or SpecialType.System_Boolean or SpecialType.System_Char;
+
+    private static bool IsCollectionType(ITypeSymbol type)
+    {
+        if (type is INamedTypeSymbol named)
+        {
+            if (named.Name is "ICollection" or "IList" or "List" or "HashSet" or "SortedSet"
+                or "IReadOnlyCollection" or "IReadOnlyList" or "Collection")
+                return true;
+            return named.AllInterfaces.Any(i =>
+                i.OriginalDefinition?.ToDisplayString() is "System.Collections.Generic.ICollection<T>" or "System.Collections.ICollection");
+        }
+        return false;
     }
 
     /// <summary>
