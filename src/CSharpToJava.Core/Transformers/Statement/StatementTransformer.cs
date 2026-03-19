@@ -428,14 +428,39 @@ public class StatementTransformer : IStatementTransformer
 
         var condition = exprTransformer.Transform(stmt.Condition, context);
 
+        // Fix: out/ref parameters in the condition (e.g. if (TryParse(s, out var n))) emit
+        // Holder declarations as pre-statements and value read-backs as post-statements.
+        // Pre-statements must appear BEFORE the if; post-statements must be injected at the
+        // START of the then-body (where the out variable first becomes visible).
+        string condPreamble = "";
+        string condPostInjection = "";
+        if (context.HasPendingPreStatements)
+        {
+            var pre = context.DrainPreStatements();
+            condPreamble = string.Join("\n", pre.Select(s => s.TrimEnd(';') + ";")) + "\n";
+        }
+        if (context.HasPendingPostStatements)
+        {
+            var post = context.DrainPostStatements();
+            condPostInjection = string.Join("\n        ", post.Select(s => s.TrimEnd(';') + ";")) + "\n        ";
+        }
+
         var stmtTransformer = new StatementTransformer();
 
-        var thenBlock = stmt.Statement is BlockSyntax block
-            ? $"{{\n        {TransformBlock(block, context)}\n    }}"
-            : $"{{\n        {stmtTransformer.Transform(stmt.Statement, context).ToString("")}\n    }}";
+        string thenBlock;
+        if (stmt.Statement is BlockSyntax block)
+        {
+            var bodyStr = TransformBlock(block, context);
+            thenBlock = $"{{\n        {condPostInjection}{bodyStr}\n    }}";
+        }
+        else
+        {
+            var bodyStr = stmtTransformer.Transform(stmt.Statement, context).ToString("");
+            thenBlock = $"{{\n        {condPostInjection}{bodyStr}\n    }}";
+        }
 
         var result = new System.Text.StringBuilder();
-        result.Append($"if ({condition}) {thenBlock}");
+        result.Append($"{condPreamble}if ({condition}) {thenBlock}");
 
         if (stmt.Else != null)
         {
@@ -453,12 +478,35 @@ public class StatementTransformer : IStatementTransformer
         var exprTransformer = ExpressionTransformerFacade.Instance;
         var condition = exprTransformer.Transform(stmt.Condition, context);
 
-        var stmtTransformer = new StatementTransformer();
-        var body = stmt.Statement is BlockSyntax block
-            ? $"{{\n        {TransformBlock(block, context)}\n    }}"
-            : $"{{ {stmtTransformer.Transform(stmt.Statement, context).ToString("")} }}";
+        // Fix: out/ref parameters in while condition — Holder declarations go before the loop;
+        // value read-backs go at the start of the body (re-read each iteration after the call).
+        string whilePreamble = "";
+        string whilePostInjection = "";
+        if (context.HasPendingPreStatements)
+        {
+            var pre = context.DrainPreStatements();
+            whilePreamble = string.Join("\n", pre.Select(s => s.TrimEnd(';') + ";")) + "\n";
+        }
+        if (context.HasPendingPostStatements)
+        {
+            var post = context.DrainPostStatements();
+            whilePostInjection = string.Join("\n        ", post.Select(s => s.TrimEnd(';') + ";")) + "\n        ";
+        }
 
-        return new JavaStatementNode($"while ({condition}) {body}");
+        var stmtTransformer = new StatementTransformer();
+        string body;
+        if (stmt.Statement is BlockSyntax block)
+        {
+            var bodyStr = TransformBlock(block, context);
+            body = $"{{\n        {whilePostInjection}{bodyStr}\n    }}";
+        }
+        else
+        {
+            var bodyStr = stmtTransformer.Transform(stmt.Statement, context).ToString("");
+            body = $"{{\n        {whilePostInjection}{bodyStr}\n    }}";
+        }
+
+        return new JavaStatementNode($"{whilePreamble}while ({condition}) {body}");
     }
 
     private JavaSyntaxNode TransformForStatement(ForStatementSyntax stmt, ConversionContext context)
@@ -491,12 +539,35 @@ public class StatementTransformer : IStatementTransformer
         var incrementors = string.Join(", ", stmt.Incrementors.Select(i =>
             exprTransformer.Transform(i, context)));
 
-        var stmtTransformer = new StatementTransformer();
-        var body = stmt.Statement is BlockSyntax block
-            ? $"{{\n        {TransformBlock(block, context)}\n    }}"
-            : $"{{ {stmtTransformer.Transform(stmt.Statement, context).ToString("")} }}";
+        // Fix: drain any Holder pre/post statements produced while transforming
+        // the for-loop initializers, condition, or incrementors.
+        string forPreamble = "";
+        string forPostInjection = "";
+        if (context.HasPendingPreStatements)
+        {
+            var pre = context.DrainPreStatements();
+            forPreamble = string.Join("\n", pre.Select(s => s.TrimEnd(';') + ";")) + "\n";
+        }
+        if (context.HasPendingPostStatements)
+        {
+            var post = context.DrainPostStatements();
+            forPostInjection = string.Join("\n        ", post.Select(s => s.TrimEnd(';') + ";")) + "\n        ";
+        }
 
-        return new JavaStatementNode($"for ({initializers}; {condition}; {incrementors}) {body}");
+        var stmtTransformer = new StatementTransformer();
+        string body;
+        if (stmt.Statement is BlockSyntax block)
+        {
+            var bodyStr = TransformBlock(block, context);
+            body = $"{{\n        {forPostInjection}{bodyStr}\n    }}";
+        }
+        else
+        {
+            var bodyStr = stmtTransformer.Transform(stmt.Statement, context).ToString("");
+            body = $"{{\n        {forPostInjection}{bodyStr}\n    }}";
+        }
+
+        return new JavaStatementNode($"{forPreamble}for ({initializers}; {condition}; {incrementors}) {body}");
     }
 
     private JavaSyntaxNode TransformForEachStatement(ForEachStatementSyntax stmt, ConversionContext context)
@@ -782,14 +853,35 @@ public class StatementTransformer : IStatementTransformer
     private JavaSyntaxNode TransformDoStatement(DoStatementSyntax stmt, ConversionContext context)
     {
         var exprTransformer = ExpressionTransformerFacade.Instance;
-        var condition = exprTransformer.Transform(stmt.Condition, context);
 
         var stmtTransformer = new StatementTransformer();
-        var body = stmt.Statement is BlockSyntax block
-            ? $"{{\n        {TransformBlock(block, context)}\n    }}"
-            : $"{{ {stmtTransformer.Transform(stmt.Statement, context).ToString("")} }}";
+        var bodyBlock = stmt.Statement is BlockSyntax block
+            ? TransformBlock(block, context)
+            : stmtTransformer.Transform(stmt.Statement, context).ToString("");
 
-        return new JavaStatementNode($"do {body} while ({condition});");
+        // Condition is evaluated at end of each iteration. Any Holder declarations it produces
+        // must live outside the loop; value read-backs are injected into the body tail.
+        // Strategy: transform body first so its own pre/post stmts are already drained,
+        // then transform condition and hoist its pre-stmts before the do.
+        var condition = exprTransformer.Transform(stmt.Condition, context);
+
+        string doPreamble = "";
+        string doBodyTail = "";
+        if (context.HasPendingPreStatements)
+        {
+            var pre = context.DrainPreStatements();
+            doPreamble = string.Join("\n", pre.Select(s => s.TrimEnd(';') + ";")) + "\n";
+        }
+        if (context.HasPendingPostStatements)
+        {
+            // Post-stmts after the condition would only run when the condition is false;
+            // inject at the end of the body so they run every iteration before re-checking.
+            var post = context.DrainPostStatements();
+            doBodyTail = "\n        " + string.Join("\n        ", post.Select(s => s.TrimEnd(';') + ";"));
+        }
+
+        var body = $"{{\n        {bodyBlock}{doBodyTail}\n    }}";
+        return new JavaStatementNode($"{doPreamble}do {body} while ({condition});");
     }
 
     private JavaSyntaxNode TransformSwitchStatement(SwitchStatementSyntax stmt, ConversionContext context)
