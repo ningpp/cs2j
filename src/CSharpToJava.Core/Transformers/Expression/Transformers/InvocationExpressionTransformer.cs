@@ -405,6 +405,33 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             }
         }
 
+        // Fix: Primitive instance method calls → static wrapper form.
+        // C# value types (int, long, double, …) can call GetHashCode/CompareTo/ToString via
+        // implicit boxing. Java primitives cannot call instance methods; use the boxed-class
+        // static equivalents so the generated code compiles without "cannot dereference int".
+        //   intVar.GetHashCode()    → Integer.hashCode(intVar)
+        //   intVar.CompareTo(other) → Integer.compare(intVar, other)
+        //   intVar.ToString()       → String.valueOf(intVar)
+        if (methodName == originalMethodName
+            && context.SemanticModel != null
+            && originalMethodName is "GetHashCode" or "CompareTo" or "ToString")
+        {
+            var receiverSpecialType = context.SemanticModel
+                .GetTypeInfo(memberAccess.Expression).Type?.SpecialType;
+            var wrapperClass = GetJavaWrapperForPrimitiveSpecialType(receiverSpecialType);
+            if (wrapperClass != null)
+            {
+                var primArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                return originalMethodName switch
+                {
+                    "GetHashCode" => $"{wrapperClass}.hashCode({receiver})",
+                    "CompareTo"   => $"{wrapperClass}.compare({receiver}, {primArgs})",
+                    "ToString"    => $"String.valueOf({receiver})",
+                    _             => $"{wrapperClass}.{char.ToLowerInvariant(originalMethodName[0]) + originalMethodName[1..]}({receiver})"
+                };
+            }
+        }
+
         // Apply the same camelCase conversion at call sites that MethodTransformer applies at
         // declaration sites.  Only runs when no explicit TypeMappings override was found so that
         // hand-crafted renames (e.g. Add → add) are never double-processed.
@@ -1759,6 +1786,28 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 _        => "parse" + char.ToUpperInvariant(primitiveKeyword[0]) + primitiveKeyword[1..]
             },
             _ => methodName
+        };
+
+    /// <summary>
+    /// Returns the Java boxed-class name for a C# numeric or boolean primitive SpecialType,
+    /// or null when the type is not a primitive that requires static-wrapper conversion.
+    /// </summary>
+    private static string? GetJavaWrapperForPrimitiveSpecialType(SpecialType? specialType)
+        => specialType switch
+        {
+            SpecialType.System_Int32   => "Integer",
+            SpecialType.System_Int64   => "Long",
+            SpecialType.System_Int16   => "Short",
+            SpecialType.System_Byte    => "Byte",
+            SpecialType.System_SByte   => "Byte",
+            SpecialType.System_UInt32  => "Integer",
+            SpecialType.System_UInt64  => "Long",
+            SpecialType.System_UInt16  => "Short",
+            SpecialType.System_Single  => "Float",
+            SpecialType.System_Double  => "Double",
+            SpecialType.System_Char    => "Character",
+            SpecialType.System_Boolean => "Boolean",
+            _ => null
         };
 
     /// <summary>
