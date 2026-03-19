@@ -184,4 +184,46 @@ public class PrimitiveMethodCallTests
         Assert.Contains("Integer.hashCode(x)", java);
         Assert.Contains("Integer.hashCode(y)", java);
     }
+
+    // ── Test 7: [Flags] enum .ToString() — ScanDirection.cs pattern ────────────
+    // C# source:
+    //   [Flags] public enum Direction { None=0, North=1, East=2, South=4, West=8 }
+    //   public Direction Direction { get; }
+    //   public override string ToString() { return Direction.ToString(); }
+    //
+    // Direction is a [Flags] enum → mapped to Java int.
+    // getDirection() returns int (primitive) → cannot call .toString() on it.
+    // Must emit: String.valueOf(getDirection())
+    [Fact]
+    public void FlagsEnum_ToString_EmitsStringValueOf()
+    {
+        const string code = """
+            using System;
+            namespace Test {
+                [Flags]
+                public enum Direction { None = 0, North = 1, East = 2, South = 4, West = 8 }
+
+                public class ScanDirection {
+                    public Direction Direction { get; private set; }
+
+                    public ScanDirection(Direction dir) {
+                        Direction = dir;
+                    }
+
+                    public override string ToString() {
+                        return Direction.ToString();
+                    }
+                }
+            }
+            """;
+
+        var java = ConvertCode(code);
+
+        // Must NOT call .toString() on int (primitive — [Flags] enum mapped to int)
+        Assert.DoesNotContain("getDirection().toString()", java);
+        // Must use static form
+        Assert.True(
+            java.Contains("String.valueOf(getDirection())") || java.Contains("Integer.toString(getDirection())"),
+            $"Expected String.valueOf(getDirection()) or Integer.toString(getDirection()), got:\n{java}");
+    }
 }

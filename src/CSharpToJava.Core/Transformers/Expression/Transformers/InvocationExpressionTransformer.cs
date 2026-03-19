@@ -412,13 +412,36 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         //   intVar.GetHashCode()    → Integer.hashCode(intVar)
         //   intVar.CompareTo(other) → Integer.compare(intVar, other)
         //   intVar.ToString()       → String.valueOf(intVar)
+        // Also applies to [Flags] enums, which are mapped to int in Java.
+        //   flagsEnumVar.ToString() → String.valueOf(flagsEnumVar)  (not .toString() on int)
         if (methodName == originalMethodName
             && context.SemanticModel != null
             && originalMethodName is "GetHashCode" or "CompareTo" or "ToString")
         {
-            var receiverSpecialType = context.SemanticModel
-                .GetTypeInfo(memberAccess.Expression).Type?.SpecialType;
-            var wrapperClass = GetJavaWrapperForPrimitiveSpecialType(receiverSpecialType);
+            var receiverSymbol = context.SemanticModel
+                .GetTypeInfo(memberAccess.Expression).Type;
+            var wrapperClass = GetJavaWrapperForPrimitiveSpecialType(receiverSymbol?.SpecialType);
+
+            // [Flags] enum → int in Java. Detect via Roslyn FlagsAttribute on the enum symbol.
+            if (wrapperClass == null
+                && receiverSymbol?.TypeKind == Microsoft.CodeAnalysis.TypeKind.Enum
+                && receiverSymbol is INamedTypeSymbol namedEnumType
+                && namedEnumType.GetAttributes().Any(a =>
+                    a.AttributeClass?.ToDisplayString() is "System.FlagsAttribute"))
+            {
+                wrapperClass = "Integer";
+            }
+
+            // Fallback: flags enum registry covers cross-file scenarios where the enum
+            // declaration was seen in a different file in this project compilation.
+            if (wrapperClass == null
+                && receiverSymbol?.TypeKind == Microsoft.CodeAnalysis.TypeKind.Enum
+                && (context.IsFlagsEnum(receiverSymbol.Name)
+                    || context.IsFlagsEnum(receiverSymbol.ToDisplayString() ?? string.Empty)))
+            {
+                wrapperClass = "Integer";
+            }
+
             if (wrapperClass != null)
             {
                 var primArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
