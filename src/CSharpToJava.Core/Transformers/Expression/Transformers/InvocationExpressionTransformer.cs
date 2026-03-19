@@ -328,6 +328,42 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             }
         }
 
+        // Fix: Math.Round(value, digits) → BigDecimal.valueOf(value).setScale(digits, RoundingMode.HALF_UP).doubleValue()
+        // Java's Math.round() only accepts exactly 1 argument; there is no two-argument overload.
+        // Directly mapping C# Math.Round(x, n) → Math.round(x, n) causes a Java compile error:
+        //   "no suitable method found for round(double,int)".
+        // Use BigDecimal.setScale() which is the idiomatic Java equivalent.
+        //
+        // Fix: Math.Round(value) (1-arg) → (double)Math.round(value)
+        // Java Math.round(double) returns long, but C# Math.Round returns double.
+        // An explicit cast preserves the numeric type contract.
+        //
+        // Check both via semantic model (System.Math / System.MathF) and syntactic fallback
+        // (receiver text "Math") for environments with incomplete assembly references.
+        if (originalMethodName == "Round"
+            && (methodSymbol?.ContainingType.ToDisplayString() is "System.Math" or "System.MathF"
+                || (methodSymbol == null && memberAccess.Expression.ToString() is "Math" or "System.Math")))
+        {
+            var argCount = node.ArgumentList.Arguments.Count;
+
+            if (argCount == 2)
+            {
+                // Math.Round(value, digits) → BigDecimal.valueOf(value).setScale(digits, RoundingMode.HALF_UP).doubleValue()
+                context.AddImport("java.math.BigDecimal");
+                context.AddImport("java.math.RoundingMode");
+                var valArg    = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var digitsArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                return $"BigDecimal.valueOf({valArg}).setScale({digitsArg}, RoundingMode.HALF_UP).doubleValue()";
+            }
+
+            if (argCount == 1)
+            {
+                // Math.Round(value) → (double)Math.round(value)
+                var valArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"(double)Math.round({valArg})";
+            }
+        }
+
         // Issue 1: apply method-name mapping from the type-mapping registry.
         string methodName = originalMethodName;
         if (methodSymbol != null)
