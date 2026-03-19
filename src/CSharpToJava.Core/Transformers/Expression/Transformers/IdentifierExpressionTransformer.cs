@@ -29,6 +29,28 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
     private static readonly Lazy<IdentifierExpressionTransformer> _instance = new(() => new());
     public static IdentifierExpressionTransformer Instance => _instance.Value;
 
+    /// <summary>
+    /// Maps C# BCL numeric class names (as IdentifierNameSyntax receivers) to their
+    /// corresponding (keyword, Java wrapper class) pairs for static constant resolution.
+    /// This handles patterns like <c>Double.MaxValue</c>, <c>Int32.MaxValue</c>, etc.
+    /// where the receiver is the class name, not the keyword alias (double/int/...).
+    /// </summary>
+    private static readonly Dictionary<string, (string keyword, string javaWrapper)> _csharpBoxedClassNames = new()
+    {
+        ["Double"]   = ("double",  "Double"),
+        ["Single"]   = ("float",   "Float"),
+        ["Int32"]    = ("int",     "Integer"),
+        ["Int64"]    = ("long",    "Long"),
+        ["Int16"]    = ("short",   "Short"),
+        ["Byte"]     = ("byte",    "Byte"),
+        ["SByte"]    = ("byte",    "Byte"),
+        ["UInt32"]   = ("int",     "Integer"),
+        ["UInt64"]   = ("long",    "Long"),
+        ["UInt16"]   = ("short",   "Short"),
+        ["Char"]     = ("char",    "Character"),
+        ["Boolean"]  = ("bool",    "Boolean"),
+    };
+
     public string Transform(ExpressionSyntax node, ConversionContext context)
         => node.Kind() switch
         {
@@ -284,6 +306,23 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
                     mm3 = context.TypeMappings.MapMethod($"{exprType.ContainingNamespace}.{exprType.Name}", memberName);
                 if (mm3 != null)
                     return mm3.Contains('.') ? mm3 : $"{target}.{mm3}()";
+            }
+        }
+
+        // Fix: C# boxed class-name static constants — Double.MaxValue → Double.MAX_VALUE,
+        // Int32.MaxValue → Integer.MAX_VALUE, Single.MaxValue → Float.MAX_VALUE, etc.
+        // The PredefinedTypeSyntax path above handles keyword forms (e.g. 'double.MaxValue'),
+        // but when code uses the class name form the receiver is an IdentifierNameSyntax.
+        if (node.Expression is IdentifierNameSyntax { Identifier.Text: var boxedIdText }
+            && _csharpBoxedClassNames.TryGetValue(boxedIdText, out var primInfo))
+        {
+            var mappedConst = MapPrimitiveStaticFieldName(primInfo.keyword, memberName);
+            if (mappedConst != memberName) // mapping found (not an identity pass-through)
+            {
+                // Some mappings return self-contained expressions like "(-Double.MAX_VALUE)".
+                if (mappedConst.StartsWith("(") || mappedConst.StartsWith("-"))
+                    return mappedConst;
+                return $"{primInfo.javaWrapper}.{mappedConst}";
             }
         }
 
