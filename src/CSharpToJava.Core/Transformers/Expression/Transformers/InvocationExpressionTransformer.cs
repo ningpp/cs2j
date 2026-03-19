@@ -862,19 +862,22 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 return $"{receiver}.anyMatch(x -> java.util.Objects.equals(x, {valArg}))";
             }
 
-            // Concat → Stream.concat(stream, other.stream())
+            // Concat → Stream.concat(stream, other)
+            // If the argument expression is already a LINQ-transformed stream, use it as-is;
+            // otherwise wrap via BuildStreamExpression (handles Array / Collection / Iterable / Dictionary).
             if (originalMethodName == "Concat" && node.ArgumentList.Arguments.Count >= 1)
             {
-                context.AddImport("java.util.Arrays");
-                var otherArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                var otherType = context.SemanticModel.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type;
+                var concatArgExpr = node.ArgumentList.Arguments[0].Expression;
+                var otherArg = facade.Transform(concatArgExpr, context);
                 string otherStream;
-                if (otherType is IArrayTypeSymbol concatArrType)
-                    otherStream = concatArrType.ElementType.IsValueType
-                        ? $"Arrays.stream({otherArg}).boxed()"
-                        : $"Arrays.stream({otherArg})";
+                if (IsReceiverLinqExtension(concatArgExpr, context))
+                    otherStream = otherArg; // Already a Java stream from LINQ chain transformation
                 else
-                    otherStream = $"{otherArg}.stream()";
+                {
+                    var otherType = context.SemanticModel?.GetTypeInfo(concatArgExpr).Type;
+                    otherStream = ExpressionTransformerHelpers.BuildStreamExpression(
+                        otherArg, otherType, context, boxPrimitiveArrayElements: true);
+                }
                 return $"java.util.stream.Stream.concat({receiver}, {otherStream})";
             }
 
@@ -1276,16 +1279,17 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             // Union(other) → Stream.concat + distinct
             if (originalMethodName == "Union" && node.ArgumentList.Arguments.Count >= 1)
             {
-                context.AddImport("java.util.Arrays");
-                var otherArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                var otherType = context.SemanticModel.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type;
+                var unionArgExpr = node.ArgumentList.Arguments[0].Expression;
+                var otherArg = facade.Transform(unionArgExpr, context);
                 string otherStream;
-                if (otherType is IArrayTypeSymbol unionArrType)
-                    otherStream = unionArrType.ElementType.IsValueType
-                        ? $"Arrays.stream({otherArg}).boxed()"
-                        : $"Arrays.stream({otherArg})";
+                if (IsReceiverLinqExtension(unionArgExpr, context))
+                    otherStream = otherArg;
                 else
-                    otherStream = $"{otherArg}.stream()";
+                {
+                    var otherType = context.SemanticModel?.GetTypeInfo(unionArgExpr).Type;
+                    otherStream = ExpressionTransformerHelpers.BuildStreamExpression(
+                        otherArg, otherType, context, boxPrimitiveArrayElements: true);
+                }
                 return $"java.util.stream.Stream.concat({receiver}, {otherStream}).distinct()";
             }
 
@@ -1430,14 +1434,15 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 context.AddImport("java.util.stream.Stream");
                 var ubOtherArg0 = node.ArgumentList.Arguments[0];
                 var ubOther = facade.Transform(ubOtherArg0.Expression, context);
-                var ubOtherType = context.SemanticModel.GetTypeInfo(ubOtherArg0.Expression).Type;
                 string ubOtherStream;
-                if (ubOtherType is IArrayTypeSymbol ubArrType && ubArrType.ElementType.IsValueType)
-                    ubOtherStream = $"java.util.Arrays.stream({ubOther}).boxed()";
-                else if (ubOtherType is IArrayTypeSymbol)
-                    ubOtherStream = $"java.util.Arrays.stream({ubOther})";
+                if (IsReceiverLinqExtension(ubOtherArg0.Expression, context))
+                    ubOtherStream = ubOther;
                 else
-                    ubOtherStream = $"{ubOther}.stream()";
+                {
+                    var ubOtherType = context.SemanticModel?.GetTypeInfo(ubOtherArg0.Expression).Type;
+                    ubOtherStream = ExpressionTransformerHelpers.BuildStreamExpression(
+                        ubOther, ubOtherType, context, boxPrimitiveArrayElements: true);
+                }
                 var ubSel = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
                 return $"java.util.stream.Stream.concat({receiver}, {ubOtherStream})"
                      + $".collect(Collectors.collectingAndThen("
@@ -1479,7 +1484,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 var jInnerArg0 = node.ArgumentList.Arguments[0];
                 var jInner = facade.Transform(jInnerArg0.Expression, context);
                 var jInnerType = context.SemanticModel.GetTypeInfo(jInnerArg0.Expression).Type;
-                var jInnerStream = jInnerType is IArrayTypeSymbol ? $"java.util.Arrays.stream({jInner})" : $"{jInner}.stream()";
+                var jInnerStream = ExpressionTransformerHelpers.BuildStreamExpression(jInner, jInnerType, context);
                 TryGetSingleParamLambda(node.ArgumentList.Arguments[1].Expression, context, facade, out var jOuterP, out var jOuterKey);
                 TryGetSingleParamLambda(node.ArgumentList.Arguments[2].Expression, context, facade, out var jInnerP, out var jInnerKey);
                 TryGetTwoParamLambda(node.ArgumentList.Arguments[3].Expression, context, facade, out var jResP0, out var jResP1, out var jResBody);
@@ -1506,7 +1511,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 var gjInnerArg0 = node.ArgumentList.Arguments[0];
                 var gjInner = facade.Transform(gjInnerArg0.Expression, context);
                 var gjInnerType = context.SemanticModel.GetTypeInfo(gjInnerArg0.Expression).Type;
-                var gjInnerStream = gjInnerType is IArrayTypeSymbol ? $"java.util.Arrays.stream({gjInner})" : $"{gjInner}.stream()";
+                var gjInnerStream = ExpressionTransformerHelpers.BuildStreamExpression(gjInner, gjInnerType, context);
                 TryGetSingleParamLambda(node.ArgumentList.Arguments[1].Expression, context, facade, out var gjOuterP, out var gjOuterKey);
                 TryGetSingleParamLambda(node.ArgumentList.Arguments[2].Expression, context, facade, out var gjInnerP, out var gjInnerKey);
                 TryGetTwoParamLambda(node.ArgumentList.Arguments[3].Expression, context, facade, out var gjResP0, out var gjResP1, out var gjResBody);
@@ -1698,46 +1703,11 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         ConversionContext context,
         bool boxPrimitiveArrayElements,
         bool preserveGroupingValueStream)
-    {
-        if (receiverType is IArrayTypeSymbol arrayType)
-        {
-            context.AddImport("java.util.Arrays");
-            if (boxPrimitiveArrayElements && arrayType.ElementType.IsValueType)
-                return $"Arrays.stream({receiverExpr}).boxed()";
-            return $"Arrays.stream({receiverExpr})";
-        }
-
-        if (preserveGroupingValueStream
-            && receiverType is INamedTypeSymbol groupingType
-            && groupingType.OriginalDefinition?.ToDisplayString().StartsWith("System.Linq.IGrouping<") == true)
-        {
-            // GroupBy emits .entrySet().stream(); IGrouping in C# → Map.Entry<K,List<V>>.
-            // Stream the group elements via getValue().
-            return $"{receiverExpr}.getValue().stream()";
-        }
-
-        if (CanCallCollectionStream(receiverType))
-            return $"{receiverExpr}.stream()";
-
-        // IEnumerable<T> maps to java.lang.Iterable<T>, which has no .stream().
-        context.AddImport("java.util.stream.StreamSupport");
-        return $"StreamSupport.stream({receiverExpr}.spliterator(), false)";
-    }
+        => ExpressionTransformerHelpers.BuildStreamExpression(
+            receiverExpr, receiverType, context, boxPrimitiveArrayElements, preserveGroupingValueStream);
 
     private static bool CanCallCollectionStream(ITypeSymbol? receiverType)
-    {
-        if (receiverType == null)
-            return false;
-
-        if (receiverType.OriginalDefinition?.ToDisplayString() is "System.Collections.Generic.ICollection<T>" or "System.Collections.ICollection")
-            return true;
-
-        if (receiverType is not INamedTypeSymbol namedType)
-            return false;
-
-        return namedType.AllInterfaces.Any(i =>
-            i.OriginalDefinition?.ToDisplayString() is "System.Collections.Generic.ICollection<T>" or "System.Collections.ICollection");
-    }
+        => ExpressionTransformerHelpers.CanCallCollectionStream(receiverType);
 
     private static bool ShouldMaterializeArrayListForToList(InvocationExpressionSyntax node, ConversionContext context)
     {

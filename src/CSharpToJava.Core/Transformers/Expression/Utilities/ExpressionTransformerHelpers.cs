@@ -243,4 +243,87 @@ public static class ExpressionTransformerHelpers
             _ => "default"
         };
     }
+
+    /// <summary>
+    /// Returns true if the given C# type is a dictionary/map type that maps to Java Map.
+    /// Java Map has no .stream() method; entrySet().stream() must be used instead.
+    /// </summary>
+    public static bool IsDictionaryType(ITypeSymbol? type)
+    {
+        if (type == null) return false;
+        var definition = type.OriginalDefinition?.ToDisplayString() ?? type.ToDisplayString();
+        return definition is
+            "System.Collections.Generic.Dictionary<TKey, TValue>" or
+            "System.Collections.Generic.IDictionary<TKey, TValue>" or
+            "System.Collections.Generic.SortedDictionary<TKey, TValue>" or
+            "System.Collections.Generic.SortedList<TKey, TValue>" or
+            "System.Collections.Generic.IReadOnlyDictionary<TKey, TValue>" or
+            "System.Collections.Concurrent.ConcurrentDictionary<TKey, TValue>" or
+            "System.Collections.Hashtable";
+    }
+
+    /// <summary>
+    /// Returns true if the given C# type maps to a Java Collection (i.e., can call .stream() directly).
+    /// Excludes dictionary types (map to Java Map) and plain Iterable types (IEnumerable without ICollection).
+    /// </summary>
+    public static bool CanCallCollectionStream(ITypeSymbol? receiverType)
+    {
+        if (receiverType == null) return false;
+        // Dictionary types map to Java Map which has no .stream()
+        if (IsDictionaryType(receiverType)) return false;
+        if (receiverType.OriginalDefinition?.ToDisplayString() is
+            "System.Collections.Generic.ICollection<T>" or "System.Collections.ICollection")
+            return true;
+        if (receiverType is not INamedTypeSymbol namedType) return false;
+        return !IsDictionaryType(namedType)
+            && namedType.AllInterfaces.Any(i =>
+                i.OriginalDefinition?.ToDisplayString() is
+                    "System.Collections.Generic.ICollection<T>" or "System.Collections.ICollection");
+    }
+
+    /// <summary>
+    /// Builds a Java stream source expression for the given C# collection/iterable expression.
+    /// Priority: array → Arrays.stream | IGrouping → getValue().stream()
+    ///           Dictionary → entrySet().stream() | Collection → .stream()
+    ///           Iterable/IEnumerable → StreamSupport.stream(spliterator, false)
+    ///           null type → .stream() (safe fallback for Collection receivers)
+    /// </summary>
+    public static string BuildStreamExpression(
+        string receiverExpr,
+        ITypeSymbol? receiverType,
+        ConversionContext context,
+        bool boxPrimitiveArrayElements = false,
+        bool preserveGroupingValueStream = false)
+    {
+        if (receiverType is IArrayTypeSymbol arrayType)
+        {
+            context.AddImport("java.util.Arrays");
+            return boxPrimitiveArrayElements && arrayType.ElementType.IsValueType
+                ? $"Arrays.stream({receiverExpr}).boxed()"
+                : $"Arrays.stream({receiverExpr})";
+        }
+
+        if (preserveGroupingValueStream
+            && receiverType is INamedTypeSymbol groupingType
+            && groupingType.OriginalDefinition?.ToDisplayString().StartsWith("System.Linq.IGrouping<") == true)
+        {
+            return $"{receiverExpr}.getValue().stream()";
+        }
+
+        if (IsDictionaryType(receiverType))
+            return $"{receiverExpr}.entrySet().stream()";
+
+        if (CanCallCollectionStream(receiverType))
+            return $"{receiverExpr}.stream()";
+
+        if (receiverType != null)
+        {
+            // IEnumerable<T> → java.lang.Iterable<T> — no .stream(); use StreamSupport
+            context.AddImport("java.util.stream.StreamSupport");
+            return $"StreamSupport.stream({receiverExpr}.spliterator(), false)";
+        }
+
+        // Type unknown: fall back to .stream() (correct for Collection; may require manual fix for bare Iterable)
+        return $"{receiverExpr}.stream()";
+    }
 }

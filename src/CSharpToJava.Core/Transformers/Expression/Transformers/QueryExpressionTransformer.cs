@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Transformers.Expression.Utilities;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
@@ -42,10 +43,8 @@ public class QueryExpressionTransformer : IExpressionTransformer
         var fromClause = node.FromClause;
         var rangeVar = ConversionContext.EscapeJavaKeyword(fromClause.Identifier.Text);
         var source = facade.Transform(fromClause.Expression, context);
-        // Fix 4: arrays don't have .stream(); use Arrays.stream() instead
-        bool isArraySource = context.SemanticModel?.GetTypeInfo(fromClause.Expression).Type is IArrayTypeSymbol;
-        if (isArraySource) context.AddImport("java.util.Arrays");
-        sb.Append(isArraySource ? $"Arrays.stream({source})" : $"{source}.stream()");
+        var fromClauseType = context.SemanticModel?.GetTypeInfo(fromClause.Expression).Type;
+        sb.Append(ExpressionTransformerHelpers.BuildStreamExpression(source, fromClauseType, context));
 
         // intermediate clauses — use index loop for look-ahead on join…into
         var clauseList = node.Body.Clauses.ToList();
@@ -79,7 +78,8 @@ public class QueryExpressionTransformer : IExpressionTransformer
                     // nested from → flatMap; range variable shifts to inner
                     var innerVar = ConversionContext.EscapeJavaKeyword(additionalFrom.Identifier.Text);
                     var innerSrc = facade.Transform(additionalFrom.Expression, context);
-                    sb.Append($"\n    .flatMap({rangeVar} -> {innerSrc}.stream())");
+                    var innerSrcType = context.SemanticModel?.GetTypeInfo(additionalFrom.Expression).Type;
+                    sb.Append($"\n    .flatMap({rangeVar} -> {ExpressionTransformerHelpers.BuildStreamExpression(innerSrc, innerSrcType, context)})");
                     rangeVar = innerVar;
                     break;
 
@@ -95,9 +95,10 @@ public class QueryExpressionTransformer : IExpressionTransformer
                     // Fix 1: regular equi-join via flatMap + filter on equality
                     var joinVar = ConversionContext.EscapeJavaKeyword(join.Identifier.Text);
                     var joinInExpr = facade.Transform(join.InExpression, context);
+                    var joinInType = context.SemanticModel?.GetTypeInfo(join.InExpression).Type;
                     var joinLeftExpr = facade.Transform(join.LeftExpression, context);
                     var joinRightExpr = facade.Transform(join.RightExpression, context);
-                    sb.Append($"\n    .flatMap({rangeVar} -> {joinInExpr}.stream()" +
+                    sb.Append($"\n    .flatMap({rangeVar} -> {ExpressionTransformerHelpers.BuildStreamExpression(joinInExpr, joinInType, context)}" +
                               $"\n        .filter({joinVar} -> java.util.Objects.equals({joinLeftExpr}, {joinRightExpr})))");
                     rangeVar = joinVar;
                     break;
@@ -142,8 +143,9 @@ public class QueryExpressionTransformer : IExpressionTransformer
 
                     context.AddImport("java.util.stream.Collectors");
                     context.AddImport("java.util.Collections");
+                    var jiInSrcType = context.SemanticModel?.GetTypeInfo(joinInto.InExpression).Type;
                     sb.Append($"\n    .flatMap({capturedOuter} -> {{");
-                    sb.Append($"\n        var {intoId} = {jiInSrc}.stream()");
+                    sb.Append($"\n        var {intoId} = {ExpressionTransformerHelpers.BuildStreamExpression(jiInSrc, jiInSrcType, context)}");
                     sb.Append($"\n            .filter({jiVar} -> java.util.Objects.equals({jiLeft}, {jiRight}))");
                     sb.Append($"\n            .collect(java.util.stream.Collectors.toList());");
                     sb.Append($"\n        var _{intoId} = {intoId}.isEmpty() ? java.util.Collections.singletonList((Object)null) : {intoId};");
