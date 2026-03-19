@@ -60,10 +60,12 @@ public class DelegateTransformer : IDelegateTransformer
         // Propagate type parameter constraints
         ApplyTypeParameterConstraints(node, javaInterface, context);
 
-        // Build the single abstract method "invoke"
+        // Build the single abstract method "apply".
+        // Must match the fallback method name used in InvocationExpressionTransformer
+        // for custom delegate invocations (DelegateInvoke with no TypeMappings entry → "apply").
         var invokeMethod = new JavaMethodDeclaration
         {
-            Name = "invoke",
+            Name = "apply",
             Modifiers = JavaModifiers.None, // interface methods are implicitly public abstract
             ReturnType = GetReturnType(node, context),
         };
