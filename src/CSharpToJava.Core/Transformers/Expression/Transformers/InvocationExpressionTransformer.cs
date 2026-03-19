@@ -432,6 +432,17 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             }
         }
 
+        // Fix: GC.SuppressFinalize(this) and related System.GC static methods.
+        // Java uses automatic garbage collection — these C# IDisposable / finalizer-management
+        // patterns have no Java equivalent and must not be emitted (Java has no "GC" class).
+        // Emitting a comment is valid Java syntax (comment + empty-statement ';').
+        // Must run BEFORE camelCase rename so originalMethodName is still in C# form.
+        if ((receiver == "GC" || methodSymbol?.ContainingType.ToDisplayString() == "System.GC")
+            && originalMethodName is "SuppressFinalize" or "Collect" or "WaitForPendingFinalizers" or "KeepAlive")
+        {
+            return "/* GC operation not needed in Java */";
+        }
+
         // Apply the same camelCase conversion at call sites that MethodTransformer applies at
         // declaration sites.  Only runs when no explicit TypeMappings override was found so that
         // hand-crafted renames (e.g. Add → add) are never double-processed.
