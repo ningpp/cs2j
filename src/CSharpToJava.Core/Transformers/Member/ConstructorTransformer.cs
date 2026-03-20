@@ -171,8 +171,10 @@ public class ConstructorTransformer : IMemberTransformer
                 SyntaxKind.PublicKeyword => JavaModifiers.Public,
                 SyntaxKind.ProtectedKeyword => JavaModifiers.Protected,
                 SyntaxKind.PrivateKeyword => JavaModifiers.Private,
-                // Issue 5: 'internal' maps to package-private (no modifier) in Java, not public.
-                SyntaxKind.InternalKeyword => JavaModifiers.None,
+                // 'internal' maps to 'public' in Java, consistent with all other transformers.
+                // Using package-private caused "not visible outside package" errors when the
+                // enclosing class was already mapped to public.
+                SyntaxKind.InternalKeyword => JavaModifiers.Public,
                 SyntaxKind.StaticKeyword => JavaModifiers.Static,
                 SyntaxKind.ExternKeyword => JavaModifiers.Native,
                 SyntaxKind.UnsafeKeyword => JavaModifiers.None,
