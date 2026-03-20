@@ -364,6 +364,30 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             }
         }
 
+        // Fix: Math.Log(a, newBase) → Math.log(a) / Math.log(newBase)
+        // Java's Math.log() only accepts 1 argument (natural logarithm).
+        // C# Math.Log(double a, double newBase) computes log base newBase of a.
+        // The correct Java equivalent uses the change-of-base formula:
+        //   log_base(a) = Math.log(a) / Math.log(base)
+        // Direct mapping → Math.log(a, newBase) causes a Java compile error:
+        //   "no suitable method found for log(double,double)".
+        // The 1-argument overload Math.Log(x) falls through to TypeMappings (Log → log).
+        if (originalMethodName == "Log"
+            && (methodSymbol?.ContainingType.ToDisplayString() is "System.Math" or "System.MathF"
+                || (methodSymbol == null && memberAccess.Expression.ToString() is "Math" or "System.Math")))
+        {
+            var argCount = node.ArgumentList.Arguments.Count;
+
+            if (argCount == 2)
+            {
+                // Math.Log(a, newBase) → Math.log(a) / Math.log(newBase)
+                var aArg       = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var newBaseArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                return $"Math.log({aArg}) / Math.log({newBaseArg})";
+            }
+            // argCount == 1: fall through to TypeMappings (Log → log), which is correct.
+        }
+
         // Issue 1: apply method-name mapping from the type-mapping registry.
         string methodName = originalMethodName;
         if (methodSymbol != null)
