@@ -146,6 +146,52 @@ public class AssignmentTransformer : IExpressionTransformer
             }
         }
 
+        // Fix 5: Compound assignment to a property via member access (e.g. a.Length *= 0.5).
+        // Simple = already handled above; +=, -=, *=, /=, etc. need getter+setter expansion.
+        // Guard: if the compound op resolves to a user-defined operator, let ExpandCompoundOperatorOverload below handle it.
+        if (op != "=" && leftNode is MemberAccessExpressionSyntax compoundMa)
+        {
+            bool fix5IsUserDefined = context.SemanticModel?.GetSymbolInfo(node).Symbol
+                is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator };
+            if (!fix5IsUserDefined && context.SemanticModel?.GetSymbolInfo(leftNode).Symbol is IPropertySymbol compoundProp)
+            {
+                var getter = "get" + char.ToUpperInvariant(compoundProp.Name[0]) + compoundProp.Name[1..];
+                var setter = "set" + char.ToUpperInvariant(compoundProp.Name[0]) + compoundProp.Name[1..];
+                var rhs = facade.Transform(rightNode, context);
+                string baseOp = op[..^1]; // "+=" → "+", "-=" → "-", "*=" → "*", etc.
+                // Simple receivers (local variable, field, "this") are safe to reference twice.
+                // Complex receivers (method call chains) must be hoisted to avoid double evaluation.
+                if (compoundMa.Expression is IdentifierNameSyntax or ThisExpressionSyntax or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax })
+                {
+                    var receiver = facade.Transform(compoundMa.Expression, context);
+                    return $"{receiver}.{setter}({receiver}.{getter}() {baseOp} {rhs})";
+                }
+                else
+                {
+                    var receiverExpr = facade.Transform(compoundMa.Expression, context);
+                    var tmpReceiver = context.GenerateSyntheticName("_recv");
+                    context.AddPreStatement($"var {tmpReceiver} = {receiverExpr};");
+                    return $"{tmpReceiver}.{setter}({tmpReceiver}.{getter}() {baseOp} {rhs})";
+                }
+            }
+        }
+
+        // Fix 6: Compound assignment to a property via bare identifier (e.g. Count += 1).
+        // Guard: if the compound op resolves to a user-defined operator, let ExpandCompoundOperatorOverload below handle it.
+        if (op != "=" && leftNode is IdentifierNameSyntax compoundIdent)
+        {
+            bool fix6IsUserDefined = context.SemanticModel?.GetSymbolInfo(node).Symbol
+                is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator };
+            if (!fix6IsUserDefined && context.SemanticModel?.GetSymbolInfo(leftNode).Symbol is IPropertySymbol compoundIdentProp)
+            {
+                var getter = "get" + char.ToUpperInvariant(compoundIdentProp.Name[0]) + compoundIdentProp.Name[1..];
+                var setter = "set" + char.ToUpperInvariant(compoundIdentProp.Name[0]) + compoundIdentProp.Name[1..];
+                var rhs = facade.Transform(rightNode, context);
+                string baseOp = op[..^1];
+                return $"{setter}({getter}() {baseOp} {rhs})";
+            }
+        }
+
         // Compound assignment where the operator is user-defined (e.g. Point2 += Point2).
         // Java has no operator overloading, so expand: lhs op= rhs → lhs = TypeName.method(lhs, rhs)
         // For property LHS this must also go through getter/setter.

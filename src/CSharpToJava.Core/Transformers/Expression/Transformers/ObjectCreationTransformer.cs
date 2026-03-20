@@ -134,15 +134,36 @@ public class ObjectCreationTransformer : IExpressionTransformer
 
                 if (assignExpr.Left is IdentifierNameSyntax idName)
                 {
-                    var propertyName = ConversionContext.EscapeJavaKeyword(idName.Identifier.Text);
-                    var setterName = ConvertToSetter(propertyName);
-                    context.AddPreStatement($"{tmpVar}.{setterName}({value});");
+                    // Use semantic model to distinguish public fields from properties:
+                    // public fields → direct Java field assignment (e.g. _obj.Left = value)
+                    // properties → setter method call (e.g. _obj.setLeft(value))
+                    var memberSymbol = context.SemanticModel?.GetSymbolInfo(idName).Symbol;
+                    if (memberSymbol is IFieldSymbol fieldSym)
+                    {
+                        var javaFieldName = ConversionContext.EscapeJavaKeyword(fieldSym.Name);
+                        context.AddPreStatement($"{tmpVar}.{javaFieldName} = {value};");
+                    }
+                    else
+                    {
+                        var propertyName = ConversionContext.EscapeJavaKeyword(idName.Identifier.Text);
+                        var setterName = ConvertToSetter(propertyName);
+                        context.AddPreStatement($"{tmpVar}.{setterName}({value});");
+                    }
                 }
                 else if (assignExpr.Left is MemberAccessExpressionSyntax memberAccess)
                 {
-                    var propertyName = ConversionContext.EscapeJavaKeyword(memberAccess.Name.Identifier.Text);
-                    var setterName = ConvertToSetter(propertyName);
-                    context.AddPreStatement($"{tmpVar}.{setterName}({value});");
+                    var memberSymbol2 = context.SemanticModel?.GetSymbolInfo(memberAccess.Name).Symbol;
+                    if (memberSymbol2 is IFieldSymbol fieldSym2)
+                    {
+                        var javaFieldName = ConversionContext.EscapeJavaKeyword(fieldSym2.Name);
+                        context.AddPreStatement($"{tmpVar}.{javaFieldName} = {value};");
+                    }
+                    else
+                    {
+                        var propertyName = ConversionContext.EscapeJavaKeyword(memberAccess.Name.Identifier.Text);
+                        var setterName = ConvertToSetter(propertyName);
+                        context.AddPreStatement($"{tmpVar}.{setterName}({value});");
+                    }
                 }
                 else
                 {
