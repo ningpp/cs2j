@@ -868,7 +868,12 @@ public class StatementTransformer : IStatementTransformer
         // as stream-typed in TransformLocalDeclaration, treat it as a stream here too.
         // This handles cases where the SemanticModel is unavailable or the type is not in System.Linq.
         if (!isStream && context.StreamLocalVariables.Contains(expression.Trim()))
-            isStream = true;
+        {
+            bool exprIsCollectionLike = exprTypeInfo is INamedTypeSymbol exprNamedType
+                && exprNamedType.Name is "IEnumerable" or "ICollection" or "IList" or "List" or "Collection" or "Iterable";
+            if (!exprIsCollectionLike)
+                isStream = true;
+        }
 
         if (isStream)
         {
@@ -1498,6 +1503,32 @@ public class StatementTransformer : IStatementTransformer
                     initExpr = System.Text.RegularExpressions.Regex.Replace(
                         initExpr.TrimEnd(), @"\.toArray\([^)]+::new\)$", ".collect(Collectors.toList())");
                     context.AddImport("java.util.stream.Collectors");
+                }
+
+                // For C# "var" locals whose semantic type is IEnumerable/ICollection/IList,
+                // Java "var" would otherwise infer Stream<T> from Select/Concat expressions.
+                // That breaks later reassignments to materialized List<T>; collect eagerly here.
+                if (javaType == "var" && stmt.Declaration.Type.IsVar && context.SemanticModel != null)
+                {
+                    var localSym = context.SemanticModel.GetDeclaredSymbol(v) as ILocalSymbol;
+                    bool semanticTypeIsEnumerableLike = localSym?.Type is INamedTypeSymbol localNamed
+                        && localNamed.Name is "IEnumerable" or "IOrderedEnumerable" or "ICollection" or "IList";
+                    bool looksLikeStreamExpr = !initExpr.Contains(".collect(Collectors.toList())")
+                        && !initExpr.Contains(".collect(Collectors.toCollection(ArrayList::new))")
+                        && !initExpr.TrimEnd().EndsWith(".toArray()")
+                        && !System.Text.RegularExpressions.Regex.IsMatch(initExpr.TrimEnd(), @"\.toArray\([^)]*\)$")
+                        && (initExpr.Contains(".sorted(") || initExpr.Contains(".filter(") ||
+                            initExpr.Contains(".map(") || initExpr.Contains(".flatMap(") ||
+                            initExpr.Contains("StreamSupport.stream(") || initExpr.Contains("Arrays.stream(") ||
+                            initExpr.Contains(".stream()") || initExpr.Contains("Stream.concat(") ||
+                            initExpr.Contains(".distinct(") || initExpr.Contains(".limit(") ||
+                            initExpr.Contains(".skip(") || initExpr.Contains(".peek("));
+
+                    if (semanticTypeIsEnumerableLike && looksLikeStreamExpr)
+                    {
+                        initExpr = $"{initExpr}.collect(Collectors.toList())";
+                        context.AddImport("java.util.stream.Collectors");
+                    }
                 }
 
                 // Track stream-typed local variables for subsequent for-each statements.

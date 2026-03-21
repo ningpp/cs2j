@@ -313,6 +313,15 @@ public static class ExpressionTransformerHelpers
         if (IsDictionaryType(receiverType))
             return $"{receiverExpr}.entrySet().stream()";
 
+        // System.Collections.Generic.LinkedList<T> maps to custom runtime type in this project,
+        // which does not expose java.util.Collection#stream(). Use StreamSupport for safety.
+        if (receiverType is INamedTypeSymbol linkedListType
+            && linkedListType.OriginalDefinition?.ToDisplayString() == "System.Collections.Generic.LinkedList<T>")
+        {
+            context.AddImport("java.util.stream.StreamSupport");
+            return $"StreamSupport.stream({receiverExpr}.spliterator(), false)";
+        }
+
         if (CanCallCollectionStream(receiverType))
         {
             if (receiverType is INamedTypeSymbol named

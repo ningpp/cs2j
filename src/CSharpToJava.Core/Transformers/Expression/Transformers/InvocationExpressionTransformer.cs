@@ -454,20 +454,30 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return $"Arrays.stream({arrayArg}).forEach({actionArg})";
         }
 
-        // Fix: Array.Copy(source, sourceIndex, dest, destIndex, length) → System.arraycopy(...)
-        // C# Array.Copy has 5 overloads; we handle the common 5-parameter form here.
+        // Fix: Array.Copy overloads → System.arraycopy(...)
+        // Handle both:
+        //   Copy(source, dest, length)
+        //   Copy(source, sourceIndex, dest, destIndex, length)
         // Check both via semantic model and syntactic fallback (missing assembly reference).
         if (originalMethodName == "Copy"
-            && node.ArgumentList.Arguments.Count >= 5
+            && (node.ArgumentList.Arguments.Count == 3 || node.ArgumentList.Arguments.Count >= 5)
             && (methodSymbol?.ContainingType.ToDisplayString() == "System.Array"
                 || (methodSymbol == null && memberAccess.Expression.ToString() is "Array" or "System.Array")))
         {
-            var srcArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-            var srcIndexArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-            var destArg = facade.Transform(node.ArgumentList.Arguments[2].Expression, context);
-            var destIndexArg = facade.Transform(node.ArgumentList.Arguments[3].Expression, context);
-            var lengthArg = facade.Transform(node.ArgumentList.Arguments[4].Expression, context);
-            return $"System.arraycopy({srcArg}, {srcIndexArg}, {destArg}, {destIndexArg}, {lengthArg})";
+            if (node.ArgumentList.Arguments.Count == 3)
+            {
+                var srcArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var destArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                var lengthArg = facade.Transform(node.ArgumentList.Arguments[2].Expression, context);
+                return $"System.arraycopy({srcArg}, 0, {destArg}, 0, {lengthArg})";
+            }
+
+            var srcArg5 = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var srcIndexArg5 = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            var destArg5 = facade.Transform(node.ArgumentList.Arguments[2].Expression, context);
+            var destIndexArg5 = facade.Transform(node.ArgumentList.Arguments[3].Expression, context);
+            var lengthArg5 = facade.Transform(node.ArgumentList.Arguments[4].Expression, context);
+            return $"System.arraycopy({srcArg5}, {srcIndexArg5}, {destArg5}, {destIndexArg5}, {lengthArg5})";
         }
 
         // System.Array.CreateInstance(type, length) → java.lang.reflect.Array.newInstance(type, length)
@@ -683,6 +693,26 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         }
         else if (methodSymbol == null)
         {
+            // Semantic fallback: method resolution may fail in large project conversion even when
+            // the receiver type symbol is still available (e.g. Console.WriteLine in partially
+            // unresolved compilations). Use receiver type to recover method/type mappings.
+            if (context.SemanticModel != null)
+            {
+                var receiverTypeSymbol = context.SemanticModel.GetSymbolInfo(memberAccess.Expression).Symbol as INamedTypeSymbol;
+                if (receiverTypeSymbol != null)
+                {
+                    var receiverTypeName = receiverTypeSymbol.ToDisplayString();
+                    var mappedByReceiverType = context.TypeMappings.MapMethod(receiverTypeName, originalMethodName);
+                    if (mappedByReceiverType != null)
+                    {
+                        methodName = mappedByReceiverType;
+                        var mappedReceiverType = context.TypeMappings.MapType(receiverTypeName);
+                        if (mappedReceiverType != receiverTypeName)
+                            receiver = mappedReceiverType;
+                    }
+                }
+            }
+
             // Fallback for unresolved static calls: if a simple receiver name collides with a member
             // in the current type, but semantic type info still resolves it to a named type,
             // force fully-qualified type receiver to avoid Java member/type shadowing.
@@ -714,6 +744,18 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 var mappedReceiverType = context.TypeMappings.MapType(syntacticReceiver);
                 if (mappedReceiverType != syntacticReceiver)
                     receiver = mappedReceiverType;
+            }
+
+            // Common unresolved fallback: receiver appears as bare "Console" in syntax,
+            // but mappings are keyed by "System.Console".
+            if (methodName == originalMethodName && syntacticReceiver == "Console")
+            {
+                var consoleMapped = context.TypeMappings.MapMethod("System.Console", originalMethodName);
+                if (consoleMapped != null)
+                {
+                    methodName = consoleMapped;
+                    receiver = context.TypeMappings.MapType("System.Console");
+                }
             }
 
             // Handle C# type alias identifiers (Int32, Int64, etc.) that appear without a namespace.

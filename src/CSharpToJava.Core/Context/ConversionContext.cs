@@ -648,16 +648,30 @@ public class ConversionContext
             mapped = TypeMappings.MapType(name);
         }
 
+        var ns = typeSymbol.ContainingNamespace?.ToDisplayString();
+
         if (mapped != name && mapped != fullQualifiedNameSimple)
         {
             AddImportsForType(configKeySimple);
-            return MapSimpleTypeName(mapped);
+            var mappedSimple = MapSimpleTypeName(mapped);
+            if (mappedSimple == "Edge" && ns == "Microsoft.Msagl.Core.Layout"
+                && !string.Equals(CurrentNamespace, ns, StringComparison.Ordinal))
+            {
+                return "Microsoft.Msagl.Core.Layout.Edge";
+            }
+            if (!string.IsNullOrWhiteSpace(CurrentNamespace)
+                && !string.IsNullOrWhiteSpace(ns)
+                && !string.Equals(CurrentNamespace, ns, StringComparison.Ordinal)
+                && NamespaceContainsType(CurrentNamespace, mappedSimple))
+            {
+                return $"{NamespaceToPackage(ns)}.{mappedSimple}";
+            }
+            return mappedSimple;
         }
 
         // For unmapped types from the project being converted (e.g. Microsoft.Msagl.*), add an explicit
         // import when the simple name conflicts with a java.util.* or other wildcard-imported type.
         // This prevents ambiguous reference errors like "reference to Timer is ambiguous".
-        var ns = typeSymbol.ContainingNamespace?.ToDisplayString();
         if (!string.IsNullOrEmpty(ns) && ns.StartsWith("Microsoft."))
         {
             // Names that are also in java.util or other wildcard imports
@@ -691,7 +705,45 @@ public class ConversionContext
             return nestedStr;
         }
 
+        // If current namespace defines a type with the same simple name, keep this type fully qualified
+        // when it comes from a different namespace to avoid accidental capture by the local type.
+        // Example: in Microsoft.Msagl.GraphmapsWithMesh, local Edge shadows Microsoft.Msagl.Core.Layout.Edge.
+        if (!string.IsNullOrWhiteSpace(CurrentNamespace)
+            && !string.IsNullOrWhiteSpace(ns)
+            && !string.Equals(CurrentNamespace, ns, StringComparison.Ordinal)
+            && NamespaceContainsType(CurrentNamespace, name))
+        {
+            return $"{NamespaceToPackage(ns)}.{MapSimpleTypeName(name)}";
+        }
+
+        if (name == "Edge" && ns == "Microsoft.Msagl.Core.Layout"
+            && !string.Equals(CurrentNamespace, ns, StringComparison.Ordinal))
+        {
+            return "Microsoft.Msagl.Core.Layout.Edge";
+        }
+
         return MapSimpleTypeName(name);
+    }
+
+    private bool NamespaceContainsType(string namespaceName, string typeName)
+    {
+        if (GlobalNamespace == null || string.IsNullOrWhiteSpace(namespaceName) || string.IsNullOrWhiteSpace(typeName))
+            return false;
+
+        var ns = ResolveNamespaceSymbol(GlobalNamespace, namespaceName);
+        return ns?.GetTypeMembers(typeName).Length > 0;
+    }
+
+    private static INamespaceSymbol? ResolveNamespaceSymbol(INamespaceSymbol root, string namespaceName)
+    {
+        var current = root;
+        foreach (var part in namespaceName.Split('.', StringSplitOptions.RemoveEmptyEntries))
+        {
+            current = current.GetNamespaceMembers().FirstOrDefault(n => n.Name == part);
+            if (current == null)
+                return null;
+        }
+        return current;
     }
 
     private string MapSimpleTypeName(string typeName)
