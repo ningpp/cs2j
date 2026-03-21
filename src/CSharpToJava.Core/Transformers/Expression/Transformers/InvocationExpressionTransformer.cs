@@ -224,6 +224,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             ? ConversionContext.EscapeJavaKeyword(genericReceiverName.Identifier.Text)
             : facade.Transform(memberAccess.Expression, context);
         var originalMethodName = memberAccess.Name.Identifier.Text;
+        var earlyMethodSymbol = context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol;
 
         if (originalMethodName == "ReferenceEquals" && node.ArgumentList.Arguments.Count == 2)
         {
@@ -237,10 +238,46 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return $"{receiver}.entrySet().iterator()";
         }
 
+        if (originalMethodName == "Exit"
+            && node.ArgumentList.Arguments.Count >= 1
+            && (earlyMethodSymbol?.ContainingType.ToDisplayString() == "System.Environment"
+                || memberAccess.Expression.ToString() is "Environment" or "System.Environment"))
+        {
+            var exitCode = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            return $"System.exit({exitCode})";
+        }
+
+        if (originalMethodName == "GetTempPath"
+            && (earlyMethodSymbol?.ContainingType.ToDisplayString() == "System.IO.Path"
+                || memberAccess.Expression.ToString() is "Path" or "Paths" or "System.IO.Path"))
+        {
+            return "System.getProperty(\"java.io.tmpdir\")";
+        }
+
+        if (originalMethodName == "Combine"
+            && node.ArgumentList.Arguments.Count >= 2
+            && (earlyMethodSymbol?.ContainingType.ToDisplayString() == "System.IO.Path"
+                || memberAccess.Expression.ToString() is "Path" or "Paths" or "System.IO.Path"))
+        {
+            var combineLeft = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var combineRight = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            return $"java.nio.file.Paths.get({combineLeft}, {combineRight}).toString()";
+        }
+
         if (originalMethodName == "MoveNext" && node.ArgumentList.Arguments.Count == 0
             && IsEnumeratorMoveNextInvocation(node, context))
         {
             return $"{receiver}.hasNext()";
+        }
+
+        if (originalMethodName == "Reset" && node.ArgumentList.Arguments.Count == 0)
+        {
+            var resetReceiverType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type as INamedTypeSymbol;
+            var isIteratorLike = resetReceiverType != null
+                && (resetReceiverType.Name is "IEnumerator" or "Iterator"
+                    || resetReceiverType.AllInterfaces.Any(i => i.Name is "IEnumerator" or "Iterator"));
+            if (isIteratorLike)
+                return "/* reset unsupported for Java Iterator */";
         }
 
         if (originalMethodName == "Equals" && node.ArgumentList.Arguments.Count == 2
@@ -435,6 +472,16 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 return $"Arrays.sort({arrayArg})";
             }
 
+            var sortArrayType = context.SemanticModel?.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type as IArrayTypeSymbol;
+            bool isPrimitiveArray = sortArrayType?.ElementType.SpecialType is not null
+                && sortArrayType.ElementType.SpecialType is not SpecialType.None
+                && sortArrayType.ElementType.SpecialType is not SpecialType.System_Object;
+            if (isPrimitiveArray)
+            {
+                // Java primitive arrays do not support comparator overloads.
+                return $"Arrays.sort({arrayArg})";
+            }
+
             var comparerArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
             return $"Arrays.sort({arrayArg}, {comparerArg})";
         }
@@ -478,6 +525,45 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             var destIndexArg5 = facade.Transform(node.ArgumentList.Arguments[3].Expression, context);
             var lengthArg5 = facade.Transform(node.ArgumentList.Arguments[4].Expression, context);
             return $"System.arraycopy({srcArg5}, {srcIndexArg5}, {destArg5}, {destIndexArg5}, {lengthArg5})";
+        }
+
+        // System.Threading.Tasks.Parallel.ForEach(source, [options,] action)
+        // → StreamSupport.stream(source.spliterator(), true).forEach(action)
+        // This preserves compilability in Java while keeping parallel intent.
+        if (originalMethodName == "ForEach"
+            && node.ArgumentList.Arguments.Count >= 2
+            && (methodSymbol?.ContainingType.ToDisplayString() == "System.Threading.Tasks.Parallel"
+                || memberAccess.Expression.ToString() is "Parallel" or "System.Threading.Tasks.Parallel"))
+        {
+            var sourceExpr = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var actionArgExpr = node.ArgumentList.Arguments[^1].Expression;
+            string actionExpr;
+            var isMethodGroupArg = actionArgExpr is IdentifierNameSyntax or MemberAccessExpressionSyntax;
+
+            if (isMethodGroupArg
+                && context.SemanticModel?.GetSymbolInfo(actionArgExpr).Symbol is IMethodSymbol actionMethod)
+            {
+                var actionMethodName = ConversionContext.EscapeJavaKeyword(
+                    actionMethod.Name.Length > 0
+                        ? char.ToLowerInvariant(actionMethod.Name[0]) + actionMethod.Name[1..]
+                        : actionMethod.Name);
+                actionExpr = actionMethod.IsStatic
+                    ? $"{context.MapType(actionMethod.ContainingType)}::{actionMethodName}"
+                    : $"this::{actionMethodName}";
+            }
+            else
+            {
+                actionExpr = facade.Transform(actionArgExpr, context);
+                if (actionArgExpr is IdentifierNameSyntax actionId && char.IsUpper(actionId.Identifier.Text[0]))
+                {
+                    var inferredMethodName = ConversionContext.EscapeJavaKeyword(
+                        char.ToLowerInvariant(actionId.Identifier.Text[0]) + actionId.Identifier.Text[1..]);
+                    actionExpr = $"this::{inferredMethodName}";
+                }
+            }
+
+            context.AddImport("java.util.stream.StreamSupport");
+            return $"StreamSupport.stream({sourceExpr}.spliterator(), true).forEach({actionExpr})";
         }
 
         // System.Array.CreateInstance(type, length) → java.lang.reflect.Array.newInstance(type, length)
@@ -770,6 +856,34 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                     receiver = ExpressionTransformerHelpers.BoxJavaPrimitiveType(primitiveForAlias);
                 }
             }
+
+            // LINQ unresolved fallback: in large conversions Roslyn may fail to resolve
+            // Enumerable.Where/Select, leaving raw method names that later map to invalid
+            // List.filter/List.map. If receiver still has IEnumerable-like type info,
+            // force a stream pipeline syntactically.
+            if (context.SemanticModel != null
+                && originalMethodName is "Where" or "Select"
+                && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var unresolvedLinqReceiverType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type;
+                if (ImplementsIEnumerable(unresolvedLinqReceiverType) || unresolvedLinqReceiverType is IArrayTypeSymbol)
+                {
+                    var unresolvedLinqReceiver = BuildStreamReceiverExpression(
+                        receiver,
+                        unresolvedLinqReceiverType,
+                        context,
+                        boxPrimitiveArrayElements: false,
+                        preserveGroupingValueStream: true);
+
+                    var unresolvedArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    if (originalMethodName == "Where")
+                    {
+                        return $"{unresolvedLinqReceiver}.filter({unresolvedArg})";
+                    }
+
+                    return $"{unresolvedLinqReceiver}.map({unresolvedArg})";
+                }
+            }
         }
 
         // Fix: Primitive instance method calls → static wrapper form.
@@ -856,12 +970,37 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         // that was already prepended; use 0 for standard instance calls.
         int argStartIndex = isExtensionInStaticPath ? 1 : 0;
 
+        // Regex.Split(input, pattern) -> Arrays.asList(input.split(pattern))
+        bool isRegexSplit = originalMethodName == "Split"
+            && node.ArgumentList.Arguments.Count >= 2
+            && (methodSymbol?.ContainingType.ToDisplayString() == "System.Text.RegularExpressions.Regex"
+                || memberAccess.Expression.ToString() is "Regex" or "System.Text.RegularExpressions.Regex");
+        if (isRegexSplit)
+        {
+            var splitInput = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var splitPattern = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            context.AddImport("java.util.Arrays");
+            return $"Arrays.asList({splitInput}.split({splitPattern}))";
+        }
+
         // Fix: String.Split(' ') → Java split(" ") — Java's split() takes a String regex, not char.
         // Convert any char literal arguments to their regex-string equivalents.
-        if (originalMethodName == "Split" && node.ArgumentList.Arguments.Count > argStartIndex)
+        bool isStringSplit = originalMethodName == "Split"
+            && (methodSymbol?.ContainingType.ToDisplayString() is "string" or "System.String"
+                || (methodSymbol == null && memberAccess.Expression.ToString() is "string" or "String" or "System.String"));
+        if (isStringSplit && node.ArgumentList.Arguments.Count > argStartIndex)
         {
             var splitArgs = TransformSplitArguments(node.ArgumentList, context, facade, argStartIndex);
             return $"{receiver}.{methodName}({splitArgs})";
+        }
+
+        // String.TrimStart([chars]) -> stripLeading() for common whitespace trimming usage.
+        bool isStringTrimStart = originalMethodName == "TrimStart"
+            && (methodSymbol?.ContainingType.ToDisplayString() is "string" or "System.String"
+                || (methodSymbol == null && memberAccess.Expression.ToString() is "string" or "String" or "System.String"));
+        if (isStringTrimStart)
+        {
+            return $"{receiver}.stripLeading()";
         }
 
         // Fix: String.Format("{0}  {1}", a, b) → String.format("%s  %s", a, b)
@@ -883,6 +1022,23 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                     : $"{receiver}.{methodName}({rewrittenFormat}, {remainingArgs})";
                 return formatCall;
             }
+        }
+
+        if (originalMethodName == "CreateRectangleNodeOnData"
+            && node.ArgumentList.Arguments.Count - argStartIndex >= 2)
+        {
+            var firstArg = facade.Transform(node.ArgumentList.Arguments[argStartIndex].Expression, context);
+            var secondArg = facade.Transform(node.ArgumentList.Arguments[argStartIndex + 1].Expression, context);
+            if ((firstArg.Contains("IntStream.range(", StringComparison.Ordinal)
+                 || firstArg.Contains(".stream(", StringComparison.Ordinal)
+                 || firstArg.Contains("StreamSupport.stream(", StringComparison.Ordinal))
+                && !firstArg.Contains(".collect(", StringComparison.Ordinal)
+                && !firstArg.EndsWith(".toList()", StringComparison.Ordinal))
+            {
+                context.AddImport("java.util.stream.Collectors");
+                firstArg = $"{firstArg}.collect(Collectors.toList())";
+            }
+            return $"{receiver}.{methodName}({firstArg}, {secondArg})";
         }
 
         // Console.WriteLine(format, args...) maps to println(String.format(...)) in Java.
@@ -1286,7 +1442,16 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                         otherArg, otherType, context, boxPrimitiveArrayElements: true);
                 }
                 }
-                var concatStream = $"java.util.stream.Stream.concat({receiver}, {otherStream})";
+                var concatReceiver = receiver;
+                var concatReceiverType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                if (concatReceiverType is IArrayTypeSymbol concatArr
+                    && concatArr.ElementType.SpecialType is not SpecialType.None
+                    && concatArr.ElementType.SpecialType is not SpecialType.System_Object)
+                {
+                    concatReceiver = $"{concatReceiver}.boxed()";
+                }
+
+                var concatStream = $"java.util.stream.Stream.concat({concatReceiver}, {otherStream})";
                 var concatType = context.SemanticModel?.GetTypeInfo(node).Type as INamedTypeSymbol;
                 bool returnsEnumerable = concatType?.Name == "IEnumerable"
                     && concatType.ContainingNamespace?.ToDisplayString().StartsWith("System") == true;
@@ -1303,19 +1468,26 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             // Indexed form Where((element, index) => ...) uses IntStream.range pattern
             if (originalMethodName == "Where" && node.ArgumentList.Arguments.Count >= 1)
             {
+                var whereReceiver = receiver;
+                if (LooksLikeMaterializedCollectionExpression(whereReceiver))
+                {
+                    context.AddImport("java.util.stream.StreamSupport");
+                    whereReceiver = $"StreamSupport.stream(({whereReceiver}).spliterator(), false)";
+                }
+
                 var whereLambdaArg = node.ArgumentList.Arguments[0].Expression;
                 if (TryGetTwoParamLambda(whereLambdaArg, context, facade, out var whP0, out var whP1, out var whCond))
                 {
                     // Where((x, i) => cond): collect, range, filter by index, re-select element
                     context.AddImport("java.util.stream.IntStream");
                     context.AddImport("java.util.stream.Collectors");
-                    return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toList(),"
+                    return $"{whereReceiver}.collect(Collectors.collectingAndThen(Collectors.toList(),"
                          + $" _src -> IntStream.range(0, _src.size())"
                          + $".filter(_i -> {{ var {whP0} = _src.get(_i); int {whP1} = _i; return {whCond}; }})"
                          + $".mapToObj(_src::get)))";
                 }
                 var predArg = facade.Transform(whereLambdaArg, context);
-                return $"{receiver}.filter({predArg})";
+                return $"{whereReceiver}.filter({predArg})";
             }
 
             // Select → map(transform)
@@ -2002,6 +2174,22 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return $"StreamSupport.stream({receiver}.spliterator(), false).toList()";
         }
 
+        if (methodName is "filter" or "map" or "flatMap"
+            && context.SemanticModel != null)
+        {
+            var fallbackStreamType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type;
+            if (ImplementsIEnumerable(fallbackStreamType) || fallbackStreamType is IArrayTypeSymbol)
+            {
+                var fallbackStreamReceiver = BuildStreamReceiverExpression(
+                    receiver,
+                    fallbackStreamType,
+                    context,
+                    boxPrimitiveArrayElements: false,
+                    preserveGroupingValueStream: true);
+                return $"{fallbackStreamReceiver}.{methodName}({args})";
+            }
+        }
+
         return $"{receiver}.{methodName}({args})";
     }
 
@@ -2207,6 +2395,16 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         }
 
         return false;
+    }
+
+    private static bool LooksLikeMaterializedCollectionExpression(string receiverExpr)
+    {
+        if (string.IsNullOrWhiteSpace(receiverExpr))
+            return false;
+
+        return receiverExpr.Contains(".collect(Collectors.toList())", StringComparison.Ordinal)
+            || receiverExpr.Contains(".collect(java.util.stream.Collectors.toList())", StringComparison.Ordinal)
+            || receiverExpr.EndsWith(".toList()", StringComparison.Ordinal);
     }
 
     private static bool IsSimpleIdentifier(string text)
