@@ -244,6 +244,31 @@ public class ArgumentTransformer
                 return refHolderName;
             }
 
+            // Member/element ref argument: wrap expression value in a holder and write back after call.
+            // Example: RefMethod(ref obj.field) -> Holder h = new Holder(obj.field); RefMethod(h); obj.field = h.value;
+            if (arg.Expression is MemberAccessExpressionSyntax or ElementAccessExpressionSyntax)
+            {
+                var exprText = transformer.Transform(arg.Expression, context);
+                var holderName = context.GenerateSyntheticName("_refArgHolder");
+
+                var javaType = "Object";
+                if (context.SemanticModel != null)
+                {
+                    var typeInfo = context.SemanticModel.GetTypeInfo(arg.Expression);
+                    if (typeInfo.Type != null)
+                        javaType = context.MapType(typeInfo.Type);
+                }
+
+                var holderType = DelegateTransformer.GetHolderType(javaType);
+                var holderInit = holderType.StartsWith("ObjectHolder<")
+                    ? $"new ObjectHolder<>({exprText})"
+                    : $"new {holderType}({exprText})";
+
+                context.AddPreStatement($"{holderType} {holderName} = {holderInit}");
+                context.AddPostStatement($"{exprText} = {holderName}.value");
+                return holderName;
+            }
+
             // Complex expression (e.g. ref field, ref array element) — no holder support; pass by value.
             context.Diagnostics.Warning("ref argument with complex expression has no direct Java equivalent; passing by value", arg.GetLocation());
             return transformer.Transform(arg.Expression, context);
@@ -295,6 +320,19 @@ public class ArgumentTransformer
             return transformedExpr;
 
         var paramType = targetParam.Type;
+
+        // Enum parameter + integral argument: map ordinal to enum constant.
+        // C# allows passing 0 / int where enum is expected in some contexts; Java requires explicit enum value.
+        if (paramType.TypeKind == TypeKind.Enum
+            && argType.TypeKind != TypeKind.Enum
+            && argType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int16
+                or SpecialType.System_Int64 or SpecialType.System_Byte or SpecialType.System_SByte
+                or SpecialType.System_UInt16 or SpecialType.System_UInt32 or SpecialType.System_UInt64)
+        {
+            var javaEnumType = context.MapType(paramType);
+            if (!string.IsNullOrWhiteSpace(javaEnumType))
+                return $"{javaEnumType}.values()[(int)({transformedExpr})]";
+        }
 
         // ── Case 1: Array argument → parameter expects IEnumerable/ICollection/IList ──
         // In Java, arrays don't implement Iterable or Collection, so we must wrap.

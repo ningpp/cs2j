@@ -1,0 +1,51 @@
+using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Pipeline;
+using System.Linq;
+using Xunit;
+
+namespace CSharpToJava.Tests;
+
+public class SwitchThrowBreakTests
+{
+    private static ConversionResult Convert(string csharpCode)
+    {
+        var pipeline = new ConversionPipeline();
+        return pipeline.Convert(new ConversionRequest
+        {
+            SourceCode = csharpCode,
+            Options = new ConversionOptions
+            {
+                TargetJavaVersion = JavaVersion.Java21,
+                UseRecords = true,
+                PreferStreamApi = true,
+            }
+        });
+    }
+
+    [Fact]
+    public void SwitchDefaultThrow_DoesNotAppendBreak()
+    {
+        const string code = """
+            class C
+            {
+                enum V { A, B }
+
+                int M(V v)
+                {
+                    switch (v)
+                    {
+                        case V.A:
+                            return 1;
+                        default:
+                            throw new System.InvalidOperationException();
+                    }
+                }
+            }
+            """;
+
+        var result = Convert(code);
+        Assert.True(result.Success,
+            $"Conversion failed:\n{string.Join("\n", result.Diagnostics.Select(d => d.Message))}");
+        Assert.DoesNotContain("throw new IllegalStateException();\n            break;", result.GeneratedCode);
+    }
+}

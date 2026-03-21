@@ -319,6 +319,25 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return $"String.format({fmtArgs})";
         }
 
+        // Instance collection ToArray() should produce a typed array, not Object[].
+        if (originalMethodName == "ToArray"
+            && node.ArgumentList.Arguments.Count == 0
+            && methodSymbol is { IsExtensionMethod: false }
+            && methodSymbol.ReturnType is IArrayTypeSymbol instanceArrayType)
+        {
+            return TransformInstanceCollectionToArray(receiver, instanceArrayType.ElementType, context);
+        }
+
+        // Instance List<T>.Reverse() mutates the list in-place.
+        if (originalMethodName == "Reverse"
+            && node.ArgumentList.Arguments.Count == 0
+            && methodSymbol is { IsExtensionMethod: false }
+            && methodSymbol.ContainingType?.Name == "List")
+        {
+            context.AddImport("java.util.Collections");
+            return $"Collections.reverse({receiver})";
+        }
+
         // Fix: First()/Last() on arrays → indexed access (arrays are not streams).
         // String.split() returns String[] in Java; arrays do not have stream terminal ops
         // like findFirst()/reduce(). Use indexed access instead.
@@ -412,6 +431,23 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             var destArrayArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var destIndexArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
             return $"System.arraycopy({receiver}.toArray(), 0, {destArrayArg}, {destIndexArg}, {receiver}.size())";
+        }
+
+        // Dictionary.TryGetValue(key, out value) -> assign holder from get + containsKey check.
+        // This keeps short-circuit boolean semantics and avoids invalid Java get(key, out) calls.
+        if (originalMethodName == "TryGetValue"
+            && node.ArgumentList.Arguments.Count == 2)
+        {
+            var keyArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var outHolderArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            if (IsSimpleIdentifier(outHolderArg))
+            {
+                var assignTarget = outHolderArg.StartsWith("_", StringComparison.Ordinal)
+                    && outHolderArg.EndsWith("Holder", StringComparison.Ordinal)
+                    ? $"{outHolderArg}.value"
+                    : outHolderArg;
+                return $"(({assignTarget} = {receiver}.get({keyArg})) != null || {receiver}.containsKey({keyArg}))";
+            }
         }
 
         // Fix: Array.GetLength(dim) → Java dimensional length access.
@@ -1119,6 +1155,8 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                     string? smParam = smArg.Expression switch
                     {
                         SimpleLambdaExpressionSyntax sl => sl.Parameter.Identifier.Text,
+                        ParenthesizedLambdaExpressionSyntax pl when pl.ParameterList.Parameters.Count == 1
+                            => pl.ParameterList.Parameters[0].Identifier.Text,
                         _ => null
                     };
                     if (smBodyExpr != null && smParam != null)
@@ -1131,6 +1169,17 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                             flatMapArg = smArr.ElementType.IsValueType
                                 ? $"{smParam} -> java.util.Arrays.stream({bodyStr}).boxed()"
                                 : $"{smParam} -> java.util.Arrays.stream({bodyStr})";
+                        }
+                        else if (ImplementsIEnumerable(bodyRetType))
+                        {
+                            string bodyStr = facade.Transform(smBodyExpr, context);
+                            string bodyStream = BuildStreamReceiverExpression(
+                                bodyStr,
+                                bodyRetType,
+                                context,
+                                boxPrimitiveArrayElements: false,
+                                preserveGroupingValueStream: false);
+                            flatMapArg = $"{smParam} -> {bodyStream}";
                         }
                         else
                             flatMapArg = facade.Transform(smArg.Expression, context);
@@ -1851,6 +1900,26 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         return $"{receiver}.toArray()";
     }
 
+    private static string TransformInstanceCollectionToArray(
+        string receiver,
+        ITypeSymbol elementType,
+        ConversionContext context)
+    {
+        var specialType = elementType.SpecialType;
+        if (specialType is SpecialType.System_Int32 or SpecialType.System_Int16 or SpecialType.System_Byte)
+            return $"{receiver}.stream().mapToInt(Integer::intValue).toArray()";
+        if (specialType is SpecialType.System_Int64)
+            return $"{receiver}.stream().mapToLong(Long::longValue).toArray()";
+        if (specialType is SpecialType.System_Double or SpecialType.System_Single)
+            return $"{receiver}.stream().mapToDouble(Double::doubleValue).toArray()";
+
+        var javaType = context.MapType(elementType);
+        if (!string.IsNullOrEmpty(javaType) && javaType != "Object")
+            return $"{receiver}.toArray({javaType}[]::new)";
+
+        return $"{receiver}.toArray()";
+    }
+
     /// <summary>
     /// Extracts the element type T from an IEnumerable&lt;T&gt;, ICollection&lt;T&gt;, or similar generic collection type.
     /// </summary>
@@ -1868,6 +1937,43 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 return iface.TypeArguments[0];
         }
         return null;
+    }
+
+    private static bool ImplementsIEnumerable(ITypeSymbol? type)
+    {
+        if (type == null)
+            return false;
+
+        if (type is IArrayTypeSymbol)
+            return true;
+
+        if (type is INamedTypeSymbol named)
+        {
+            if (named.Name == "IEnumerable" && named.TypeArguments.Length == 1)
+                return true;
+
+            return named.AllInterfaces.Any(i => i.Name == "IEnumerable" && i.TypeArguments.Length == 1);
+        }
+
+        return false;
+    }
+
+    private static bool IsSimpleIdentifier(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        if (!(char.IsLetter(text[0]) || text[0] == '_'))
+            return false;
+
+        for (int i = 1; i < text.Length; i++)
+        {
+            var ch = text[i];
+            if (!(char.IsLetterOrDigit(ch) || ch == '_'))
+                return false;
+        }
+
+        return true;
     }
 
     /// <summary>

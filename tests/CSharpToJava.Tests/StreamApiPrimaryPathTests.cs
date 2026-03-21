@@ -215,6 +215,35 @@ public class StreamApiPrimaryPathTests
         Assert.Contains(".flatMap(", java);
     }
 
+    [Fact]
+    public void SelectMany_IEnumerableSelector_UsesStreamSupportInFlatMap()
+    {
+        const string code = """
+            using System.Collections;
+            using System.Collections.Generic;
+            using System.Linq;
+
+            class Bucket : IEnumerable<int>
+            {
+                private readonly List<int> _items = new();
+                public IEnumerator<int> GetEnumerator() => _items.GetEnumerator();
+                IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+            }
+
+            class C
+            {
+                public List<int> Flatten(List<Bucket> buckets)
+                {
+                    return buckets.SelectMany(b => b).ToList();
+                }
+            }
+            """;
+
+        var java = ConvertAndGetCode(code);
+        Assert.Contains(".flatMap(", java);
+        Assert.Contains("StreamSupport.stream(b.spliterator(), false)", java);
+    }
+
     // ── Intersect / Except with HashSet ─────────────────────────────────────
 
     [Fact]

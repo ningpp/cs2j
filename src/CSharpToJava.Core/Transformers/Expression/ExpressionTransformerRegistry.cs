@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Transformers.Type;
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -46,6 +47,27 @@ public static class ExpressionTransformerRegistry
             new DelegateExpressionTransformer((node, ctx) =>
             {
                 var decl = (DeclarationExpressionSyntax)node;
+                if (decl.Parent is ArgumentSyntax arg
+                    && arg.RefKindKeyword.IsKind(SyntaxKind.OutKeyword)
+                    && decl.Designation is SingleVariableDesignationSyntax svd)
+                {
+                    var varName = svd.Identifier.Text;
+                    var holderName = $"_{varName}Holder";
+
+                    var typeSymbol = ctx.SemanticModel?.GetTypeInfo(decl.Type).Type
+                        ?? ctx.SemanticModel?.GetTypeInfo(decl).Type;
+                    var javaType = typeSymbol != null ? ctx.MapType(typeSymbol) : "Object";
+
+                    var holderType = DelegateTransformer.GetHolderType(javaType);
+                    var holderInit = holderType.StartsWith("ObjectHolder<", StringComparison.Ordinal)
+                        ? "new ObjectHolder<>()"
+                        : $"new {holderType}()";
+
+                    ctx.AddPreStatement($"{holderType} {holderName} = {holderInit}");
+                    ctx.AddPostStatement($"{javaType} {varName} = {holderName}.value");
+                    return holderName;
+                }
+
                 return $"/* TODO: out var {decl.Designation} */";
             }));
 

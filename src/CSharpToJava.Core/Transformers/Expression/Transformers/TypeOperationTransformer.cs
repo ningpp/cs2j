@@ -54,14 +54,26 @@ public class TypeOperationTransformer : IExpressionTransformer
 
         // Get the target type
         var typeInfo = context.SemanticModel?.GetTypeInfo(node.Type);
+        var targetSymbol = typeInfo.HasValue ? typeInfo.Value.Type : null;
         string targetType;
-        if (typeInfo.HasValue && typeInfo.Value.Type != null)
+        if (targetSymbol != null)
         {
-            targetType = context.MapType(typeInfo.Value.Type);
+            targetType = context.MapType(targetSymbol);
         }
         else
         {
             targetType = context.MapTypeFromSyntax(node.Type);
+        }
+
+        // C# numeric -> enum cast: (MyEnum)i
+        // Java cannot cast int to enum directly; map by ordinal index instead.
+        if (targetSymbol?.TypeKind == TypeKind.Enum
+            && context.SemanticModel != null
+            && targetType is not ("int" or "long" or "short" or "byte" or "double" or "float"))
+        {
+            var sourceType = context.SemanticModel.GetTypeInfo(node.Expression).Type;
+            if (sourceType?.TypeKind != TypeKind.Enum)
+                return $"{targetType}.values()[(int)({expression})]";
         }
 
         // Java cast syntax: (Type)expression

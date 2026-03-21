@@ -122,24 +122,30 @@ public class AssignmentTransformer : IExpressionTransformer
                 {
                     var argExpr = argList[0].Expression;
                     var containerType = context.SemanticModel?.GetTypeInfo(ela.Expression).Type;
-                    string method = "put"; // default: maps / unknown
+                    string method = "set"; // default for indexers
                     if (containerType is INamedTypeSymbol namedContainer)
                     {
                         var fullName = namedContainer.OriginalDefinition.ToDisplayString();
+                        bool isDictionaryContainer = fullName is
+                            "System.Collections.Generic.Dictionary<TKey, TValue>"
+                            or "System.Collections.Generic.IDictionary<TKey, TValue>"
+                            or "System.Collections.Generic.IReadOnlyDictionary<TKey, TValue>"
+                            or "System.Collections.Immutable.ImmutableDictionary<TKey, TValue>";
                         bool isListContainer = fullName is
                             "System.Collections.Generic.List<T>"
                             or "System.Collections.Generic.IList<T>"
                             or "System.Collections.Generic.IReadOnlyList<T>"
                             or "System.Collections.Immutable.ImmutableArray<T>";
-                        if (isListContainer) method = "set";
+                        if (isDictionaryContainer) method = "put";
+                        else if (isListContainer) method = "set";
                     }
                     var arg0 = facade.Transform(argExpr, context);
                     return $"{target}.{method}({arg0}, {right})";
                 }
 
-                // Multi-argument indexer: use put with all args (best effort)
+                // Multi-argument indexer: use set(arg0, arg1, ..., value)
                 var transformedArgs = string.Join(", ", argList.Select(a => facade.Transform(a.Expression, context)));
-                return $"{target}.put({transformedArgs}, {right})";
+                return $"{target}.set({transformedArgs}, {right})";
             }
         }
 

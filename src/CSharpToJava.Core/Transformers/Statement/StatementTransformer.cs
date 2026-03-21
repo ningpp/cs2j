@@ -1084,7 +1084,8 @@ public class StatementTransformer : IStatementTransformer
             // 检查是否有 break
             var lastStmt = section.Statements.LastOrDefault();
             var hasBreak = lastStmt?.Kind() == SyntaxKind.BreakStatement ||
-                          lastStmt?.Kind() == SyntaxKind.ReturnStatement;
+                          lastStmt?.Kind() == SyntaxKind.ReturnStatement ||
+                          lastStmt?.Kind() == SyntaxKind.ThrowStatement;
 
             if (!hasBreak && statements.Count > 0)
             {

@@ -153,4 +153,65 @@ public class DictionaryTryGetValueTests
         Assert.Matches(@"if\s*\(result\s*==\s*null\)\s*\{[\s\S]*?\}\s*else\s*\{", converted.GeneratedCode);
         Assert.DoesNotContain("get(42, ", converted.GeneratedCode);
     }
+
+    [Fact]
+    public void TryGetValue_ChainedWithOr_DoesNotEmitGetWithOutParameter()
+    {
+        const string code = """
+            using System.Collections.Generic;
+
+            class Port { }
+            class Shape { }
+            class Couple { }
+
+            class C
+            {
+                bool Test(Dictionary<Port, Shape> portsToShapes, Dictionary<Shape, Couple> couples, Port port)
+                {
+                    Shape portShape;
+                    Couple boundaryCouple;
+
+                    if (!portsToShapes.TryGetValue(port, out portShape)
+                        || !couples.TryGetValue(portShape, out boundaryCouple))
+                    {
+                        return false;
+                    }
+
+                    return boundaryCouple != null;
+                }
+            }
+            """;
+
+        var converted = Convert(code);
+
+        Assert.True(converted.Success,
+            $"Conversion failed:\n{string.Join("\n", converted.Diagnostics.Select(d => d.Message))}");
+        Assert.DoesNotContain(".get(port, ", converted.GeneratedCode);
+        Assert.DoesNotContain(".get(portShape, ", converted.GeneratedCode);
+        Assert.Contains("containsKey(port)", converted.GeneratedCode);
+        Assert.Contains("containsKey(portShape)", converted.GeneratedCode);
+    }
+
+    [Fact]
+    public void TryGetValue_OutVarInConditionalExpression_DoesNotEmitTodoPlaceholder()
+    {
+        const string code = """
+            using System.Collections.Generic;
+
+            class C
+            {
+                string? Find(Dictionary<int, string> map, int key)
+                {
+                    return map.TryGetValue(key, out string value) ? value : null;
+                }
+            }
+            """;
+
+        var converted = Convert(code);
+
+        Assert.True(converted.Success,
+            $"Conversion failed:\n{string.Join("\n", converted.Diagnostics.Select(d => d.Message))}");
+        Assert.DoesNotContain("TODO: out var", converted.GeneratedCode);
+        Assert.DoesNotContain("get(key,", converted.GeneratedCode);
+    }
 }
