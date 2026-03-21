@@ -336,7 +336,23 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return $"Arrays.stream({arrayArg}).forEach({actionArg})";
         }
 
-        // Fix: array.GetLength(dim) → Java dimensional length access.
+        // Fix: Array.Copy(source, sourceIndex, dest, destIndex, length) → System.arraycopy(...)
+        // C# Array.Copy has 5 overloads; we handle the common 5-parameter form here.
+        // Check both via semantic model and syntactic fallback (missing assembly reference).
+        if (originalMethodName == "Copy"
+            && node.ArgumentList.Arguments.Count >= 5
+            && (methodSymbol?.ContainingType.ToDisplayString() == "System.Array"
+                || (methodSymbol == null && memberAccess.Expression.ToString() is "Array" or "System.Array")))
+        {
+            var srcArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var srcIndexArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            var destArg = facade.Transform(node.ArgumentList.Arguments[2].Expression, context);
+            var destIndexArg = facade.Transform(node.ArgumentList.Arguments[3].Expression, context);
+            var lengthArg = facade.Transform(node.ArgumentList.Arguments[4].Expression, context);
+            return $"System.arraycopy({srcArg}, {srcIndexArg}, {destArg}, {destIndexArg}, {lengthArg})";
+        }
+
+        // Fix: Array.GetLength(dim) → Java dimensional length access.
         // Java represents multi-dimensional arrays as jagged arrays (arrays of arrays).
         // Dimension n length: array + "[0]" × n + ".length"
         //   GetLength(0) → matrix.length

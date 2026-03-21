@@ -405,8 +405,23 @@ public class ObjectCreationTransformer : IExpressionTransformer
         if (genericArgStart > 0)
             rawElementType = elementType.Substring(0, genericArgStart);
 
-        var result = new StringBuilder("new ");
-        result.Append(rawElementType);
+        // Fix: Java doesn't allow creating arrays of type parameters (e.g., new T[n]).
+        // Use (T[]) new Object[n] with an unchecked cast instead.
+        bool isTypeParameterArray = elemSemType != null && elemSemType.TypeKind == TypeKind.TypeParameter;
+
+        var result = new StringBuilder();
+        if (isTypeParameterArray)
+        {
+            // For type parameter arrays, use (T[]) new Object[...]
+            result.Append('(');
+            result.Append(elementType);
+            result.Append("[]) new Object");
+        }
+        else
+        {
+            result.Append("new ");
+            result.Append(rawElementType);
+        }
 
         // Add brackets for each dimension.
         // When an initializer is present, Java forbids explicit sizes (e.g. new double[4]{...}
