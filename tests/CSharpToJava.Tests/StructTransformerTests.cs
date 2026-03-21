@@ -103,6 +103,29 @@ public class StructTransformerTests
         Assert.Contains("zero-initialized", result.GeneratedCode);
     }
 
+    [Fact]
+    public void Struct_WithFinalFields_AndExplicitCtor_NoArgCtorInitializesFinals()
+    {
+        const string code = """
+            public struct Pair {
+                public readonly int A;
+                public readonly string B;
+
+                public Pair(int a, string b) {
+                    A = a;
+                    B = b;
+                }
+            }
+            """;
+
+        var result = Convert(code);
+
+        Assert.True(result.Success);
+        Assert.Contains("public Pair()", result.GeneratedCode);
+        Assert.Contains("this.A = 0;", result.GeneratedCode);
+        Assert.Contains("this.B = null;", result.GeneratedCode);
+    }
+
     // ── Fix 1 ──────────────────────────────────────────────────────────────────
     // Every generated struct class must have a clone() method and a Javadoc
     // comment warning about value semantics.
@@ -121,6 +144,29 @@ public class StructTransformerTests
 
         Assert.True(result.Success);
         Assert.Contains("clone()", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void Struct_WithReadonlyFields_CloneUsesConstructorCopyWithoutFinalAssignments()
+    {
+        const string code = """
+            public struct ConstraintListForVariable {
+                public readonly System.Collections.Generic.List<int> Constraints;
+                public readonly int NumberOfLeftConstraints;
+
+                public ConstraintListForVariable(System.Collections.Generic.List<int> constraints, int numberOfLeftConstraints) {
+                    Constraints = constraints;
+                    NumberOfLeftConstraints = numberOfLeftConstraints;
+                }
+            }
+            """;
+
+        var result = Convert(code);
+
+        Assert.True(result.Success);
+        Assert.Contains("return new ConstraintListForVariable(this.Constraints, this.NumberOfLeftConstraints);", result.GeneratedCode);
+        Assert.DoesNotContain("copy.Constraints = this.Constraints;", result.GeneratedCode);
+        Assert.DoesNotContain("copy.NumberOfLeftConstraints = this.NumberOfLeftConstraints;", result.GeneratedCode);
     }
 
     [Fact]

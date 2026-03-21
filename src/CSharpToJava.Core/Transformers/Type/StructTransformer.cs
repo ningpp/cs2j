@@ -105,11 +105,28 @@ public class StructTransformer : ITypeTransformer
         bool hasNoArgCtor = javaClass.Constructors.Any(c => c.Parameters.Count == 0);
         if (hasExplicitCtors && !hasNoArgCtor)
         {
+            var bodyLines = new List<string>();
+            foreach (var field in javaClass.Fields)
+            {
+                bool isInstance = (field.Modifiers & JavaModifiers.Static) == 0;
+                bool isFinal = (field.Modifiers & JavaModifiers.Final) != 0;
+                bool hasInitializer = !string.IsNullOrWhiteSpace(field.Initializer);
+                if (isInstance && isFinal && !hasInitializer)
+                {
+                    bodyLines.Add($"this.{field.Name} = {GetJavaDefaultValue(field.Type)};");
+                }
+            }
+
+            if (bodyLines.Count == 0)
+            {
+                bodyLines.Add("/* zero-initialized */");
+            }
+
             var defaultCtor = new JavaConstructorDeclaration
             {
                 ClassName = javaClass.Name,
                 Modifiers = JavaModifiers.Public,
-                Body = "/* zero-initialized */"
+                Body = string.Join("\n", bodyLines)
             };
             javaClass.Constructors.Insert(0, defaultCtor);
         }
@@ -132,13 +149,48 @@ public class StructTransformer : ITypeTransformer
         var instanceFields = javaClass.Fields
             .Where(f => (f.Modifiers & JavaModifiers.Static) == 0)
             .ToList();
+        bool hasFinalInstanceField = instanceFields.Any(f => (f.Modifiers & JavaModifiers.Final) != 0);
 
         string cloneBody;
-        if (isReadOnly || instanceFields.Count == 0)
+        if (instanceFields.Count == 0)
+        {
+            cloneBody = $"return new {javaClass.Name}();";
+        }
+        else if (isReadOnly)
         {
             // readonly struct: all instance fields are final and cannot be assigned after construction.
-            cloneBody = $"// NOTE: readonly struct — final fields cannot be reassigned after construction.\n" +
-                        $"return new {javaClass.Name}();";
+            if (TryBuildCtorCopy(javaClass, instanceFields, out var ctorCopyExpr))
+            {
+                cloneBody = $"return {ctorCopyExpr};";
+            }
+            else
+            {
+                cloneBody = $"// NOTE: readonly struct without matching constructor for field-wise copy.\n" +
+                            "return this;";
+            }
+        }
+        else if (hasFinalInstanceField)
+        {
+            // Some structs can have readonly fields even without the readonly struct modifier.
+            // Avoid illegal writes to final fields in clone().
+            if (TryBuildCtorCopy(javaClass, instanceFields, out var ctorCopyExpr))
+            {
+                cloneBody = $"return {ctorCopyExpr};";
+            }
+            else
+            {
+                var sb = new System.Text.StringBuilder();
+                sb.AppendLine($"{javaClass.Name} copy = new {javaClass.Name}();");
+                foreach (var field in instanceFields)
+                {
+                    if ((field.Modifiers & JavaModifiers.Final) == 0)
+                    {
+                        sb.AppendLine($"copy.{field.Name} = this.{field.Name};");
+                    }
+                }
+                sb.Append("return copy;");
+                cloneBody = sb.ToString();
+            }
         }
         else
         {
@@ -165,6 +217,85 @@ public class StructTransformer : ITypeTransformer
             LeadingComment = "/** Returns a copy of this struct, approximating C# value-type copy semantics. */"
         };
         javaClass.Methods.Add(cloneMethod);
+    }
+
+    private static bool TryBuildCtorCopy(
+        JavaClassDeclaration javaClass,
+        IReadOnlyList<JavaFieldDeclaration> instanceFields,
+        out string ctorCopyExpression)
+    {
+        foreach (var ctor in javaClass.Constructors)
+        {
+            if (ctor.Parameters.Count != instanceFields.Count)
+            {
+                continue;
+            }
+
+            bool matches = true;
+            for (int i = 0; i < ctor.Parameters.Count; i++)
+            {
+                var param = ctor.Parameters[i];
+                var field = instanceFields[i];
+                if (!string.Equals(param.Type, field.Type, StringComparison.Ordinal))
+                {
+                    matches = false;
+                    break;
+                }
+
+                if (!NamesEquivalent(param.Name, field.Name))
+                {
+                    matches = false;
+                    break;
+                }
+            }
+
+            if (!matches)
+            {
+                continue;
+            }
+
+            string typeName = javaClass.TypeParameters.Count > 0
+                ? $"{javaClass.Name}<{string.Join(", ", javaClass.TypeParameters.Select(tp => tp.Name))}>"
+                : javaClass.Name;
+            ctorCopyExpression = $"new {typeName}({string.Join(", ", instanceFields.Select(f => $"this.{f.Name}"))})";
+            return true;
+        }
+
+        ctorCopyExpression = string.Empty;
+        return false;
+    }
+
+    private static bool NamesEquivalent(string a, string b)
+    {
+        static string Normalize(string s)
+        {
+            if (string.IsNullOrEmpty(s))
+            {
+                return string.Empty;
+            }
+
+            var chars = s.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray();
+            return new string(chars);
+        }
+
+        return string.Equals(Normalize(a), Normalize(b), StringComparison.Ordinal);
+    }
+
+    private static string GetJavaDefaultValue(string javaType)
+    {
+        string t = javaType.Trim();
+        return t switch
+        {
+            "boolean" => "false",
+            "byte" => "(byte)0",
+            "short" => "(short)0",
+            "int" => "0",
+            "long" => "0L",
+            "float" => "0.0f",
+            "double" => "0.0d",
+            "char" => "'\\0'",
+            _ => "null"
+        };
     }
 
     /// <summary>
