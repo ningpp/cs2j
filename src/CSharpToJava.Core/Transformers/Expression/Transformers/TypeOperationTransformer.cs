@@ -92,7 +92,7 @@ public class TypeOperationTransformer : IExpressionTransformer
         }
 
         // C#: obj is Type  → Java: obj instanceof Type
-        return $"{left} instanceof {targetType}";
+        return $"{left} instanceof {ToRuntimeTypeForInstanceOf(targetType)}";
     }
 
     private string TransformIsPattern(IsPatternExpressionSyntax node, ConversionContext context)
@@ -134,12 +134,12 @@ public class TypeOperationTransformer : IExpressionTransformer
         if ((int)context.Options.TargetJavaVersion >= 16)
         {
             // Java 16+ pattern matching
-            return $"{expression} instanceof {targetType} {variableName}";
+            return $"{expression} instanceof {ToRuntimeTypeForInstanceOf(targetType)} {variableName}";
         }
         else
         {
             // Older Java - explicit cast and assignment
-            return $"{expression} instanceof {targetType} && ({variableName} = ({targetType}){expression}) != null";
+            return $"{expression} instanceof {ToRuntimeTypeForInstanceOf(targetType)} && ({variableName} = ({targetType}){expression}) != null";
         }
     }
 
@@ -232,7 +232,14 @@ public class TypeOperationTransformer : IExpressionTransformer
 
         // C#: obj as Type  → Java doesn't have direct equivalent
         // We use: obj instanceof Type ? (Type)obj : null
-        return $"({expression} instanceof {targetType} ? ({targetType})({expression}) : null) /* result may be null — check before use */";
+        return $"({expression} instanceof {ToRuntimeTypeForInstanceOf(targetType)} ? ({targetType})({expression}) : null) /* result may be null — check before use */";
+    }
+
+    private static string ToRuntimeTypeForInstanceOf(string mappedType)
+    {
+        // Java instanceof does not accept parameterized types (e.g. Set<T>).
+        var lt = mappedType.IndexOf('<');
+        return lt >= 0 ? mappedType[..lt] : mappedType;
     }
 
     private string TransformTypeOf(TypeOfExpressionSyntax node, ConversionContext context)

@@ -58,6 +58,15 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return TransformNameof(node.ArgumentList.Arguments[0].Expression);
         }
 
+        // ReferenceEquals(a, b) -> a == b
+        if (node.Expression is IdentifierNameSyntax { Identifier.Text: "ReferenceEquals" }
+            && node.ArgumentList.Arguments.Count == 2)
+        {
+            var leftArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var rightArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            return $"({leftArg} == {rightArg})";
+        }
+
         // Issue 1 & 5: member-access invocations need method-name mapping and
         // extension-receiver double-insertion guarding.
         if (node.Expression is MemberAccessExpressionSyntax memberAccess)
@@ -206,6 +215,13 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             : facade.Transform(memberAccess.Expression, context);
         var originalMethodName = memberAccess.Name.Identifier.Text;
 
+        if (originalMethodName == "ReferenceEquals" && node.ArgumentList.Arguments.Count == 2)
+        {
+            var leftArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var rightArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            return $"({leftArg} == {rightArg})";
+        }
+
         // Fix: Delegate invocation via member access (this.sequence(i), this.Sequence(i), obj.cb(x)).
         // Roslyn reports MethodKind.DelegateInvoke when the accessed member is a Func/Action/delegate.
         // `receiver` is the LHS (e.g. "this"); `originalMethodName` is the member name (field or property).
@@ -350,6 +366,37 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             var destIndexArg = facade.Transform(node.ArgumentList.Arguments[3].Expression, context);
             var lengthArg = facade.Transform(node.ArgumentList.Arguments[4].Expression, context);
             return $"System.arraycopy({srcArg}, {srcIndexArg}, {destArg}, {destIndexArg}, {lengthArg})";
+        }
+
+        // System.Array.CreateInstance(type, length) → java.lang.reflect.Array.newInstance(type, length)
+        if (originalMethodName == "CreateInstance"
+            && node.ArgumentList.Arguments.Count == 2
+            && (methodSymbol?.ContainingType.ToDisplayString() == "System.Array"
+                || (methodSymbol == null && memberAccess.Expression.ToString() is "Array" or "System.Array" or "Object")))
+        {
+            var typeArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var lengthArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            return $"java.lang.reflect.Array.newInstance({typeArg}, {lengthArg})";
+        }
+
+        // System.Array.SetValue(value, index) → java.lang.reflect.Array.set(arrayObj, index, value)
+        if (originalMethodName == "SetValue"
+            && node.ArgumentList.Arguments.Count == 2
+            && (methodSymbol?.ContainingType.ToDisplayString() == "System.Array"
+                || methodSymbol?.ContainingType.ToDisplayString() == "System.Object"))
+        {
+            var valueArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var indexArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            return $"java.lang.reflect.Array.set({receiver}, {indexArg}, {valueArg})";
+        }
+
+        // ICollection<T>.CopyTo(array, arrayIndex) / HashSet<T>.CopyTo(array, index)
+        // Java collections do not expose copyTo; use System.arraycopy(source.toArray(), ...).
+        if (originalMethodName == "CopyTo" && node.ArgumentList.Arguments.Count == 2)
+        {
+            var destArrayArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var destIndexArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            return $"System.arraycopy({receiver}.toArray(), 0, {destArrayArg}, {destIndexArg}, {receiver}.size())";
         }
 
         // Fix: Array.GetLength(dim) → Java dimensional length access.

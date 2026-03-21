@@ -167,6 +167,7 @@ public class ClassTransformer : ITypeTransformer
 
         RemoveCompareToBridgeConflicts(javaClass);
         AddIteratorBridgeMethods(javaClass);
+        AddCollectionInterfaceBridgeMethods(javaClass);
         AddIterableSizeBridgeMethods(javaClass);
         AddCloneableBridgeMethods(javaClass);
         AddComparableBridgeMethods(javaClass);
@@ -271,6 +272,7 @@ public class ClassTransformer : ITypeTransformer
 
         RemoveCompareToBridgeConflicts(javaClass);
         AddIteratorBridgeMethods(javaClass);
+        AddCollectionInterfaceBridgeMethods(javaClass);
         AddIterableSizeBridgeMethods(javaClass);
         AddCloneableBridgeMethods(javaClass);
         AddComparableBridgeMethods(javaClass);
@@ -643,6 +645,61 @@ public class ClassTransformer : ITypeTransformer
         };
         compareTo.Parameters.Add(new JavaParameter(elemType, "other"));
         javaClass.Methods.Add(compareTo);
+    }
+
+    /// <summary>
+    /// Bridges Java Collection&lt;T&gt; contract differences when converting C# ICollection&lt;T&gt; implementers.
+    /// Converts "implements Collection&lt;T&gt;" into "extends AbstractCollection&lt;T&gt;" when possible,
+    /// and fixes key method signatures to Java-compatible forms.
+    /// </summary>
+    private static void AddCollectionInterfaceBridgeMethods(JavaClassDeclaration javaClass)
+    {
+        var collectionType = javaClass.ImplementedTypes.FirstOrDefault(t => t == "Collection" || t.StartsWith("Collection<"));
+        if (collectionType == null) return;
+
+        string elemType = "Object";
+        if (collectionType.StartsWith("Collection<") && collectionType.EndsWith(">"))
+            elemType = collectionType.Substring(11, collectionType.Length - 12);
+
+        // AbstractCollection provides default implementations for most Collection members.
+        if (javaClass.ExtendedType == null)
+        {
+            javaClass.ImplementedTypes.Remove(collectionType);
+            javaClass.ExtendedType = $"java.util.AbstractCollection<{elemType}>";
+        }
+
+        // C# ICollection<T>.Add returns void; Java Collection<E>.add returns boolean.
+        var addMethod = javaClass.Methods.FirstOrDefault(m =>
+            m.Name == "add" && m.Parameters.Count == 1 && m.Parameters[0].Type == elemType && m.ReturnType == "void");
+        if (addMethod != null)
+        {
+            addMethod.ReturnType = "boolean";
+            addMethod.Body = (addMethod.Body ?? "").TrimEnd() + "\nreturn true;";
+        }
+
+        // Java Collection uses Object parameter for contains/remove after erasure.
+        var containsMethod = javaClass.Methods.FirstOrDefault(m =>
+            m.Name == "contains" && m.Parameters.Count == 1 && m.ReturnType == "boolean" && m.Parameters[0].Type == elemType);
+        if (containsMethod != null)
+            containsMethod.Parameters[0].Type = "Object";
+
+        var removeMethod = javaClass.Methods.FirstOrDefault(m =>
+            m.Name == "remove" && m.Parameters.Count == 1 && m.ReturnType == "boolean" && m.Parameters[0].Type == elemType);
+        if (removeMethod != null)
+            removeMethod.Parameters[0].Type = "Object";
+
+        // AbstractCollection requires size(). Reuse getCount() when available.
+        if (!javaClass.Methods.Any(m => m.Name == "size" && m.Parameters.Count == 0)
+            && javaClass.Methods.Any(m => m.Name == "getCount" && m.Parameters.Count == 0))
+        {
+            javaClass.Methods.Add(new JavaMethodDeclaration
+            {
+                Modifiers = JavaModifiers.Public,
+                ReturnType = "int",
+                Name = "size",
+                Body = "return getCount();"
+            });
+        }
     }
 
     /// <summary>

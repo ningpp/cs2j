@@ -121,4 +121,36 @@ public class DictionaryTryGetValueTests
         Assert.DoesNotContain("ObjectHolder", result.GeneratedCode);
         Assert.DoesNotContain("get(42, ", result.GeneratedCode);
     }
+
+    [Fact]
+    public void TryGetValue_NegatedOutExistingVar_WithElse_GeneratesValidIfElse()
+    {
+        const string code = """
+            using System.Collections.Generic;
+            class C
+            {
+                public void Test()
+                {
+                    string result;
+                    var dict = new Dictionary<int, string>();
+                    if (!dict.TryGetValue(42, out result))
+                    {
+                        System.Console.WriteLine("missing");
+                    }
+                    else
+                    {
+                        System.Console.WriteLine(result);
+                    }
+                }
+            }
+            """;
+
+        var converted = Convert(code);
+
+        Assert.True(converted.Success,
+            $"Conversion failed:\n{string.Join("\n", converted.Diagnostics.Select(d => d.Message))}");
+        Assert.Contains("result = dict.get(42)", converted.GeneratedCode);
+        Assert.Matches(@"if\s*\(result\s*==\s*null\)\s*\{[\s\S]*?\}\s*else\s*\{", converted.GeneratedCode);
+        Assert.DoesNotContain("get(42, ", converted.GeneratedCode);
+    }
 }

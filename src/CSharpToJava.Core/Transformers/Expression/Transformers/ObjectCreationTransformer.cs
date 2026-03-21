@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace CSharpToJava.Core.Transformers.Expression;
@@ -60,12 +61,14 @@ public class ObjectCreationTransformer : IExpressionTransformer
     private string TransformObjectCreation(ObjectCreationExpressionSyntax node, ConversionContext context)
     {
         var facade = ExpressionTransformerFacade.Instance;
+        ITypeSymbol? createdTypeSymbol = null;
 
         // Get the type being created
         var typeInfo = context.SemanticModel?.GetTypeInfo(node);
         string typeName;
         if (typeInfo.HasValue && typeInfo.Value.Type != null)
         {
+            createdTypeSymbol = typeInfo.Value.Type;
             typeName = context.MapType(typeInfo.Value.Type);
         }
         else
@@ -75,6 +78,22 @@ public class ObjectCreationTransformer : IExpressionTransformer
             typeName = typeSyntax != null
                 ? context.MapTypeFromSyntax(typeSyntax)
                 : "Object";
+        }
+
+        // Java cannot instantiate a type parameter directly (new T()).
+        // For C# where T : ICollection<...>, new() we map to ArrayList and cast.
+        // For other new()-constrained type params, keep a compilable fallback cast.
+        if ((node.ArgumentList == null || node.ArgumentList.Arguments.Count == 0)
+            && createdTypeSymbol is ITypeParameterSymbol typeParameter)
+        {
+            if (HasCollectionConstraint(typeParameter))
+            {
+                context.AddImport("java.util.ArrayList");
+                return $"({typeName}) new ArrayList<>()";
+            }
+
+            if (typeParameter.HasConstructorConstraint)
+                return $"({typeName}) new Object()";
         }
 
         // Check if there's an object initializer
@@ -90,6 +109,22 @@ public class ObjectCreationTransformer : IExpressionTransformer
         }
 
         return TransformObjectCreationWithArgs(typeName, node.ArgumentList, context);
+    }
+
+    private static bool HasCollectionConstraint(ITypeParameterSymbol typeParameter)
+    {
+        return typeParameter.ConstraintTypes.Any(ct =>
+        {
+            if (ct is INamedTypeSymbol named)
+            {
+                if (named.Name is "ICollection" or "IEnumerable")
+                    return true;
+
+                return named.AllInterfaces.Any(i => i.Name is "ICollection" or "IEnumerable");
+            }
+
+            return false;
+        });
     }
 
     private string TransformObjectCreationWithArgs(string typeName, ArgumentListSyntax? argumentList, ConversionContext context)

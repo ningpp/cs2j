@@ -111,7 +111,8 @@ public class BinaryExpressionTransformer : IExpressionTransformer
             if (symbolInfo.Symbol is IMethodSymbol methodSymbol && methodSymbol.ContainingType != null)
             {
                 // Only convert to method call if it's a user-defined type (not built-in types)
-                if (!IsBuiltInType(methodSymbol.ContainingType))
+                if (methodSymbol.MethodKind == MethodKind.UserDefinedOperator
+                    && !IsBuiltInType(methodSymbol.ContainingType))
                 {
                     return TransformUserDefinedOperator(node, methodSymbol, context);
                 }
@@ -173,6 +174,7 @@ public class BinaryExpressionTransformer : IExpressionTransformer
         "System.SByte", "System.UInt32", "System.UInt64", "System.UInt16",
         "System.Single", "System.Double", "System.Decimal",
         "System.Boolean", "System.Char", "System.String", "System.Object"
+        ,"System.Type"
     };
 
     private string TransformUserDefinedOperator(BinaryExpressionSyntax node, IMethodSymbol operatorSymbol, ConversionContext context)

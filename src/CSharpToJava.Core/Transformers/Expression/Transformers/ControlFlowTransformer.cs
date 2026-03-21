@@ -60,7 +60,44 @@ public class ControlFlowTransformer : IExpressionTransformer
         var condition = facade.Transform(node.Condition, context);
         var trueExpr = facade.Transform(node.WhenTrue, context);
         var falseExpr = facade.Transform(node.WhenFalse, context);
+
+        // If the conditional expression is typed as IEnumerable/ICollection-like, but branches
+        // are stream chains, collect each branch so both sides become Iterable-compatible.
+        if (context.SemanticModel != null)
+        {
+            var converted = context.SemanticModel.GetTypeInfo(node).ConvertedType;
+            var convertedDisplay = converted?.OriginalDefinition.ToDisplayString();
+            bool expectsIterable = convertedDisplay is
+                "System.Collections.Generic.IEnumerable<T>" or
+                "System.Collections.IEnumerable" or
+                "System.Collections.Generic.ICollection<T>" or
+                "System.Collections.ICollection" or
+                "System.Collections.Generic.IList<T>";
+
+            if (expectsIterable)
+            {
+                trueExpr = CollectIfStreamLike(trueExpr, context);
+                falseExpr = CollectIfStreamLike(falseExpr, context);
+            }
+        }
+
         return $"({condition} ? {trueExpr} : {falseExpr})";
+    }
+
+    private static string CollectIfStreamLike(string expr, ConversionContext context)
+    {
+        bool streamLike = expr.Contains(".stream(", StringComparison.Ordinal)
+            || expr.Contains(".filter(", StringComparison.Ordinal)
+            || expr.Contains(".map(", StringComparison.Ordinal)
+            || expr.Contains(".sorted(", StringComparison.Ordinal)
+            || expr.Contains(".distinct(", StringComparison.Ordinal)
+            || expr.Contains(".flatMap(", StringComparison.Ordinal);
+
+        if (!streamLike || expr.Contains(".collect(", StringComparison.Ordinal))
+            return expr;
+
+        context.AddImport("java.util.stream.Collectors");
+        return $"{expr}.collect(Collectors.toList())";
     }
 
     private string TransformConditionalAccess(ConditionalAccessExpressionSyntax node, ConversionContext context)
