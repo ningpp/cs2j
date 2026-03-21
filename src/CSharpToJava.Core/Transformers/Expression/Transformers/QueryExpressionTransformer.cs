@@ -61,15 +61,16 @@ public class QueryExpressionTransformer : IExpressionTransformer
                 case OrderByClauseSyntax orderBy:
                     // Fix 6: chain multiple sort keys into a single Comparator
                     var orderings = orderBy.Orderings;
+                    var orderLambdaParam = BuildTypedLambdaParameter(fromClauseType, rangeVar, context, orderings[0].Expression);
                     var firstKey = facade.Transform(orderings[0].Expression, context);
                     var firstDesc = orderings[0].AscendingOrDescendingKeyword.IsKind(SyntaxKind.DescendingKeyword) ? ".reversed()" : "";
-                    var comparatorBuilder = new System.Text.StringBuilder($"java.util.Comparator.comparing({rangeVar} -> {firstKey}){firstDesc}");
+                    var comparatorBuilder = new System.Text.StringBuilder($"java.util.Comparator.comparing({orderLambdaParam} -> {firstKey}){firstDesc}");
                     for (int oi = 1; oi < orderings.Count; oi++)
                     {
                         var ord = orderings[oi];
                         var thenKey = facade.Transform(ord.Expression, context);
                         var thenDesc = ord.AscendingOrDescendingKeyword.IsKind(SyntaxKind.DescendingKeyword) ? ".reversed()" : "";
-                        comparatorBuilder.Append($"\n        .thenComparing({rangeVar} -> {thenKey}){thenDesc}");
+                        comparatorBuilder.Append($"\n        .thenComparing({orderLambdaParam} -> {thenKey}){thenDesc}");
                     }
                     sb.Append($"\n    .sorted({comparatorBuilder})");
                     break;
@@ -210,15 +211,16 @@ public class QueryExpressionTransformer : IExpressionTransformer
                         break;
                     case OrderByClauseSyntax contOrderBy:
                         var contOrderings = contOrderBy.Orderings;
+                        var contLambdaParam = BuildTypedLambdaParameter(null, rangeVar, context, contOrderings[0].Expression);
                         var contFirstKey = facade.Transform(contOrderings[0].Expression, context);
                         var contFirstDesc = contOrderings[0].AscendingOrDescendingKeyword.IsKind(SyntaxKind.DescendingKeyword) ? ".reversed()" : "";
-                        var contComparator = new System.Text.StringBuilder($"java.util.Comparator.comparing({rangeVar} -> {contFirstKey}){contFirstDesc}");
+                        var contComparator = new System.Text.StringBuilder($"java.util.Comparator.comparing({contLambdaParam} -> {contFirstKey}){contFirstDesc}");
                         for (int ci2 = 1; ci2 < contOrderings.Count; ci2++)
                         {
                             var cord = contOrderings[ci2];
                             var ck = facade.Transform(cord.Expression, context);
                             var cd = cord.AscendingOrDescendingKeyword.IsKind(SyntaxKind.DescendingKeyword) ? ".reversed()" : "";
-                            contComparator.Append($"\n        .thenComparing({rangeVar} -> {ck}){cd}");
+                            contComparator.Append($"\n        .thenComparing({contLambdaParam} -> {ck}){cd}");
                         }
                         sb.Append($"\n    .sorted({contComparator})");
                         break;
@@ -254,4 +256,46 @@ public class QueryExpressionTransformer : IExpressionTransformer
 
         return sb.ToString();
     }
+
+    private static string BuildTypedLambdaParameter(ITypeSymbol? sourceType, string rangeVar, ConversionContext context, ExpressionSyntax? keyExpression)
+    {
+        var elementType = ExtractEnumerableElementType(sourceType);
+        if (elementType == null && keyExpression != null && context.SemanticModel != null)
+        {
+            var rangeIdent = keyExpression
+                .DescendantNodesAndSelf()
+                .OfType<IdentifierNameSyntax>()
+                .FirstOrDefault(i => i.Identifier.Text == rangeVar);
+            if (rangeIdent != null)
+                elementType = context.SemanticModel.GetTypeInfo(rangeIdent).Type;
+        }
+
+        if (elementType == null)
+            return rangeVar;
+
+        var javaType = context.MapType(elementType);
+        if (string.IsNullOrWhiteSpace(javaType) || javaType == elementType.ToDisplayString())
+            return rangeVar;
+
+        var boxed = ExpressionTransformerHelpers.BoxJavaPrimitiveType(javaType);
+        return $"({boxed} {rangeVar})";
+    }
+
+    private static ITypeSymbol? ExtractEnumerableElementType(ITypeSymbol? sourceType)
+    {
+        if (sourceType is IArrayTypeSymbol arrayType)
+            return arrayType.ElementType;
+
+        if (sourceType is not INamedTypeSymbol named)
+            return null;
+
+        if (named.TypeArguments.Length == 1 && IsEnumerableNamedType(named))
+            return named.TypeArguments[0];
+
+        var ienum = named.AllInterfaces.FirstOrDefault(i => IsEnumerableNamedType(i) && i.TypeArguments.Length == 1);
+        return ienum?.TypeArguments[0];
+    }
+
+    private static bool IsEnumerableNamedType(INamedTypeSymbol named)
+        => named.Name == "IEnumerable" && named.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic";
 }

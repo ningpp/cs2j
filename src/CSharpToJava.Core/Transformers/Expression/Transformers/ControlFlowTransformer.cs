@@ -78,6 +78,8 @@ public class ControlFlowTransformer : IExpressionTransformer
             {
                 trueExpr = CollectIfStreamLike(trueExpr, context);
                 falseExpr = CollectIfStreamLike(falseExpr, context);
+                trueExpr = AdaptZeroArrayToEmptyIterable(trueExpr, context);
+                falseExpr = AdaptZeroArrayToEmptyIterable(falseExpr, context);
             }
         }
 
@@ -98,6 +100,19 @@ public class ControlFlowTransformer : IExpressionTransformer
 
         context.AddImport("java.util.stream.Collectors");
         return $"{expr}.collect(Collectors.toList())";
+    }
+
+    private static string AdaptZeroArrayToEmptyIterable(string expr, ConversionContext context)
+    {
+        var t = expr.Trim();
+        if (t.Contains("new ", StringComparison.Ordinal)
+            && t.Contains("[0]", StringComparison.Ordinal))
+        {
+            context.AddImport("java.util.Collections");
+            return "Collections.emptyList()";
+        }
+
+        return expr;
     }
 
     private string TransformConditionalAccess(ConditionalAccessExpressionSyntax node, ConversionContext context)

@@ -82,6 +82,10 @@ public class ArgumentTransformer
                     result = CoerceArgumentType(arg, result, parameters.Value[paramIndex], context);
                 }
             }
+            else
+            {
+                result = CoerceEnumerableStreamFallback(arg, result, context);
+            }
 
             return result;
         });
@@ -161,7 +165,7 @@ public class ArgumentTransformer
                 outDecl.Designation is SingleVariableDesignationSyntax svd)
             {
                 var varName = svd.Identifier.Text;
-                var holderName = $"_{varName}Holder";
+                var holderName = context.GenerateSyntheticName($"_{varName}Holder");
                 var javaType = ResolveOutVarType(outDecl, context);
                 var holderType = DelegateTransformer.GetHolderType(javaType);
                 var holderInit = GetHolderInstantiation(holderType);
@@ -183,7 +187,7 @@ public class ArgumentTransformer
                 }
 
                 var varName = ident.Identifier.Text;
-                var holderName = $"_{varName}Holder";
+                var holderName = context.GenerateSyntheticName($"_{varName}Holder");
                 var javaType = "Object";
                 if (context.SemanticModel != null)
                 {
@@ -378,6 +382,22 @@ public class ArgumentTransformer
                 {
                     javaTargetNeedsCollection = true;
                 }
+
+                // C# constructors like List<T>(IEnumerable<T>) map to Java constructors
+                // that require Collection, not Iterable.
+                else if (argIsEnumerable && paramNamed2.Name is "IEnumerable"
+                    && IsJavaCollectionConstructor(targetParam.ContainingSymbol as IMethodSymbol))
+                {
+                    javaTargetNeedsCollection = true;
+                }
+
+                // If target is IEnumerable<T> but the transformed argument is already a Java Stream,
+                // materialize it so Java receives an Iterable/Collection value.
+                if (argIsEnumerable && paramNamed2.Name is "IEnumerable"
+                    && LooksLikeJavaStreamExpression(transformedExpr))
+                {
+                    javaTargetNeedsCollection = true;
+                }
             }
 
             if (argIsEnumerable && javaTargetNeedsCollection)
@@ -385,6 +405,14 @@ public class ArgumentTransformer
                 context.AddImport("java.util.ArrayList");
                 context.AddImport("java.util.stream.StreamSupport");
                 context.AddImport("java.util.stream.Collectors");
+                if (LooksLikeJavaStreamExpression(transformedExpr))
+                {
+                    if (transformedExpr.Contains(".collect(", StringComparison.Ordinal))
+                    {
+                        return transformedExpr;
+                    }
+                    return $"{transformedExpr}.collect(Collectors.toList())";
+                }
                 return $"StreamSupport.stream({transformedExpr}.spliterator(), false).collect(Collectors.toCollection(ArrayList::new))";
             }
         }
@@ -464,6 +492,28 @@ public class ArgumentTransformer
         return false;
     }
 
+    private static bool IsJavaCollectionConstructor(IMethodSymbol? method)
+    {
+        if (method == null || method.MethodKind != MethodKind.Constructor)
+            return false;
+
+        var typeName = method.ContainingType.Name;
+        return typeName is "List" or "HashSet" or "SortedSet" or "LinkedList" or "Queue";
+    }
+
+    private static bool LooksLikeJavaStreamExpression(string expr)
+    {
+        if (string.IsNullOrWhiteSpace(expr))
+            return false;
+
+        return expr.Contains("java.util.stream.Stream.", StringComparison.Ordinal)
+            || expr.Contains(".stream()", StringComparison.Ordinal)
+            || expr.Contains(".map(", StringComparison.Ordinal)
+            || expr.Contains(".filter(", StringComparison.Ordinal)
+            || expr.Contains(".flatMap(", StringComparison.Ordinal)
+            || expr.Contains(".sorted(", StringComparison.Ordinal);
+    }
+
     /// <summary>
     /// Resolves the Java type name for an out var declaration.
     /// Uses the semantic model when available; falls back to syntax-based mapping.
@@ -477,5 +527,27 @@ public class ArgumentTransformer
                 return context.MapType(typeInfo.Type);
         }
         return context.MapTypeFromSyntax(decl.Type);
+    }
+
+    private static string CoerceEnumerableStreamFallback(ArgumentSyntax arg, string transformedExpr, ConversionContext context)
+    {
+        if (context.SemanticModel == null)
+            return transformedExpr;
+
+        var argType = context.SemanticModel.GetTypeInfo(arg.Expression).Type as INamedTypeSymbol;
+        if (argType == null)
+            return transformedExpr;
+
+        bool argIsEnumerable = argType.Name == "IEnumerable"
+            && argType.ContainingNamespace?.ToDisplayString().StartsWith("System") == true;
+
+        if (!argIsEnumerable || !LooksLikeJavaStreamExpression(transformedExpr))
+            return transformedExpr;
+
+        context.AddImport("java.util.stream.Collectors");
+        if (transformedExpr.Contains(".collect(", StringComparison.Ordinal))
+            return transformedExpr;
+
+        return $"{transformedExpr}.collect(Collectors.toList())";
     }
 }

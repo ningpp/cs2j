@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.Transformers.Expression;
 
 namespace CSharpToJava.Core.Transformers.Member;
 
@@ -30,6 +31,7 @@ public class FieldTransformer : IMemberTransformer
     public IEnumerable<JavaFieldDeclaration> TransformAll(FieldDeclarationSyntax fieldDecl, ConversionContext context)
     {
         var typeInfo = context.SemanticModel?.GetTypeInfo(fieldDecl.Declaration.Type);
+        var fieldTypeSymbol = typeInfo.HasValue ? typeInfo.Value.Type : null;
         var javaType = typeInfo.HasValue && typeInfo.Value.Type != null
             ? context.MapType(typeInfo.Value.Type)
             : context.MapTypeFromSyntax(fieldDecl.Declaration.Type);
@@ -76,6 +78,39 @@ public class FieldTransformer : IMemberTransformer
             if (variable.Initializer != null)
             {
                 javaField.Initializer = Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(variable.Initializer.Value, context);
+
+                if (context.SemanticModel != null && fieldTypeSymbol != null && IsCollectionOrListInterface(fieldTypeSymbol))
+                {
+                    var initTypeInfo = context.SemanticModel.GetTypeInfo(variable.Initializer.Value);
+                    var arrayType = initTypeInfo.Type as IArrayTypeSymbol ?? initTypeInfo.ConvertedType as IArrayTypeSymbol;
+                    if (arrayType != null)
+                        javaField.Initializer = ObjectCreationTransformer.WrapArrayForCollectionArg(javaField.Initializer, arrayType, context);
+                }
+
+                if (IsEnumerableOrCollectionTypeSyntax(fieldDecl.Declaration.Type)
+                    && variable.Initializer.Value is ArrayCreationExpressionSyntax or ImplicitArrayCreationExpressionSyntax)
+                {
+                    // Fallback when semantic model doesn't surface array type information.
+                    if (javaField.Initializer.StartsWith("new int[", StringComparison.Ordinal)
+                        || javaField.Initializer.StartsWith("new long[", StringComparison.Ordinal)
+                        || javaField.Initializer.StartsWith("new short[", StringComparison.Ordinal)
+                        || javaField.Initializer.StartsWith("new byte[", StringComparison.Ordinal)
+                        || javaField.Initializer.StartsWith("new float[", StringComparison.Ordinal)
+                        || javaField.Initializer.StartsWith("new double[", StringComparison.Ordinal)
+                        || javaField.Initializer.StartsWith("new boolean[", StringComparison.Ordinal)
+                        || javaField.Initializer.StartsWith("new char[", StringComparison.Ordinal))
+                    {
+                        context.AddImport("java.util.Arrays");
+                        context.AddImport("java.util.stream.Collectors");
+                        javaField.Initializer = $"java.util.Arrays.stream({javaField.Initializer}).boxed().collect(java.util.stream.Collectors.toList())";
+                    }
+                    else
+                    {
+                        context.AddImport("java.util.Arrays");
+                        javaField.Initializer = $"Arrays.asList({javaField.Initializer})";
+                    }
+                }
+
                 // Java cannot auto-box int to Double/Float (only int→Integer is supported).
                 // When a boxed Double/Float field is initialized with an int literal, widen it.
                 if (javaType == "Double" && IsIntegerLiteralString(javaField.Initializer))
@@ -132,5 +167,31 @@ public class FieldTransformer : IMemberTransformer
         s = s.Trim();
         if (s.StartsWith("-") || s.StartsWith("+")) s = s.Substring(1).Trim();
         return s.Length > 0 && s.All(char.IsDigit);
+    }
+
+    private static bool IsCollectionOrListInterface(ITypeSymbol type)
+    {
+        if (type is INamedTypeSymbol named)
+        {
+            if (named.Name is "ICollection" or "IList" or "IReadOnlyCollection" or "IReadOnlyList"
+                && named.ContainingNamespace?.ToDisplayString().StartsWith("System") == true)
+                return true;
+
+            return named.AllInterfaces.Any(i =>
+                i.Name is "ICollection" or "IList" or "IReadOnlyCollection" or "IReadOnlyList"
+                && i.ContainingNamespace?.ToDisplayString().StartsWith("System") == true);
+        }
+
+        return false;
+    }
+
+    private static bool IsEnumerableOrCollectionTypeSyntax(TypeSyntax type)
+    {
+        var text = type.ToString();
+        return text.Contains("IEnumerable", StringComparison.Ordinal)
+            || text.Contains("ICollection", StringComparison.Ordinal)
+            || text.Contains("IList", StringComparison.Ordinal)
+            || text.Contains("IReadOnlyCollection", StringComparison.Ordinal)
+            || text.Contains("IReadOnlyList", StringComparison.Ordinal);
     }
 }

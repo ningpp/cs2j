@@ -557,7 +557,9 @@ public class StatementTransformer : IStatementTransformer
         // Pre-statements must appear BEFORE the if; post-statements must be injected at the
         // START of the then-body (where the out variable first becomes visible).
         string condPreamble = "";
+        string condPostBeforeIf = "";
         string condPostInjection = "";
+        string effectiveCondition = condition;
         if (context.HasPendingPreStatements)
         {
             var pre = context.DrainPreStatements();
@@ -566,7 +568,17 @@ public class StatementTransformer : IStatementTransformer
         if (context.HasPendingPostStatements)
         {
             var post = context.DrainPostStatements();
-            condPostInjection = string.Join("\n        ", post.Select(s => s.TrimEnd(';') + ";")) + "\n        ";
+            bool isNegatedCondition = stmt.Condition is PrefixUnaryExpressionSyntax p
+                && p.OperatorToken.IsKind(SyntaxKind.ExclamationToken);
+            if (isNegatedCondition)
+            {
+                var condTemp = context.GenerateSyntheticName("_ifCond");
+                condPostBeforeIf = $"var {condTemp} = {condition};\n"
+                    + string.Join("\n", post.Select(s => s.TrimEnd(';') + ";")) + "\n";
+                effectiveCondition = condTemp;
+            }
+            else
+                condPostInjection = string.Join("\n        ", post.Select(s => s.TrimEnd(';') + ";")) + "\n        ";
         }
 
         var stmtTransformer = new StatementTransformer();
@@ -584,7 +596,7 @@ public class StatementTransformer : IStatementTransformer
         }
 
         var result = new System.Text.StringBuilder();
-        result.Append($"{condPreamble}if ({condition}) {thenBlock}");
+        result.Append($"{condPreamble}{condPostBeforeIf}if ({effectiveCondition}) {thenBlock}");
 
         if (stmt.Else != null)
         {
@@ -606,6 +618,7 @@ public class StatementTransformer : IStatementTransformer
         // value read-backs go at the start of the body (re-read each iteration after the call).
         string whilePreamble = "";
         string whilePostInjection = "";
+        string whilePostAfterLoop = "";
         if (context.HasPendingPreStatements)
         {
             var pre = context.DrainPreStatements();
@@ -615,6 +628,7 @@ public class StatementTransformer : IStatementTransformer
         {
             var post = context.DrainPostStatements();
             whilePostInjection = string.Join("\n        ", post.Select(s => s.TrimEnd(';') + ";")) + "\n        ";
+            whilePostAfterLoop = "\n" + string.Join("\n", post.Select(s => s.TrimEnd(';') + ";"));
         }
 
         var stmtTransformer = new StatementTransformer();
@@ -630,7 +644,7 @@ public class StatementTransformer : IStatementTransformer
             body = $"{{\n        {whilePostInjection}{bodyStr}\n    }}";
         }
 
-        return new JavaStatementNode($"{whilePreamble}while ({condition}) {body}");
+        return new JavaStatementNode($"{whilePreamble}while ({condition}) {body}{whilePostAfterLoop}");
     }
 
     private JavaSyntaxNode TransformForStatement(ForStatementSyntax stmt, ConversionContext context)
@@ -1081,25 +1095,7 @@ public class StatementTransformer : IStatementTransformer
                              string.Join("\n            ", statements);
             }
 
-            // 检查是否有 break
-            var lastStmt = section.Statements.LastOrDefault();
-            var hasBreak = lastStmt?.Kind() == SyntaxKind.BreakStatement ||
-                          lastStmt?.Kind() == SyntaxKind.ReturnStatement ||
-                          lastStmt?.Kind() == SyntaxKind.ThrowStatement;
-
-            if (!hasBreak && statements.Count > 0)
-            {
-                sectionStr += "\n            break;"; // 添加 break 以防止 fall-through
-            }
-
             sections.Add(sectionStr);
-        }
-
-        // Fix 3: If no default arm exists, add one so the Java switch is exhaustive
-        bool hasDefaultSection = sections.Any(s => s.TrimStart().StartsWith("default:"));
-        if (!hasDefaultSection)
-        {
-            sections.Add($"default:\n            throw new IllegalStateException(\"Unexpected value: \" + {expression});");
         }
 
         var bodyStr = string.Join("\n\n        ", sections);
