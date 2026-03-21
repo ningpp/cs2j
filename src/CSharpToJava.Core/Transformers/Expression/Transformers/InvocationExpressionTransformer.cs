@@ -527,6 +527,40 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return $"System.arraycopy({srcArg5}, {srcIndexArg5}, {destArg5}, {destIndexArg5}, {lengthArg5})";
         }
 
+        // Array.Clear(array, index, length) -> Arrays.fill(array, index, index + length, defaultValue)
+        // When semantic info is incomplete, Array may already be mapped to Object, so keep syntactic fallback.
+        if (originalMethodName == "Clear"
+            && node.ArgumentList.Arguments.Count == 3
+            && (methodSymbol?.ContainingType.ToDisplayString() == "System.Array"
+                || (methodSymbol == null && memberAccess.Expression.ToString() is "Array" or "System.Array" or "Object")))
+        {
+            var arrayArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var indexArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            var lengthArg = facade.Transform(node.ArgumentList.Arguments[2].Expression, context);
+            var endArg = $"({indexArg} + {lengthArg})";
+
+            string defaultValue = "null";
+            if (context.SemanticModel?.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type is IArrayTypeSymbol clearArrayType)
+            {
+                defaultValue = clearArrayType.ElementType.SpecialType switch
+                {
+                    SpecialType.System_Boolean => "false",
+                    SpecialType.System_Char => "'\\0'",
+                    SpecialType.System_Single => "0.0f",
+                    SpecialType.System_Double => "0.0d",
+                    SpecialType.System_Decimal => "0.0d",
+                    SpecialType.System_Int64 or SpecialType.System_UInt64 => "0L",
+                    SpecialType.System_Int16 or SpecialType.System_UInt16
+                        or SpecialType.System_Int32 or SpecialType.System_UInt32
+                        or SpecialType.System_Byte or SpecialType.System_SByte => "0",
+                    _ => "null"
+                };
+            }
+
+            context.AddImport("java.util.Arrays");
+            return $"Arrays.fill({arrayArg}, {indexArg}, {endArg}, {defaultValue})";
+        }
+
         // System.Threading.Tasks.Parallel.ForEach(source, [options,] action)
         // → StreamSupport.stream(source.spliterator(), true).forEach(action)
         // This preserves compilability in Java while keeping parallel intent.
@@ -1834,9 +1868,22 @@ public class InvocationExpressionTransformer : IExpressionTransformer
 
                 var seedArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
                 var funcArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                var seedType1 = context.SemanticModel?.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type;
+                var sourceType1 = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                var sourceElemType1 = sourceType1 switch
+                {
+                    IArrayTypeSymbol arr1 => arr1.ElementType,
+                    INamedTypeSymbol named1 => ExtractEnumerableElementType(named1),
+                    _ => null
+                };
+                bool needsAccumulatorReduce1 = primitiveArrayAggregateSource
+                    || (seedType1 != null && sourceElemType1 != null
+                        && !SymbolEqualityComparer.Default.Equals(seedType1, sourceElemType1));
                 string reduceExpr = primitiveArrayAggregateSource
                     ? $"{aggregateReceiver}.reduce({seedArg}, {funcArg}, (__accLeft, __accRight) -> __accRight)"
-                    : $"{aggregateReceiver}.reduce({seedArg}, {funcArg})";
+                    : needsAccumulatorReduce1
+                        ? $"{aggregateReceiver}.reduce({seedArg}, {funcArg}, (__accLeft, __accRight) -> __accRight)"
+                        : $"{aggregateReceiver}.reduce({seedArg}, {funcArg})";
                 // Inline the result selector: substitute the reduce expression for the lambda parameter.
                 // This avoids raw Function cast which fails due to type erasure (Object * 2 etc.).
                 if (TryGetSingleParamLambda(node.ArgumentList.Arguments[2].Expression, context, facade, out var rsParam, out var rsBody))
@@ -1858,9 +1905,22 @@ public class InvocationExpressionTransformer : IExpressionTransformer
 
                 var seedArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
                 var funcArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                var seedType2 = context.SemanticModel?.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type;
+                var sourceType2 = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                var sourceElemType2 = sourceType2 switch
+                {
+                    IArrayTypeSymbol arr2 => arr2.ElementType,
+                    INamedTypeSymbol named2 => ExtractEnumerableElementType(named2),
+                    _ => null
+                };
+                bool needsAccumulatorReduce2 = primitiveArrayAggregateSource
+                    || (seedType2 != null && sourceElemType2 != null
+                        && !SymbolEqualityComparer.Default.Equals(seedType2, sourceElemType2));
                 return primitiveArrayAggregateSource
                     ? $"{aggregateReceiver}.reduce({seedArg}, {funcArg}, (__accLeft, __accRight) -> __accRight)"
-                    : $"{aggregateReceiver}.reduce({seedArg}, {funcArg})";
+                    : needsAccumulatorReduce2
+                        ? $"{aggregateReceiver}.reduce({seedArg}, {funcArg}, (__accLeft, __accRight) -> __accRight)"
+                        : $"{aggregateReceiver}.reduce({seedArg}, {funcArg})";
             }
 
             // Cast<T>() → map(x -> (T) x)
