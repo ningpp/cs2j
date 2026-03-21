@@ -380,50 +380,93 @@ public class StatementTransformer : IStatementTransformer
     {
         var exprTransformer = ExpressionTransformerFacade.Instance;
 
-        // Fix 5: Handle TryGetValue(key, out var value) in if condition
-        // Java Map.get() returns null for missing keys; use containsKey + get + local declaration
+        // Fix 5: Handle TryGetValue(key, out var value) or TryGetValue(key, out existingVar) in if condition
+        // Java Map.get() returns null for missing keys; use containsKey + get + local declaration/assignment
         if (stmt.Condition is InvocationExpressionSyntax tvIfInvoc
             && tvIfInvoc.Expression is MemberAccessExpressionSyntax tvIfMa
             && tvIfMa.Name.Identifier.Text == "TryGetValue"
             && tvIfInvoc.ArgumentList.Arguments.Count == 2
-            && tvIfInvoc.ArgumentList.Arguments[1].Expression is DeclarationExpressionSyntax tvIfDeclExpr
-            && tvIfDeclExpr.Designation is SingleVariableDesignationSyntax tvIfSvd)
+            && tvIfInvoc.ArgumentList.Arguments[1].RefKindKeyword.IsKind(SyntaxKind.OutKeyword))
         {
-            var tvTarget = exprTransformer.Transform(tvIfMa.Expression, context);
-            var tvKey = exprTransformer.Transform(tvIfInvoc.ArgumentList.Arguments[0].Expression, context);
+            var tvOutArg = tvIfInvoc.ArgumentList.Arguments[1];
 
-            var tyInfo = context.SemanticModel?.GetTypeInfo(tvIfDeclExpr.Type);
-            var outJavaType = tyInfo.HasValue && tyInfo.Value.Type != null ? context.MapType(tyInfo.Value.Type) : "Object";
-            var outVarName = ConversionContext.EscapeJavaKeyword(tvIfSvd.Identifier.Text);
-
-            var tvStmtTransformer = new StatementTransformer();
-
-            string thenBody;
-            if (stmt.Statement is BlockSyntax tvIfThenBlock)
+            // Case A: out var v  (declaration)
+            if (tvOutArg.Expression is DeclarationExpressionSyntax tvIfDeclExpr
+                && tvIfDeclExpr.Designation is SingleVariableDesignationSyntax tvIfSvd)
             {
-                var bodyStr = TransformBlock(tvIfThenBlock, context);
-                thenBody = $"{{\n        {outJavaType} {outVarName} = {tvTarget}.get({tvKey});\n        {bodyStr}\n    }}";
-            }
-            else
-            {
-                var bodyStr = tvStmtTransformer.Transform(stmt.Statement, context).ToString("");
-                thenBody = $"{{\n        {outJavaType} {outVarName} = {tvTarget}.get({tvKey});\n        {bodyStr}\n    }}";
-            }
+                var tvTarget = exprTransformer.Transform(tvIfMa.Expression, context);
+                var tvKey = exprTransformer.Transform(tvIfInvoc.ArgumentList.Arguments[0].Expression, context);
 
-            var ifSb = new System.Text.StringBuilder();
-            ifSb.Append($"if ({tvTarget}.containsKey({tvKey})) {thenBody}");
+                var tyInfo = context.SemanticModel?.GetTypeInfo(tvIfDeclExpr.Type);
+                var outJavaType = tyInfo.HasValue && tyInfo.Value.Type != null ? context.MapType(tyInfo.Value.Type) : "Object";
+                var outVarName = ConversionContext.EscapeJavaKeyword(tvIfSvd.Identifier.Text);
 
-            if (stmt.Else != null)
-            {
-                string elseBody;
-                if (stmt.Else.Statement is BlockSyntax tvIfElseBlock)
-                    elseBody = $"{{\n        {TransformBlock(tvIfElseBlock, context)}\n    }}";
+                var tvStmtTransformer = new StatementTransformer();
+
+                string thenBody;
+                if (stmt.Statement is BlockSyntax tvIfThenBlock)
+                {
+                    var bodyStr = TransformBlock(tvIfThenBlock, context);
+                    thenBody = $"{{\n        {outJavaType} {outVarName} = {tvTarget}.get({tvKey});\n        {bodyStr}\n    }}";
+                }
                 else
-                    elseBody = $"{{ {tvStmtTransformer.Transform(stmt.Else.Statement, context).ToString("")} }}";
-                ifSb.Append($" else {elseBody}");
+                {
+                    var bodyStr = tvStmtTransformer.Transform(stmt.Statement, context).ToString("");
+                    thenBody = $"{{\n        {outJavaType} {outVarName} = {tvTarget}.get({tvKey});\n        {bodyStr}\n    }}";
+                }
+
+                var ifSb = new System.Text.StringBuilder();
+                ifSb.Append($"if ({tvTarget}.containsKey({tvKey})) {thenBody}");
+
+                if (stmt.Else != null)
+                {
+                    string elseBody;
+                    if (stmt.Else.Statement is BlockSyntax tvIfElseBlock)
+                        elseBody = $"{{\n        {TransformBlock(tvIfElseBlock, context)}\n    }}";
+                    else
+                        elseBody = $"{{ {tvStmtTransformer.Transform(stmt.Else.Statement, context).ToString("")} }}";
+                    ifSb.Append($" else {elseBody}");
+                }
+
+                return new JavaStatementNode(ifSb.ToString());
             }
 
-            return new JavaStatementNode(ifSb.ToString());
+            // Case B: out existingVar  (assignment to already-declared variable)
+            if (tvOutArg.Expression is IdentifierNameSyntax tvIfIdent)
+            {
+                var tvTarget = exprTransformer.Transform(tvIfMa.Expression, context);
+                var tvKey = exprTransformer.Transform(tvIfInvoc.ArgumentList.Arguments[0].Expression, context);
+                var existingVarName = ConversionContext.EscapeJavaKeyword(tvIfIdent.Identifier.Text);
+
+                var tvStmtTransformer2 = new StatementTransformer();
+
+                string thenBody2;
+                if (stmt.Statement is BlockSyntax tvIfThenBlock2)
+                {
+                    var bodyStr = TransformBlock(tvIfThenBlock2, context);
+                    thenBody2 = $"{{\n        {existingVarName} = {tvTarget}.get({tvKey});\n        {bodyStr}\n    }}";
+                }
+                else
+                {
+                    var bodyStr = tvStmtTransformer2.Transform(stmt.Statement, context).ToString("");
+                    thenBody2 = $"{{\n        {existingVarName} = {tvTarget}.get({tvKey});\n        {bodyStr}\n    }}";
+                }
+
+                var ifSb2 = new System.Text.StringBuilder();
+                ifSb2.Append($"if ({tvTarget}.containsKey({tvKey})) {thenBody2}");
+
+                if (stmt.Else != null)
+                {
+                    string elseBody2;
+                    if (stmt.Else.Statement is BlockSyntax tvIfElseBlock2)
+                        elseBody2 = $"{{\n        {TransformBlock(tvIfElseBlock2, context)}\n    }}";
+                    else
+                        elseBody2 = $"{{ {tvStmtTransformer2.Transform(stmt.Else.Statement, context).ToString("")} }}";
+                    ifSb2.Append($" else {elseBody2}");
+                }
+
+                return new JavaStatementNode(ifSb2.ToString());
+            }
         }
 
         var condition = exprTransformer.Transform(stmt.Condition, context);
