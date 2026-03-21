@@ -83,6 +83,20 @@ public class AssignmentTransformer : IExpressionTransformer
                 var right = IsPropertySetterAssignment(rightNode, context)
                     ? HoistChainedPropertyAssignment(rightNode, context)
                     : facade.Transform(rightNode, context);
+
+                // Fix: Array assignment to IList/ICollection property - wrap with Arrays.asList()
+                if (context.SemanticModel != null && op == "=")
+                {
+                    var rhsType = context.SemanticModel.GetTypeInfo(rightNode).Type;
+                    var propType = prop.Type;
+
+                    if (rhsType is IArrayTypeSymbol arrayType && propType is INamedTypeSymbol propNamed
+                        && IsEnumerableOrCollectionInterface(propNamed))
+                    {
+                        right = ObjectCreationTransformer.WrapArrayForCollectionArg(right, arrayType, context);
+                    }
+                }
+
                 string setter = "set" + char.ToUpperInvariant(prop.Name[0]) + prop.Name[1..];
                 return $"{receiver}.{setter}({right})";
             }
@@ -130,6 +144,20 @@ public class AssignmentTransformer : IExpressionTransformer
                 var right = IsPropertySetterAssignment(rightNode, context)
                     ? HoistChainedPropertyAssignment(rightNode, context)
                     : facade.Transform(rightNode, context);
+
+                // Fix: Array assignment to IList/ICollection property - wrap with Arrays.asList()
+                if (context.SemanticModel != null)
+                {
+                    var rhsType = context.SemanticModel.GetTypeInfo(rightNode).Type;
+                    var propType = bareIdentProp.Type;
+
+                    if (rhsType is IArrayTypeSymbol arrayType && propType is INamedTypeSymbol propNamed
+                        && IsEnumerableOrCollectionInterface(propNamed))
+                    {
+                        right = ObjectCreationTransformer.WrapArrayForCollectionArg(right, arrayType, context);
+                    }
+                }
+
                 string setter = "set" + char.ToUpperInvariant(bareIdentProp.Name[0]) + bareIdentProp.Name[1..];
                 return $"{setter}({right})";
             }
@@ -213,6 +241,23 @@ public class AssignmentTransformer : IExpressionTransformer
             var tmpName = HoistChainedPropertyAssignment(rightNode, context);
             return $"{left} = {tmpName}";
         }
+
+        // Fix: Array assignment to IList/ICollection property or variable
+        // In C#, arrays implement IList<T>, so assigning an array to an IList<T> variable/property is valid.
+        // In Java, arrays don't implement List<T>, so we must wrap with Arrays.asList().
+        if (op == "=" && context.SemanticModel != null)
+        {
+            var rhsType = context.SemanticModel.GetTypeInfo(rightNode).Type;
+            var lhsType = context.SemanticModel.GetTypeInfo(leftNode).Type;
+
+            if (rhsType is IArrayTypeSymbol arrayType && IsCollectionOrListInterface(lhsType))
+            {
+                var right = facade.Transform(rightNode, context);
+                right = ObjectCreationTransformer.WrapArrayForCollectionArg(right, arrayType, context);
+                return $"{left} = {right}";
+            }
+        }
+
         var rightStr = facade.Transform(rightNode, context);
         return $"{left} {op} {rightStr}";
     }
@@ -406,5 +451,37 @@ public class AssignmentTransformer : IExpressionTransformer
         var lhs = facade.Transform(node.Left, context);
         context.AddPreStatement($"if ({lhs} == null) {lhs} = {right}");
         return lhs;
+    }
+
+    /// <summary>
+    /// Returns true if the given type is a C# collection interface (IEnumerable&lt;T&gt;, ICollection&lt;T&gt;, IList&lt;T&gt;, etc.)
+    /// that maps to Java Collection/List interfaces.
+    /// </summary>
+    private static bool IsCollectionOrListInterface(ITypeSymbol? type)
+    {
+        if (type is INamedTypeSymbol named)
+        {
+            // Check both direct namespace and original definition namespace
+            bool isCollectionInterface = named.Name is "IEnumerable" or "ICollection" or "IList"
+                or "IReadOnlyCollection" or "IReadOnlyList";
+            bool isSystemCollection = named.ContainingNamespace?.ToDisplayString().StartsWith("System.Collections.Generic") == true
+                || named.OriginalDefinition?.ContainingNamespace?.ToDisplayString().StartsWith("System.Collections.Generic") == true;
+            return isCollectionInterface && isSystemCollection;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Returns true if the type is an IEnumerable/ICollection/IList interface (from System.Collections.Generic).
+    /// Matches the logic in ArgumentTransformer for consistency.
+    /// </summary>
+    private static bool IsEnumerableOrCollectionInterface(INamedTypeSymbol type)
+    {
+        if (type.Name is not "IEnumerable" and not "ICollection" and not "IList"
+            and not "IReadOnlyCollection" and not "IReadOnlyList")
+            return false;
+        // Check namespace - should be from System.Collections.Generic
+        var ns = type.ContainingNamespace?.ToDisplayString() ?? type.OriginalDefinition?.ContainingNamespace?.ToDisplayString();
+        return ns != null && ns.StartsWith("System.Collections.Generic");
     }
 }
