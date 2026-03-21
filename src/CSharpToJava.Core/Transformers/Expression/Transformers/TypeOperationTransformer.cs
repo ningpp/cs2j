@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Transformers.Expression.Utilities;
 using System.Text;
 
 namespace CSharpToJava.Core.Transformers.Expression;
@@ -76,6 +77,19 @@ public class TypeOperationTransformer : IExpressionTransformer
                 return $"{targetType}.values()[(int)({expression})]";
         }
 
+        // C# enum -> numeric cast: (int)myEnum
+        // Java enums cannot be cast to numeric primitives; use ordinal() and widen/narrow as needed.
+        if (context.SemanticModel != null)
+        {
+            var sourceType = context.SemanticModel.GetTypeInfo(node.Expression).Type;
+            if (sourceType?.TypeKind == TypeKind.Enum && IsJavaNumericType(targetType))
+            {
+                return targetType == "int"
+                    ? $"{expression}.ordinal()"
+                    : $"({targetType})({expression}.ordinal())";
+            }
+        }
+
         // Java cast syntax: (Type)expression
         // For primitives to wrapper types, use valueOf
         if (IsPrimitiveToWrapperCast(node.Expression, targetType, context))
@@ -119,6 +133,10 @@ public class TypeOperationTransformer : IExpressionTransformer
 
         return $"({targetType})({expression})";
     }
+
+    private static bool IsJavaNumericType(string javaType)
+        => javaType is "int" or "long" or "short" or "byte" or "double" or "float"
+            or "Integer" or "Long" or "Short" or "Byte" or "Double" or "Float";
 
     private static bool IsIterableLikeJavaType(string mappedType)
     {
@@ -310,7 +328,8 @@ public class TypeOperationTransformer : IExpressionTransformer
     {
         // Java instanceof does not accept parameterized types (e.g. Set<T>).
         var lt = mappedType.IndexOf('<');
-        return lt >= 0 ? mappedType[..lt] : mappedType;
+        var runtimeType = lt >= 0 ? mappedType[..lt] : mappedType;
+        return ExpressionTransformerHelpers.BoxJavaPrimitiveType(runtimeType);
     }
 
     private string TransformTypeOf(TypeOfExpressionSyntax node, ConversionContext context)
