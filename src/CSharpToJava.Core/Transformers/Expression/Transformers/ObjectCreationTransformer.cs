@@ -132,6 +132,13 @@ public class ObjectCreationTransformer : IExpressionTransformer
         if (argumentList == null || argumentList.Arguments.Count == 0)
             return $"new {typeName}()";
 
+        // Java functional interfaces are not instantiated with constructors.
+        // C# delegate construction like new Func<T, R>(obj.Method) should map to method refs/lambdas.
+        if (argumentList.Arguments.Count == 1 && IsJavaFunctionalInterfaceType(typeName))
+        {
+            return ExpressionTransformerFacade.Instance.Transform(argumentList.Arguments[0].Expression, context);
+        }
+
         // Resolve the constructor symbol so CoerceArgumentType can insert narrowing casts
         // (e.g. byte/short parameters receiving int literals require an explicit Java cast).
         IMethodSymbol? ctorSymbol = null;
@@ -144,6 +151,78 @@ public class ObjectCreationTransformer : IExpressionTransformer
         var args = ArgumentTransformer.TransformArgumentList(
             argumentList, context, ExpressionTransformerFacade.Instance, methodSymbol: ctorSymbol);
 
+        if (ctorSymbol != null
+            && ctorSymbol.ContainingType.Name == "Rectangle"
+            && ctorSymbol.Parameters.Length == 1
+            && ctorSymbol.Parameters[0].Type is INamedTypeSymbol pType
+            && pType.Name == "IEnumerable"
+            && pType.TypeArguments.Length == 1
+            && pType.TypeArguments[0].Name == "Rectangle")
+        {
+            return "Rectangle.createFrom_Iterable_Rectangle(" + args + ")";
+        }
+
+        if (ctorSymbol == null && argumentList.Arguments.Count == 1 && typeName.EndsWith("Rectangle", StringComparison.Ordinal))
+        {
+            var argType = context.SemanticModel?.GetTypeInfo(argumentList.Arguments[0].Expression).Type as INamedTypeSymbol;
+            if (argType != null
+                && argType.Name == "IEnumerable"
+                && argType.TypeArguments.Length == 1
+                && argType.TypeArguments[0].Name == "Rectangle")
+            {
+                return "Rectangle.createFrom_Iterable_Rectangle(" + args + ")";
+            }
+        }
+
+        // MSAGL frequently uses a C# convenience ctor LineSegment(Point, double x, double y).
+        // Java LineSegment exposes the two-Point form, so synthesize the endpoint point.
+        if (argumentList.Arguments.Count == 3 && typeName.EndsWith("LineSegment", StringComparison.Ordinal))
+        {
+            var argTypes = argumentList.Arguments
+                .Select(a => context.SemanticModel?.GetTypeInfo(a.Expression).Type)
+                .ToList();
+
+            bool looksLikePointXY = argTypes.Count == 3
+                && argTypes[0]?.Name == "Point"
+                && argTypes[1]?.SpecialType is SpecialType.System_Double or SpecialType.System_Single
+                && argTypes[2]?.SpecialType is SpecialType.System_Double or SpecialType.System_Single;
+
+            bool noSemanticInfo = argTypes.All(t => t == null);
+
+            if (looksLikePointXY || noSemanticInfo)
+            {
+                var parts = SplitTopLevelArgs(args);
+                if (parts.Count == 3)
+                    return $"new {typeName}({parts[0]}, new Point({parts[1]}, {parts[2]}))";
+            }
+        }
+
+        // C# also uses LineSegment(x1, y1, x2, y2). Java expects two Point instances.
+        if (argumentList.Arguments.Count == 4 && typeName.EndsWith("LineSegment", StringComparison.Ordinal))
+        {
+            var parts = SplitTopLevelArgs(args);
+            if (parts.Count == 4)
+                return $"new {typeName}(new Point({parts[0]}, {parts[1]}), new Point({parts[2]}, {parts[3]}))";
+        }
+
+        // C# ArgumentOutOfRangeException(paramName, message) is commonly mapped to
+        // IllegalArgumentException in Java, but Java has no (String, String) constructor.
+        // Fold to a single message: "paramName: message".
+        if (typeName == "IllegalArgumentException"
+            && argumentList.Arguments.Count == 2
+            && context.SemanticModel != null)
+        {
+            var argTypes = argumentList.Arguments
+                .Select(a => context.SemanticModel.GetTypeInfo(a.Expression).Type)
+                .ToList();
+            if (argTypes.All(t => t?.SpecialType == SpecialType.System_String))
+            {
+                var parts = SplitTopLevelArgs(args);
+                if (parts.Count == 2)
+                    args = $"{parts[0]} + \": \" + {parts[1]}";
+            }
+        }
+
         // Fallback: when the constructor symbol could not be resolved (ctorSymbol is null),
         // CoerceArgumentType never fires for the arguments, so array→Collection coercion is skipped.
         // If the target type is a Java collection (ArrayList, HashSet, etc.) and any argument is an
@@ -155,6 +234,17 @@ public class ObjectCreationTransformer : IExpressionTransformer
         }
 
         return $"new {typeName}({args})";
+    }
+
+    private static bool IsJavaFunctionalInterfaceType(string typeName)
+    {
+        var bare = typeName.Contains('<') ? typeName[..typeName.IndexOf('<')] : typeName;
+        return bare is "Function" or "BiFunction" or "Consumer" or "BiConsumer"
+            or "Predicate" or "Supplier" or "Runnable" or "Comparator"
+            or "java.util.function.Function" or "java.util.function.BiFunction"
+            or "java.util.function.Consumer" or "java.util.function.BiConsumer"
+            or "java.util.function.Predicate" or "java.util.function.Supplier"
+            or "java.lang.Runnable" or "java.util.Comparator";
     }
 
     /// <summary>
@@ -447,10 +537,12 @@ public class ObjectCreationTransformer : IExpressionTransformer
         var result = new StringBuilder();
         if (isTypeParameterArray)
         {
-            // For type parameter arrays, use (T[]) new Object[...]
+            // For type parameter arrays, use (T[][]...) new Object[...] with full rank.
             result.Append('(');
             result.Append(elementType);
-            result.Append("[]) new Object");
+            for (int i = 0; i < sizes.Count; i++)
+                result.Append("[]");
+            result.Append(") new Object");
         }
         else
         {
