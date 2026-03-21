@@ -1518,10 +1518,11 @@ public class StatementTransformer : IStatementTransformer
                     context.AddImport("java.util.stream.Collectors");
                 }
 
-                // For C# "var" locals whose semantic type is IEnumerable/ICollection/IList,
-                // Java "var" would otherwise infer Stream<T> from Select/Concat expressions.
-                // That breaks later reassignments to materialized List<T>; collect eagerly here.
-                if (javaType == "var" && stmt.Declaration.Type.IsVar && context.SemanticModel != null)
+                // For locals mapped to Java "var" whose semantic type is IEnumerable/ICollection/IList,
+                // Java would otherwise infer Stream<T> from LINQ chains. Materialize eagerly.
+                // This applies both to implicit "var" and explicit IEnumerable<T> declarations,
+                // because IEnumerable<T> is intentionally lowered to Java var in this transformer.
+                if (javaType == "var" && context.SemanticModel != null)
                 {
                     var localSym = context.SemanticModel.GetDeclaredSymbol(v) as ILocalSymbol;
                     bool semanticTypeIsEnumerableLike = localSym?.Type is INamedTypeSymbol localNamed

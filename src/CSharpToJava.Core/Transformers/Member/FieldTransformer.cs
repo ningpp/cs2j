@@ -40,8 +40,6 @@ public class FieldTransformer : IMemberTransformer
         // Handle const/readonly modifiers
         if (fieldDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.ConstKeyword)))
             modifiers |= JavaModifiers.Static | JavaModifiers.Final;
-        if (fieldDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.ReadOnlyKeyword)))
-            modifiers |= JavaModifiers.Final;
         if (fieldDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.FixedKeyword)))
             context.Diagnostics.Error("Java doesn't support fixed-size buffers. Field needs manual conversion.", fieldDecl.GetLocation());
 
@@ -140,7 +138,6 @@ public class FieldTransformer : IMemberTransformer
                 SyntaxKind.PrivateKeyword => JavaModifiers.Private,
                 SyntaxKind.InternalKeyword => JavaModifiers.Public,
                 SyntaxKind.StaticKeyword => JavaModifiers.Static,
-                SyntaxKind.ReadOnlyKeyword => JavaModifiers.Final,
                 SyntaxKind.ConstKeyword => JavaModifiers.Static | JavaModifiers.Final,
                 SyntaxKind.VolatileKeyword => JavaModifiers.Volatile,
                 SyntaxKind.UnsafeKeyword => JavaModifiers.None,

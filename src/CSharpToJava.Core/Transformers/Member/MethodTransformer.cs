@@ -109,8 +109,48 @@ public class MethodTransformer : IMemberTransformer
         }
         else if (methodDecl.ExpressionBody != null)
         {
-            javaMethod.Body = Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(methodDecl.ExpressionBody.Expression, context);
-            javaMethod.IsBodyExpression = true;
+            var exprBody = Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(methodDecl.ExpressionBody.Expression, context);
+            bool hasPending = context.HasPendingPreStatements || context.HasPendingPostStatements;
+
+            if (!hasPending)
+            {
+                javaMethod.Body = exprBody;
+                javaMethod.IsBodyExpression = true;
+            }
+            else
+            {
+                var bodyLines = new List<string>();
+                if (context.HasPendingPreStatements)
+                {
+                    foreach (var pre in context.DrainPreStatements())
+                        bodyLines.Add(pre.TrimEnd(';') + ";");
+                }
+
+                if (javaMethod.ReturnType == "void")
+                {
+                    bodyLines.Add(exprBody.TrimEnd(';') + ";");
+                    if (context.HasPendingPostStatements)
+                    {
+                        foreach (var post in context.DrainPostStatements())
+                            bodyLines.Add(post.TrimEnd(';') + ";");
+                    }
+                }
+                else if (context.HasPendingPostStatements)
+                {
+                    var retHolder = context.GenerateSyntheticName("_ret");
+                    bodyLines.Add($"var {retHolder} = {exprBody};");
+                    foreach (var post in context.DrainPostStatements())
+                        bodyLines.Add(post.TrimEnd(';') + ";");
+                    bodyLines.Add($"return {retHolder};");
+                }
+                else
+                {
+                    bodyLines.Add($"return {exprBody.TrimEnd(';')};");
+                }
+
+                javaMethod.Body = string.Join("\n", bodyLines);
+                javaMethod.IsBodyExpression = false;
+            }
         }
         else if (methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.AbstractKeyword)) ||
                  methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.ExternKeyword)))

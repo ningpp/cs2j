@@ -288,6 +288,21 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return $"java.util.Objects.equals({leftArg}, {rightArg})";
         }
 
+        // System.Tuple.Create(a, b) maps to Java pair-like entry construction.
+        // This avoids emitting Tuple.create(...) which may bind to an unrelated user type named Tuple.
+        if (originalMethodName == "Create" && node.ArgumentList.Arguments.Count == 2)
+        {
+            bool isSystemTupleCreate = earlyMethodSymbol?.ContainingType?.ToDisplayString() == "System.Tuple"
+                || memberAccess.Expression.ToString() is "Tuple" or "System.Tuple";
+            if (isSystemTupleCreate)
+            {
+                context.AddImport("java.util.AbstractMap");
+                var keyArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var valueArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                return $"new AbstractMap.SimpleEntry<>({keyArg}, {valueArg})";
+            }
+        }
+
         // Fix: Delegate invocation via member access (this.sequence(i), this.Sequence(i), obj.cb(x)).
         // Roslyn reports MethodKind.DelegateInvoke when the accessed member is a Func/Action/delegate.
         // `receiver` is the LHS (e.g. "this"); `originalMethodName` is the member name (field or property).
@@ -1515,10 +1530,17 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                     // Where((x, i) => cond): collect, range, filter by index, re-select element
                     context.AddImport("java.util.stream.IntStream");
                     context.AddImport("java.util.stream.Collectors");
-                    return $"{whereReceiver}.collect(Collectors.collectingAndThen(Collectors.toList(),"
-                         + $" _src -> IntStream.range(0, _src.size())"
-                         + $".filter(_i -> {{ var {whP0} = _src.get(_i); int {whP1} = _i; return {whCond}; }})"
-                         + $".mapToObj(_src::get)))";
+                    var whereIndexed = $"{whereReceiver}.collect(Collectors.collectingAndThen(Collectors.toList(),"
+                                     + $" _src -> IntStream.range(0, _src.size())"
+                                     + $".filter(_i -> {{ var {whP0} = _src.get(_i); int {whP1} = _i; return {whCond}; }})"
+                                     + $".mapToObj(_src::get)))";
+                    var whereType = context.SemanticModel?.GetTypeInfo(node).Type as INamedTypeSymbol;
+                    bool whereReturnsEnumerable = whereType?.Name == "IEnumerable"
+                        && whereType.ContainingNamespace?.ToDisplayString().StartsWith("System") == true;
+                    bool whereIsChained = node.Parent is MemberAccessExpressionSyntax maWhere && maWhere.Expression == node;
+                    return whereReturnsEnumerable && !whereIsChained
+                        ? $"{whereIndexed}.collect(Collectors.toList())"
+                        : whereIndexed;
                 }
                 var predArg = facade.Transform(whereLambdaArg, context);
                 return $"{whereReceiver}.filter({predArg})";
@@ -1534,9 +1556,16 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                     // Select((x, i) => body): collect to list, range, project with index
                     context.AddImport("java.util.stream.IntStream");
                     context.AddImport("java.util.stream.Collectors");
-                    return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toList(),"
-                         + $" _src -> IntStream.range(0, _src.size())"
-                         + $".mapToObj(_i -> {{ var {selP0} = _src.get(_i); int {selP1} = _i; return {selBody}; }})))";
+                    var selectIndexed = $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toList(),"
+                                      + $" _src -> IntStream.range(0, _src.size())"
+                                      + $".mapToObj(_i -> {{ var {selP0} = _src.get(_i); int {selP1} = _i; return {selBody}; }})))";
+                    var selectType = context.SemanticModel?.GetTypeInfo(node).Type as INamedTypeSymbol;
+                    bool selectReturnsEnumerable = selectType?.Name == "IEnumerable"
+                        && selectType.ContainingNamespace?.ToDisplayString().StartsWith("System") == true;
+                    bool selectIsChained = node.Parent is MemberAccessExpressionSyntax maSelect && maSelect.Expression == node;
+                    return selectReturnsEnumerable && !selectIsChained
+                        ? $"{selectIndexed}.collect(Collectors.toList())"
+                        : selectIndexed;
                 }
                 var mapArg = facade.Transform(selectLambdaArg, context);
                 return $"{receiver}.map({mapArg})";
