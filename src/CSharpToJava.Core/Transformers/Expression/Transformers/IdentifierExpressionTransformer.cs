@@ -181,7 +181,40 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
                     => char.ToLowerInvariant(name[0]) + name[1..],
                 _ => name
             };
+
+            // Declare prefix for the fallback case (used in both branches)
             var prefix = bareMethodGroup.IsStatic ? bareMethodGroup.ContainingType.Name : "this";
+
+            // Fix: For EventHandler-compatible method groups (void return, 2 params),
+            // use an explicit lambda instead of a bare method reference.
+            // This avoids Java type inference issues when assigning to BiConsumer<Object, T>.
+            // Example: ProgressChanged += NotifyProgressChanged; should generate:
+            //   (sender, args) -> notifyProgressChanged(sender, args)
+            // instead of: this::notifyProgressChanged
+            var parameters = bareMethodGroup.Parameters;
+            var methodReturnsVoid = bareMethodGroup.ReturnsVoid || bareMethodGroup.ReturnType?.SpecialType == SpecialType.System_Void;
+
+            if (methodReturnsVoid && parameters.Length == 2)
+            {
+                var firstParam = parameters[0];
+                var secondParam = parameters[1];
+
+                // Check if first parameter is Object (sender) and second is EventArgs-derived (args)
+                var firstIsObject = firstParam.Type?.SpecialType == SpecialType.System_Object;
+                var secondIsEventArgs = secondParam.Type?.ToDisplayString() == "System.EventArgs"
+                    || (secondParam.Type?.BaseType?.ToDisplayString() == "System.EventArgs");
+                var secondIsNamedType = secondParam.Type is INamedTypeSymbol;
+
+                if (firstIsObject && (secondIsEventArgs || secondIsNamedType))
+                {
+                    // Generate explicit lambda: (sender, args) -> methodName(sender, args)
+                    // For instance methods, omit the "this." prefix since it's optional in Java
+                    var secondParamName = char.ToLowerInvariant(secondParam.Name[0]) + secondParam.Name[1..];
+                    var methodPrefix = bareMethodGroup.IsStatic ? bareMethodGroup.ContainingType.Name + "." : "";
+                    return $"(sender, {secondParamName}) -> {methodPrefix}{ConversionContext.EscapeJavaKeyword(javaName)}(sender, {secondParamName})";
+                }
+            }
+
             return $"{prefix}::{ConversionContext.EscapeJavaKeyword(javaName)}";
         }
 
@@ -327,6 +360,32 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
             var mapped = context.TypeMappings.MapMethod(typeName, memberName);
             if (mapped != null)
                 javaMethodName = mapped;
+
+            // Fix: For EventHandler-compatible method groups (void return, 2 params),
+            // use an explicit lambda instead of a bare method reference.
+            // This avoids Java type inference issues when assigning to BiConsumer<Object, T>.
+            var parameters = methodGroupSym.Parameters;
+            var methodReturnsVoid = methodGroupSym.ReturnsVoid || methodGroupSym.ReturnType?.SpecialType == SpecialType.System_Void;
+
+            if (methodReturnsVoid && parameters.Length == 2)
+            {
+                var firstParam = parameters[0];
+                var secondParam = parameters[1];
+
+                // Check if first parameter is Object (sender) and second is EventArgs-derived (args)
+                var firstIsObject = firstParam.Type?.SpecialType == SpecialType.System_Object;
+                var secondIsEventArgs = secondParam.Type?.ToDisplayString() == "System.EventArgs"
+                    || (secondParam.Type?.BaseType?.ToDisplayString() == "System.EventArgs");
+                var secondIsNamedType = secondParam.Type is INamedTypeSymbol;
+
+                if (firstIsObject && (secondIsEventArgs || secondIsNamedType))
+                {
+                    // Generate explicit lambda: (sender, args) -> receiver.methodName(sender, args)
+                    var secondParamName = char.ToLowerInvariant(secondParam.Name[0]) + secondParam.Name[1..];
+                    return $"(sender, {secondParamName}) -> {target}.{ConversionContext.EscapeJavaKeyword(javaMethodName)}(sender, {secondParamName})";
+                }
+            }
+
             return $"{target}::{ConversionContext.EscapeJavaKeyword(javaMethodName)}";
         }
 
