@@ -202,6 +202,12 @@ public class UnaryExpressionTransformer : IExpressionTransformer
             return rewritten;
         }
 
+        if (node.Parent is ExpressionStatementSyntax
+            && TryTransformIndexerIncrementAsMutation(node.Operand, op, context, out var indexerRewrite))
+        {
+            return indexerRewrite;
+        }
+
         // Check if this is a user-defined postfix operator (++, --)
         if (context.SemanticModel != null)
         {
@@ -245,6 +251,12 @@ public class UnaryExpressionTransformer : IExpressionTransformer
             && TryTransformPropertyIncrementAsSetter(node.Operand, op, context, out var rewritten))
         {
             return rewritten;
+        }
+
+        if (node.Parent is ExpressionStatementSyntax
+            && TryTransformIndexerIncrementAsMutation(node.Operand, op, context, out var indexerRewrite))
+        {
+            return indexerRewrite;
         }
 
         // Check if this is a user-defined prefix operator (++, --)
@@ -303,5 +315,70 @@ public class UnaryExpressionTransformer : IExpressionTransformer
         }
 
         return false;
+    }
+
+    private static bool TryTransformIndexerIncrementAsMutation(
+        ExpressionSyntax operand,
+        string op,
+        ConversionContext context,
+        out string rewritten)
+    {
+        rewritten = string.Empty;
+        if (context.SemanticModel == null || operand is not ElementAccessExpressionSyntax ela)
+            return false;
+
+        if (ela.ArgumentList.Arguments.Count != 1)
+            return false;
+
+        var delta = op == "++" ? "+ 1" : "- 1";
+        var facade = ExpressionTransformerFacade.Instance;
+        var target = facade.Transform(ela.Expression, context);
+        var key = facade.Transform(ela.ArgumentList.Arguments[0].Expression, context);
+        var containerType = context.SemanticModel.GetTypeInfo(ela.Expression).Type as INamedTypeSymbol;
+
+        if (containerType != null && IsDictionaryLike(containerType))
+        {
+            rewritten = $"{target}.put({key}, {target}.get({key}) {delta})";
+            return true;
+        }
+
+        if (containerType != null && IsListLike(containerType))
+        {
+            rewritten = $"{target}.set({key}, {target}.get({key}) {delta})";
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsDictionaryLike(INamedTypeSymbol type)
+    {
+        var fullName = type.OriginalDefinition.ToDisplayString();
+        if (fullName is
+            "System.Collections.Generic.Dictionary<TKey, TValue>"
+            or "System.Collections.Generic.SortedDictionary<TKey, TValue>"
+            or "System.Collections.Generic.SortedList<TKey, TValue>"
+            or "System.Collections.Generic.IDictionary<TKey, TValue>"
+            or "System.Collections.Generic.IReadOnlyDictionary<TKey, TValue>"
+            or "System.Collections.Immutable.ImmutableDictionary<TKey, TValue>")
+            return true;
+
+        return type.AllInterfaces.Any(i => i.OriginalDefinition.ToDisplayString() is
+            "System.Collections.Generic.IDictionary<TKey, TValue>"
+            or "System.Collections.Generic.IReadOnlyDictionary<TKey, TValue>");
+    }
+
+    private static bool IsListLike(INamedTypeSymbol type)
+    {
+        var fullName = type.OriginalDefinition.ToDisplayString();
+        if (fullName is
+            "System.Collections.Generic.List<T>"
+            or "System.Collections.Generic.IList<T>"
+            or "System.Collections.Generic.IReadOnlyList<T>")
+            return true;
+
+        return type.AllInterfaces.Any(i => i.OriginalDefinition.ToDisplayString() is
+            "System.Collections.Generic.IList<T>"
+            or "System.Collections.Generic.IReadOnlyList<T>");
     }
 }

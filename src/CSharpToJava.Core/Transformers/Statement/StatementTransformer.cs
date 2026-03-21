@@ -139,6 +139,55 @@ public class StatementTransformer : IStatementTransformer
             }
         }
 
+        // Array.Sort(keys, items) overload: sort keys and reorder items accordingly.
+        if (stmt.Expression is InvocationExpressionSyntax arrSortInv
+            && arrSortInv.Expression is MemberAccessExpressionSyntax arrSortMa
+            && arrSortMa.Name.Identifier.Text == "Sort"
+            && arrSortInv.ArgumentList.Arguments.Count == 2)
+        {
+            var receiverText = arrSortMa.Expression.ToString();
+            bool isArrayReceiver = receiverText is "Array" or "System.Array";
+            if (isArrayReceiver && context.SemanticModel != null)
+            {
+                var arg0Expr = arrSortInv.ArgumentList.Arguments[0].Expression;
+                var arg1Expr = arrSortInv.ArgumentList.Arguments[1].Expression;
+                var keyArr = context.SemanticModel.GetTypeInfo(arg0Expr).Type as IArrayTypeSymbol;
+                var itemArr = context.SemanticModel.GetTypeInfo(arg1Expr).Type as IArrayTypeSymbol;
+
+                bool keyIsNumeric = keyArr?.ElementType.SpecialType is
+                    SpecialType.System_Byte or SpecialType.System_SByte
+                    or SpecialType.System_Int16 or SpecialType.System_UInt16
+                    or SpecialType.System_Int32 or SpecialType.System_UInt32
+                    or SpecialType.System_Int64 or SpecialType.System_UInt64
+                    or SpecialType.System_Single or SpecialType.System_Double
+                    or SpecialType.System_Decimal;
+
+                if (keyArr != null && itemArr != null && keyIsNumeric)
+                {
+                    var keysExpr = exprTransformer.Transform(arg0Expr, context);
+                    var itemsExpr = exprTransformer.Transform(arg1Expr, context);
+                    var keyElemType = context.MapType(keyArr.ElementType);
+                    var itemElemType = context.MapType(itemArr.ElementType);
+
+                    context.AddImport("java.util.Arrays");
+                    context.AddImport("java.util.Comparator");
+                    context.AddImport("java.util.stream.IntStream");
+
+                    var idxName = context.GenerateSyntheticName("_sortIdx");
+                    var keyCopyName = context.GenerateSyntheticName("_keyCopy");
+                    var itemCopyName = context.GenerateSyntheticName("_itemCopy");
+
+                    var sb = new System.Text.StringBuilder();
+                    sb.AppendLine($"Integer[] {idxName} = IntStream.range(0, {keysExpr}.length).boxed().toArray(Integer[]::new);");
+                    sb.AppendLine($"Arrays.sort({idxName}, Comparator.comparingDouble(i -> (double){keysExpr}[i]));");
+                    sb.AppendLine($"{keyElemType}[] {keyCopyName} = {keysExpr}.clone();");
+                    sb.AppendLine($"{itemElemType}[] {itemCopyName} = {itemsExpr}.clone();");
+                    sb.Append($"for (int i = 0; i < {idxName}.length; i++) {{ {keysExpr}[i] = {keyCopyName}[{idxName}[i]]; {itemsExpr}[i] = {itemCopyName}[{idxName}[i]]; }}");
+                    return new JavaStatementNode(sb.ToString());
+                }
+            }
+        }
+
         // Special case: Debug.Assert / Trace.Assert / Contract.Requires / Contract.Assert
         // Java's 'assert' is a statement keyword, not a callable method — emit it directly
         // so the call never reaches the generic name-lowering + EscapeJavaKeyword path that
