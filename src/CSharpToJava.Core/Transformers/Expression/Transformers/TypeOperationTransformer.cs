@@ -84,6 +84,15 @@ public class TypeOperationTransformer : IExpressionTransformer
             var sourceType = context.SemanticModel.GetTypeInfo(node.Expression).Type;
             if (sourceType?.TypeKind == TypeKind.Enum && IsJavaNumericType(targetType))
             {
+                var mappedSourceType = context.MapType(sourceType);
+                if (mappedSourceType is "int" or "long" or "short" or "byte"
+                    or "Integer" or "Long" or "Short" or "Byte")
+                {
+                    return targetType == "int"
+                        ? expression
+                        : $"({targetType})({expression})";
+                }
+
                 return targetType == "int"
                     ? $"{expression}.ordinal()"
                     : $"({targetType})({expression}.ordinal())";
@@ -123,10 +132,22 @@ public class TypeOperationTransformer : IExpressionTransformer
                         "System.Collections.ICollection" or
                         "System.Collections.Generic.IList<T>");
 
+                bool isCollectionLike = sourceType.AllInterfaces.Any(i =>
+                    i.OriginalDefinition?.ToDisplayString() is
+                        "System.Collections.Generic.ICollection<T>" or
+                        "System.Collections.ICollection" or
+                        "System.Collections.Generic.IList<T>");
+
                 if (isEnumerableLike)
                 {
                     var elemJavaType = context.MapType(targetArrayType.ElementType);
-                    return $"{expression}.toArray(new {elemJavaType}[0])";
+                    if (isCollectionLike)
+                    {
+                        return $"{expression}.toArray(new {elemJavaType}[0])";
+                    }
+
+                    context.AddImport("java.util.stream.StreamSupport");
+                    return $"StreamSupport.stream({expression}.spliterator(), false).toArray(size -> new {elemJavaType}[size])";
                 }
             }
         }
