@@ -39,16 +39,19 @@ public class EventFieldTransformer : IEventFieldTransformer
             var addAccessor = node.AccessorList.Accessors
                 .FirstOrDefault(a => a.IsKind(SyntaxKind.AddAccessorDeclaration));
             if (addAccessor?.Body != null)
-                addBody = statementTransformer.TransformBlock(addAccessor.Body, context);
+                addBody = NormalizeExplicitAccessorBody(statementTransformer.TransformBlock(addAccessor.Body, context));
 
             var removeAccessor = node.AccessorList.Accessors
                 .FirstOrDefault(a => a.IsKind(SyntaxKind.RemoveAccessorDeclaration));
             if (removeAccessor?.Body != null)
-                removeBody = statementTransformer.TransformBlock(removeAccessor.Body, context);
+                removeBody = NormalizeExplicitAccessorBody(statementTransformer.TransformBlock(removeAccessor.Body, context));
         }
 
         return GenerateEventMembers(eventName, sig, node.Modifiers, context, addBody, removeBody);
     }
+
+    private static string NormalizeExplicitAccessorBody(string body)
+        => System.Text.RegularExpressions.Regex.Replace(body, @"\bvalue\b", "handler");
 
     private class EventSignature
     {

@@ -72,6 +72,42 @@ public class AssignmentTransformer : IExpressionTransformer
             }
         }
 
+        if ((op == "+=" || op == "-=") && leftNode is IdentifierNameSyntax)
+        {
+            if (context.SemanticModel?.GetSymbolInfo(leftNode).Symbol is IEventSymbol evt)
+            {
+                var listenerField = $"_{char.ToLowerInvariant(evt.Name[0])}{evt.Name[1..]}Listeners";
+                string handler;
+                if (rightNode is IdentifierNameSyntax { Identifier.Text: "value" }
+                    && context.CurrentMethod?.Parameters.Length == 1)
+                {
+                    handler = ConversionContext.EscapeJavaKeyword(context.CurrentMethod.Parameters[0].Name);
+                }
+                else
+                {
+                    handler = facade.Transform(rightNode, context);
+                }
+
+                var listMethod = op == "+=" ? "add" : "remove";
+                return $"{listenerField}.{listMethod}({handler})";
+            }
+        }
+
+        if ((op == "+=" || op == "-=") && leftNode is IdentifierNameSyntax)
+        {
+            var leftText = facade.Transform(leftNode, context);
+            if (leftText.StartsWith("fire", StringComparison.Ordinal) && leftText.Length > 4)
+            {
+                var eventName = leftText[4..];
+                var listenerField = $"_{char.ToLowerInvariant(eventName[0])}{eventName[1..]}Listeners";
+                var handler = rightNode is IdentifierNameSyntax { Identifier.Text: "value" }
+                    ? "handler"
+                    : facade.Transform(rightNode, context);
+                var listMethod = op == "+=" ? "add" : "remove";
+                return $"{listenerField}.{listMethod}({handler})";
+            }
+        }
+
         // Fix 1: Detect property assignments using semantic model → setter calls (simple assignment only)
         if (op == "=" && leftNode is MemberAccessExpressionSyntax propMa)
         {
@@ -102,6 +138,17 @@ public class AssignmentTransformer : IExpressionTransformer
                     {
                         right = ObjectCreationTransformer.WrapArrayForCollectionArg(right, arrayType, context);
                     }
+
+                    right = ApplyIntegralNarrowingIfNeeded(rightNode, right, propType, context);
+                }
+
+                // Avoid recursion when an explicit SetX(...) method assigns to property X.
+                // In that case we need a direct backing-field write, not a setter call.
+                if (IsInExplicitSetterMethod(prop, context)
+                    && propMa.Expression is ThisExpressionSyntax)
+                {
+                    string fieldName = char.ToLowerInvariant(prop.Name[0]) + prop.Name[1..];
+                    return $"this.{fieldName} = {right}";
                 }
 
                 string setter = "set" + char.ToUpperInvariant(prop.Name[0]) + prop.Name[1..];
@@ -112,7 +159,13 @@ public class AssignmentTransformer : IExpressionTransformer
         // Fix 2: Detect indexer assignments → put/set methods (simple assignment only)
         if (op == "=" && leftNode is ElementAccessExpressionSyntax ela)
         {
-            if (context.SemanticModel?.GetSymbolInfo(ela).Symbol is IPropertySymbol { IsIndexer: true })
+            var indexerSymbol = context.SemanticModel?.GetSymbolInfo(ela).Symbol as IPropertySymbol;
+            var containerExprType = context.SemanticModel?.GetTypeInfo(ela.Expression).Type;
+            bool isArrayElement = containerExprType is IArrayTypeSymbol;
+            bool isIndexerAssignment = !isArrayElement
+                && (indexerSymbol?.IsIndexer == true || indexerSymbol == null);
+
+            if (isIndexerAssignment)
             {
                 var target = facade.Transform(ela.Expression, context);
                 var argList = ela.ArgumentList.Arguments;
@@ -121,16 +174,13 @@ public class AssignmentTransformer : IExpressionTransformer
                 if (argList.Count == 1)
                 {
                     var argExpr = argList[0].Expression;
-                    var containerType = context.SemanticModel?.GetTypeInfo(ela.Expression).Type;
+                    var containerType = (ITypeSymbol?)indexerSymbol?.ContainingType
+                        ?? context.SemanticModel?.GetTypeInfo(ela.Expression).Type;
                     string method = "set"; // default for indexers
                     if (containerType is INamedTypeSymbol namedContainer)
                     {
                         var fullName = namedContainer.OriginalDefinition.ToDisplayString();
-                        bool isDictionaryContainer = fullName is
-                            "System.Collections.Generic.Dictionary<TKey, TValue>"
-                            or "System.Collections.Generic.IDictionary<TKey, TValue>"
-                            or "System.Collections.Generic.IReadOnlyDictionary<TKey, TValue>"
-                            or "System.Collections.Immutable.ImmutableDictionary<TKey, TValue>";
+                        bool isDictionaryContainer = IsDictionaryLikeContainer(namedContainer);
                         bool isListContainer = fullName is
                             "System.Collections.Generic.List<T>"
                             or "System.Collections.Generic.IList<T>"
@@ -138,6 +188,12 @@ public class AssignmentTransformer : IExpressionTransformer
                             or "System.Collections.Immutable.ImmutableArray<T>";
                         if (isDictionaryContainer) method = "put";
                         else if (isListContainer) method = "set";
+                    }
+                    else if (indexerSymbol == null)
+                    {
+                        // Semantic model failed to resolve (common in partial/incomplete compilations);
+                        // for map-like indexers this should be put(key, value) instead of get(key)=value.
+                        method = "put";
                     }
                     var arg0 = facade.Transform(argExpr, context);
                     return $"{target}.{method}({arg0}, {right})";
@@ -147,6 +203,33 @@ public class AssignmentTransformer : IExpressionTransformer
                 var transformedArgs = string.Join(", ", argList.Select(a => facade.Transform(a.Expression, context)));
                 return $"{target}.set({transformedArgs}, {right})";
             }
+        }
+
+        static bool IsDictionaryLikeContainer(INamedTypeSymbol type)
+        {
+            var self = type.OriginalDefinition.ToDisplayString();
+            if (type.Name.Contains("Dictionary", StringComparison.Ordinal)
+                || type.Name.Contains("SortedList", StringComparison.Ordinal)
+                || type.Name.Contains("Map", StringComparison.Ordinal))
+                return true;
+
+            if (self is
+                "System.Collections.Generic.Dictionary<TKey, TValue>"
+                or "System.Collections.Generic.SortedDictionary<TKey, TValue>"
+                or "System.Collections.Generic.SortedList<TKey, TValue>"
+                or "System.Collections.Immutable.ImmutableDictionary<TKey, TValue>"
+                or "System.Collections.Generic.IDictionary<TKey, TValue>"
+                or "System.Collections.Generic.IReadOnlyDictionary<TKey, TValue>")
+                return true;
+
+            return type.AllInterfaces.Any(i =>
+            {
+                var n = i.OriginalDefinition.ToDisplayString();
+                return n is "System.Collections.Generic.IDictionary<TKey, TValue>"
+                    or "System.Collections.Generic.IReadOnlyDictionary<TKey, TValue>"
+                    || i.Name.Contains("Dictionary", StringComparison.Ordinal)
+                    || i.Name.Contains("Map", StringComparison.Ordinal);
+            });
         }
 
         // Handle bare-identifier property assignment (e.g., Demo = value; → setDemo(value);)
@@ -176,6 +259,14 @@ public class AssignmentTransformer : IExpressionTransformer
                     {
                         right = ObjectCreationTransformer.WrapArrayForCollectionArg(right, arrayType, context);
                     }
+
+                    right = ApplyIntegralNarrowingIfNeeded(rightNode, right, propType, context);
+                }
+
+                if (IsInExplicitSetterMethod(bareIdentProp, context))
+                {
+                    string fieldName = char.ToLowerInvariant(bareIdentProp.Name[0]) + bareIdentProp.Name[1..];
+                    return $"this.{fieldName} = {right}";
                 }
 
                 string setter = "set" + char.ToUpperInvariant(bareIdentProp.Name[0]) + bareIdentProp.Name[1..];
@@ -279,6 +370,18 @@ public class AssignmentTransformer : IExpressionTransformer
         }
 
         var rightStr = facade.Transform(rightNode, context);
+
+        if ((op == "+=" || op == "-=")
+            && rightNode is IdentifierNameSyntax { Identifier.Text: "value" }
+            && left.StartsWith("fire", StringComparison.Ordinal)
+            && left.Length > 4)
+        {
+            var eventName = left[4..];
+            var listenerField = $"_{char.ToLowerInvariant(eventName[0])}{eventName[1..]}Listeners";
+            var listMethod = op == "+=" ? "add" : "remove";
+            return $"{listenerField}.{listMethod}(handler)";
+        }
+
         return $"{left} {op} {rightStr}";
     }
 
@@ -294,6 +397,51 @@ public class AssignmentTransformer : IExpressionTransformer
             return false;
 
         return context.SemanticModel?.GetSymbolInfo(assign.Left).Symbol is IPropertySymbol;
+    }
+
+    private static bool IsInExplicitSetterMethod(IPropertySymbol property, ConversionContext context)
+    {
+        var currentMethod = context.CurrentMethod;
+        if (currentMethod == null)
+            return false;
+
+        if (!SymbolEqualityComparer.Default.Equals(currentMethod.ContainingType, property.ContainingType))
+            return false;
+
+        if (currentMethod.Parameters.Length != 1)
+            return false;
+
+        return string.Equals(currentMethod.Name, "Set" + property.Name, StringComparison.Ordinal);
+    }
+
+    private static string ApplyIntegralNarrowingIfNeeded(
+        ExpressionSyntax rhsNode,
+        string rhsText,
+        ITypeSymbol targetType,
+        ConversionContext context)
+    {
+        if (context.SemanticModel == null)
+            return rhsText;
+
+        var targetSpecial = targetType.SpecialType;
+        string? cast = targetSpecial switch
+        {
+            SpecialType.System_Byte or SpecialType.System_SByte => "byte",
+            SpecialType.System_Int16 or SpecialType.System_UInt16 => "short",
+            _ => null
+        };
+
+        if (cast == null)
+            return rhsText;
+
+        var rhsType = context.SemanticModel.GetTypeInfo(rhsNode).Type;
+        if (rhsType == null)
+            return rhsText;
+
+        bool rhsIsWiderIntegral = rhsType.SpecialType is
+            SpecialType.System_Int32 or SpecialType.System_UInt32 or SpecialType.System_Int64 or SpecialType.System_UInt64;
+
+        return rhsIsWiderIntegral ? $"({cast}) ({rhsText})" : rhsText;
     }
 
     /// <summary>

@@ -48,4 +48,27 @@ public class MultiIndexerAssignmentTests
         Assert.Contains("this.set(0, 0", result.GeneratedCode);
         Assert.DoesNotContain("this.put(0, 0", result.GeneratedCode);
     }
+
+    [Fact]
+    public void SortedDictionaryIndexerAssignment_UsesPut()
+    {
+        const string code = """
+            using System.Collections.Generic;
+
+            class C
+            {
+                void M()
+                {
+                    var dict = new SortedDictionary<double, string>();
+                    dict[1.0] = "x";
+                }
+            }
+            """;
+
+        var result = Convert(code);
+        Assert.True(result.Success,
+            $"Conversion failed:\n{string.Join("\n", result.Diagnostics.Select(d => d.Message))}");
+        Assert.Contains("dict.put(", result.GeneratedCode);
+        Assert.DoesNotContain("dict.set(", result.GeneratedCode);
+    }
 }

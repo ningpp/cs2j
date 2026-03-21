@@ -403,8 +403,26 @@ public class ClassTransformer : ITypeTransformer
     internal static void AddMethodIfNotDuplicateInternal(JavaClassDeclaration javaClass, JavaMethodDeclaration javaMethod)
     {
         var erasedSig = ErasedParamSig(javaMethod.Parameters);
-        if (!javaClass.Methods.Any(m => m.Name == javaMethod.Name && ErasedParamSig(m.Parameters) == erasedSig))
+        var existing = javaClass.Methods.FirstOrDefault(m => m.Name == javaMethod.Name && ErasedParamSig(m.Parameters) == erasedSig);
+        if (existing == null)
+        {
             javaClass.Methods.Add(javaMethod);
+            return;
+        }
+
+        bool existingIsPrivate = (existing.Modifiers & JavaModifiers.Private) != 0;
+        bool incomingIsPrivate = (javaMethod.Modifiers & JavaModifiers.Private) != 0;
+
+        // If an auto-property private setter collides with an explicit non-private method,
+        // keep the non-private method so cross-type call sites remain accessible.
+        if (existingIsPrivate && !incomingIsPrivate)
+        {
+            int idx = javaClass.Methods.IndexOf(existing);
+            if (idx >= 0)
+            {
+                javaClass.Methods[idx] = javaMethod;
+            }
+        }
     }
 
     internal static void AddCtorIfNotDuplicateInternal(JavaClassDeclaration javaClass, JavaConstructorDeclaration ctor)

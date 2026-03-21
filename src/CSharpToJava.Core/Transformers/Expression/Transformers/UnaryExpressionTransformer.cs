@@ -196,6 +196,12 @@ public class UnaryExpressionTransformer : IExpressionTransformer
 
     private string TransformPostfix(PostfixUnaryExpressionSyntax node, string op, ConversionContext context)
     {
+        if (node.Parent is ExpressionStatementSyntax
+            && TryTransformPropertyIncrementAsSetter(node.Operand, op, context, out var rewritten))
+        {
+            return rewritten;
+        }
+
         // Check if this is a user-defined postfix operator (++, --)
         if (context.SemanticModel != null)
         {
@@ -235,6 +241,12 @@ public class UnaryExpressionTransformer : IExpressionTransformer
 
     private string TransformPrefix(PrefixUnaryExpressionSyntax node, string op, ConversionContext context)
     {
+        if (node.Parent is ExpressionStatementSyntax
+            && TryTransformPropertyIncrementAsSetter(node.Operand, op, context, out var rewritten))
+        {
+            return rewritten;
+        }
+
         // Check if this is a user-defined prefix operator (++, --)
         if (context.SemanticModel != null)
         {
@@ -252,5 +264,44 @@ public class UnaryExpressionTransformer : IExpressionTransformer
         var facade = ExpressionTransformerFacade.Instance;
         var operand = facade.Transform(node.Operand, context);
         return $"{op}{operand}";
+    }
+
+    private static bool TryTransformPropertyIncrementAsSetter(
+        ExpressionSyntax operand,
+        string op,
+        ConversionContext context,
+        out string rewritten)
+    {
+        rewritten = string.Empty;
+        if (context.SemanticModel == null)
+            return false;
+
+        var symbol = context.SemanticModel.GetSymbolInfo(operand).Symbol as IPropertySymbol;
+        if (symbol == null || symbol.SetMethod == null)
+            return false;
+
+        var delta = op == "++" ? "+ 1" : "- 1";
+        var facade = ExpressionTransformerFacade.Instance;
+
+        if (operand is MemberAccessExpressionSyntax ma)
+        {
+            var recv = facade.Transform(ma.Expression, context);
+            var propName = symbol.Name;
+            var getter = "get" + char.ToUpperInvariant(propName[0]) + propName[1..];
+            var setter = "set" + char.ToUpperInvariant(propName[0]) + propName[1..];
+            rewritten = $"{recv}.{setter}({recv}.{getter}() {delta})";
+            return true;
+        }
+
+        if (operand is IdentifierNameSyntax id)
+        {
+            var propName = id.Identifier.Text;
+            var getter = "get" + char.ToUpperInvariant(propName[0]) + propName[1..];
+            var setter = "set" + char.ToUpperInvariant(propName[0]) + propName[1..];
+            rewritten = $"{setter}({getter}() {delta})";
+            return true;
+        }
+
+        return false;
     }
 }
