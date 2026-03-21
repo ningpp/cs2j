@@ -108,6 +108,14 @@ public class ObjectCreationTransformer : IExpressionTransformer
             return TransformCollectionCreationWithInitializer(typeName, node.Initializer, context);
         }
 
+        // Delegate construction (new D(expr)) should become a functional value in Java,
+        // not interface instantiation.
+        if (createdTypeSymbol?.TypeKind == TypeKind.Delegate
+            && node.ArgumentList?.Arguments.Count == 1)
+        {
+            return facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+        }
+
         return TransformObjectCreationWithArgs(typeName, node.ArgumentList, context);
     }
 
@@ -132,20 +140,22 @@ public class ObjectCreationTransformer : IExpressionTransformer
         if (argumentList == null || argumentList.Arguments.Count == 0)
             return $"new {typeName}()";
 
-        // Java functional interfaces are not instantiated with constructors.
-        // C# delegate construction like new Func<T, R>(obj.Method) should map to method refs/lambdas.
-        if (argumentList.Arguments.Count == 1 && IsJavaFunctionalInterfaceType(typeName))
-        {
-            return ExpressionTransformerFacade.Instance.Transform(argumentList.Arguments[0].Expression, context);
-        }
-
-        // Resolve the constructor symbol so CoerceArgumentType can insert narrowing casts
-        // (e.g. byte/short parameters receiving int literals require an explicit Java cast).
+        // Resolve constructor/delegate symbol early so delegate construction can be handled
+        // as a functional value assignment instead of Java object instantiation.
         IMethodSymbol? ctorSymbol = null;
         if (context.SemanticModel != null && argumentList.Parent != null)
         {
             var symInfo = context.SemanticModel.GetSymbolInfo(argumentList.Parent);
             ctorSymbol = symInfo.Symbol as IMethodSymbol;
+        }
+
+        // Java functional interfaces are not instantiated with constructors.
+        // C# delegate construction like new Func<T, R>(obj.Method) should map to method refs/lambdas.
+        if (argumentList.Arguments.Count == 1
+            && (IsJavaFunctionalInterfaceType(typeName)
+                || ctorSymbol?.ContainingType.TypeKind == TypeKind.Delegate))
+        {
+            return ExpressionTransformerFacade.Instance.Transform(argumentList.Arguments[0].Expression, context);
         }
 
         var args = ArgumentTransformer.TransformArgumentList(
@@ -205,6 +215,19 @@ public class ObjectCreationTransformer : IExpressionTransformer
                 return $"new {typeName}(new Point({parts[0]}, {parts[1]}), new Point({parts[2]}, {parts[3]}))";
         }
 
+        // C# StreamReader/TextReader patterns may be mapped to BufferedReader with a string path.
+        // Java BufferedReader expects a Reader, so wrap string path with FileReader.
+        if (argumentList.Arguments.Count == 1 && typeName.EndsWith("BufferedReader", StringComparison.Ordinal))
+        {
+            var argType = context.SemanticModel?.GetTypeInfo(argumentList.Arguments[0].Expression).Type;
+            if (argType?.SpecialType == SpecialType.System_String)
+            {
+                var pathArg = ExpressionTransformerFacade.Instance.Transform(argumentList.Arguments[0].Expression, context);
+                context.AddImport("java.io.FileReader");
+                return $"new {typeName}(new FileReader({pathArg}))";
+            }
+        }
+
         // C# ArgumentOutOfRangeException(paramName, message) is commonly mapped to
         // IllegalArgumentException in Java, but Java has no (String, String) constructor.
         // Fold to a single message: "paramName: message".
@@ -231,6 +254,11 @@ public class ObjectCreationTransformer : IExpressionTransformer
         {
             args = CoerceArrayArgsForCollectionCtor(
                 argumentList.Arguments, args, context);
+        }
+
+        if (IsJavaCollectionType(typeName))
+        {
+            args = CoerceSingleStreamArgForCollectionCtor(argumentList.Arguments, args, context);
         }
 
         return $"new {typeName}({args})";
@@ -315,6 +343,42 @@ public class ObjectCreationTransformer : IExpressionTransformer
             or SpecialType.System_Int64 or SpecialType.System_Double or SpecialType.System_Single
             or SpecialType.System_Boolean or SpecialType.System_Char;
 
+    private static string CoerceSingleStreamArgForCollectionCtor(
+        SeparatedSyntaxList<ArgumentSyntax> syntaxArgs,
+        string transformedArgs,
+        ConversionContext context)
+    {
+        if (syntaxArgs.Count != 1)
+            return transformedArgs;
+
+        var expr = transformedArgs.Trim();
+        if (!LooksLikeUnmaterializedStream(expr))
+            return transformedArgs;
+
+        context.AddImport("java.util.stream.Collectors");
+        return $"{expr}.collect(Collectors.toList())";
+    }
+
+    private static bool LooksLikeUnmaterializedStream(string expr)
+    {
+        if (string.IsNullOrWhiteSpace(expr))
+            return false;
+
+        bool streamLike = expr.Contains(".stream(", StringComparison.Ordinal)
+            || expr.Contains("StreamSupport.stream(", StringComparison.Ordinal)
+            || expr.Contains("Arrays.stream(", StringComparison.Ordinal)
+            || expr.Contains(".sorted(", StringComparison.Ordinal)
+            || expr.Contains(".map(", StringComparison.Ordinal)
+            || expr.Contains(".filter(", StringComparison.Ordinal)
+            || expr.Contains(".flatMap(", StringComparison.Ordinal);
+
+        if (!streamLike)
+            return false;
+
+        return !expr.Contains(".collect(", StringComparison.Ordinal)
+            && !expr.EndsWith(".toList()", StringComparison.Ordinal);
+    }
+
     /// <summary>
     /// Splits a comma-separated argument string at the top level (ignoring commas inside &lt;&gt;, (), []).
     /// </summary>
@@ -361,7 +425,7 @@ public class ObjectCreationTransformer : IExpressionTransformer
         // This avoids the double-brace anonymous-subclass anti-pattern which leaks memory,
         // prevents the type from being final, and breaks equals() checks.
         string tmpVar = context.GenerateSyntheticName("_obj");
-        context.AddPreStatement($"var {tmpVar} = new {typeName}({ctorArgs});");
+        var pendingAssignments = new List<string>();
 
         foreach (var expr in initializer.Expressions)
         {
@@ -378,13 +442,13 @@ public class ObjectCreationTransformer : IExpressionTransformer
                     if (memberSymbol is IFieldSymbol fieldSym)
                     {
                         var javaFieldName = ConversionContext.EscapeJavaKeyword(fieldSym.Name);
-                        context.AddPreStatement($"{tmpVar}.{javaFieldName} = {value};");
+                        pendingAssignments.Add($"{tmpVar}.{javaFieldName} = {value};");
                     }
                     else
                     {
                         var propertyName = ConversionContext.EscapeJavaKeyword(idName.Identifier.Text);
                         var setterName = ConvertToSetter(propertyName);
-                        context.AddPreStatement($"{tmpVar}.{setterName}({value});");
+                        pendingAssignments.Add($"{tmpVar}.{setterName}({value});");
                     }
                 }
                 else if (assignExpr.Left is MemberAccessExpressionSyntax memberAccess)
@@ -393,22 +457,26 @@ public class ObjectCreationTransformer : IExpressionTransformer
                     if (memberSymbol2 is IFieldSymbol fieldSym2)
                     {
                         var javaFieldName = ConversionContext.EscapeJavaKeyword(fieldSym2.Name);
-                        context.AddPreStatement($"{tmpVar}.{javaFieldName} = {value};");
+                        pendingAssignments.Add($"{tmpVar}.{javaFieldName} = {value};");
                     }
                     else
                     {
                         var propertyName = ConversionContext.EscapeJavaKeyword(memberAccess.Name.Identifier.Text);
                         var setterName = ConvertToSetter(propertyName);
-                        context.AddPreStatement($"{tmpVar}.{setterName}({value});");
+                        pendingAssignments.Add($"{tmpVar}.{setterName}({value});");
                     }
                 }
                 else
                 {
                     var target = facade.Transform(assignExpr.Left, context);
-                    context.AddPreStatement($"{tmpVar}.{target} = {value};");
+                    pendingAssignments.Add($"{tmpVar}.{target} = {value};");
                 }
             }
         }
+
+        context.AddPreStatement($"var {tmpVar} = new {typeName}({ctorArgs});");
+        foreach (var assignment in pendingAssignments)
+            context.AddPreStatement(assignment);
 
         return tmpVar;
     }
