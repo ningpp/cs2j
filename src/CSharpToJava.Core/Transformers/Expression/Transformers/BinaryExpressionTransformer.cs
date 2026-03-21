@@ -73,6 +73,37 @@ public class BinaryExpressionTransformer : IExpressionTransformer
     {
         var facade = ExpressionTransformerFacade.Instance;
 
+        // Fix: Handle event null comparisons (e.g., ProgressChanged != null)
+        // C#: event != null  → Java: !_eventListeners.isEmpty()
+        // C#: event == null  → Java: _eventListeners.isEmpty()
+        if ((op == "==" || op == "!=") && context.SemanticModel != null)
+        {
+            // Check if this is an event compared to null
+            var leftSymbol = context.SemanticModel.GetSymbolInfo(node.Left).Symbol;
+            var rightSymbol = context.SemanticModel.GetSymbolInfo(node.Right).Symbol;
+            bool rightIsNull = node.Right.IsKind(SyntaxKind.NullLiteralExpression);
+            bool leftIsNull = node.Left.IsKind(SyntaxKind.NullLiteralExpression);
+
+            if ((leftSymbol is IEventSymbol eventSym && rightIsNull) ||
+                (rightSymbol is IEventSymbol && leftIsNull))
+            {
+                var actualEventSym = leftSymbol as IEventSymbol ?? rightSymbol as IEventSymbol;
+                var eventName = actualEventSym?.Name;
+                var currentTypeName = context.CurrentType?.Name;
+
+                // Only convert to listener access within the same class
+                if (eventName != null && currentTypeName != null &&
+                    actualEventSym?.ContainingType?.Name == currentTypeName)
+                {
+                    var fieldName = $"_{char.ToLower(eventName[0])}{eventName.Substring(1)}Listeners";
+                    if (op == "!=")
+                        return $"!{fieldName}.isEmpty()";
+                    else
+                        return $"{fieldName}.isEmpty()";
+                }
+            }
+        }
+
         // Check if this is a user-defined operator that should be converted to a static method call
         if (context.SemanticModel != null)
         {

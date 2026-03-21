@@ -113,6 +113,58 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
             return $"{ConversionContext.EscapeJavaKeyword(outParam.Name)}.value";
         }
 
+        // Fix: Handle event references within the same class.
+        // C#: ProgressChanged != null  → Java: !_progressChangedListeners.isEmpty()
+        // C#: ProgressChanged(...)    → Java: fireProgressChanged(...)
+        if (context.SemanticModel?.GetSymbolInfo(node).Symbol is IEventSymbol eventSym)
+        {
+            var fieldName = $"_{char.ToLower(name[0])}{name.Substring(1)}Listeners";
+            var fireMethodName = GetFireMethodName(name);
+
+            // For null comparisons (ProgressChanged != null or ProgressChanged == null)
+            if (node.Parent is BinaryExpressionSyntax binaryExpr)
+            {
+                // Only handle when the event is the left operand and right is null literal
+                if (binaryExpr.Left == node && binaryExpr.Right.IsKind(SyntaxKind.NullLiteralExpression))
+                {
+                    var op = binaryExpr.OperatorToken.Kind();
+                    if (op == SyntaxKind.EqualsExpression)
+                    {
+                        return $"{fieldName}.isEmpty()"; // ProgressChanged == null → _listeners.isEmpty()
+                    }
+                    if (op == SyntaxKind.NotEqualsExpression)
+                    {
+                        return $"!{fieldName}.isEmpty()"; // ProgressChanged != null → !_listeners.isEmpty()
+                    }
+                }
+                // Handle case when event is the right operand (null != ProgressChanged, null == ProgressChanged)
+                if (binaryExpr.Right == node && binaryExpr.Left.IsKind(SyntaxKind.NullLiteralExpression))
+                {
+                    var op = binaryExpr.OperatorToken.Kind();
+                    if (op == SyntaxKind.EqualsExpression)
+                    {
+                        return $"{fieldName}.isEmpty()"; // null == ProgressChanged → _listeners.isEmpty()
+                    }
+                    if (op == SyntaxKind.NotEqualsExpression)
+                    {
+                        return $"!{fieldName}.isEmpty()"; // null != ProgressChanged → !_listeners.isEmpty()
+                    }
+                }
+            }
+
+            // For conditional access (ProgressChanged?.Invoke(...))
+            // In this case, the identifier itself should be replaced with the fire method call
+            // and the conditional access wrapper will handle the null check
+            if (node.Parent is ConditionalAccessExpressionSyntax)
+            {
+                return fireMethodName;
+            }
+
+            // For direct invocation (ProgressChanged(sender, args)) or member access
+            // Return the fire method name - the invocation will be handled by the parent
+            return fireMethodName;
+        }
+
         // Fix: Bare identifier method group used as value (not invoked) → Java method reference.
         // e.g. Action<int> a = Process; → Consumer<Integer> a = this::process;
         if (context.SemanticModel?.GetSymbolInfo(node).Symbol is IMethodSymbol bareMethodGroup
@@ -217,6 +269,43 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
 
         var target = facade.Transform(node.Expression, context);
         var memberName = node.Name.Identifier.Text;
+
+        // Fix: Handle event member access within the same class.
+        // C#: this.ProgressChanged != null  → Java: !_progressChangedListeners.isEmpty()
+        // C#: this.ProgressChanged(...)    → Java: fireProgressChanged(...)
+        if (context.SemanticModel?.GetSymbolInfo(node).Symbol is IEventSymbol eventSym)
+        {
+            var fieldName = $"_{char.ToLower(memberName[0])}{memberName.Substring(1)}Listeners";
+            var currentTypeName = context.CurrentType?.Name;
+
+            // Only convert to listener access within the same class
+            if (currentTypeName != null && eventSym.ContainingType.Name == currentTypeName)
+            {
+                // For null comparisons (this.ProgressChanged != null)
+                if (node.Parent is BinaryExpressionSyntax binaryExpr)
+                {
+                    if (binaryExpr.Left == node && binaryExpr.Right.IsKind(SyntaxKind.NullLiteralExpression))
+                    {
+                        var op = binaryExpr.OperatorToken.Kind();
+                        if (op == SyntaxKind.EqualsExpression)
+                            return fieldName + ".isEmpty()";
+                        if (op == SyntaxKind.NotEqualsExpression)
+                            return $"!{fieldName}.isEmpty()";
+                    }
+                    if (binaryExpr.Right == node && binaryExpr.Left.IsKind(SyntaxKind.NullLiteralExpression))
+                    {
+                        var op = binaryExpr.OperatorToken.Kind();
+                        if (op == SyntaxKind.EqualsExpression)
+                            return fieldName + ".isEmpty()";
+                        if (op == SyntaxKind.NotEqualsExpression)
+                            return $"!{fieldName}.isEmpty()";
+                    }
+                }
+
+                // For invocation or direct access, use the fire method name
+                return GetFireMethodName(memberName);
+            }
+        }
 
         // Fix: Method group used as value (not invoked) → Java method reference (receiver::method).
         // e.g. C# `Parallel.Invoke` as a delegate value → Java `Parallel::invoke`.
@@ -364,5 +453,14 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
         var member = ConversionContext.EscapeJavaKeyword(node.Name.Identifier.Text);
         // Fix 6: note that unsafe pointer semantics cannot be reproduced in Java
         return $"/* WARNING: C# unsafe pointer dereference — Java does not support pointer arithmetic. */ {target}.{member}";
+    }
+
+    /// <summary>
+    /// Gets the Java fire method name for a C# event.
+    /// e.g. ProgressChanged → fireProgressChanged
+    /// </summary>
+    private static string GetFireMethodName(string eventName)
+    {
+        return $"fire{char.ToUpperInvariant(eventName[0])}{eventName.Substring(1)}";
     }
 }

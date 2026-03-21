@@ -87,6 +87,22 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 var symInfo = context.SemanticModel.GetSymbolInfo(node);
                 if (symInfo.Symbol is IMethodSymbol { MethodKind: MethodKind.DelegateInvoke } delegateInvoke)
                 {
+                    // Check if this is actually an event invocation (e.g., ProgressChanged(sender, args))
+                    // Events are a special case - they should use the fire method instead of delegate invocation
+                    var identSymbol = context.SemanticModel.GetSymbolInfo(bareIdent).Symbol;
+                    if (identSymbol is IEventSymbol eventSym)
+                    {
+                        // For events within the same class, use the fire method
+                        var currentTypeName = context.CurrentType?.Name;
+                        if (currentTypeName != null && eventSym.ContainingType.Name == currentTypeName)
+                        {
+                            var eventName = bareIdent.Identifier.Text;
+                            var fireMethodName = $"fire{char.ToUpperInvariant(eventName[0])}{eventName.Substring(1)}";
+                            var eventArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                            return $"{fireMethodName}({eventArgs})";
+                        }
+                    }
+
                     var containingTypeName = delegateInvoke.ContainingType.ToDisplayString();
                     var javaMethod = context.TypeMappings.MapMethod(containingTypeName, "Invoke") ?? "apply";
                     var delegateArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
@@ -200,12 +216,27 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             var delegateSymInfo = context.SemanticModel.GetSymbolInfo(node);
             if (delegateSymInfo.Symbol is IMethodSymbol { MethodKind: MethodKind.DelegateInvoke } delegateInvoke)
             {
+                // Check if this is actually an event invocation (e.g., this.ProgressChanged(sender, args))
+                // Events are a special case - they should use the fire method instead of delegate invocation
+                var memberSymbol = context.SemanticModel.GetSymbolInfo(memberAccess).Symbol;
+                if (memberSymbol is IEventSymbol eventSym)
+                {
+                    // For events within the same class, use the fire method
+                    var currentTypeName = context.CurrentType?.Name;
+                    if (currentTypeName != null && eventSym.ContainingType.Name == currentTypeName)
+                    {
+                        var eventName = originalMethodName;
+                        var fireMethodName = $"fire{char.ToUpperInvariant(eventName[0])}{eventName.Substring(1)}";
+                        var eventArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                        return $"{fireMethodName}({eventArgs})";
+                    }
+                }
+
                 var containingTypeName = delegateInvoke.ContainingType.ToDisplayString();
                 var javaMethod = context.TypeMappings.MapMethod(containingTypeName, "Invoke") ?? "apply";
                 var delegateArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
 
                 // If the accessed member is a property, emit the Java getter call.
-                var memberSymbol = context.SemanticModel.GetSymbolInfo(memberAccess).Symbol;
                 string delegateTarget;
                 if (memberSymbol is IPropertySymbol prop)
                 {

@@ -159,10 +159,10 @@ public class EventFieldTransformer : IEventFieldTransformer
 
             if (origName == "EventHandler" && origNs == "System" && namedType.TypeArguments.Length == 0)
             {
-                sig.ListenerType = "java.util.function.Consumer<Object>";
+                sig.ListenerType = "java.util.function.BiConsumer<Object, Object>";
                 sig.Parameters.Add(new JavaParameter("Object", "sender"));
                 sig.Parameters.Add(new JavaParameter("Object", "args"));
-                sig.InvokeCallArguments = "args"; 
+                sig.InvokeCallArguments = "sender, args";
                 sig.InvokeMethodName = "accept";
                 return sig;
             }
@@ -170,10 +170,10 @@ public class EventFieldTransformer : IEventFieldTransformer
             if (origName == "EventHandler" && origNs == "System" && namedType.TypeArguments.Length == 1)
             {
                 var argType = context.MapType(namedType.TypeArguments[0]);
-                sig.ListenerType = $"java.util.function.Consumer<{argType}>";
+                sig.ListenerType = $"java.util.function.BiConsumer<Object, {argType}>";
                 sig.Parameters.Add(new JavaParameter("Object", "sender"));
                 sig.Parameters.Add(new JavaParameter(argType, "args"));
-                sig.InvokeCallArguments = "args";
+                sig.InvokeCallArguments = "sender, args";
                 sig.InvokeMethodName = "accept";
                 return sig;
             }
@@ -231,10 +231,10 @@ public class EventFieldTransformer : IEventFieldTransformer
                 var argTypeInfo = context.SemanticModel?.GetTypeInfo(argTypeSyntax);
                 var argType = argTypeInfo.HasValue && argTypeInfo.Value.Type != null ? context.MapType(argTypeInfo.Value.Type) : argTypeSyntax.ToString();
 
-                sig.ListenerType = $"java.util.function.Consumer<{argType}>";
+                sig.ListenerType = $"java.util.function.BiConsumer<Object, {argType}>";
                 sig.Parameters.Add(new JavaParameter("Object", "sender"));
                 sig.Parameters.Add(new JavaParameter(argType, "args"));
-                sig.InvokeCallArguments = "args";
+                sig.InvokeCallArguments = "sender, args";
                 sig.InvokeMethodName = "accept";
                 return sig;
             }
