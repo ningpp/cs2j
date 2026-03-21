@@ -63,7 +63,20 @@ public class ArgumentTransformer
 
         var transformed = orderedArgs.Select((arg, index) =>
         {
-            var result = TransformSingleArgument(arg, context, transformer);
+            IParameterSymbol? currentParam = null;
+            if (parameters.HasValue)
+            {
+                int paramIndexForRefKind = index;
+                if (paramIndexForRefKind >= parameters.Value.Length && parameters.Value.Length > 0
+                    && parameters.Value[^1].IsParams)
+                {
+                    paramIndexForRefKind = parameters.Value.Length - 1;
+                }
+                if (paramIndexForRefKind < parameters.Value.Length)
+                    currentParam = parameters.Value[paramIndexForRefKind];
+            }
+
+            var result = TransformSingleArgument(arg, context, transformer, currentParam);
 
             // Apply type coercion when we have parameter type information
             if (parameters.HasValue && context.SemanticModel != null)
@@ -145,9 +158,19 @@ public class ArgumentTransformer
     /// Transforms a single argument to its Java representation.
     /// Handles ref/out/in modifiers; out var uses the holder-object pattern via pre-statements.
     /// </summary>
-    private static string TransformSingleArgument(ArgumentSyntax arg, ConversionContext context, IExpressionTransformer transformer)
+    private static string TransformSingleArgument(ArgumentSyntax arg, ConversionContext context, IExpressionTransformer transformer, IParameterSymbol? parameterSymbol = null)
     {
         var refKind = arg.RefKindKeyword.Kind();
+        if (refKind == SyntaxKind.None && parameterSymbol != null)
+        {
+            refKind = parameterSymbol.RefKind switch
+            {
+                RefKind.Out => SyntaxKind.OutKeyword,
+                RefKind.Ref => SyntaxKind.RefKeyword,
+                RefKind.In => SyntaxKind.InKeyword,
+                _ => SyntaxKind.None
+            };
+        }
 
         if (refKind == SyntaxKind.OutKeyword)
         {
