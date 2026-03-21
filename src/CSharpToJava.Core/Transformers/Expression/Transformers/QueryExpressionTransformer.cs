@@ -201,6 +201,9 @@ public class QueryExpressionTransformer : IExpressionTransformer
         {
             var cont = node.Body.Continuation;
             rangeVar = ConversionContext.EscapeJavaKeyword(cont.Identifier.Text);
+            // The first query body above materializes to List via collect(toList()).
+            // Continuation clauses (where/orderby/select) must continue from a stream.
+            sb.Append("\n    .stream()");
             foreach (var contClause in cont.Body.Clauses)
             {
                 switch (contClause)
