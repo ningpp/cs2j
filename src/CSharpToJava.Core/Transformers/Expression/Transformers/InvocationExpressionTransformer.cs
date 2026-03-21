@@ -67,6 +67,16 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return $"({leftArg} == {rightArg})";
         }
 
+            // Equals(a, b) -> java.util.Objects.equals(a, b)
+            if (node.Expression is IdentifierNameSyntax { Identifier.Text: "Equals" }
+                && node.ArgumentList.Arguments.Count == 2
+                && IsStaticSystemObjectEquals(context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol))
+            {
+                var leftArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var rightArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                return $"java.util.Objects.equals({leftArg}, {rightArg})";
+            }
+
         // Issue 1 & 5: member-access invocations need method-name mapping and
         // extension-receiver double-insertion guarding.
         if (node.Expression is MemberAccessExpressionSyntax memberAccess)
@@ -222,6 +232,25 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return $"({leftArg} == {rightArg})";
         }
 
+        if (originalMethodName == "GetEnumerator" && IsDictionaryLikeExpression(memberAccess.Expression, context))
+        {
+            return $"{receiver}.entrySet().iterator()";
+        }
+
+        if (originalMethodName == "MoveNext" && node.ArgumentList.Arguments.Count == 0
+            && IsEnumeratorMoveNextInvocation(node, context))
+        {
+            return $"{receiver}.hasNext()";
+        }
+
+        if (originalMethodName == "Equals" && node.ArgumentList.Arguments.Count == 2
+            && IsStaticSystemObjectEquals(context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol))
+        {
+            var leftArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var rightArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            return $"java.util.Objects.equals({leftArg}, {rightArg})";
+        }
+
         // Fix: Delegate invocation via member access (this.sequence(i), this.Sequence(i), obj.cb(x)).
         // Roslyn reports MethodKind.DelegateInvoke when the accessed member is a Func/Action/delegate.
         // `receiver` is the LHS (e.g. "this"); `originalMethodName` is the member name (field or property).
@@ -338,6 +367,27 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return $"Collections.reverse({receiver})";
         }
 
+        // Instance List<T>.Sort() with default ordering.
+        if (originalMethodName == "Sort"
+            && node.ArgumentList.Arguments.Count == 0
+            && methodSymbol is { IsExtensionMethod: false }
+            && methodSymbol.ContainingType?.Name == "List")
+        {
+            context.AddImport("java.util.Collections");
+            return $"Collections.sort({receiver})";
+        }
+
+        if (originalMethodName == "Sort"
+            && node.ArgumentList.Arguments.Count == 1
+            && methodSymbol is { IsExtensionMethod: false }
+            && methodSymbol.ContainingType?.Name == "List"
+            && methodSymbol.Parameters.Length == 1
+            && methodSymbol.Parameters[0].Type.Name == "IComparer"
+            && node.ArgumentList.Arguments[0].Expression is ThisExpressionSyntax)
+        {
+            return $"{receiver}.sort(this::compare)";
+        }
+
         // Fix: First()/Last() on arrays → indexed access (arrays are not streams).
         // String.split() returns String[] in Java; arrays do not have stream terminal ops
         // like findFirst()/reduce(). Use indexed access instead.
@@ -369,6 +419,24 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 return $"Arrays.stream({receiver}).iterator().hasNext()";
             }
             return $"{receiver}.iterator().hasNext()";
+        }
+
+        // Array.Sort(array[, comparer]) -> Arrays.sort(array[, comparer])
+        // System.Array may map syntactically to Object, so keep a fallback on the receiver text.
+        if (originalMethodName == "Sort"
+            && node.ArgumentList.Arguments.Count is 1 or 2
+            && (methodSymbol?.ContainingType.ToDisplayString() == "System.Array"
+                || (methodSymbol == null && memberAccess.Expression.ToString() is "Array" or "System.Array" or "Object")))
+        {
+            var arrayArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            context.AddImport("java.util.Arrays");
+            if (node.ArgumentList.Arguments.Count == 1)
+            {
+                return $"Arrays.sort({arrayArg})";
+            }
+
+            var comparerArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            return $"Arrays.sort({arrayArg}, {comparerArg})";
         }
 
         // Fix: Array.ForEach(array, action) → Arrays.stream(array).forEach(action)
@@ -430,6 +498,11 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         {
             var destArrayArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var destIndexArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            var copySourceType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+            if (copySourceType is IArrayTypeSymbol)
+            {
+                return $"System.arraycopy({receiver}, 0, {destArrayArg}, {destIndexArg}, {receiver}.length)";
+            }
             return $"System.arraycopy({receiver}.toArray(), 0, {destArrayArg}, {destIndexArg}, {receiver}.size())";
         }
 
@@ -729,6 +802,22 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                     : $"{receiver}.{methodName}({rewrittenFormat}, {remainingArgs})";
                 return formatCall;
             }
+        }
+
+        // Console.WriteLine(format, args...) maps to println(String.format(...)) in Java.
+        // Java println only accepts a single argument; multi-arg C# overloads are formatting calls.
+        bool isJavaPrintln =
+            ((receiver == "System.out" || receiver == "System.err") && methodName == "println")
+            || (receiver == "System" && (methodName == "out.println" || methodName == "err.println"));
+        if (isJavaPrintln && node.ArgumentList.Arguments.Count > argStartIndex + 1)
+        {
+            var firstArg = node.ArgumentList.Arguments[argStartIndex];
+            var remainingArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, argStartIndex + 1);
+            var formatExpr = firstArg.Expression is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.StringLiteralExpression } printlnFmtLit
+                ? RewriteStringFormatLiteral(printlnFmtLit.Token.ValueText)
+                : facade.Transform(firstArg.Expression, context);
+            var printlnTarget = $"{receiver}.{methodName}";
+            return $"{printlnTarget}(String.format({formatExpr}, {remainingArgs}))";
         }
 
         // ── Static Enumerable methods (Range, Repeat, Empty) ──────────────────
@@ -1068,11 +1157,20 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 }
             }
 
-            // Contains → anyMatch(x -> x.equals(value))
+            // Contains on stream -> materialize to Set and call contains(value).
+            // This avoids lambda capture constraints (effectively-final) in Java loops.
             if (originalMethodName == "Contains" && node.ArgumentList.Arguments.Count >= 1)
             {
                 var valArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                return $"{receiver}.anyMatch(x -> java.util.Objects.equals(x, {valArg}))";
+                var containsSourceType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                bool isPrimitiveArraySource = containsSourceType is IArrayTypeSymbol arr
+                    && arr.ElementType.SpecialType is not SpecialType.None
+                    && arr.ElementType.SpecialType is not SpecialType.System_Object;
+                if (isPrimitiveArraySource)
+                {
+                    return $"{receiver}.boxed().collect(Collectors.toSet()).contains({valArg})";
+                }
+                return $"{receiver}.collect(Collectors.toSet()).contains({valArg})";
             }
 
             // Concat → Stream.concat(stream, other)
@@ -1083,6 +1181,14 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 var concatArgExpr = node.ArgumentList.Arguments[0].Expression;
                 var otherArg = facade.Transform(concatArgExpr, context);
                 string otherStream;
+                if (concatArgExpr is ImplicitArrayCreationExpressionSyntax implicitArray
+                    && implicitArray.Initializer.Expressions.Count == 1)
+                {
+                    var single = facade.Transform(implicitArray.Initializer.Expressions[0], context);
+                    otherStream = $"java.util.stream.Stream.of({single})";
+                }
+                else
+                {
                 if (IsReceiverLinqExtension(concatArgExpr, context))
                     otherStream = otherArg; // Already a Java stream from LINQ chain transformation
                 else
@@ -1091,7 +1197,18 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                     otherStream = ExpressionTransformerHelpers.BuildStreamExpression(
                         otherArg, otherType, context, boxPrimitiveArrayElements: true);
                 }
-                return $"java.util.stream.Stream.concat({receiver}, {otherStream})";
+                }
+                var concatStream = $"java.util.stream.Stream.concat({receiver}, {otherStream})";
+                var concatType = context.SemanticModel?.GetTypeInfo(node).Type as INamedTypeSymbol;
+                bool returnsEnumerable = concatType?.Name == "IEnumerable"
+                    && concatType.ContainingNamespace?.ToDisplayString().StartsWith("System") == true;
+                bool isChained = node.Parent is MemberAccessExpressionSyntax ma && ma.Expression == node;
+                if (returnsEnumerable && !isChained)
+                {
+                    context.AddImport("java.util.stream.Collectors");
+                    return $"{concatStream}.collect(Collectors.toList())";
+                }
+                return concatStream;
             }
 
             // Where → filter(predicate)
@@ -1185,7 +1302,29 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                             flatMapArg = facade.Transform(smArg.Expression, context);
                     }
                     else
-                        flatMapArg = facade.Transform(smArg.Expression, context);
+                    {
+                        var selector = facade.Transform(smArg.Expression, context);
+                        if (selector.Contains("::", StringComparison.Ordinal)
+                            && context.SemanticModel?.GetSymbolInfo(smArg.Expression).Symbol is IMethodSymbol selMethod
+                            && ImplementsIEnumerable(selMethod.ReturnType))
+                        {
+                            var parts = selector.Split(new[] { "::" }, StringSplitOptions.None);
+                            if (parts.Length == 2)
+                            {
+                                context.AddImport("java.util.stream.StreamSupport");
+                                var p = "_sm";
+                                flatMapArg = $"{p} -> StreamSupport.stream({parts[0]}.{parts[1]}({p}).spliterator(), false)";
+                            }
+                            else
+                            {
+                                flatMapArg = selector;
+                            }
+                        }
+                        else
+                        {
+                            flatMapArg = selector;
+                        }
+                    }
                     return $"{receiver}.flatMap({flatMapArg})";
                 }
             }
@@ -1892,6 +2031,10 @@ public class InvocationExpressionTransformer : IExpressionTransformer
 
         // Reference types: .toArray(TypeName[]::new)
         var javaType = context.MapType(elementType);
+        if (elementType.TypeKind == TypeKind.TypeParameter && !string.IsNullOrEmpty(javaType))
+        {
+            return $"{receiver}.toArray(size -> ({javaType}[]) new Object[size])";
+        }
         if (!string.IsNullOrEmpty(javaType) && javaType != "Object")
         {
             return $"{receiver}.toArray({javaType}[]::new)";
@@ -1914,6 +2057,8 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return $"{receiver}.stream().mapToDouble(Double::doubleValue).toArray()";
 
         var javaType = context.MapType(elementType);
+        if (elementType.TypeKind == TypeKind.TypeParameter && !string.IsNullOrEmpty(javaType))
+            return $"{receiver}.toArray(size -> ({javaType}[]) new Object[size])";
         if (!string.IsNullOrEmpty(javaType) && javaType != "Object")
             return $"{receiver}.toArray({javaType}[]::new)";
 
@@ -2243,5 +2388,47 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return false;
 
         return true;
+    }
+
+    private static bool IsDictionaryLikeExpression(ExpressionSyntax expression, ConversionContext context)
+    {
+        var type = context.SemanticModel?.GetTypeInfo(expression).Type as INamedTypeSymbol;
+        if (type == null)
+            return false;
+
+        bool IsDictionaryType(INamedTypeSymbol t)
+            => t.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic"
+               && t.Name is "Dictionary" or "SortedDictionary" or "IDictionary" or "IReadOnlyDictionary";
+
+        if (IsDictionaryType(type))
+            return true;
+
+        return type.AllInterfaces.Any(IsDictionaryType);
+    }
+
+    private static bool IsEnumeratorMoveNextInvocation(InvocationExpressionSyntax node, ConversionContext context)
+    {
+        var method = context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol;
+        if (method == null || method.Name != "MoveNext" || method.Parameters.Length != 0)
+            return false;
+
+        var t = method.ContainingType;
+        bool IsEnumerator(INamedTypeSymbol nt)
+            => (nt.ContainingNamespace?.ToDisplayString() == "System.Collections" && nt.Name == "IEnumerator")
+               || (nt.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic" && nt.Name == "IEnumerator")
+               || nt.Name.Contains("Enumerator", StringComparison.Ordinal);
+
+        if (IsEnumerator(t))
+            return true;
+
+        return t.AllInterfaces.Any(IsEnumerator);
+    }
+
+    private static bool IsStaticSystemObjectEquals(IMethodSymbol? methodSymbol)
+    {
+        if (methodSymbol is null || !methodSymbol.IsStatic || methodSymbol.Name != "Equals" || methodSymbol.Parameters.Length != 2)
+            return false;
+
+        return methodSymbol.ContainingType?.SpecialType == SpecialType.System_Object;
     }
 }

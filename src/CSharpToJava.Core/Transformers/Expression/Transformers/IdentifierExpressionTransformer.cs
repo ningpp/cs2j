@@ -392,6 +392,9 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
         // Fix 1 & 2: consult member-name mapping and generate property getters
         if (context.SemanticModel?.GetSymbolInfo(node).Symbol is IPropertySymbol prop)
         {
+            if (prop.Name == "Current" && IsEnumeratorCurrentProperty(prop))
+                return $"{target}.next()";
+
             var propContainer = prop.ContainingType;
             bool isGenericDictionaryLike =
                 propContainer?.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic"
@@ -471,6 +474,9 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
             var exprType = context.SemanticModel.GetTypeInfo(node.Expression).Type;
             if (exprType != null)
             {
+                if (memberName == "Current" && IsEnumeratorLikeType(exprType))
+                    return $"{target}.next()";
+
                 if (exprType is INamedTypeSymbol namedExprType
                     && namedExprType.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic"
                     && namedExprType.Name is "Dictionary" or "SortedDictionary" or "IDictionary" or "IReadOnlyDictionary")
@@ -559,5 +565,29 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
     private static string GetFireMethodName(string eventName)
     {
         return $"fire{char.ToUpperInvariant(eventName[0])}{eventName.Substring(1)}";
+    }
+
+    private static bool IsEnumeratorCurrentProperty(IPropertySymbol prop)
+        => prop.Name == "Current" && IsEnumeratorLikeType(prop.ContainingType);
+
+    private static bool IsEnumeratorLikeType(ITypeSymbol? type)
+    {
+        if (type is not INamedTypeSymbol named)
+            return false;
+
+        static bool IsEnumerator(INamedTypeSymbol t)
+            => (t.ContainingNamespace?.ToDisplayString() == "System.Collections" && t.Name == "IEnumerator")
+               || (t.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic" && t.Name == "IEnumerator");
+
+        if (IsEnumerator(named))
+            return true;
+
+        foreach (var iface in named.AllInterfaces)
+        {
+            if (IsEnumerator(iface))
+                return true;
+        }
+
+        return false;
     }
 }

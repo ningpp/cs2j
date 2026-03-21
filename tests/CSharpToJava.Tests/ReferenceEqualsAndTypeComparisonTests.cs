@@ -37,4 +37,25 @@ public class ReferenceEqualsAndTypeComparisonTests
         Assert.DoesNotContain("referenceEquals(", result.GeneratedCode);
         Assert.DoesNotContain("Class.notEquals", result.GeneratedCode);
     }
+
+    [Fact]
+    public void StaticObjectEquals_UsesObjectsEquals()
+    {
+        const string code = """
+            class C
+            {
+                bool Same(object a, object b)
+                {
+                    return Equals(a, b) && object.Equals(a, b);
+                }
+            }
+            """;
+
+        var result = Convert(code);
+
+        Assert.True(result.Success,
+            $"Conversion failed:\n{string.Join("\n", result.Diagnostics.Select(d => d.Message))}");
+        Assert.Contains("java.util.Objects.equals(a, b)", result.GeneratedCode);
+        Assert.DoesNotContain("equals(a, b)", result.GeneratedCode.Replace("java.util.Objects.equals(a, b)", string.Empty));
+    }
 }
