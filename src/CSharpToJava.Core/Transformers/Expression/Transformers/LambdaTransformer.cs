@@ -89,6 +89,12 @@ public class LambdaTransformer : IExpressionTransformer
             foreach (var (capName, _) in mutatedCaptures)
             {
                 body = Regex.Replace(body, $@"\b{Regex.Escape(capName)}\b", $"_{capName}[0]");
+                // Avoid self-referential holder initialization after replacement:
+                // int[] _x = { _x[0] };  -> int[] _x = { x };
+                body = Regex.Replace(
+                    body,
+                    $@"(_{Regex.Escape(capName)}\s*=\s*\{{\s*)_{Regex.Escape(capName)}\[0\](\s*\}})",
+                    $"$1{capName}$2");
             }
 
             string result = $"{paramStr} -> {{\n{body}\n}}";
@@ -121,9 +127,17 @@ public class LambdaTransformer : IExpressionTransformer
             foreach (var (capName, _) in mutatedCaptures)
             {
                 body = Regex.Replace(body, $@"\b{Regex.Escape(capName)}\b", $"_{capName}[0]");
+                body = Regex.Replace(
+                    body,
+                    $@"(_{Regex.Escape(capName)}\s*=\s*\{{\s*)_{Regex.Escape(capName)}\[0\](\s*\}})",
+                    $"$1{capName}$2");
                 for (int i = 0; i < preStatements.Count; i++)
                 {
                     preStatements[i] = Regex.Replace(preStatements[i], $@"\b{Regex.Escape(capName)}\b", $"_{capName}[0]");
+                    preStatements[i] = Regex.Replace(
+                        preStatements[i],
+                        $@"(_{Regex.Escape(capName)}\s*=\s*\{{\s*)_{Regex.Escape(capName)}\[0\](\s*\}})",
+                        $"$1{capName}$2");
                 }
             }
 

@@ -476,8 +476,9 @@ public class ArgumentTransformer
             && pNamedFallback.ContainingNamespace?.ToDisplayString().StartsWith("System") == true)
         {
             var exprTrim = transformedExpr.Trim();
+            bool isCollectionCtorTarget = IsJavaCollectionConstructor(targetParam.ContainingSymbol as IMethodSymbol);
             if (exprTrim.EndsWith(".keySet()", StringComparison.Ordinal)
-                || exprTrim.EndsWith(".values()", StringComparison.Ordinal))
+                || (!isCollectionCtorTarget && exprTrim.EndsWith(".values()", StringComparison.Ordinal)))
             {
                 var javaParamType = context.MapType(paramType);
                 if (!string.IsNullOrWhiteSpace(javaParamType))

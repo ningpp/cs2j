@@ -288,18 +288,29 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return $"java.util.Objects.equals({leftArg}, {rightArg})";
         }
 
-        // System.Tuple.Create(a, b) maps to Java pair-like entry construction.
-        // This avoids emitting Tuple.create(...) which may bind to an unrelated user type named Tuple.
-        if (originalMethodName == "Create" && node.ArgumentList.Arguments.Count == 2)
+        // System.Tuple.Create(...) mapping.
+        // Avoid emitting Tuple.create(...) which may bind to an unrelated user type named Tuple.
+        if (originalMethodName == "Create" && node.ArgumentList.Arguments.Count >= 2)
         {
             bool isSystemTupleCreate = earlyMethodSymbol?.ContainingType?.ToDisplayString() == "System.Tuple"
                 || memberAccess.Expression.ToString() is "Tuple" or "System.Tuple";
             if (isSystemTupleCreate)
             {
-                context.AddImport("java.util.AbstractMap");
-                var keyArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                var valueArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-                return $"new AbstractMap.SimpleEntry<>({keyArg}, {valueArg})";
+                int arity = node.ArgumentList.Arguments.Count;
+                if (arity == 2)
+                {
+                    context.AddImport("java.util.AbstractMap");
+                    var keyArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    var valueArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                    return $"new AbstractMap.SimpleEntry<>({keyArg}, {valueArg})";
+                }
+
+                if (arity is >= 3 and <= 8)
+                {
+                    var tupleArgs = string.Join(", ", node.ArgumentList.Arguments.Select(a => facade.Transform(a.Expression, context)));
+                    context.AddImport("io.vavr.Tuple");
+                    return $"Tuple.of({tupleArgs})";
+                }
             }
         }
 

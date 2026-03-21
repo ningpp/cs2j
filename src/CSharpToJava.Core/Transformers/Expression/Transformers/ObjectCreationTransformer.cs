@@ -433,6 +433,12 @@ public class ObjectCreationTransformer : IExpressionTransformer
             {
                 var value = facade.Transform(assignExpr.Right, context);
 
+                // Nested object-initializer assignments like "Settings = { NodeSeparation = ... }"
+                // may currently lower to a TODO comment placeholder. Emitting a setter call with
+                // that placeholder creates invalid Java (no effective argument). Skip for now.
+                if (value.TrimStart().StartsWith("/* TODO: ObjectInitializerExpression", StringComparison.Ordinal))
+                    continue;
+
                 if (assignExpr.Left is IdentifierNameSyntax idName)
                 {
                     // Use semantic model to distinguish public fields from properties:
