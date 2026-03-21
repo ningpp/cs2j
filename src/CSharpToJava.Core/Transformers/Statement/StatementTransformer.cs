@@ -1345,6 +1345,23 @@ public class StatementTransformer : IStatementTransformer
                 if (javaType.StartsWith("ArrayList<") && initExpr.Contains(".collect(Collectors.toList())"))
                     initExpr = $"new ArrayList<>({initExpr})";
 
+                // Fix: C# arrays implement IEnumerable/ICollection/IList, so assigning an array directly
+                // to IList<T>/ICollection<T> is valid C#. In Java, arrays are NOT Collection subtypes.
+                // When the declared Java type is a collection interface and the initializer is an array,
+                // wrap with Arrays.asList() (reference) or Arrays.stream().boxed().collect() (primitives).
+                if (context.SemanticModel != null
+                    && IsJavaCollectionOrListType(javaType)
+                    && !initExpr.Contains("Arrays.asList(")
+                    && !initExpr.Contains("Arrays.stream(")
+                    && !initExpr.Contains(".collect("))
+                {
+                    var initTypeInfo = context.SemanticModel.GetTypeInfo(v.Initializer.Value);
+                    if (initTypeInfo.Type is IArrayTypeSymbol arrayType)
+                    {
+                        initExpr = ObjectCreationTransformer.WrapArrayForCollectionArg(initExpr, arrayType, context);
+                    }
+                }
+
                 // Fix K3: When the C# declared type is IEnumerable<T>/ICollection<T>/IList<T> (→ Java Iterable<T>)
                 // but the initializer ends with .toArray(T[]::new), the assignment would fail because
                 // T[] is NOT Iterable<T> in Java. Replace .toArray(T[]::new) with .collect(Collectors.toList()).
@@ -1435,6 +1452,19 @@ public class StatementTransformer : IStatementTransformer
         s = s.Trim();
         if (s.StartsWith("-") || s.StartsWith("+")) s = s.Substring(1).Trim();
         return s.Length > 0 && s.All(char.IsDigit);
+    }
+
+    /// <summary>
+    /// Returns true when <paramref name="javaType"/> is a Java collection/list type whose
+    /// constructor or assignment slot requires a <c>Collection</c>-compatible value.
+    /// Excludes <c>Iterable</c> because that is already replaced by <c>var</c> earlier.
+    /// </summary>
+    private static bool IsJavaCollectionOrListType(string javaType)
+    {
+        var bare = javaType.Contains('<') ? javaType[..javaType.IndexOf('<')] : javaType;
+        return bare is "List" or "Collection" or "ArrayList" or "HashSet" or "TreeSet"
+            or "LinkedList" or "LinkedHashSet" or "ArrayDeque" or "Stack" or "Vector"
+            or "Set" or "Deque" or "Queue";
     }
 
     /// <summary>

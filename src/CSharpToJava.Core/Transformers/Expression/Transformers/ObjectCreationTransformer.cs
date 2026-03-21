@@ -109,7 +109,109 @@ public class ObjectCreationTransformer : IExpressionTransformer
         var args = ArgumentTransformer.TransformArgumentList(
             argumentList, context, ExpressionTransformerFacade.Instance, methodSymbol: ctorSymbol);
 
+        // Fallback: when the constructor symbol could not be resolved (ctorSymbol is null),
+        // CoerceArgumentType never fires for the arguments, so array→Collection coercion is skipped.
+        // If the target type is a Java collection (ArrayList, HashSet, etc.) and any argument is an
+        // array, we must wrap it here because Java arrays are not Collection subtypes.
+        if (ctorSymbol == null && context.SemanticModel != null && IsJavaCollectionType(typeName))
+        {
+            args = CoerceArrayArgsForCollectionCtor(
+                argumentList.Arguments, args, context);
+        }
+
         return $"new {typeName}({args})";
+    }
+
+    /// <summary>
+    /// Returns true when <paramref name="typeName"/> is a Java concrete collection class whose
+    /// constructor accepts a <c>Collection</c> parameter (e.g. ArrayList, HashSet, TreeSet …).
+    /// </summary>
+    private static bool IsJavaCollectionType(string typeName)
+    {
+        // Strip generic parameters (e.g. "ArrayList<String>" → "ArrayList")
+        var bare = typeName.Contains('<') ? typeName[..typeName.IndexOf('<')] : typeName;
+        return bare is "ArrayList" or "HashSet" or "TreeSet" or "LinkedList"
+            or "ArrayDeque" or "LinkedHashSet" or "PriorityQueue" or "Stack" or "Vector";
+    }
+
+    /// <summary>
+    /// When the constructor symbol is unavailable, scan each argument for array types.
+    /// Any array argument passed to a Java collection constructor must be wrapped:
+    ///   • reference-type arrays  → Arrays.asList(expr)
+    ///   • primitive arrays       → Arrays.stream(expr).boxed().collect(Collectors.toList())
+    /// Returns the updated comma-separated argument string.
+    /// </summary>
+    private static string CoerceArrayArgsForCollectionCtor(
+        SeparatedSyntaxList<ArgumentSyntax> syntaxArgs,
+        string transformedArgs,
+        ConversionContext context)
+    {
+        // Re-transform each argument individually so we can wrap array ones.
+        var parts = new List<string>();
+        bool changed = false;
+        var argList = syntaxArgs.ToList();
+        var rawParts = SplitTopLevelArgs(transformedArgs);
+
+        for (int i = 0; i < argList.Count && i < rawParts.Count; i++)
+        {
+            var arg = argList[i];
+            var expr = rawParts[i];
+
+            var argType = context.SemanticModel!.GetTypeInfo(arg.Expression).Type;
+            if (argType is IArrayTypeSymbol arrayType)
+            {
+                expr = WrapArrayForCollectionArg(expr, arrayType, context);
+                changed = true;
+            }
+            parts.Add(expr);
+        }
+
+        return changed ? string.Join(", ", parts) : transformedArgs;
+    }
+
+    /// <summary>
+    /// Wraps an array expression so it is compatible with a Java Collection parameter.
+    /// </summary>
+    internal static string WrapArrayForCollectionArg(string expr, IArrayTypeSymbol arrayType, ConversionContext context)
+    {
+        if (arrayType.ElementType.IsValueType && IsPrimitiveSpecialType(arrayType.ElementType.SpecialType))
+        {
+            context.AddImport("java.util.Arrays");
+            context.AddImport("java.util.stream.Collectors");
+            return $"java.util.Arrays.stream({expr}).boxed().collect(java.util.stream.Collectors.toList())";
+        }
+
+        context.AddImport("java.util.Arrays");
+        return $"Arrays.asList({expr})";
+    }
+
+    private static bool IsPrimitiveSpecialType(SpecialType st)
+        => st is SpecialType.System_Int32 or SpecialType.System_Int16 or SpecialType.System_Byte
+            or SpecialType.System_Int64 or SpecialType.System_Double or SpecialType.System_Single
+            or SpecialType.System_Boolean or SpecialType.System_Char;
+
+    /// <summary>
+    /// Splits a comma-separated argument string at the top level (ignoring commas inside &lt;&gt;, (), []).
+    /// </summary>
+    private static List<string> SplitTopLevelArgs(string args)
+    {
+        var result = new List<string>();
+        int depth = 0;
+        int start = 0;
+        for (int i = 0; i < args.Length; i++)
+        {
+            switch (args[i])
+            {
+                case '<': case '(': case '[': depth++; break;
+                case '>': case ')': case ']': depth--; break;
+                case ',' when depth == 0:
+                    result.Add(args[start..i].Trim());
+                    start = i + 1;
+                    break;
+            }
+        }
+        result.Add(args[start..].Trim());
+        return result;
     }
 
     private string TransformObjectCreationWithInitializer(string typeName, ArgumentListSyntax? argumentList, InitializerExpressionSyntax initializer, ConversionContext context)

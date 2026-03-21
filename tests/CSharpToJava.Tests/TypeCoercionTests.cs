@@ -261,4 +261,116 @@ public class TypeCoercionTests
         Assert.Contains("(short)", java);
         Assert.Contains("accept(", java);
     }
+
+    // ── Issue 5: ArrayList(Collection) cannot accept array arguments ─────────────
+
+    [Fact]
+    public void ArrayArg_ToListConstructor_WrapsWithArraysAsList()
+    {
+        // C# allows passing an array to new List<T>(IEnumerable<T>).
+        // Java's ArrayList constructor takes Collection, not an array.
+        // The converter must wrap with Arrays.asList().
+        const string code = """
+            using System.Collections.Generic;
+            class C
+            {
+                void Test()
+                {
+                    string[] arr = new string[] { "a", "b" };
+                    var list = new List<string>(arr);
+                }
+            }
+            """;
+        var java = ConvertAndGetCode(code);
+        Assert.Contains("Arrays.asList(", java);
+        Assert.Contains("new ArrayList<", java);
+    }
+
+    [Fact]
+    public void PrimitiveArrayArg_ToListConstructor_BoxesCorrectly()
+    {
+        // C# allows passing int[] to new List<int>(IEnumerable<int>).
+        // Java needs boxing: Arrays.stream(arr).boxed().collect(Collectors.toList())
+        const string code = """
+            using System.Collections.Generic;
+            class C
+            {
+                void Test()
+                {
+                    int[] arr = new int[] { 1, 2, 3 };
+                    var list = new List<int>(arr);
+                }
+            }
+            """;
+        var java = ConvertAndGetCode(code);
+        // Primitive array needs boxing before it can be passed to ArrayList constructor
+        Assert.True(
+            java.Contains("Arrays.stream(") && java.Contains(".boxed()"),
+            $"Expected primitive array boxing but got:\n{java}");
+        Assert.Contains("new ArrayList<", java);
+    }
+
+    [Fact]
+    public void ArrayArg_ToHashSetConstructor_WrapsWithArraysAsList()
+    {
+        // C# allows passing an array to new HashSet<T>(IEnumerable<T>).
+        // Java's HashSet constructor takes Collection.
+        const string code = """
+            using System.Collections.Generic;
+            class C
+            {
+                void Test()
+                {
+                    string[] arr = new string[] { "a", "b" };
+                    var set = new HashSet<string>(arr);
+                }
+            }
+            """;
+        var java = ConvertAndGetCode(code);
+        Assert.Contains("Arrays.asList(", java);
+        Assert.Contains("new HashSet<", java);
+    }
+
+    [Fact]
+    public void ArrayDirectAssign_ToIListVar_WrapsWithArraysAsList()
+    {
+        // C# allows assigning a string[] to IList<string>.
+        // Java does not allow assigning String[] to List<String>.
+        const string code = """
+            using System.Collections.Generic;
+            class C
+            {
+                void Test()
+                {
+                    string[] arr = new string[] { "a", "b" };
+                    IList<string> items = arr;
+                }
+            }
+            """;
+        var java = ConvertAndGetCode(code);
+        Assert.Contains("Arrays.asList(", java);
+        // The variable type should be List<String> (or var) — not String[]
+        Assert.DoesNotContain("String[] items", java);
+    }
+
+    [Fact]
+    public void ArrayDirectAssign_ToICollectionVar_WrapsWithArraysAsList()
+    {
+        // C# allows assigning a string[] to ICollection<string>.
+        // Java does not allow assigning String[] to Collection<String>.
+        const string code = """
+            using System.Collections.Generic;
+            class C
+            {
+                void Test()
+                {
+                    string[] arr = new string[] { "a", "b" };
+                    ICollection<string> items = arr;
+                }
+            }
+            """;
+        var java = ConvertAndGetCode(code);
+        Assert.Contains("Arrays.asList(", java);
+        Assert.DoesNotContain("String[] items", java);
+    }
 }
