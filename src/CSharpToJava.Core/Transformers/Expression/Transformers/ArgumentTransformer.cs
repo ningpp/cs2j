@@ -170,6 +170,7 @@ public class ArgumentTransformer
                 var holderType = DelegateTransformer.GetHolderType(javaType);
                 var holderInit = GetHolderInstantiation(holderType);
                 context.AddPreStatement($"{holderType} {holderName} = {holderInit}");
+                context.SetActiveRefHolder(varName, holderName);
                 context.AddPostStatement($"{javaType} {varName} = {holderName}.value");
                 return holderName;
             }
@@ -198,6 +199,7 @@ public class ArgumentTransformer
                 var holderType = DelegateTransformer.GetHolderType(javaType);
                 var holderInit = GetHolderInstantiation(holderType);
                 context.AddPreStatement($"{holderType} {holderName} = {holderInit}");
+                context.SetActiveRefHolder(varName, holderName);
                 context.AddPostStatement($"{varName} = {holderName}.value");
                 return holderName;
             }

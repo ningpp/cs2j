@@ -323,6 +323,11 @@ public class ConversionContext
         return _activeRefHolders.TryGetValue(varName, out holderName!);
     }
 
+    public void SetActiveRefHolder(string varName, string holderName)
+    {
+        _activeRefHolders[varName] = holderName;
+    }
+
     /// <summary>
     /// Allocates a unique ref-holder name for the given variable and marks it active.
     /// First allocation returns "_varRef"; subsequent (after a lifecycle drain) returns "_varRef2", "_varRef3", etc.

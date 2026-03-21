@@ -65,6 +65,7 @@ public static class ExpressionTransformerRegistry
 
                     ctx.AddPreStatement($"{holderType} {holderName} = {holderInit}");
                     ctx.AddPostStatement($"{javaType} {varName} = {holderName}.value");
+                    ctx.SetActiveRefHolder(varName, holderName);
                     return holderName;
                 }
 

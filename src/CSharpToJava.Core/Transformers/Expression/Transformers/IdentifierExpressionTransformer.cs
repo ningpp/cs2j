@@ -70,6 +70,9 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
         if (context.QueryLetAliases.TryGetValue(name, out var letAlias))
             return letAlias;
 
+        if (context.TryGetActiveRefHolder(name, out var activeHolderName))
+            return $"{activeHolderName}.value";
+
         // Check for using aliases — Fix 5: chain alias resolution through type-registry
         if (context.IsAlias(name))
         {
