@@ -314,7 +314,17 @@ public static class ExpressionTransformerHelpers
             return $"{receiverExpr}.entrySet().stream()";
 
         if (CanCallCollectionStream(receiverType))
+        {
+            if (receiverType is INamedTypeSymbol named
+                && named.ContainingNamespace?.ToDisplayString().StartsWith("System", StringComparison.Ordinal) != true)
+            {
+                // Custom project collections frequently map to custom Java types that do not
+                // implement java.util.Collection#stream(); use StreamSupport for safety.
+                context.AddImport("java.util.stream.StreamSupport");
+                return $"StreamSupport.stream({receiverExpr}.spliterator(), false)";
+            }
             return $"{receiverExpr}.stream()";
+        }
 
         if (receiverType != null)
         {
@@ -323,7 +333,9 @@ public static class ExpressionTransformerHelpers
             return $"StreamSupport.stream({receiverExpr}.spliterator(), false)";
         }
 
-        // Type unknown: fall back to .stream() (correct for Collection; may require manual fix for bare Iterable)
-        return $"{receiverExpr}.stream()";
+        // Type unknown: LINQ receiver is expected to be enumerable; prefer StreamSupport to
+        // avoid requiring a concrete .stream() method on custom collection implementations.
+        context.AddImport("java.util.stream.StreamSupport");
+        return $"StreamSupport.stream({receiverExpr}.spliterator(), false)";
     }
 }

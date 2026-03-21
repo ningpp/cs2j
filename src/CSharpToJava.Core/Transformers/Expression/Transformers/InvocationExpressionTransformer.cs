@@ -660,10 +660,49 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 // Box any primitive type so static methods are called on the wrapper class.
                 // e.g. System.Int32 maps to "int", but Int32.Parse → Integer.parseInt not int.parseInt.
                 receiver = ExpressionTransformerHelpers.BoxJavaPrimitiveType(receiver);
+
             }
+        }
+
+        // Java cannot reference a static type receiver with a simple name when the current
+        // class also has a member with the same name (e.g. field/property Point).
+        // Apply this as a post-step for all static calls, even when receiver symbol lookup
+        // did not resolve to INamedTypeSymbol in the branch above.
+        if (methodSymbol is { IsStatic: true }
+            && context.SemanticModel != null
+            && memberAccess.Expression is IdentifierNameSyntax simpleTypeReceiver2
+            && context.SemanticModel.GetEnclosingSymbol(node.SpanStart)?.ContainingType is INamedTypeSymbol enclosingType2
+            && enclosingType2.GetMembers(simpleTypeReceiver2.Identifier.Text).Any(m => m is not INamedTypeSymbol))
+        {
+            var ns2 = methodSymbol.ContainingType.ContainingNamespace?.ToDisplayString();
+            if (ns2 == "<global namespace>")
+                ns2 = string.Empty;
+            receiver = string.IsNullOrWhiteSpace(ns2)
+                ? methodSymbol.ContainingType.Name
+                : $"{ns2}.{methodSymbol.ContainingType.Name}";
         }
         else if (methodSymbol == null)
         {
+            // Fallback for unresolved static calls: if a simple receiver name collides with a member
+            // in the current type, but semantic type info still resolves it to a named type,
+            // force fully-qualified type receiver to avoid Java member/type shadowing.
+            if (context.SemanticModel != null
+                && memberAccess.Expression is IdentifierNameSyntax simpleTypeReceiver3
+                && context.SemanticModel.GetEnclosingSymbol(node.SpanStart)?.ContainingType is INamedTypeSymbol enclosingType3
+                && enclosingType3.GetMembers(simpleTypeReceiver3.Identifier.Text).Any(m => m is not INamedTypeSymbol))
+            {
+                var receiverType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type as INamedTypeSymbol;
+                if (receiverType != null)
+                {
+                    var ns3 = receiverType.ContainingNamespace?.ToDisplayString();
+                    if (ns3 == "<global namespace>")
+                        ns3 = string.Empty;
+                    receiver = string.IsNullOrWhiteSpace(ns3)
+                        ? receiverType.Name
+                        : $"{ns3}.{receiverType.Name}";
+                }
+            }
+
             // Syntactic fallback: when the semantic model could not resolve the method (e.g. missing
             // assembly reference), try mapping using the raw syntactic receiver string.  This handles
             // System.Console.WriteLine → System.out.println even without a full Roslyn compilation.
@@ -915,10 +954,10 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         {
             if (!IsReceiverLinqExtension(memberAccess.Expression, context))
             {
-                var receiverType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type;
+                var linqReceiverType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type;
                 receiver = BuildStreamReceiverExpression(
                     receiver,
-                    receiverType,
+                    linqReceiverType,
                     context,
                     boxPrimitiveArrayElements: false,
                     preserveGroupingValueStream: true);
@@ -927,6 +966,13 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             // ToList → .toList() (Java 16+) or collect(Collectors.toList())
             if (originalMethodName == "ToList")
             {
+                if (receiver.EndsWith(".stream()", StringComparison.Ordinal))
+                {
+                    context.AddImport("java.util.stream.StreamSupport");
+                    var baseReceiver = receiver[..^".stream()".Length];
+                    receiver = $"StreamSupport.stream({baseReceiver}.spliterator(), false)";
+                }
+
                 bool needsArrayListMaterialization = ShouldMaterializeArrayListForToList(node, context);
                 if (context.Options.TargetJavaVersion >= JavaVersion.Java21)
                 {
@@ -1568,9 +1614,15 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             // Aggregate(seed, func, resultSelector) → inline resultSelector applied to reduce result
             if (originalMethodName == "Aggregate" && node.ArgumentList.Arguments.Count >= 3)
             {
+                bool primitiveArrayAggregateSource = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type is IArrayTypeSymbol srcArr1
+                    && srcArr1.ElementType.IsValueType;
+                var aggregateReceiver = primitiveArrayAggregateSource ? $"{receiver}.boxed()" : receiver;
+
                 var seedArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
                 var funcArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-                string reduceExpr = $"{receiver}.reduce({seedArg}, {funcArg})";
+                string reduceExpr = primitiveArrayAggregateSource
+                    ? $"{aggregateReceiver}.reduce({seedArg}, {funcArg}, (__accLeft, __accRight) -> __accRight)"
+                    : $"{aggregateReceiver}.reduce({seedArg}, {funcArg})";
                 // Inline the result selector: substitute the reduce expression for the lambda parameter.
                 // This avoids raw Function cast which fails due to type erasure (Object * 2 etc.).
                 if (TryGetSingleParamLambda(node.ArgumentList.Arguments[2].Expression, context, facade, out var rsParam, out var rsBody))
@@ -1586,9 +1638,15 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             // Aggregate(seed, func) → reduce(seed, func)
             if (originalMethodName == "Aggregate" && node.ArgumentList.Arguments.Count >= 2)
             {
+                bool primitiveArrayAggregateSource = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type is IArrayTypeSymbol srcArr2
+                    && srcArr2.ElementType.IsValueType;
+                var aggregateReceiver = primitiveArrayAggregateSource ? $"{receiver}.boxed()" : receiver;
+
                 var seedArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
                 var funcArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-                return $"{receiver}.reduce({seedArg}, {funcArg})";
+                return primitiveArrayAggregateSource
+                    ? $"{aggregateReceiver}.reduce({seedArg}, {funcArg}, (__accLeft, __accRight) -> __accRight)"
+                    : $"{aggregateReceiver}.reduce({seedArg}, {funcArg})";
             }
 
             // Cast<T>() → map(x -> (T) x)
@@ -1895,6 +1953,12 @@ public class InvocationExpressionTransformer : IExpressionTransformer
 
         var args = ArgumentTransformer.TransformArgumentList(
             node.ArgumentList, context, facade, argStartIndex, methodSymbol);
+
+        if (methodName == "toList" && string.IsNullOrEmpty(args))
+        {
+            context.AddImport("java.util.stream.StreamSupport");
+            return $"StreamSupport.stream({receiver}.spliterator(), false).toList()";
+        }
 
         return $"{receiver}.{methodName}({args})";
     }

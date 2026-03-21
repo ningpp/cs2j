@@ -206,6 +206,20 @@ public class BinaryExpressionTransformer : IExpressionTransformer
             // e.g. "DemoSet<T>" → "DemoSet"; Java doesn't allow type args on static calls.
             var angleIdx = containingType.IndexOf('<');
             if (angleIdx > 0) containingType = containingType[..angleIdx];
+
+            // Java name lookup treats member names and type names in the same space at call sites.
+            // If the current type also declares a member with the same simple name as the operator
+            // container type (e.g. field/property Point), force a fully-qualified static receiver.
+            var operatorTypeSimpleName = operatorSymbol.ContainingType.Name;
+            if (context.SemanticModel?.GetEnclosingSymbol(node.SpanStart)?.ContainingType is INamedTypeSymbol enclosingType
+                && enclosingType.GetMembers(operatorTypeSimpleName).Any(m => m is not INamedTypeSymbol))
+            {
+                var ns = operatorSymbol.ContainingType.ContainingNamespace?.ToDisplayString();
+                containingType = string.IsNullOrWhiteSpace(ns)
+                    ? operatorTypeSimpleName
+                    : $"{ns}.{operatorTypeSimpleName}";
+            }
+
             return $"{containingType}.{javaMethodName}({left}, {right})";
         }
     }

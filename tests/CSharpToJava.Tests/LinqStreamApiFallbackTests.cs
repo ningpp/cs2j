@@ -271,6 +271,54 @@ public class LinqStreamApiFallbackTests
         Assert.Contains(".count()", java);
     }
 
+    [Fact]
+    public void ToList_OnLinkedListWithNodes_UsesStreamSupportInsteadOfDotStream()
+    {
+        const string code = """
+            using System.Collections;
+            using System.Collections.Generic;
+            using System.Linq;
+
+            class LinkedListWithNodes<T> : IEnumerable<T> {
+                readonly List<T> inner = new();
+                public IEnumerator<T> GetEnumerator() => inner.GetEnumerator();
+                IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+            }
+
+            class PointSetList {
+                public LinkedListWithNodes<int> Points;
+            }
+
+            class C {
+                List<int> M(PointSetList placedPoints) {
+                    return placedPoints.Points.ToList();
+                }
+            }
+            """;
+
+        var java = ConvertAndGetCode(code);
+        Assert.Contains("StreamSupport.stream(placedPoints.Points.spliterator(), false)", java);
+        Assert.DoesNotContain("placedPoints.Points.stream()", java);
+    }
+
+    [Fact]
+    public void Aggregate_StringSeed_OnDoubleArray_UsesBoxedReduce()
+    {
+        const string code = """
+            using System.Linq;
+
+            class C {
+                string M(double[] values) {
+                    return values.Aggregate("", (s, t) => string.Format("{0}:{1}", s, t));
+                }
+            }
+            """;
+
+        var java = ConvertAndGetCode(code);
+        Assert.Contains("Arrays.stream(values).boxed().reduce(\"\"", java);
+        Assert.DoesNotContain("Arrays.stream(values).reduce(\"\"", java);
+    }
+
     // ── Min/Max ─────────────────────────────────────────────────────────────
 
     [Fact]

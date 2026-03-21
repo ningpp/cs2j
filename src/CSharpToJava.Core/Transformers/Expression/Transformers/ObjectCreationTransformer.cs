@@ -624,8 +624,15 @@ public class ObjectCreationTransformer : IExpressionTransformer
             elementType = record.RecordName;
         }
 
+        // Java forbids generic array creation (e.g. new Pair<K,V>[] {...}).
+        // For implicit arrays, use the raw component type in the new-expression.
+        var rawElementType = elementType;
+        var genericStart = rawElementType.IndexOf('<');
+        if (genericStart > 0)
+            rawElementType = rawElementType[..genericStart];
+
         var result = new StringBuilder("new ");
-        result.Append(elementType);
+        result.Append(rawElementType);
 
         // Add dimension brackets based on the number of commas
         // new[] has 0 commas = 1 dimension
