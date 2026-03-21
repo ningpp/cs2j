@@ -167,6 +167,7 @@ public class ClassTransformer : ITypeTransformer
 
         RemoveCompareToBridgeConflicts(javaClass);
         AddIteratorBridgeMethods(javaClass);
+        AddIterableBridgeFromIteratorMethod(javaClass);
         AddCollectionInterfaceBridgeMethods(javaClass);
         AddIterableSizeBridgeMethods(javaClass);
         AddCloneableBridgeMethods(javaClass);
@@ -272,6 +273,7 @@ public class ClassTransformer : ITypeTransformer
 
         RemoveCompareToBridgeConflicts(javaClass);
         AddIteratorBridgeMethods(javaClass);
+        AddIterableBridgeFromIteratorMethod(javaClass);
         AddCollectionInterfaceBridgeMethods(javaClass);
         AddIterableSizeBridgeMethods(javaClass);
         AddCloneableBridgeMethods(javaClass);
@@ -608,6 +610,29 @@ public class ClassTransformer : ITypeTransformer
             Name = "next",
             Body = "if (!_iteratorHasNext && !moveNext()) throw new java.util.NoSuchElementException();\n        _iteratorHasNext = false;\n        return getCurrent();"
         });
+    }
+
+    private static void AddIterableBridgeFromIteratorMethod(JavaClassDeclaration javaClass)
+    {
+        bool alreadyIterable = javaClass.ImplementedTypes.Any(t => t == "Iterable" || t.StartsWith("Iterable<"));
+        if (alreadyIterable)
+            return;
+
+        var iteratorMethod = javaClass.Methods.FirstOrDefault(m =>
+            m.Name == "iterator"
+            && m.Parameters.Count == 0
+            && (m.ReturnType == "Iterator" || m.ReturnType.StartsWith("Iterator<")));
+        if (iteratorMethod == null)
+            return;
+
+        string iterableType = "Iterable<Object>";
+        if (iteratorMethod.ReturnType.StartsWith("Iterator<") && iteratorMethod.ReturnType.EndsWith(">"))
+        {
+            var elemType = iteratorMethod.ReturnType.Substring(9, iteratorMethod.ReturnType.Length - 10);
+            iterableType = $"Iterable<{elemType}>";
+        }
+
+        javaClass.ImplementedTypes.Add(iterableType);
     }
 
     /// <summary>
