@@ -1003,7 +1003,20 @@ public class StatementTransformer : IStatementTransformer
             // The getter follows JavaBean convention: capitalize first letter (e.g., sourceV -> getSourceV)
             var getterName = "get" + ToPascalCase(fieldName);
             body = body.Replace($"{forEachIdent}.{getterName}()", varName);
+            body = body.Replace($"{forEachIdent}.{fieldName}", varName);
+            body = body.Replace($"{forEachIdent}.{fieldName}()", varName);
         }
+
+        // If body had helper aliases like "var source = pair.sourceV;" they become
+        // "var source = source;" after replacement and should be dropped.
+        body = System.Text.RegularExpressions.Regex.Replace(
+            body,
+            @"\bvar\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*\1\s*;\s*",
+            string.Empty);
+        body = System.Text.RegularExpressions.Regex.Replace(
+            body,
+            @"\bvar\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*\1\s*\(\s*\)\s*;\s*",
+            string.Empty);
 
         // Build nested for loops from outermost to innermost
         var sb = new System.Text.StringBuilder();
