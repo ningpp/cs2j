@@ -273,12 +273,20 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         }
 
         // Fix: Any() with no arguments on IEnumerable<T> → receiver.iterator().hasNext().
+        // For arrays → Arrays.stream(receiver).iterator().hasNext() or receiver.length > 0.
         // anyMatch(Predicate) is a Stream<T> terminal op and must not be emitted on Iterable<T>.
         // Any(predicate) with arguments is handled by the LinqRewriter (rewritten to a for-loop).
         if (originalMethodName == "Any"
             && node.ArgumentList.Arguments.Count == 0
             && methodSymbol?.ContainingType.ToDisplayString() == "System.Linq.Enumerable")
         {
+            // Check if receiver is an array - arrays don't have .iterator()
+            var receiverType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+            if (receiverType is IArrayTypeSymbol)
+            {
+                context.AddImport("java.util.Arrays");
+                return $"Arrays.stream({receiver}).iterator().hasNext()";
+            }
             return $"{receiver}.iterator().hasNext()";
         }
 
