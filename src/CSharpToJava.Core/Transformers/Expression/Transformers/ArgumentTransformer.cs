@@ -442,6 +442,32 @@ public class ArgumentTransformer
             }
         }
 
+        // Generic variance bridge: C# allows IEnumerable<Derived> -> IEnumerable<Base>.
+        // Java generics are invariant, so emit an explicit Iterable bridge cast when element
+        // conversion is implicit (e.g., Set<IntPair> -> Iterable<IEdge>).
+        if (paramType is INamedTypeSymbol pNamed
+            && pNamed.IsGenericType
+            && pNamed.Name is "IEnumerable" or "ICollection" or "IList" or "IReadOnlyCollection" or "IReadOnlyList"
+            && pNamed.ContainingNamespace?.ToDisplayString().StartsWith("System") == true
+            && argType is INamedTypeSymbol aNamed
+            && aNamed.IsGenericType
+            && aNamed.TypeArguments.Length >= 1
+            && pNamed.TypeArguments.Length >= 1)
+        {
+            var argElem = aNamed.TypeArguments[0];
+            var paramElem = pNamed.TypeArguments[0];
+            bool sameElem = SymbolEqualityComparer.Default.Equals(argElem, paramElem);
+            bool implicitElemConv = context.SemanticModel.Compilation
+                .ClassifyConversion(argElem, paramElem).IsImplicit;
+
+            if (!sameElem && implicitElemConv)
+            {
+                var javaParamType = context.MapType(paramType);
+                if (!string.IsNullOrWhiteSpace(javaParamType))
+                    return $"({javaParamType})(Iterable<?>)({transformedExpr})";
+            }
+        }
+
         // ── Case 3: byte/short parameter receives a wider integer (int/long) ──
         // C# allows implicit narrowing of constant integer expressions to byte/short/sbyte/ushort.
         // Java does NOT — an int literal passed to a (byte) or (short) parameter is a compile error.
