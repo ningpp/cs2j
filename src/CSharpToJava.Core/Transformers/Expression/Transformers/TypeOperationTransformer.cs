@@ -92,6 +92,31 @@ public class TypeOperationTransformer : IExpressionTransformer
             return WrapArrayAsIterable(expression, sourceArray, context);
         }
 
+        // C# cast from collection interface/class to array, e.g. (T[])listLike.
+        // Java does not allow casting List<T> to T[]; use toArray(new T[0]).
+        if (context.SemanticModel != null
+            && targetSymbol is IArrayTypeSymbol targetArrayType
+            && targetArrayType.ElementType.SpecialType == SpecialType.None)
+        {
+            var sourceType = context.SemanticModel.GetTypeInfo(node.Expression).Type as INamedTypeSymbol;
+            if (sourceType != null)
+            {
+                bool isEnumerableLike = sourceType.AllInterfaces.Any(i =>
+                    i.OriginalDefinition?.ToDisplayString() is
+                        "System.Collections.Generic.IEnumerable<T>" or
+                        "System.Collections.IEnumerable" or
+                        "System.Collections.Generic.ICollection<T>" or
+                        "System.Collections.ICollection" or
+                        "System.Collections.Generic.IList<T>");
+
+                if (isEnumerableLike)
+                {
+                    var elemJavaType = context.MapType(targetArrayType.ElementType);
+                    return $"{expression}.toArray(new {elemJavaType}[0])";
+                }
+            }
+        }
+
         return $"({targetType})({expression})";
     }
 
