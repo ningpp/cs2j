@@ -94,37 +94,47 @@ public class ObjectCreationTransformer : IExpressionTransformer
 
     private string TransformObjectCreationWithArgs(string typeName, ArgumentListSyntax? argumentList, ConversionContext context)
     {
-        var facade = ExpressionTransformerFacade.Instance;
-        var args = new List<string>();
+        if (argumentList == null || argumentList.Arguments.Count == 0)
+            return $"new {typeName}()";
 
-        if (argumentList != null)
+        // Resolve the constructor symbol so CoerceArgumentType can insert narrowing casts
+        // (e.g. byte/short parameters receiving int literals require an explicit Java cast).
+        IMethodSymbol? ctorSymbol = null;
+        if (context.SemanticModel != null && argumentList.Parent != null)
         {
-            foreach (var arg in argumentList.Arguments)
-            {
-                args.Add(facade.Transform(arg.Expression, context));
-            }
+            var symInfo = context.SemanticModel.GetSymbolInfo(argumentList.Parent);
+            ctorSymbol = symInfo.Symbol as IMethodSymbol;
         }
 
-        return $"new {typeName}({string.Join(", ", args)})";
+        var args = ArgumentTransformer.TransformArgumentList(
+            argumentList, context, ExpressionTransformerFacade.Instance, methodSymbol: ctorSymbol);
+
+        return $"new {typeName}({args})";
     }
 
     private string TransformObjectCreationWithInitializer(string typeName, ArgumentListSyntax? argumentList, InitializerExpressionSyntax initializer, ConversionContext context)
     {
         var facade = ExpressionTransformerFacade.Instance;
-        var args = new List<string>();
 
-        // Build constructor arguments
-        if (argumentList != null)
+        // Build constructor arguments (with narrowing-cast coercion via ArgumentTransformer)
+        string ctorArgs = "";
+        if (argumentList != null && argumentList.Arguments.Count > 0)
         {
-            foreach (var arg in argumentList.Arguments)
-                args.Add(facade.Transform(arg.Expression, context));
+            IMethodSymbol? ctorSymbol = null;
+            if (context.SemanticModel != null && argumentList.Parent != null)
+            {
+                var symInfo = context.SemanticModel.GetSymbolInfo(argumentList.Parent);
+                ctorSymbol = symInfo.Symbol as IMethodSymbol;
+            }
+            ctorArgs = ArgumentTransformer.TransformArgumentList(
+                argumentList, context, facade, methodSymbol: ctorSymbol);
         }
 
         // Emit the object creation and setter calls as pre-statements, then return the temp var.
         // This avoids the double-brace anonymous-subclass anti-pattern which leaks memory,
         // prevents the type from being final, and breaks equals() checks.
         string tmpVar = context.GenerateSyntheticName("_obj");
-        context.AddPreStatement($"var {tmpVar} = new {typeName}({string.Join(", ", args)});");
+        context.AddPreStatement($"var {tmpVar} = new {typeName}({ctorArgs});");
 
         foreach (var expr in initializer.Expressions)
         {

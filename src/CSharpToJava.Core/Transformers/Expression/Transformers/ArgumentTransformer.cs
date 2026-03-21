@@ -274,7 +274,8 @@ public class ArgumentTransformer
     /// the Java target parameter type. Handles three scenarios:
     /// 1. Array passed where Iterable/Collection is expected → Arrays.asList(...) or stream boxing
     /// 2. IEnumerable (Iterable) passed where Java method needs Collection → wrap to materialize
-    /// 3. Object[] (from ToArray()) assigned to primitive array → not handled here (see ToArray fix)
+    /// 3. byte/short parameter receives an int/long literal → insert narrowing cast (byte)/short)
+    ///    (C# allows this implicitly, Java requires explicit cast)
     /// </summary>
     private static string CoerceArgumentType(
         ArgumentSyntax arg,
@@ -350,7 +351,39 @@ public class ArgumentTransformer
             }
         }
 
+        // ── Case 3: byte/short parameter receives a wider integer (int/long) ──
+        // C# allows implicit narrowing of constant integer expressions to byte/short/sbyte/ushort.
+        // Java does NOT — an int literal passed to a (byte) or (short) parameter is a compile error.
+        // Insert the required explicit cast so the generated Java compiles.
+        var javaCast = GetNarrowingCast(paramType.SpecialType, argType.SpecialType);
+        if (javaCast != null)
+            return $"({javaCast}) {transformedExpr}";
+
         return transformedExpr;
+    }
+
+    /// <summary>
+    /// Returns the Java narrowing cast keyword to insert when passing a wider integer to a
+    /// narrower parameter type, or <c>null</c> when no cast is needed.
+    /// </summary>
+    private static string? GetNarrowingCast(SpecialType paramSpecial, SpecialType argSpecial)
+    {
+        // Only insert a cast when the argument is a wider integer type
+        bool argIsWiderInt = argSpecial is SpecialType.System_Int32
+            or SpecialType.System_UInt32
+            or SpecialType.System_Int64
+            or SpecialType.System_UInt64;
+
+        if (!argIsWiderInt) return null;
+
+        return paramSpecial switch
+        {
+            // byte and sbyte both map to Java's 'byte' (signed 8-bit)
+            SpecialType.System_Byte or SpecialType.System_SByte => "byte",
+            // short and ushort both map to Java's 'short' (signed 16-bit)
+            SpecialType.System_Int16 or SpecialType.System_UInt16 => "short",
+            _ => null
+        };
     }
 
     /// <summary>

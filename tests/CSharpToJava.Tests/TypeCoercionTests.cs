@@ -213,4 +213,52 @@ public class TypeCoercionTests
         Assert.Contains("new String[]", java);
         Assert.DoesNotContain("new Object[]", java);
     }
+
+    // ── Issue 4: byte/short parameter narrowing ──────────────────────────
+
+    [Fact]
+    public void ByteConstructorArg_IntLiteral_UsesExplicitCast()
+    {
+        // C# allows implicit narrowing of int literals to byte — Java requires explicit (byte) cast.
+        const string code = """
+            public class ByteDemo
+            {
+                public byte Color { get; set; }
+
+                public ByteDemo(byte color)
+                {
+                    Color = color;
+                }
+
+                public static void Main(string[] args)
+                {
+                    System.Console.WriteLine(new ByteDemo(123));
+                }
+            }
+            """;
+        var java = ConvertAndGetCode(code);
+        // The constructor call must use an explicit (byte) cast so Java compiles
+        Assert.Contains("(byte)", java);
+        Assert.Contains("new ByteDemo(", java);
+    }
+
+    [Fact]
+    public void ShortMethodArg_IntLiteral_UsesExplicitCast()
+    {
+        // C# allows implicit narrowing of int literals to short — Java requires explicit (short) cast.
+        const string code = """
+            public class ShortDemo
+            {
+                public void Accept(short value) { }
+
+                public void Test()
+                {
+                    Accept(1000);
+                }
+            }
+            """;
+        var java = ConvertAndGetCode(code);
+        Assert.Contains("(short)", java);
+        Assert.Contains("accept(", java);
+    }
 }
