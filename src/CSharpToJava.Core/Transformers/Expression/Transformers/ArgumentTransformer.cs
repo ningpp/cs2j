@@ -468,6 +468,23 @@ public class ArgumentTransformer
             }
         }
 
+        // Fallback: dictionary keySet()/values() often appears as Set<Derived> where C# expected
+        // IEnumerable<Base>. Bridge with explicit Iterable cast to avoid Java invariance failures.
+        if (paramType is INamedTypeSymbol pNamedFallback
+            && pNamedFallback.IsGenericType
+            && pNamedFallback.Name is "IEnumerable" or "ICollection" or "IList" or "IReadOnlyCollection" or "IReadOnlyList"
+            && pNamedFallback.ContainingNamespace?.ToDisplayString().StartsWith("System") == true)
+        {
+            var exprTrim = transformedExpr.Trim();
+            if (exprTrim.EndsWith(".keySet()", StringComparison.Ordinal)
+                || exprTrim.EndsWith(".values()", StringComparison.Ordinal))
+            {
+                var javaParamType = context.MapType(paramType);
+                if (!string.IsNullOrWhiteSpace(javaParamType))
+                    return $"({javaParamType})(Iterable<?>)({transformedExpr})";
+            }
+        }
+
         // ── Case 3: byte/short parameter receives a wider integer (int/long) ──
         // C# allows implicit narrowing of constant integer expressions to byte/short/sbyte/ushort.
         // Java does NOT — an int literal passed to a (byte) or (short) parameter is a compile error.
