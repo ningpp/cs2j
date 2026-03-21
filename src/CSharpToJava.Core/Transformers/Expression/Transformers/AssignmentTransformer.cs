@@ -78,6 +78,13 @@ public class AssignmentTransformer : IExpressionTransformer
             if (context.SemanticModel?.GetSymbolInfo(leftNode).Symbol is IPropertySymbol prop)
             {
                 var receiver = facade.Transform(propMa.Expression, context);
+                if (prop.Name == "Capacity"
+                    && prop.ContainingType?.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.List<T>")
+                {
+                    var rightCapacity = facade.Transform(rightNode, context);
+                    return $"{receiver}.ensureCapacity({rightCapacity})";
+                }
+
                 // If RHS is itself a property setter assignment, hoist to avoid void-return nesting
                 // e.g. p1.X = p2.X = p3.X  →  var _chainVal0 = p3.getX(); p2.setX(_chainVal0); p1.setX(_chainVal0)
                 var right = IsPropertySetterAssignment(rightNode, context)
@@ -141,6 +148,13 @@ public class AssignmentTransformer : IExpressionTransformer
         {
             if (context.SemanticModel?.GetSymbolInfo(leftNode).Symbol is IPropertySymbol bareIdentProp)
             {
+                if (bareIdentProp.Name == "Capacity"
+                    && bareIdentProp.ContainingType?.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.List<T>")
+                {
+                    var rightCapacity = facade.Transform(rightNode, context);
+                    return $"ensureCapacity({rightCapacity})";
+                }
+
                 var right = IsPropertySetterAssignment(rightNode, context)
                     ? HoistChainedPropertyAssignment(rightNode, context)
                     : facade.Transform(rightNode, context);

@@ -392,6 +392,24 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
         // Fix 1 & 2: consult member-name mapping and generate property getters
         if (context.SemanticModel?.GetSymbolInfo(node).Symbol is IPropertySymbol prop)
         {
+            var propContainer = prop.ContainingType;
+            bool isGenericDictionaryLike =
+                propContainer?.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic"
+                && propContainer.Name is "Dictionary" or "SortedDictionary" or "IDictionary" or "IReadOnlyDictionary";
+
+            if (isGenericDictionaryLike)
+            {
+                if (prop.Name == "Values") return $"{target}.values()";
+                if (prop.Name == "Keys") return $"{target}.keySet()";
+            }
+
+            if (prop.Name == "Capacity"
+                && prop.ContainingType?.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.List<T>")
+            {
+                // Java ArrayList has no readable capacity API; use size() as a safe compilable approximation.
+                return $"{target}.size()";
+            }
+
             // Fix 1: check TypeMappings for a configured method/member name mapping
             var typeName = prop.ContainingType.ToDisplayString();
             var mappedMethod = context.TypeMappings.MapMethod(typeName, prop.Name);
@@ -413,6 +431,11 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
             }
             if (mappedMethod != null)
             {
+                if (mappedMethod == "getValues")
+                    return $"{target}.values()";
+                if (mappedMethod == "getKeys")
+                    return $"{target}.keySet()";
+
                 // If the mapped value is a fully-qualified Java field (contains a dot, e.g.
                 // "java.util.Locale.ROOT") emit it directly without a receiver prefix or ().
                 // For array.length: Java arrays expose length as a public final field, not a
@@ -448,12 +471,24 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
             var exprType = context.SemanticModel.GetTypeInfo(node.Expression).Type;
             if (exprType != null)
             {
+                if (exprType is INamedTypeSymbol namedExprType
+                    && namedExprType.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic"
+                    && namedExprType.Name is "Dictionary" or "SortedDictionary" or "IDictionary" or "IReadOnlyDictionary")
+                {
+                    if (memberName == "Values") return $"{target}.values()";
+                    if (memberName == "Keys") return $"{target}.keySet()";
+                }
+
                 var tn3 = exprType.ToDisplayString();
                 var mm3 = context.TypeMappings.MapMethod(tn3, memberName);
                 if (mm3 == null && exprType.ContainingNamespace != null)
                     mm3 = context.TypeMappings.MapMethod($"{exprType.ContainingNamespace}.{exprType.Name}", memberName);
                 if (mm3 != null)
+                {
+                    if (mm3 == "getValues") return $"{target}.values()";
+                    if (mm3 == "getKeys") return $"{target}.keySet()";
                     return mm3.Contains('.') ? mm3 : $"{target}.{mm3}()";
+                }
             }
         }
 
@@ -473,6 +508,9 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
                 return $"{primInfo.javaWrapper}.{mappedConst}";
             }
         }
+
+        if (memberName == "Values") return $"{target}.values()";
+        if (memberName == "Keys") return $"{target}.keySet()";
 
         var member = ConversionContext.EscapeJavaKeyword(memberName);
         return $"{target}.{member}";

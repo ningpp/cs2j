@@ -1500,13 +1500,21 @@ public class StatementTransformer : IStatementTransformer
             return $"{ConversionContext.EscapeJavaKeyword(v.Identifier.Text)}{init}";
         }));
 
+        string localDeclPreCode = "";
         if (context.HasPendingPreStatements)
         {
             var pendingPre = context.DrainPreStatements();
-            var preCode = string.Join("\n", pendingPre.Select(s => s.TrimEnd(';') + ";")) + "\n";
-            return new JavaStatementNode($"{preCode}{javaType} {declarations};");
+            localDeclPreCode = string.Join("\n", pendingPre.Select(s => s.TrimEnd(';') + ";")) + "\n";
         }
-        return new JavaStatementNode($"{javaType} {declarations};");
+
+        string localDeclPostCode = "";
+        if (context.HasPendingPostStatements)
+        {
+            var pendingPost = context.DrainPostStatements();
+            localDeclPostCode = "\n" + string.Join("\n", pendingPost.Select(s => s.TrimEnd(';') + ";"));
+        }
+
+        return new JavaStatementNode($"{localDeclPreCode}{javaType} {declarations};{localDeclPostCode}");
     }
 
     private JavaSyntaxNode TransformYieldReturn(YieldStatementSyntax? stmt, ConversionContext context)

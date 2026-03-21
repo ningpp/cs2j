@@ -71,8 +71,42 @@ public class TypeOperationTransformer : IExpressionTransformer
             return $"{targetNameOf(targetType)}({expression})";
         }
 
+        // C# arrays can be cast to IEnumerable/ICollection/IList, but Java arrays are not Collection subtypes.
+        // Adapt arrays to collection views so constructor chaining like this((IEnumerable<T>)arr) compiles.
+        if (context.SemanticModel != null
+            && context.SemanticModel.GetTypeInfo(node.Expression).Type is IArrayTypeSymbol sourceArray
+            && IsIterableLikeJavaType(targetType))
+        {
+            return WrapArrayAsIterable(expression, sourceArray, context);
+        }
+
         return $"({targetType})({expression})";
     }
+
+    private static bool IsIterableLikeJavaType(string mappedType)
+    {
+        return mappedType == "Iterable" || mappedType.StartsWith("Iterable<")
+            || mappedType == "Collection" || mappedType.StartsWith("Collection<")
+            || mappedType == "List" || mappedType.StartsWith("List<");
+    }
+
+    private static string WrapArrayAsIterable(string expr, IArrayTypeSymbol arrayType, ConversionContext context)
+    {
+        if (arrayType.ElementType.IsValueType && IsPrimitiveSpecialType(arrayType.ElementType.SpecialType))
+        {
+            context.AddImport("java.util.Arrays");
+            context.AddImport("java.util.stream.Collectors");
+            return $"Arrays.stream({expr}).boxed().collect(Collectors.toList())";
+        }
+
+        context.AddImport("java.util.Arrays");
+        return $"Arrays.asList({expr})";
+    }
+
+    private static bool IsPrimitiveSpecialType(SpecialType st)
+        => st is SpecialType.System_Int32 or SpecialType.System_Int16 or SpecialType.System_Byte
+            or SpecialType.System_Int64 or SpecialType.System_Double or SpecialType.System_Single
+            or SpecialType.System_Boolean or SpecialType.System_Char;
 
     private string TransformIs(BinaryExpressionSyntax node, ConversionContext context)
     {

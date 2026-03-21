@@ -216,4 +216,34 @@ public class OutParamInConditionTests
         Assert.True(aHolderPos < outerIfPos, "_aHolder must be before outer if");
         Assert.True(bHolderPos < innerIfPos, "_bHolder must be before inner if");
     }
+
+    [Fact]
+    public void OutParamFromAssignment_IsReadBackBeforeSubsequentIfConditionUse()
+    {
+        var csharp = """
+            class C {
+                static bool TryGet(out int u, out int v) { u = 1; v = 2; return true; }
+                void M() {
+                    int u, v;
+                    bool ret = TryGet(out u, out v);
+                    if (ret && u > 0 && v > 0) {
+                        System.Console.WriteLine(u + v);
+                    }
+                }
+            }
+            """;
+
+        var java = Convert(csharp);
+
+        var declPos = java.IndexOf("boolean ret = tryGet(");
+        var uReadBackPos = java.IndexOf("u = _uHolder.value");
+        var vReadBackPos = java.IndexOf("v = _vHolder.value");
+        var ifPos = java.IndexOf("if (ret && u > 0 && v > 0)");
+
+        Assert.True(declPos >= 0, "ret assignment missing");
+        Assert.True(uReadBackPos > declPos, "u read-back must follow ret assignment");
+        Assert.True(vReadBackPos > declPos, "v read-back must follow ret assignment");
+        Assert.True(uReadBackPos < ifPos, "u read-back must be before if condition");
+        Assert.True(vReadBackPos < ifPos, "v read-back must be before if condition");
+    }
 }

@@ -271,6 +271,12 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         // Fix: Primitive type static method call — C# double.IsInfinity(x) → Java Double.isInfinite(x).
         if (memberAccess.Expression is PredefinedTypeSyntax primTypeSyntax)
         {
+            if (primTypeSyntax.Keyword.Text == "string" && originalMethodName == "Format")
+            {
+                var formatArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                return $"String.format({formatArgs})";
+            }
+
             var boxedReceiver = ExpressionTransformerHelpers.BoxedTypeName(primTypeSyntax);
             var mappedMethod  = MapPrimitiveStaticMethodName(primTypeSyntax.Keyword.Text, originalMethodName);
             var primArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
@@ -302,6 +308,15 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             // Currently instance-call form is kept, so isExtensionInStaticPath stays false.
             if (methodSymbol is { IsExtensionMethod: true, MethodKind: MethodKind.ReducedExtension })
                 isExtensionInStaticPath = false;
+        }
+
+        // C# String.Format(...) -> Java String.format(...)
+        if (originalMethodName == "Format"
+            && (methodSymbol?.ContainingType.ToDisplayString() == "System.String"
+                || memberAccess.Expression.ToString() is "String" or "System.String"))
+        {
+            var fmtArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: methodSymbol);
+            return $"String.format({fmtArgs})";
         }
 
         // Fix: First()/Last() on arrays → indexed access (arrays are not streams).
