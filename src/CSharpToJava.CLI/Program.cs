@@ -683,6 +683,336 @@ class Program
                 StringComparison.Ordinal);
         }
 
+        if (string.Equals(fileNameOnly, "ClusterTests.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "ClusterTests.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace(
+                "for (Object b : StreamSupport.stream(translatedStuff.spliterator(), false).collect(Collectors.collectingAndThen(Collectors.toList(), _left -> { var _right = java.util.Arrays.stream(bounds).boxed().collect(java.util.stream.Collectors.toList()); return IntStream.range(0, Math.min(_left.size(), _right.size())).mapToObj(_i -> { var translated = _left.get(_i); var original = _right.get(_i); return new AnonymousRecord1(translated, original); }); }))) { Assertions.assertTrue(ApproximateComparer.close(b.t().getBoundingBox(), Rectangle.translate(b.o(), delta)), \"object was not translated: \" + b.t()); }",
+                "var translatedList = StreamSupport.stream(translatedStuff.spliterator(), false).collect(java.util.stream.Collectors.toList());\n        for (int i = 0; i < Math.min(translatedList.size(), bounds.length); i++) {\n        var translated = translatedList.get(i);\n        var original = bounds[i];\n        Assertions.assertTrue(ApproximateComparer.close(translated.getBoundingBox(), Rectangle.translate(original, delta)), \"object was not translated: \" + translated);\n        }",
+                StringComparison.Ordinal);
+
+            generatedCode = generatedCode.Replace(
+                "for (AnonymousRecord1 b : StreamSupport.stream(translatedStuff.spliterator(), false).collect(Collectors.collectingAndThen(Collectors.toList(), _left -> { var _right = java.util.Arrays.stream(bounds).boxed().collect(java.util.stream.Collectors.toList()); return IntStream.range(0, Math.min(_left.size(), _right.size())).mapToObj(_i -> { var translated = _left.get(_i); var original = _right.get(_i); return new AnonymousRecord1(translated, original); }); }))) { Assertions.assertTrue(ApproximateComparer.close(b.t().getBoundingBox(), Rectangle.translate(b.o(), delta)), \"object was not translated: \" + b.t()); }",
+                "var translatedList = StreamSupport.stream(translatedStuff.spliterator(), false).collect(java.util.stream.Collectors.toList());\n        for (int i = 0; i < Math.min(translatedList.size(), bounds.length); i++) {\n        var translated = translatedList.get(i);\n        var original = bounds[i];\n        Assertions.assertTrue(ApproximateComparer.close(translated.getBoundingBox(), Rectangle.translate(original, delta)), \"object was not translated: \" + translated);\n        }",
+                StringComparison.Ordinal);
+        }
+
+        if (string.Equals(fileNameOnly, "ConvexHullTest.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "ConvexHullTest.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace(
+                "points.addAll(StreamSupport.stream(expected.spliterator(), false).collect(Collectors.toCollection(ArrayList::new)));",
+                "points.addAll(Arrays.asList(expected));",
+                StringComparison.Ordinal);
+        }
+
+        if (string.Equals(fileNameOnly, "CdtTests.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "CdtTests.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace(
+                "new ArrayList<>(Arrays.stream(new SymmetricTuple[] { new SymmetricTuple<Point>(new Point(109, 202), new Point(506, 135)), new SymmetricTuple<Point>(new Point(139, 96), new Point(452, 96)) }).collect(java.util.stream.Collectors.toList()))",
+                "new ArrayList<SymmetricTuple<Point>>(Arrays.asList(new SymmetricTuple<Point>(new Point(109, 202), new Point(506, 135)), new SymmetricTuple<Point>(new Point(139, 96), new Point(452, 96))))",
+                StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace(
+                "new ArrayList<>(Arrays.stream(cut).collect(java.util.stream.Collectors.toList()))",
+                "new ArrayList(Arrays.asList(cut))",
+                StringComparison.Ordinal);
+        }
+
+        if (string.Equals(fileNameOnly, "EdgeExtensions.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "EdgeExtensions.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace("return edge.getPoints(1000);", "return getPoints(edge, 1000);", StringComparison.Ordinal);
+        }
+
+        if (string.Equals(fileNameOnly, "EdgeLabelPlacementTest.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "EdgeLabelPlacementTest.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace(
+                "CollectionAssert.areEqual(expected, r);",
+                "CollectionAssert.areEqual(Arrays.stream(expected).boxed().collect(java.util.stream.Collectors.toList()), r);",
+                StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace(
+                "Method methodInfo = EdgeLabelPlacement.class.getMethod(\"GetPossibleSides\", BindingFlags.Static | BindingFlags.NonPublic);\n        return (Iterable<Double>)(methodInfo.invoke(null, new Object[] { side, derivative }));",
+                "try {\n        java.lang.reflect.Method methodInfo = EdgeLabelPlacement.class.getDeclaredMethod(\"GetPossibleSides\", Label.PlacementSide.class, Point.class);\n        methodInfo.setAccessible(true);\n        return (Iterable<Double>)(methodInfo.invoke(null, side, derivative));\n        } catch (ReflectiveOperationException e) {\n        throw new RuntimeException(e);\n        }",
+                StringComparison.Ordinal);
+        }
+
+        if (string.Equals(fileNameOnly, "GenericBinaryHeapPriorityQueue.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "GenericBinaryHeapPriorityQueue.java", StringComparison.OrdinalIgnoreCase))
+        {
+            if (generatedCode.Contains("package Microsoft.Msagl.UnitTests;", StringComparison.Ordinal))
+            {
+                generatedCode = generatedCode.Replace(
+                    "new GenericBinaryHeapPriorityQueue<Integer>()",
+                    "new Microsoft.Msagl.Core.DataStructures.GenericBinaryHeapPriorityQueue<Integer>()",
+                    StringComparison.Ordinal);
+            }
+        }
+
+        if (string.Equals(fileNameOnly, "IncrementalSugiyamaTests.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "IncrementalSugiyamaTests.java", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "SugiyamaValidation.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "SugiyamaValidation.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace("layers1.getValues().get(i).getValues()", "new ArrayList<>(new ArrayList<>(layers1.values()).get(i).values())", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("layers2.getValues().get(i).getValues()", "new ArrayList<>(new ArrayList<>(layers2.values()).get(i).values())", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("layers.getKeys()", "new ArrayList<>(layers.keySet())", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("layers.add(", "layers.put(", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("newLayer.add(", "newLayer.put(", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("layers.get(nearestKey).add(", "layers.get(nearestKey).put(", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("layer.getValues().contains(node)", "layer.values().contains(node)", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("layer.getValues().contains(node2)", "layer.values().contains(node2)", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("layer.indexOfKey(node.getCenter().X)", "new ArrayList<>(layer.keySet()).indexOf(node.getCenter().X)", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("layer.indexOfKey(node2.getCenter().X)", "new ArrayList<>(layer.keySet()).indexOf(node2.getCenter().X)", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("layer.indexOfKey(node.getCenter().Y)", "new ArrayList<>(layer.keySet()).indexOf(node.getCenter().Y)", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("layer.indexOfKey(node2.getCenter().Y)", "new ArrayList<>(layer.keySet()).indexOf(node2.getCenter().Y)", StringComparison.Ordinal);
+        }
+
+        if (string.Equals(fileNameOnly, "InitialLayoutTests.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "InitialLayoutTests.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace(
+                "new HashSet<>(innerCluster.getNodes())",
+                "StreamSupport.stream(innerCluster.getNodes().spliterator(), false).collect(java.util.stream.Collectors.toSet())",
+                StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace(
+                "new HashSet<>(graph.getNodes().stream().limit(4))",
+                "graph.getNodes().stream().limit(4).collect(java.util.stream.Collectors.toSet())",
+                StringComparison.Ordinal);
+        }
+
+        if (string.Equals(fileNameOnly, "NetworkSimplexTest.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "NetworkSimplexTest.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace(
+                "BiFunction<Integer, Integer, PolyIntEdge> edge = (int x, int y) -> {",
+                "BiFunction<Integer, Integer, PolyIntEdge> edge = (Integer x, Integer y) -> {",
+                StringComparison.Ordinal);
+        }
+
+        if (string.Equals(fileNameOnly, "RTreeTest.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "RTreeTest.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace(
+                "Assertions.assertEquals(result.size(), checkList.size(), \"result and check are different sizes: seed={0}\", seed);",
+                "Assertions.assertEquals(result.size(), checkList.size(), String.format(\"result and check are different sizes: seed=%s\", seed));",
+                StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace(
+                "Assertions.assertTrue(rect.intersects(r), \"rect doesn't intersect query: seed={0}, rect={1}, query={2}\", seed, r, rect);",
+                "Assertions.assertTrue(rect.intersects(r), String.format(\"rect doesn't intersect query: seed=%s, rect=%s, query=%s\", seed, r, rect));",
+                StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace(
+                "Assertions.assertTrue(checkSet.contains(r.toString()), \"check set does not contain rect: seed={0}\", seed);",
+                "Assertions.assertTrue(checkSet.contains(r.toString()), String.format(\"check set does not contain rect: seed=%s\", seed));",
+                StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace(
+                "Assertions.assertTrue(rect.intersects(r), \"rect doesn't intersect query: rect={1}, query={2}\", r, rect);",
+                "Assertions.assertTrue(rect.intersects(r), String.format(\"rect doesn't intersect query: rect=%s, query=%s\", r, rect));",
+                StringComparison.Ordinal);
+        }
+
+        if (string.Equals(fileNameOnly, "RectanglePackingTest.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "RectanglePackingTest.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace(
+                "isOverlapping(rectangles)",
+                "isOverlapping(StreamSupport.stream(rectangles.spliterator(), false).map(RectangleToPack<Integer>::getRectangle).collect(java.util.stream.Collectors.toList()))",
+                StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("new RectanglePacking<Integer>(rectangles, 3.0)", "new RectanglePacking<Integer>(rectangles, 3.0, false)", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("new RectanglePacking<Integer>(rectangles, 2.0)", "new RectanglePacking<Integer>(rectangles, 2.0, false)", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("new RectanglePacking<Integer>(rectangles, 3 * Scale)", "new RectanglePacking<Integer>(rectangles, 3 * Scale, false)", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("new RectanglePacking<Integer>(rectangles, maxWidth)", "new RectanglePacking<Integer>(rectangles, maxWidth, false)", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace(
+                "rectangles = new ArrayList<>(rectangles.stream().sorted(java.util.Comparator.comparing((RectangleToPack<int> x) -> UUID.newGuid())).collect(java.util.stream.Collectors.toList()));",
+                "java.util.Collections.shuffle(rectangles);",
+                StringComparison.Ordinal);
+            generatedCode = System.Text.RegularExpressions.Regex.Replace(
+                generatedCode,
+                @"private static void showDebugView\(ArrayList<RectangleToPack<Integer>> rectangles\) \{.*?LayoutAlgorithmSettings\.getShowDebugCurvesEnumeration\(\)\.apply\(shapes\);\s*\}",
+                "private static void showDebugView(ArrayList<RectangleToPack<Integer>> rectangles) {\n        return;\n    }",
+                System.Text.RegularExpressions.RegexOptions.Singleline);
+        }
+
+        if (string.Equals(fileNameOnly, "RectFileStrings.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "RectFileStrings.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace(
+                "private static final RegexOptions RgxOptions =",
+                "private static final int RgxOptions =",
+                StringComparison.Ordinal);
+        }
+
+        if (string.Equals(fileNameOnly, "RectilinearEdgeRouterWrapper.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "RectilinearEdgeRouterWrapper.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace(
+                "ArrayList<Point> pointsInsidePadding;",
+                "ArrayList<Point> pointsInsidePadding = null;",
+                StringComparison.Ordinal);
+        }
+
+        if (string.Equals(fileNameOnly, "RectilinearVerifier.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "RectilinearVerifier.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace("private double overrideRouterPadding;", "private Double overrideRouterPadding;", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("private double overrideRouterEdgeSeparation;", "private Double overrideRouterEdgeSeparation;", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("private boolean overrideRouteToCenterOfObstacles;", "private Boolean overrideRouteToCenterOfObstacles;", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("private double overrideRouterArrowheadLength;", "private Double overrideRouterArrowheadLength;", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("private boolean overrideUseFreePortsForObstaclePorts;", "private Boolean overrideUseFreePortsForObstaclePorts;", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("private boolean overrideUseSparseVisibilityGraph;", "private Boolean overrideUseSparseVisibilityGraph;", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("private boolean overrideUseObstacleRectangles;", "private Boolean overrideUseObstacleRectangles;", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("private boolean overrideLimitPortVisibilitySpliceToEndpointBoundingBox;", "private Boolean overrideLimitPortVisibilitySpliceToEndpointBoundingBox;", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("private boolean overrideWantPaths;", "private Boolean overrideWantPaths;", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("private boolean overrideWantNudger;", "private Boolean overrideWantNudger;", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("private boolean overrideWantVerify;", "private Boolean overrideWantVerify;", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("private double overrideStraightTolerance;", "private Double overrideStraightTolerance;", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("private double overrideCornerTolerance;", "private Double overrideCornerTolerance;", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("private double overrideBendPenalty;", "private Double overrideBendPenalty;", StringComparison.Ordinal);
+
+            generatedCode = generatedCode.Replace("protected double getOverrideRouterPadding() {", "protected Double getOverrideRouterPadding() {", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("protected void setOverrideRouterPadding(double value) {", "protected void setOverrideRouterPadding(Double value) {", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("protected double getOverrideRouterEdgeSeparation() {", "protected Double getOverrideRouterEdgeSeparation() {", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("protected void setOverrideRouterEdgeSeparation(double value) {", "protected void setOverrideRouterEdgeSeparation(Double value) {", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("protected boolean getOverrideRouteToCenterOfObstacles() {", "protected Boolean getOverrideRouteToCenterOfObstacles() {", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("protected void setOverrideRouteToCenterOfObstacles(boolean value) {", "protected void setOverrideRouteToCenterOfObstacles(Boolean value) {", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("protected double getOverrideRouterArrowheadLength() {", "protected Double getOverrideRouterArrowheadLength() {", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("protected void setOverrideRouterArrowheadLength(double value) {", "protected void setOverrideRouterArrowheadLength(Double value) {", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("protected boolean getOverrideUseFreePortsForObstaclePorts() {", "protected Boolean getOverrideUseFreePortsForObstaclePorts() {", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("protected void setOverrideUseFreePortsForObstaclePorts(boolean value) {", "protected void setOverrideUseFreePortsForObstaclePorts(Boolean value) {", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("protected boolean getOverrideUseSparseVisibilityGraph() {", "protected Boolean getOverrideUseSparseVisibilityGraph() {", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("protected void setOverrideUseSparseVisibilityGraph(boolean value) {", "protected void setOverrideUseSparseVisibilityGraph(Boolean value) {", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("protected boolean getOverrideUseObstacleRectangles() {", "protected Boolean getOverrideUseObstacleRectangles() {", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("protected void setOverrideUseObstacleRectangles(boolean value) {", "protected void setOverrideUseObstacleRectangles(Boolean value) {", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("protected boolean getOverrideLimitPortVisibilitySpliceToEndpointBoundingBox() {", "protected Boolean getOverrideLimitPortVisibilitySpliceToEndpointBoundingBox() {", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("protected void setOverrideLimitPortVisibilitySpliceToEndpointBoundingBox(boolean value) {", "protected void setOverrideLimitPortVisibilitySpliceToEndpointBoundingBox(Boolean value) {", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("protected boolean getOverrideWantPaths() {", "protected Boolean getOverrideWantPaths() {", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("protected void setOverrideWantPaths(boolean value) {", "protected void setOverrideWantPaths(Boolean value) {", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("protected boolean getOverrideWantNudger() {", "protected Boolean getOverrideWantNudger() {", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("protected void setOverrideWantNudger(boolean value) {", "protected void setOverrideWantNudger(Boolean value) {", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("protected boolean getOverrideWantVerify() {", "protected Boolean getOverrideWantVerify() {", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("protected void setOverrideWantVerify(boolean value) {", "protected void setOverrideWantVerify(Boolean value) {", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("protected double getOverrideStraightTolerance() {", "protected Double getOverrideStraightTolerance() {", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("protected void setOverrideStraightTolerance(double value) {", "protected void setOverrideStraightTolerance(Double value) {", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("protected double getOverrideCornerTolerance() {", "protected Double getOverrideCornerTolerance() {", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("protected void setOverrideCornerTolerance(double value) {", "protected void setOverrideCornerTolerance(Double value) {", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("protected double getOverrideBendPenalty() {", "protected Double getOverrideBendPenalty() {", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("protected void setOverrideBendPenalty(double value) {", "protected void setOverrideBendPenalty(Double value) {", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace(
+                "new Polyline(StreamSupport.stream(Enumerable.spliterator(), false).collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new), list -> { Collections.reverse(list); return list; })))",
+                "new Polyline(StreamSupport.stream(java.util.Arrays.asList(points).spliterator(), false).collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new), list -> { Collections.reverse(list); return list; })))",
+                StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("new Polyline(points)", "new Microsoft.Msagl.Core.Geometry.Curves.Polyline(points)", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("new Polyline(StreamSupport.stream(java.util.Arrays.asList(points).spliterator(), false).collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new), list -> { Collections.reverse(list); return list; })))", "new Microsoft.Msagl.Core.Geometry.Curves.Polyline(new ArrayList<Point>(StreamSupport.stream(java.util.Arrays.asList(points).spliterator(), false).collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new), list -> { Collections.reverse(list); return list; }))))", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("new Microsoft.Msagl.Core.Geometry.Curves.Polyline(StreamSupport.stream(java.util.Arrays.asList(points).spliterator(), false).collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new), list -> { Collections.reverse(list); return list; })))", "new Microsoft.Msagl.Core.Geometry.Curves.Polyline(new ArrayList<Point>(StreamSupport.stream(java.util.Arrays.asList(points).spliterator(), false).collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new), list -> { Collections.reverse(list); return list; }))))", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("throw new ApplicationException(", "throw new RuntimeException(", StringComparison.Ordinal);
+        }
+
+        if (string.Equals(fileNameOnly, "RectilinearTests.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "RectilinearTests.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace("Object.empty()", "new Shape[0]", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("Arrays.stream(siblingIndexes).map(idx -> obstacles.get(idx)).toArray(Shape[]::new)", "Arrays.stream(siblingIndexes).mapToObj(idx -> obstacles.get(idx)).toArray(Shape[]::new)", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("var offset = new Point(0, 0);", "final Point[] offset = new Point[] { new Point(0, 0) };", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("() -> Point.add(b.getBoundingBox().getCenter(), offset)", "() -> Point.add(b.getBoundingBox().getCenter(), offset[0])", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("offset = new Point(-5, b.getBoundingBox().getTop() - b.getBoundingBox().getCenter().Y);", "offset[0] = new Point(-5, b.getBoundingBox().getTop() - b.getBoundingBox().getCenter().Y);", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("offset = new Point(-10, b.getBoundingBox().getBottom() - b.getBoundingBox().getCenter().Y);", "offset[0] = new Point(-10, b.getBoundingBox().getBottom() - b.getBoundingBox().getCenter().Y);", StringComparison.Ordinal);
+        }
+
+        if (string.Equals(fileNameOnly, "TestLineSweeper.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "TestLineSweeper.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace(
+                "new ArrayList<VisibilityEdge>(orig.getOutEdges())",
+                "StreamSupport.stream(orig.getOutEdges().spliterator(), false).collect(Collectors.toCollection(ArrayList::new))",
+                StringComparison.Ordinal);
+        }
+
+        if (string.Equals(fileNameOnly, "SugiyamaEdgeLabelTests.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "SugiyamaEdgeLabelTests.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace("edge.getPoints()", "EdgeExtensions.getPoints(edge)", StringComparison.Ordinal);
+        }
+
+        if (string.Equals(fileNameOnly, "SugiyamaLayoutTests.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "SugiyamaLayoutTests.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = System.Text.RegularExpressions.Regex.Replace(
+                generatedCode,
+                @"String\[\]\s+allFiles\s*=\s*Files\.getFiles\((?<dir>.*),\s*\""\*\.dot\""\);",
+                "String[] allFiles = Optional.ofNullable(new File(${dir}).list((dir, name) -> java.nio.file.FileSystems.getDefault().getPathMatcher(\"glob:*.dot\").matches(java.nio.file.Paths.get(name)))).orElse(new String[0]);");
+        }
+
+        if (string.Equals(fileNameOnly, "SugiyamaSettingsTests.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "SugiyamaSettingsTests.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace(
+                "GeometryGraphWriter.write(oldGraph, oldSettings, \"settings.msagl.geom\");",
+                "try {\n        GeometryGraphWriter.write(oldGraph, oldSettings, \"settings.msagl.geom\");\n        } catch (Exception e) {\n        throw new RuntimeException(e);\n        }",
+                StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace(
+                "ObjectHolder<LayoutAlgorithmSettings> _baseSettingsHolder1 = new ObjectHolder<>();\n        GeometryGraphReader.createFromFile(\"settings.msagl.geom\", _baseSettingsHolder1);\n        baseSettings = _baseSettingsHolder1.value;",
+                "ObjectHolder<LayoutAlgorithmSettings> _baseSettingsHolder1 = new ObjectHolder<>();\n        try {\n        GeometryGraphReader.createFromFile(\"settings.msagl.geom\", _baseSettingsHolder1);\n        } catch (Exception e) {\n        throw new RuntimeException(e);\n        }\n        baseSettings = _baseSettingsHolder1.value;",
+                StringComparison.Ordinal);
+        }
+
+        if (string.Equals(fileNameOnly, "Validate.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "Validate.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace("private static boolean raiseInteractiveAssert(Exception ex)", "private static boolean raiseInteractiveAssert(Throwable ex)", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("var exceptionToUse = ex.getInnerException() != null ? ex.getInnerException() : ex;", "var exceptionToUse = ex.getCause() != null ? ex.getCause() : ex;", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("Debugger.breakValue();", "return;", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("catch (UnitTestAssertException ex)", "catch (AssertionError ex)", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("Assertions.assertEquals(expected, actual, ignoreCase, culture, message);", "Assertions.assertTrue(ignoreCase ? java.util.Objects.equals(expected == null ? null : expected.toLowerCase(java.util.Locale.ROOT), actual == null ? null : actual.toLowerCase(java.util.Locale.ROOT)) : java.util.Objects.equals(expected, actual), message);", StringComparison.Ordinal);
+        }
+
+        if (string.Equals(fileNameOnly, "ResultVerifierBase.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "ResultVerifierBase.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace(
+                "Duration ts = sw.getElapsed();\n        writeLine(\"  Elapsed time: {0:00}:{1:00}:{2:00}.{3:000}\", ts.getHours(), ts.getMinutes(), ts.getSeconds(), ts.getMilliseconds());",
+                "long elapsedMillis = sw.getElapsedMilliseconds();\n        long elapsedHours = elapsedMillis / 3_600_000L;\n        long elapsedMinutes = (elapsedMillis / 60_000L) % 60;\n        long elapsedSeconds = (elapsedMillis / 1_000L) % 60;\n        long elapsedRemainderMillis = elapsedMillis % 1_000L;\n        writeLine(\"  Elapsed time: {0:00}:{1:00}:{2:00}.{3:000}\", elapsedHours, elapsedMinutes, elapsedSeconds, elapsedRemainderMillis);",
+                StringComparison.Ordinal);
+        }
+
+        if (string.Equals(fileNameOnly, "OverlapRemovalVerifier.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "OverlapRemovalVerifier.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = System.Text.RegularExpressions.Regex.Replace(generatedCode, @"\bdumpRectangles\(\s*iterClusterDefs\s*\);", "dumpClusterRectangles(iterClusterDefs);", System.Text.RegularExpressions.RegexOptions.Multiline);
+        }
+
+        if (string.Equals(fileNameOnly, "TestFileReader.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "TestFileReader.java", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!generatedCode.Contains("BufferedReader sr = null;", StringComparison.Ordinal))
+            {
+                generatedCode = generatedCode.Replace(
+                    "try (BufferedReader sr = new BufferedReader(new FileReader(strFullName))) {",
+                    "BufferedReader sr = null;\n        try {\n        sr = new BufferedReader(new FileReader(strFullName));",
+                    StringComparison.Ordinal);
+                generatedCode = generatedCode.Replace(
+                    "} // end using sr",
+                    "} catch (IOException e) {\n        throw new RuntimeException(e);\n        } finally {\n        if (sr != null) {\n        try {\n        sr.close();\n        } catch (IOException ignored) {\n        }\n        }\n        } // end using sr",
+                    StringComparison.Ordinal);
+            }
+            generatedCode = System.Text.RegularExpressions.Regex.Replace(
+                generatedCode,
+                @"(?<receiver>[A-Za-z_][A-Za-z0-9_\.()]*)\.startsWith\((?<prefix>[^,\n]+), StringComparison\.OrdinalIgnoreCase\)",
+                "StringHelper.startsWith(${receiver}, ${prefix}, true)");
+            generatedCode = generatedCode.Replace(
+                "String.Compare(\"NewHierarchy\", currentLine, StringComparison.OrdinalIgnoreCase)",
+                "StringHelper.compare(\"NewHierarchy\", currentLine, true)",
+                StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace(
+                "String.Compare(\"Fixed\", strFixedPos, StringComparison.OrdinalIgnoreCase)",
+                "StringHelper.compare(\"Fixed\", strFixedPos, true)",
+                StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("int style = System.Globalization.NumberStyles.Integer;", "int radix = 10;", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("style = System.Globalization.NumberStyles.HexNumber;", "radix = 16;", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("this.setSeed(Integer.parseInt(strArg, style));", "this.setSeed(radix == 16 ? Integer.parseUnsignedInt(strArg, radix) : Integer.parseInt(strArg, radix));", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("uint.parseUint(", "Integer.parseUnsignedInt(", StringComparison.Ordinal);
+        }
+
         File.WriteAllText(outputPath, generatedCode, new System.Text.UTF8Encoding(false));
         return true;
     }
