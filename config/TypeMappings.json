@@ -1248,6 +1248,13 @@
                                          ]
                          },
                          {
+                             "csharp":  "System.Collections.Generic.IEqualityComparer`1",
+                             "java":  "IEqualityComparer",
+                             "imports":  [
+                                             "io.github.ningpp.compat.IEqualityComparer"
+                                         ]
+                         },
+                         {
                              "csharp":  "System.Collections.Generic.IComparable`1",
                              "java":  "Comparable",
                              "imports":  [
@@ -1783,6 +1790,16 @@
                                "javaMethod":  "compare"
                            },
                            {
+                               "type":  "System.Collections.Generic.IEqualityComparer",
+                               "method":  "Equals",
+                               "javaMethod":  "equals"
+                           },
+                           {
+                               "type":  "System.Collections.Generic.IEqualityComparer",
+                               "method":  "GetHashCode",
+                               "javaMethod":  "hashCode"
+                           },
+                           {
                                "type":  "System.Collections.IComparer",
                                "method":  "Compare",
                                "javaMethod":  "compare"
@@ -1911,6 +1928,11 @@
                                "type":  "System.String",
                                "method":  "Join",
                                "javaMethod":  "join"
+                           },
+                           {
+                               "type":  "System.String",
+                               "method":  "Concat",
+                               "javaMethod":  "StringHelper.concat"
                            },
                            {
                                "type":  "System.String",

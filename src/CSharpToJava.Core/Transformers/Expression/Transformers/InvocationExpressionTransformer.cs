@@ -938,6 +938,16 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 }
             }
 
+            if (methodName == originalMethodName && syntacticReceiver == "String")
+            {
+                var stringMapped = context.TypeMappings.MapMethod("System.String", originalMethodName);
+                if (stringMapped != null)
+                {
+                    methodName = stringMapped;
+                    receiver = context.TypeMappings.MapType("System.String");
+                }
+            }
+
             // Handle C# type alias identifiers (Int32, Int64, etc.) that appear without a namespace.
             // TypeMappings uses "System.Int32" keys, so the syntactic lookup above misses these.
             if (methodName == originalMethodName
@@ -1131,7 +1141,8 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         // They must not be emitted as receiver.method(...), which would produce invalid
         // Double.MathHelper.tryParseDouble(...).
         if (methodName.StartsWith("MathHelper.", StringComparison.Ordinal)
-            || methodName.StartsWith("EnumHelper.", StringComparison.Ordinal))
+            || methodName.StartsWith("EnumHelper.", StringComparison.Ordinal)
+            || methodName.StartsWith("StringHelper.", StringComparison.Ordinal))
         {
             var helperArgs = ArgumentTransformer.TransformArgumentList(
                 node.ArgumentList, context, facade, argStartIndex, methodSymbol);
