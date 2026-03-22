@@ -2,6 +2,7 @@ using CommandLine;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline;
 using CSharpToJava.TypeMapping;
+using System.Text.RegularExpressions;
 
 namespace CSharpToJava.CLI;
 
@@ -346,6 +347,25 @@ class Program
             return 1;
         }
 
+        var sharedCompatibilityPackage = BuildSharedCompatibilityPackage(opts.MavenGroupId);
+        var sharedCompatibilityModuleName = MakeUniqueModuleName("csharptojava-compat", plan.ModulesInBuildOrder.Select(m => m.Name));
+        var compatModule = new PlannedModule
+        {
+            Name = sharedCompatibilityModuleName,
+            IsTestOnly = false,
+        };
+
+        foreach (var module in plan.ModulesInBuildOrder)
+        {
+            module.CompileDependencies.Add(sharedCompatibilityModuleName);
+        }
+
+        var modulesInBuildOrder = new List<PlannedModule> { compatModule };
+        modulesInBuildOrder.AddRange(plan.ModulesInBuildOrder);
+
+        options.EmitCompatibilityHelpers = false;
+        options.SharedCompatibilityPackage = sharedCompatibilityPackage;
+
         if (opts.Force && Directory.Exists(opts.Destination))
         {
             Directory.Delete(opts.Destination, recursive: true);
@@ -358,7 +378,7 @@ class Program
 
         var pipeline = new ConversionPipeline();
 
-        foreach (var module in plan.ModulesInBuildOrder)
+        foreach (var module in modulesInBuildOrder)
         {
             var moduleRoot = Path.Combine(opts.Destination, module.Name);
             var mainJavaRoot = Path.Combine(moduleRoot, "src", "main", "java");
@@ -381,6 +401,40 @@ class Program
             if (opts.Verbose)
             {
                 Console.WriteLine($"Converting module: {module.Name}");
+            }
+
+            if (ReferenceEquals(module, compatModule))
+            {
+                foreach (var result in ProjectConversionPipeline.GenerateCompatibilitySupport(sharedCompatibilityPackage, opts.IncludeTests))
+                {
+                    if (TryWriteConvertedFile(result, opts.Source, mainJavaRoot, out var outputPath))
+                    {
+                        successCount++;
+                        if (opts.Verbose)
+                        {
+                            Console.WriteLine($"Converted: {result.FileName} -> {outputPath}");
+                        }
+                    }
+                    else
+                    {
+                        failureCount++;
+                        Console.Error.WriteLine($"Failed: {result.FileName}");
+                    }
+                }
+
+                if (opts.GeneratePom)
+                {
+                    var modulePom = GenerateChildModulePom(
+                        module,
+                        opts.MavenGroupId,
+                        opts.MavenVersion,
+                        opts.JavaVersion,
+                        new DirectoryInfo(opts.Destination).Name);
+                    var modulePomPath = Path.Combine(moduleRoot, "pom.xml");
+                    await File.WriteAllTextAsync(modulePomPath, modulePom, new System.Text.UTF8Encoding(false));
+                }
+
+                continue;
             }
 
             foreach (var assignment in module.Assignments)
@@ -459,16 +513,49 @@ class Program
                 opts.MavenGroupId,
                 opts.MavenVersion,
                 opts.JavaVersion,
-                plan.ModulesInBuildOrder.Select(m => m.Name).ToList());
+                modulesInBuildOrder.Select(m => m.Name).ToList());
             var parentPomPath = Path.Combine(opts.Destination, "pom.xml");
             await File.WriteAllTextAsync(parentPomPath, parentPom, new System.Text.UTF8Encoding(false));
             Console.WriteLine($"Generated parent Maven pom.xml: {parentPomPath}");
         }
 
         Console.WriteLine();
-        Console.WriteLine($"Conversion complete: {successCount} succeeded, {failureCount} failed, {copiedResourceCount} resources copied, modules={plan.ModulesInBuildOrder.Count}");
+        Console.WriteLine($"Conversion complete: {successCount} succeeded, {failureCount} failed, {copiedResourceCount} resources copied, modules={modulesInBuildOrder.Count}");
 
         return failureCount > 0 ? 1 : 0;
+    }
+
+    private static string BuildSharedCompatibilityPackage(string mavenGroupId)
+    {
+        var sanitized = Regex.Replace(mavenGroupId.ToLowerInvariant(), "[^a-z0-9.]", ".");
+        while (sanitized.Contains("..", StringComparison.Ordinal))
+        {
+            sanitized = sanitized.Replace("..", ".", StringComparison.Ordinal);
+        }
+
+        sanitized = sanitized.Trim('.');
+        return string.IsNullOrWhiteSpace(sanitized) ? "generated.compat" : sanitized + ".compat";
+    }
+
+    private static string MakeUniqueModuleName(string preferredName, IEnumerable<string> existingNames)
+    {
+        var used = new HashSet<string>(existingNames, StringComparer.OrdinalIgnoreCase);
+        if (used.Add(preferredName))
+        {
+            return preferredName;
+        }
+
+        var index = 2;
+        while (true)
+        {
+            var candidate = preferredName + "-" + index;
+            if (used.Add(candidate))
+            {
+                return candidate;
+            }
+
+            index++;
+        }
     }
 
     private static bool TryWriteConvertedFile(ConversionResult result, string sourceRoot, string outputRoot, out string outputPath)

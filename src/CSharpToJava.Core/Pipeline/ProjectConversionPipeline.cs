@@ -18,6 +18,42 @@ namespace CSharpToJava.Core.Pipeline;
 /// </summary>
 public class ProjectConversionPipeline
 {
+    private static readonly string[] SharedCompatibilityHelperClassNames =
+    {
+        "IntHolder",
+        "LongHolder",
+        "DoubleHolder",
+        "FloatHolder",
+        "BoolHolder",
+        "CharHolder",
+        "ShortHolder",
+        "ByteHolder",
+        "ObjectHolder",
+        "StopwatchHelper",
+        "XmlNodeType",
+        "ReadState",
+        "XmlConvert",
+        "XmlReaderSettings",
+        "XmlWriterSettings",
+        "XmlReader",
+        "XmlTextReader",
+        "XmlWriter",
+        "JsonSerializerOptions",
+        "JsonSerializer",
+        "MathHelper",
+        "StringHelper",
+        "EnumHelper",
+        "FileHelper",
+        "FileMode",
+        "CultureInfo",
+        "LinkedListNode",
+        "LinkedListWithNodes",
+        "InvalidDataException",
+        "TextReader",
+        "ThreadHelper",
+        "ArrayHelper"
+    };
+
     private readonly ConversionOptions _options;
     private readonly TypeMappingRegistry _typeMappings;
 
@@ -100,13 +136,16 @@ public class ProjectConversionPipeline
                 }
             }
 
-            // Phase 4: Emit Holder classes for ref/out parameter pattern
-            var basePackage = DetermineBasePackage(results);
-            results.AddRange(GenerateHolderClasses(basePackage));
-            results.AddRange(GenerateMSTestCompatibilityClasses(results));
+            // Phase 4: Emit compatibility helper classes when requested.
+            if (_options.EmitCompatibilityHelpers)
+            {
+                var basePackage = DetermineBasePackage(results);
+                var includeTestContext = RequiresTestContext(results);
+                results.AddRange(GenerateCompatibilitySupport(basePackage, includeTestContext));
+            }
 
             // Phase 5: Add cross-package wildcard imports so all MSAGL types see each other
-            AddCrossPackageImports(results);
+            AddCrossPackageImports(results, _options.SharedCompatibilityPackage);
 
             // Phase 6: Apply compatibility rewrites for unresolved C#-style API remnants.
             ApplyCompatibilityRewrites(results);
@@ -615,7 +654,7 @@ public class ProjectConversionPipeline
     /// Post-processes all generated Java files by adding wildcard imports for every MSAGL package.
     /// This ensures any class can reference any other MSAGL class without needing fully-qualified names.
     /// </summary>
-    private static void AddCrossPackageImports(List<ConversionResult> results)
+    private static void AddCrossPackageImports(List<ConversionResult> results, string? sharedCompatibilityPackage = null)
     {
         // Collect all unique non-null packages from generated results
         var allPackages = results
@@ -624,6 +663,13 @@ public class ProjectConversionPipeline
             .Distinct()
             .OrderBy(p => p)
             .ToList();
+
+        if (!string.IsNullOrWhiteSpace(sharedCompatibilityPackage)
+            && !allPackages.Contains(sharedCompatibilityPackage, StringComparer.Ordinal))
+        {
+            allPackages.Add(sharedCompatibilityPackage);
+            allPackages.Sort(StringComparer.Ordinal);
+        }
 
         if (allPackages.Count == 0) return;
 
@@ -707,6 +753,18 @@ public class ProjectConversionPipeline
 
             lines.InsertRange(insertAt, toInsert);
             r.GeneratedCode = string.Join("\n", lines);
+
+            if (!string.IsNullOrWhiteSpace(sharedCompatibilityPackage))
+            {
+                foreach (var helperClassName in SharedCompatibilityHelperClassNames)
+                {
+                    r.GeneratedCode = Regex.Replace(
+                        r.GeneratedCode,
+                        $@"^import\s+[A-Za-z0-9_.]+\.{helperClassName};\s*$",
+                        $"import {sharedCompatibilityPackage}.{helperClassName};",
+                        RegexOptions.Multiline);
+                }
+            }
         }
     }
 
@@ -1482,6 +1540,17 @@ public class ProjectConversionPipeline
         return results[0].GeneratedCode;
     }
 
+    public static List<ConversionResult> GenerateCompatibilitySupport(string compatibilityPackage, bool includeTestContext)
+    {
+        var results = new List<ConversionResult>();
+        results.AddRange(GenerateHolderClasses(compatibilityPackage));
+        results.AddRange(GenerateMSTestCompatibilityClasses(includeTestContext));
+        results.AddRange(GenerateXmlWrappers(compatibilityPackage));
+        results.AddRange(GenerateJsonWrappers(compatibilityPackage));
+        results.AddRange(GenerateUtilityClasses(compatibilityPackage));
+        return results;
+    }
+
     /// <summary>
     /// Injects a next() bridge method after getCurrent() using brace-counting to find
     /// the true end of the method body (lazy regex would incorrectly stop at inner braces).
@@ -1663,15 +1732,18 @@ public final class StopwatchHelper {{
         return results;
     }
 
-    private static List<ConversionResult> GenerateMSTestCompatibilityClasses(List<ConversionResult> results)
+    private static bool RequiresTestContext(List<ConversionResult> results)
     {
-        var requiresTestContext = results.Any(r =>
+        return results.Any(r =>
             (!string.IsNullOrEmpty(r.GeneratedCode) &&
              (r.GeneratedCode.Contains("Microsoft.VisualStudio.TestTools.UnitTesting", StringComparison.Ordinal)
               || r.GeneratedCode.Contains("TestContext", StringComparison.Ordinal)))
             || string.Equals(r.FileName, "TestContext.java", StringComparison.Ordinal));
+    }
 
-        if (!requiresTestContext)
+    private static List<ConversionResult> GenerateMSTestCompatibilityClasses(bool includeTestContext)
+    {
+        if (!includeTestContext)
         {
             return new List<ConversionResult>();
         }

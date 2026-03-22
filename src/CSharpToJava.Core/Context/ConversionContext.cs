@@ -67,6 +67,21 @@ public class ConversionOptions
     /// and the receiver ('this') parameter is stripped from the Java method signature.
     /// </summary>
     public bool RewriteExtensionMethods { get; set; } = false;
+
+    /// <summary>
+    /// When false, project conversion skips emitting generated compatibility helper classes
+    /// such as ObjectHolder, StringHelper, and XML/JSON shims into the current output.
+    /// This is used by multi-module conversion when those helpers are centralized in a
+    /// shared compatibility module.
+    /// </summary>
+    public bool EmitCompatibilityHelpers { get; set; } = true;
+
+    /// <summary>
+    /// Optional shared compatibility package that should be imported into all generated files.
+    /// Used together with EmitCompatibilityHelpers=false when helper classes live in a
+    /// dedicated shared module.
+    /// </summary>
+    public string? SharedCompatibilityPackage { get; set; }
 }
 
 /// <summary>
