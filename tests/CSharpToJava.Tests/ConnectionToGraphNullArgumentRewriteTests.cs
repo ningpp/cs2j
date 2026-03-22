@@ -90,6 +90,12 @@ public class ConnectionToGraphNullArgumentRewriteTests
             public void setStream(InputStream value) {
                 stream = value;
             }
+            public static void writeAllExceptEdges(Graph graph, String outputFile) {
+            }
+            public static void write(Graph graph, String outputFile, Function<String, String> nodeSanitizer, Function<String, String> attrSanitizer, int precision) {
+            }
+            public static void writeAllExceptEdgesInBlack(Graph graph, String outputFile) {
+            }
             try (FileInputStream stream = FileHelper.create(outputFile)) {
             }
             """;
@@ -114,6 +120,9 @@ public class ConnectionToGraphNullArgumentRewriteTests
         Assert.Contains("public SvgGraphWriter(OutputStream streamPar, Graph graphP)", results[0].GeneratedCode);
         Assert.Contains("public OutputStream getStream()", results[0].GeneratedCode);
         Assert.Contains("public void setStream(OutputStream value)", results[0].GeneratedCode);
+        Assert.Contains("public static void writeAllExceptEdges(Graph graph, String outputFile) throws Exception", results[0].GeneratedCode);
+        Assert.Contains("public static void write(Graph graph, String outputFile, Function<String, String> nodeSanitizer, Function<String, String> attrSanitizer, int precision) throws Exception", results[0].GeneratedCode);
+        Assert.Contains("public static void writeAllExceptEdgesInBlack(Graph graph, String outputFile) throws Exception", results[0].GeneratedCode);
         Assert.Contains("try (OutputStream stream = FileHelper.create(outputFile))", results[0].GeneratedCode);
         Assert.DoesNotContain("InputStream stream;", results[0].GeneratedCode);
         Assert.DoesNotContain("FileInputStream stream = FileHelper.create(outputFile)", results[0].GeneratedCode);
