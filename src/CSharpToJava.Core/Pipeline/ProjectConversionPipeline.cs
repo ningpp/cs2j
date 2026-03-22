@@ -103,6 +103,7 @@ public class ProjectConversionPipeline
             // Phase 4: Emit Holder classes for ref/out parameter pattern
             var basePackage = DetermineBasePackage(results);
             results.AddRange(GenerateHolderClasses(basePackage));
+            results.AddRange(GenerateMSTestCompatibilityClasses(results));
 
             // Phase 5: Add cross-package wildcard imports so all MSAGL types see each other
             AddCrossPackageImports(results);
@@ -1621,6 +1622,46 @@ public final class StopwatchHelper {{
         results.AddRange(GenerateUtilityClasses(basePackage));
 
         return results;
+    }
+
+    private static List<ConversionResult> GenerateMSTestCompatibilityClasses(List<ConversionResult> results)
+    {
+        var requiresTestContext = results.Any(r =>
+            (!string.IsNullOrEmpty(r.GeneratedCode) &&
+             (r.GeneratedCode.Contains("Microsoft.VisualStudio.TestTools.UnitTesting", StringComparison.Ordinal)
+              || r.GeneratedCode.Contains("TestContext", StringComparison.Ordinal)))
+            || string.Equals(r.FileName, "TestContext.java", StringComparison.Ordinal));
+
+        if (!requiresTestContext)
+        {
+            return new List<ConversionResult>();
+        }
+
+        const string packageName = "Microsoft.VisualStudio.TestTools.UnitTesting";
+        var code = $@"package {packageName};
+
+public class TestContext {{
+    public static void writeLine(String line) {{
+        System.out.println(line);
+    }}
+
+    public static void writeLine(String format, Object... args) {{
+        System.out.println(String.format(format, args));
+    }}
+}}
+";
+
+        return new List<ConversionResult>
+        {
+            new()
+            {
+                Success = true,
+                GeneratedCode = code,
+                FileName = "TestContext.java",
+                Package = packageName,
+                Diagnostics = new List<Context.DiagnosticMessage>()
+            }
+        };
     }
 
     /// <summary>

@@ -1216,8 +1216,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
 
         // Console.WriteLine(format, args...) maps to println(String.format(...)) in Java.
         // Java println only accepts a single argument; multi-arg C# overloads are formatting calls.
-        bool isJavaPrintln =
-            ((receiver == "System.out" || receiver == "System.err") && methodName == "println")
+        bool isJavaPrintln = methodName == "println"
             || (receiver == "System" && (methodName == "out.println" || methodName == "err.println"));
         if (isJavaPrintln && node.ArgumentList.Arguments.Count > argStartIndex + 1)
         {
