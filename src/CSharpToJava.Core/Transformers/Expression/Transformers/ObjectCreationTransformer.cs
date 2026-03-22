@@ -246,18 +246,16 @@ public class ObjectCreationTransformer : IExpressionTransformer
             }
         }
 
-        // Fallback: when the constructor symbol could not be resolved (ctorSymbol is null),
-        // CoerceArgumentType never fires for the arguments, so array→Collection coercion is skipped.
-        // If the target type is a Java collection (ArrayList, HashSet, etc.) and any argument is an
-        // array, we must wrap it here because Java arrays are not Collection subtypes.
-        if (ctorSymbol == null && context.SemanticModel != null && IsJavaCollectionType(typeName))
-        {
-            args = CoerceArrayArgsForCollectionCtor(
-                argumentList.Arguments, args, context);
-        }
-
         if (IsJavaCollectionType(typeName))
         {
+            // Always enforce array->Collection wrapping for Java collection constructors.
+            // Some semantic paths can miss this coercion even when ctorSymbol resolves.
+            if (context.SemanticModel != null)
+            {
+                args = CoerceArrayArgsForCollectionCtor(
+                    argumentList.Arguments, args, context);
+            }
+
             args = CoerceSingleStreamArgForCollectionCtor(argumentList.Arguments, args, context);
         }
 
@@ -283,6 +281,8 @@ public class ObjectCreationTransformer : IExpressionTransformer
     {
         // Strip generic parameters (e.g. "ArrayList<String>" → "ArrayList")
         var bare = typeName.Contains('<') ? typeName[..typeName.IndexOf('<')] : typeName;
+        if (bare.Contains('.', StringComparison.Ordinal))
+            bare = bare[(bare.LastIndexOf('.') + 1)..];
         return bare is "ArrayList" or "HashSet" or "TreeSet" or "LinkedList"
             or "ArrayDeque" or "LinkedHashSet" or "PriorityQueue" or "Stack" or "Vector";
     }
@@ -311,9 +311,31 @@ public class ObjectCreationTransformer : IExpressionTransformer
             var expr = rawParts[i];
 
             var argType = context.SemanticModel!.GetTypeInfo(arg.Expression).Type;
+            if (argType is not IArrayTypeSymbol)
+            {
+                var symbol = context.SemanticModel.GetSymbolInfo(arg.Expression).Symbol;
+                argType = symbol switch
+                {
+                    IPropertySymbol prop => prop.Type,
+                    IFieldSymbol field => field.Type,
+                    ILocalSymbol local => local.Type,
+                    IParameterSymbol param => param.Type,
+                    _ => argType
+                };
+            }
+
             if (argType is IArrayTypeSymbol arrayType)
             {
-                expr = WrapArrayForCollectionArg(expr, arrayType, context);
+                if (!IsArrayAlreadyWrappedForCollectionArg(expr))
+                {
+                    expr = WrapArrayForCollectionArg(expr, arrayType, context);
+                    changed = true;
+                }
+            }
+            else if (LooksLikeArrayMemberAccess(arg.Expression) && !IsArrayAlreadyWrappedForCollectionArg(expr))
+            {
+                context.AddImport("java.util.Arrays");
+                expr = $"Arrays.asList({expr})";
                 changed = true;
             }
             parts.Add(expr);
@@ -357,6 +379,25 @@ public class ObjectCreationTransformer : IExpressionTransformer
 
         context.AddImport("java.util.stream.Collectors");
         return $"{expr}.collect(Collectors.toList())";
+    }
+
+    private static bool IsArrayAlreadyWrappedForCollectionArg(string expr)
+    {
+        var trimmed = expr.Trim();
+        return trimmed.StartsWith("Arrays.asList(", StringComparison.Ordinal)
+            || trimmed.StartsWith("java.util.Arrays.asList(", StringComparison.Ordinal)
+            || trimmed.StartsWith("java.util.Arrays.stream(", StringComparison.Ordinal);
+    }
+
+    private static bool LooksLikeArrayMemberAccess(ExpressionSyntax expression)
+    {
+        if (expression is MemberAccessExpressionSyntax memberAccess)
+            return memberAccess.Name.Identifier.Text.EndsWith("Array", StringComparison.Ordinal);
+
+        if (expression is IdentifierNameSyntax identifier)
+            return identifier.Identifier.Text.EndsWith("Array", StringComparison.Ordinal);
+
+        return false;
     }
 
     private static bool LooksLikeUnmaterializedStream(string expr)

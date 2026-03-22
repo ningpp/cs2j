@@ -1030,6 +1030,46 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         // that was already prepended; use 0 for standard instance calls.
         int argStartIndex = isExtensionInStaticPath ? 1 : 0;
 
+        // JsonSerializer.Deserialize<T>(json) needs the runtime class token in Java.
+        // Emit deserialize(json, T.class) so the generated variable keeps type information.
+        bool isJsonDeserialize = originalMethodName == "Deserialize"
+            && node.ArgumentList.Arguments.Count - argStartIndex >= 1
+            && (methodSymbol?.ContainingType.ToDisplayString() == "System.Text.Json.JsonSerializer"
+                || memberAccess.Expression.ToString() is "JsonSerializer" or "System.Text.Json.JsonSerializer");
+        if (isJsonDeserialize)
+        {
+            ITypeSymbol? deserializeTargetType = null;
+            if (methodSymbol?.IsGenericMethod == true && methodSymbol.TypeArguments.Length == 1)
+            {
+                deserializeTargetType = methodSymbol.TypeArguments[0];
+            }
+
+            if (deserializeTargetType == null
+                && memberAccess.Name is GenericNameSyntax { TypeArgumentList.Arguments.Count: 1 } genericDeserialize
+                && context.SemanticModel != null)
+            {
+                deserializeTargetType = context.SemanticModel.GetTypeInfo(genericDeserialize.TypeArgumentList.Arguments[0]).Type;
+            }
+
+            if (deserializeTargetType != null)
+            {
+                var jsonArg = facade.Transform(node.ArgumentList.Arguments[argStartIndex].Expression, context);
+                var javaType = context.MapType(deserializeTargetType);
+                return $"{receiver}.{methodName}({jsonArg}, {javaType}.class)";
+            }
+        }
+
+        // Mappings like Double.TryParse -> MathHelper.tryParseDouble are fully-qualified helper calls.
+        // They must not be emitted as receiver.method(...), which would produce invalid
+        // Double.MathHelper.tryParseDouble(...).
+        if (methodName.StartsWith("MathHelper.", StringComparison.Ordinal)
+            || methodName.StartsWith("EnumHelper.", StringComparison.Ordinal))
+        {
+            var helperArgs = ArgumentTransformer.TransformArgumentList(
+                node.ArgumentList, context, facade, argStartIndex, methodSymbol);
+            return $"{methodName}({helperArgs})";
+        }
+
         // Regex.Split(input, pattern) -> Arrays.asList(input.split(pattern))
         bool isRegexSplit = originalMethodName == "Split"
             && node.ArgumentList.Arguments.Count >= 2
@@ -1050,6 +1090,11 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 || (methodSymbol == null && memberAccess.Expression.ToString() is "string" or "String" or "System.String"));
         if (isStringSplit && node.ArgumentList.Arguments.Count > argStartIndex)
         {
+            if (TryTransformSplitWithRemoveEmptyEntries(node.ArgumentList, receiver, methodName, context, facade, argStartIndex, out var removeEmptySplit))
+            {
+                return removeEmptySplit;
+            }
+
             var splitArgs = TransformSplitArguments(node.ArgumentList, context, facade, argStartIndex);
             return $"{receiver}.{methodName}({splitArgs})";
         }
@@ -2320,6 +2365,90 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             }
         }
         return string.Join(", ", parts);
+    }
+
+    private static bool TryTransformSplitWithRemoveEmptyEntries(
+        ArgumentListSyntax argumentList,
+        string receiver,
+        string methodName,
+        ConversionContext context,
+        ExpressionTransformerFacade facade,
+        int argStartIndex,
+        out string transformed)
+    {
+        transformed = string.Empty;
+
+        if (argumentList.Arguments.Count <= argStartIndex + 1)
+            return false;
+
+        var separatorExpr = argumentList.Arguments[argStartIndex].Expression;
+        var optionsExpr = argumentList.Arguments[argStartIndex + 1].Expression;
+        var optionsText = optionsExpr.ToString();
+        if (!optionsText.Contains("RemoveEmptyEntries", StringComparison.Ordinal))
+            return false;
+
+        if (!TryBuildSplitRegexPattern(separatorExpr, out var regexLiteral))
+            return false;
+
+        context.AddImport("java.util.Arrays");
+        transformed = $"Arrays.stream({receiver}.{methodName}({regexLiteral})).filter(s -> !s.isEmpty()).toArray(String[]::new)";
+        return true;
+    }
+
+    private static bool TryBuildSplitRegexPattern(ExpressionSyntax separatorExpr, out string regexLiteral)
+    {
+        regexLiteral = string.Empty;
+
+        if (separatorExpr is LiteralExpressionSyntax charLiteral
+            && charLiteral.IsKind(SyntaxKind.CharacterLiteralExpression))
+        {
+            regexLiteral = $"\"{EscapeRegexChar(charLiteral.Token.ValueText)}\"";
+            return true;
+        }
+
+        if (separatorExpr is ArrayCreationExpressionSyntax { Initializer: { } arrayInit })
+        {
+            return TryBuildRegexClassFromInitializer(arrayInit.Expressions, out regexLiteral);
+        }
+
+        if (separatorExpr is ImplicitArrayCreationExpressionSyntax { Initializer: { } implicitInit })
+        {
+            return TryBuildRegexClassFromInitializer(implicitInit.Expressions, out regexLiteral);
+        }
+
+        return false;
+    }
+
+    private static bool TryBuildRegexClassFromInitializer(
+        SeparatedSyntaxList<ExpressionSyntax> expressions,
+        out string regexLiteral)
+    {
+        regexLiteral = string.Empty;
+        if (expressions.Count == 0)
+            return false;
+
+        var classChars = new List<string>();
+        foreach (var expr in expressions)
+        {
+            if (expr is not LiteralExpressionSyntax lit || !lit.IsKind(SyntaxKind.CharacterLiteralExpression))
+                return false;
+
+            classChars.Add(EscapeRegexClassChar(lit.Token.ValueText));
+        }
+
+        regexLiteral = $"\"[{string.Concat(classChars)}]\"";
+        return true;
+    }
+
+    private static string EscapeRegexClassChar(string ch)
+    {
+        if (string.IsNullOrEmpty(ch))
+            return ch;
+
+        if (ch.Length == 1 && "\\^-]".Contains(ch[0]))
+            return "\\" + ch;
+
+        return ch;
     }
 
     /// <summary>
