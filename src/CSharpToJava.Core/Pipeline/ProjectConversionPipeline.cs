@@ -820,6 +820,7 @@ public class ProjectConversionPipeline
             code = code.Replace("getShowDebugCurves().invoke(", "getShowDebugCurves().apply(", StringComparison.Ordinal);
             code = code.Replace("System.fail(\"wrong distance between two polygons\");", "throw new RuntimeException(\"wrong distance between two polygons\");", StringComparison.Ordinal);
             code = code.Replace("System.fail(", "throw new RuntimeException(", StringComparison.Ordinal);
+            code = Regex.Replace(code, @"new Edge\(([^,\n]+),\s*([^,\n]+),\s*(ConnectionToGraph\.\w+)\);", "new Edge($1, $2, $3, null);");
             code = Regex.Replace(code, @"(?<!Collectors)\.toList\(\)", ".collect(java.util.stream.Collectors.toList())");
             code = code.Replace(".collect(java.util.stream.Collectors.collect(java.util.stream.Collectors.toList()))", ".collect(java.util.stream.Collectors.toList())", StringComparison.Ordinal);
             code = code.Replace("this.funcOfNodes = () -> StreamSupport.stream(funcOfLgNodes.get().spliterator(), false).map(n -> n.getGeometryNode());", "this.funcOfNodes = () -> StreamSupport.stream(funcOfLgNodes.get().spliterator(), false).map(n -> n.getGeometryNode()).collect(java.util.stream.Collectors.toList());", StringComparison.Ordinal);
@@ -841,11 +842,17 @@ public class ProjectConversionPipeline
             code = code.Replace("var _chainVal13 = null;\n        setTargetLoosePolyline(_chainVal13);\n        targetTightPolyline = _chainVal13;", "setTargetLoosePolyline(null);\n        targetTightPolyline = null;", StringComparison.Ordinal);
             code = code.Replace("var _chainVal3 = null;\n        setTargetOfInsertedEdge(_chainVal3);\n        setSourceOfInsertedEdge(_chainVal3);", "setTargetOfInsertedEdge(null);\n        setSourceOfInsertedEdge(null);", StringComparison.Ordinal);
             code = code.Replace("var _chainVal4 = null;\n        setTargetPort(_chainVal4);\n        setSourcePort(_chainVal4);", "setTargetPort(null);\n        setSourcePort(null);", StringComparison.Ordinal);
-            code = code.Replace(", ConnectionToGraph.Connected);", ", ConnectionToGraph.Connected, null);", StringComparison.Ordinal);
             code = code.Replace("viewer.drawRubberEdge(setEdgeGeometry(calculateEdgeInteractivelyToLocation(point)));", "setEdgeGeometry(calculateEdgeInteractivelyToLocation(point));\n        viewer.drawRubberEdge(getEdgeGeometry());", StringComparison.Ordinal);
             code = code.Replace("viewer.drawRubberEdge(setEdgeGeometry(calculateEdgeInteractively(targetPortParameter, portLoosePolyline)));", "setEdgeGeometry(calculateEdgeInteractively(targetPortParameter, portLoosePolyline));\n        viewer.drawRubberEdge(getEdgeGeometry());", StringComparison.Ordinal);
             code = code.Replace("static void restoreOnKevValue(AbstractMap.SimpleEntry<GeometryObject, RestoreData> kv)", "static void restoreOnKevValue(Map.Entry<GeometryObject, RestoreData> kv)", StringComparison.Ordinal);
-            code = code.Replace("try (FileInputStream stream = FileHelper.create(outputFile)) {", "try (OutputStream stream = FileHelper.create(outputFile)) {", StringComparison.Ordinal);
+            if (r.FileName != null && r.FileName.Contains("SvgGraphWriter", StringComparison.Ordinal))
+            {
+                code = code.Replace("InputStream stream;", "OutputStream stream;", StringComparison.Ordinal);
+                code = code.Replace("public SvgGraphWriter(InputStream streamPar, Graph graphP) {", "public SvgGraphWriter(OutputStream streamPar, Graph graphP) {", StringComparison.Ordinal);
+                code = code.Replace("public InputStream getStream() {", "public OutputStream getStream() {", StringComparison.Ordinal);
+                code = code.Replace("public void setStream(InputStream value) {", "public void setStream(OutputStream value) {", StringComparison.Ordinal);
+                code = code.Replace("try (FileInputStream stream = FileHelper.create(outputFile)) {", "try (OutputStream stream = FileHelper.create(outputFile)) {", StringComparison.Ordinal);
+            }
             code = code.Replace("if (!d.get(v, /* out */ getResult()[i])) {\n        getResult()[i] = Double.POSITIVE_INFINITY;\n        }", "if (d.containsKey(v)) {\n        getResult()[i] = d.get(v);\n        } else {\n        getResult()[i] = Double.POSITIVE_INFINITY;\n        }", StringComparison.Ordinal);
             code = code.Replace("var _coalesce5 = (pushingNodes instanceof Node[] ? (Node[])(pushingNodes) : null) /* result may be null — check before use */;\n        pushingNodesArray = _coalesce5 != null ? _coalesce5 : StreamSupport.stream(pushingNodes.spliterator(), false).toArray(Node[]::new);", "pushingNodesArray = StreamSupport.stream(pushingNodes.spliterator(), false).toArray(Node[]::new);", StringComparison.Ordinal);
             code = code.Replace("if (!d.get(v, /* out */ getResult()[i])) {\n        getResult()[i] = Double.POSITIVE_INFINITY;\n        }", "if (d.containsKey(v)) {\n        getResult()[i] = d.get(v);\n        } else {\n        getResult()[i] = Double.POSITIVE_INFINITY;\n        }", StringComparison.Ordinal);
