@@ -33,6 +33,8 @@ public class ClassTransformer : ITypeTransformer
             Modifiers = ConvertModifiers(classDecl.Modifiers, context),
         };
 
+        ApplyTypeLevelTestAnnotations(mergedType.OriginalSyntaxNodes.OfType<ClassDeclarationSyntax>(), javaClass, context);
+
         // Use the semantic model from the merged type for better type resolution
         var semanticModel = context.GetSemanticModelForTree(classDecl.SyntaxTree);
 
@@ -205,6 +207,8 @@ public class ClassTransformer : ITypeTransformer
             Modifiers = ConvertModifiers(classDecl.Modifiers, context),
         };
 
+        ApplyTypeLevelTestAnnotations(new[] { classDecl }, javaClass, context);
+
         var classSymbol = context.SemanticModel?.GetDeclaredSymbol(classDecl);
         javaClass.LeadingComment = context.GetDeclarationComments(classDecl, classSymbol).ToCombinedComment();
 
@@ -317,6 +321,41 @@ public class ClassTransformer : ITypeTransformer
     private JavaClassDeclaration CreatePlaceholderClass(string name)
     {
         return new JavaClassDeclaration { Name = name };
+    }
+
+    private static void ApplyTypeLevelTestAnnotations(
+        IEnumerable<ClassDeclarationSyntax> classDeclarations,
+        JavaClassDeclaration javaClass,
+        ConversionContext context)
+    {
+        var attributeNames = classDeclarations
+            .SelectMany(classDeclaration => classDeclaration.AttributeLists)
+            .SelectMany(attributeList => attributeList.Attributes)
+            .Select(attribute => NormalizeAttributeName(attribute.Name.ToString()))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (attributeNames.Contains("Ignore"))
+        {
+            javaClass.Annotations.Add(new JavaAnnotation("Disabled"));
+            context.AddImport("org.junit.jupiter.api.Disabled");
+        }
+    }
+
+    private static string NormalizeAttributeName(string rawName)
+    {
+        var name = rawName.Trim();
+        var lastDot = name.LastIndexOf('.');
+        if (lastDot >= 0)
+        {
+            name = name[(lastDot + 1)..];
+        }
+
+        if (name.EndsWith("Attribute", StringComparison.OrdinalIgnoreCase))
+        {
+            name = name[..^9];
+        }
+
+        return name;
     }
 
     /// <summary>

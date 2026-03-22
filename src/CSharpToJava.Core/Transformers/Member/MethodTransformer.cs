@@ -277,6 +277,12 @@ public class MethodTransformer : IMemberTransformer
             context.AddImport("org.junit.jupiter.params.ParameterizedTest");
         }
 
+        if (attributeNames.Contains("Ignore"))
+        {
+            javaMethod.Annotations.Add(new JavaAnnotation("Disabled"));
+            context.AddImport("org.junit.jupiter.api.Disabled");
+        }
+
         if (attributeNames.Contains("TestInitialize"))
         {
             javaMethod.Annotations.Add(new JavaAnnotation("BeforeEach"));
