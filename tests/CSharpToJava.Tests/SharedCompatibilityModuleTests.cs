@@ -6,6 +6,21 @@ namespace CSharpToJava.Tests;
 public class SharedCompatibilityModuleTests
 {
     [Fact]
+    public void GenerateCompatibilitySupport_ShouldIncludeRegexAndTraceShims()
+    {
+        var results = ProjectConversionPipeline.GenerateCompatibilitySupport("shared.compat", includeTestContext: true);
+
+        Assert.Contains(results, r => r.FileName == "Regex.java");
+        Assert.Contains(results, r => r.FileName == "RegexOptions.java");
+        Assert.Contains(results, r => r.FileName == "Match.java");
+        Assert.Contains(results, r => r.FileName == "Group.java");
+        Assert.Contains(results, r => r.FileName == "GroupCollection.java");
+        Assert.Contains(results, r => r.FileName == "Trace.java");
+        Assert.Contains(results, r => r.FileName == "DefaultTraceListener.java");
+        Assert.Contains(results, r => r.FileName == "TestContext.java");
+    }
+
+    [Fact]
     public async Task ConvertProjectWithSharedCompatibilityPackage_ShouldImportSharedPackageWithoutEmittingLocalHelpers()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), "c2j-shared-compat-" + Guid.NewGuid().ToString("N"));

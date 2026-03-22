@@ -54,6 +54,8 @@ public class ProjectConversionPipeline
         "ArrayHelper"
     };
 
+    private const string MSTestCompatibilityPackage = "Microsoft.VisualStudio.TestTools.UnitTesting";
+
     private readonly ConversionOptions _options;
     private readonly TypeMappingRegistry _typeMappings;
 
@@ -668,6 +670,13 @@ public class ProjectConversionPipeline
             && !allPackages.Contains(sharedCompatibilityPackage, StringComparer.Ordinal))
         {
             allPackages.Add(sharedCompatibilityPackage);
+            allPackages.Sort(StringComparer.Ordinal);
+        }
+
+        if (!string.IsNullOrWhiteSpace(sharedCompatibilityPackage)
+            && !allPackages.Contains(MSTestCompatibilityPackage, StringComparer.Ordinal))
+        {
+            allPackages.Add(MSTestCompatibilityPackage);
             allPackages.Sort(StringComparer.Ordinal);
         }
 
@@ -1548,6 +1557,8 @@ public class ProjectConversionPipeline
         results.AddRange(GenerateXmlWrappers(compatibilityPackage));
         results.AddRange(GenerateJsonWrappers(compatibilityPackage));
         results.AddRange(GenerateUtilityClasses(compatibilityPackage));
+        results.AddRange(GenerateRegexCompatibilityClasses(compatibilityPackage));
+        results.AddRange(GenerateTraceCompatibilityClasses(compatibilityPackage));
         return results;
     }
 
@@ -1748,7 +1759,7 @@ public final class StopwatchHelper {{
             return new List<ConversionResult>();
         }
 
-        const string packageName = "Microsoft.VisualStudio.TestTools.UnitTesting";
+        const string packageName = MSTestCompatibilityPackage;
         var code = $@"package {packageName};
 
 public class TestContext {{
@@ -1773,6 +1784,232 @@ public class TestContext {{
                 Diagnostics = new List<Context.DiagnosticMessage>()
             }
         };
+    }
+
+    private static List<ConversionResult> GenerateRegexCompatibilityClasses(string basePackage)
+    {
+        var results = new List<ConversionResult>();
+
+        var regexOptionsCode = $@"package {basePackage};
+
+public final class RegexOptions {{
+    public static final int None = 0;
+    public static final int Compiled = 1;
+    public static final int CultureInvariant = 2;
+    public static final int IgnoreCase = 4;
+
+    private RegexOptions() {{}}
+}}
+";
+        results.Add(new ConversionResult
+        {
+            Success = true,
+            GeneratedCode = regexOptionsCode,
+            FileName = "RegexOptions.java",
+            Package = basePackage,
+            Diagnostics = new List<Context.DiagnosticMessage>()
+        });
+
+        var groupCode = $@"package {basePackage};
+
+public final class Group {{
+    public static final Group Empty = new Group("""");
+
+    public final String Value;
+    public final int Length;
+
+    public Group(String value) {{
+        this.Value = value == null ? """" : value;
+        this.Length = this.Value.length();
+    }}
+
+    @Override
+    public String toString() {{
+        return Value;
+    }}
+}}
+";
+        results.Add(new ConversionResult
+        {
+            Success = true,
+            GeneratedCode = groupCode,
+            FileName = "Group.java",
+            Package = basePackage,
+            Diagnostics = new List<Context.DiagnosticMessage>()
+        });
+
+        var groupCollectionCode = $@"package {basePackage};
+
+import java.util.regex.Matcher;
+
+public final class GroupCollection {{
+    private final Matcher matcher;
+    private final boolean success;
+
+    public GroupCollection(Matcher matcher, boolean success) {{
+        this.matcher = matcher;
+        this.success = success;
+    }}
+
+    public Group get(String name) {{
+        if (!success || matcher == null) return Group.Empty;
+        try {{ return new Group(matcher.group(name)); }}
+        catch (Exception ex) {{ return Group.Empty; }}
+    }}
+
+    public Group get(int index) {{
+        if (!success || matcher == null) return Group.Empty;
+        try {{ return new Group(matcher.group(index)); }}
+        catch (Exception ex) {{ return Group.Empty; }}
+    }}
+}}
+";
+        results.Add(new ConversionResult
+        {
+            Success = true,
+            GeneratedCode = groupCollectionCode,
+            FileName = "GroupCollection.java",
+            Package = basePackage,
+            Diagnostics = new List<Context.DiagnosticMessage>()
+        });
+
+        var matchCode = $@"package {basePackage};
+
+import java.util.regex.Matcher;
+
+public final class Match {{
+    public static final Match Empty = new Match(null, false);
+
+    public final boolean Success;
+    public final GroupCollection Groups;
+
+    public Match(Matcher matcher, boolean success) {{
+        this.Success = success;
+        this.Groups = new GroupCollection(matcher, success);
+    }}
+}}
+";
+        results.Add(new ConversionResult
+        {
+            Success = true,
+            GeneratedCode = matchCode,
+            FileName = "Match.java",
+            Package = basePackage,
+            Diagnostics = new List<Context.DiagnosticMessage>()
+        });
+
+        var regexCode = $@"package {basePackage};
+
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+public final class Regex {{
+    private final Pattern pattern;
+
+    public Regex(String pattern) {{
+        this(pattern, RegexOptions.None);
+    }}
+
+    public Regex(String pattern, int options) {{
+        this.pattern = Pattern.compile(pattern, toJavaFlags(options));
+    }}
+
+    public Match match(String input) {{
+        Matcher matcher = pattern.matcher(input == null ? """" : input);
+        return matcher.find() ? new Match(matcher, true) : Match.Empty;
+    }}
+
+    public boolean isMatch(String input) {{
+        return pattern.matcher(input == null ? """" : input).find();
+    }}
+
+    public static Match match(String input, String pattern) {{
+        return new Regex(pattern).match(input);
+    }}
+
+    public static boolean isMatch(String input, String pattern) {{
+        return new Regex(pattern).isMatch(input);
+    }}
+
+    public static String[] split(String input, String pattern) {{
+        return Pattern.compile(pattern).split(input == null ? """" : input);
+    }}
+
+    private static int toJavaFlags(int options) {{
+        int flags = 0;
+        if ((options & RegexOptions.IgnoreCase) != 0) {{
+            flags |= Pattern.CASE_INSENSITIVE;
+        }}
+        return flags;
+    }}
+}}
+";
+        results.Add(new ConversionResult
+        {
+            Success = true,
+            GeneratedCode = regexCode,
+            FileName = "Regex.java",
+            Package = basePackage,
+            Diagnostics = new List<Context.DiagnosticMessage>()
+        });
+
+        return results;
+    }
+
+    private static List<ConversionResult> GenerateTraceCompatibilityClasses(string basePackage)
+    {
+        var results = new List<ConversionResult>();
+
+        var defaultTraceListenerCode = $@"package {basePackage};
+
+public class DefaultTraceListener {{
+    public void fail(String message) {{
+        throw new AssertionError(message);
+    }}
+}}
+";
+        results.Add(new ConversionResult
+        {
+            Success = true,
+            GeneratedCode = defaultTraceListenerCode,
+            FileName = "DefaultTraceListener.java",
+            Package = basePackage,
+            Diagnostics = new List<Context.DiagnosticMessage>()
+        });
+
+        var traceCode = $@"package {basePackage};
+
+import java.util.ArrayList;
+import java.util.List;
+
+public final class Trace {{
+    public static final ListenerCollection Listeners = new ListenerCollection();
+
+    private Trace() {{}}
+
+    public static final class ListenerCollection extends ArrayList<Object> {{
+        public <T> Iterable<T> ofType() {{
+            List<T> result = new ArrayList<>();
+            for (Object item : this) {{
+                @SuppressWarnings(""unchecked"")
+                T cast = (T)item;
+                result.add(cast);
+            }}
+            return result;
+        }}
+    }}
+}}
+";
+        results.Add(new ConversionResult
+        {
+            Success = true,
+            GeneratedCode = traceCode,
+            FileName = "Trace.java",
+            Package = basePackage,
+            Diagnostics = new List<Context.DiagnosticMessage>()
+        });
+
+        return results;
     }
 
     /// <summary>
