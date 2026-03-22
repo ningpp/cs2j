@@ -718,6 +718,7 @@ public class ProjectConversionPipeline
                 continue;
 
             var code = r.GeneratedCode.Replace("\r\n", "\n");
+            code = code.Replace("String.Empty", "\"\"", StringComparison.Ordinal);
 
             code = code.Replace(".toLower()", ".toLowerCase()", StringComparison.Ordinal);
             code = code.Replace(".toUpper()", ".toUpperCase()", StringComparison.Ordinal);
@@ -1015,6 +1016,14 @@ public class ProjectConversionPipeline
                         "public void dumpRectangles(Iterable<VariableDef> iterVariableDefs) {\n        if (getDumpRectCoordinates()) {\n        this.writeLine(\"// Node [left, low] [right, high] points:\");\n        for (VariableDef varDef : iterVariableDefs) {\n        this.writeLine(\"  [{0:F5}, {1:F5}] [{2:F5}, {3:F5}]\", varDef.getLeft(), varDef.getTop(), varDef.getRight(), varDef.getBottom());\n        }\n        this.writeLine();\n        }\n    }\n    public void dumpClusterRectangles(Iterable<ClusterDef> iterClusterDefs) {",
                         StringComparison.Ordinal);
                 }
+            }
+
+            if (r.FileName != null && r.FileName.Contains("ClusterTests", StringComparison.Ordinal))
+            {
+                code = code.Replace(
+                    "for (Object b : StreamSupport.stream(translatedStuff.spliterator(), false).collect(Collectors.collectingAndThen(Collectors.toList(), _left -> { var _right = java.util.Arrays.stream(bounds).boxed().collect(java.util.stream.Collectors.toList()); return IntStream.range(0, Math.min(_left.size(), _right.size())).mapToObj(_i -> { var translated = _left.get(_i); var original = _right.get(_i); return new AnonymousRecord1(translated, original); }); }))) { Assertions.assertTrue(ApproximateComparer.close(b.t().getBoundingBox(), Rectangle.translate(b.o(), delta)), \"object was not translated: \" + b.t()); }",
+                    "for (AnonymousRecord1 b : StreamSupport.stream(translatedStuff.spliterator(), false).collect(Collectors.collectingAndThen(Collectors.toList(), _left -> { var _right = java.util.Arrays.stream(bounds).boxed().collect(java.util.stream.Collectors.toList()); return IntStream.range(0, Math.min(_left.size(), _right.size())).mapToObj(_i -> { var translated = _left.get(_i); var original = _right.get(_i); return new AnonymousRecord1(translated, original); }); }))) { Assertions.assertTrue(ApproximateComparer.close(b.t().getBoundingBox(), Rectangle.translate(b.o(), delta)), \"object was not translated: \" + b.t()); }",
+                    StringComparison.Ordinal);
             }
 
             if (r.FileName != null && r.FileName.Contains("CodePageHandling", StringComparison.Ordinal))
@@ -1454,6 +1463,23 @@ public class ProjectConversionPipeline
 
             r.GeneratedCode = code;
         }
+    }
+
+    public static string ApplyCompatibilityRewritesForTesting(string fileName, string generatedCode)
+    {
+        var results = new List<ConversionResult>
+        {
+            new()
+            {
+                Success = true,
+                FileName = fileName,
+                GeneratedCode = generatedCode,
+                Diagnostics = new List<Context.DiagnosticMessage>()
+            }
+        };
+
+        ApplyCompatibilityRewrites(results);
+        return results[0].GeneratedCode;
     }
 
     /// <summary>

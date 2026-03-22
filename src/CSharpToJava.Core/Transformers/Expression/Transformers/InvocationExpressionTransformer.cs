@@ -1214,19 +1214,21 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return $"{receiver}.{methodName}({firstArg}, {secondArg})";
         }
 
-        // Console.WriteLine(format, args...) maps to println(String.format(...)) in Java.
-        // Java println only accepts a single argument; multi-arg C# overloads are formatting calls.
+        // Console.Write/WriteLine(format, args...) and TextWriter/PrintWriter print/println(format, args...)
+        // only accept a single argument in Java; multi-arg C# overloads are formatting calls.
         bool isJavaPrintln = methodName == "println"
             || (receiver == "System" && (methodName == "out.println" || methodName == "err.println"));
-        if (isJavaPrintln && node.ArgumentList.Arguments.Count > argStartIndex + 1)
+        bool isJavaPrint = methodName == "print"
+            || (receiver == "System" && (methodName == "out.print" || methodName == "err.print"));
+        if ((isJavaPrintln || isJavaPrint) && node.ArgumentList.Arguments.Count > argStartIndex + 1)
         {
             var firstArg = node.ArgumentList.Arguments[argStartIndex];
             var remainingArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, argStartIndex + 1);
             var formatExpr = firstArg.Expression is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.StringLiteralExpression } printlnFmtLit
                 ? RewriteStringFormatLiteral(printlnFmtLit.Token.ValueText)
                 : facade.Transform(firstArg.Expression, context);
-            var printlnTarget = $"{receiver}.{methodName}";
-            return $"{printlnTarget}(String.format({formatExpr}, {remainingArgs}))";
+            var printTarget = $"{receiver}.{methodName}";
+            return $"{printTarget}(String.format({formatExpr}, {remainingArgs}))";
         }
 
         // ── Static Enumerable methods (Range, Repeat, Empty) ──────────────────
