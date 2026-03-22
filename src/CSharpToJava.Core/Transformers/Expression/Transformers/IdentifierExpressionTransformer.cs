@@ -306,6 +306,13 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
         var target = facade.Transform(node.Expression, context);
         var memberName = node.Name.Identifier.Text;
 
+        // Fallback for unresolved method-group symbol: Parallel.Invoke used as delegate value.
+        if (memberName == "Invoke" && node.Expression.ToString() is "Parallel" or "System.Threading.Tasks.Parallel")
+        {
+            context.AddImport("java.util.Arrays");
+            return "actions -> Arrays.stream(actions).forEach(Runnable::run)";
+        }
+
         // Fix: Handle event member access within the same class.
         // C#: this.ProgressChanged != null  → Java: !_progressChangedListeners.isEmpty()
         // C#: this.ProgressChanged(...)    → Java: fireProgressChanged(...)
@@ -345,9 +352,19 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
 
         // Fix: Method group used as value (not invoked) → Java method reference (receiver::method).
         // e.g. C# `Parallel.Invoke` as a delegate value → Java `Parallel::invoke`.
-        if (context.SemanticModel?.GetSymbolInfo(node).Symbol is IMethodSymbol methodGroupSym
+        var methodGroupInfo = context.SemanticModel?.GetSymbolInfo(node);
+        var methodGroupSym = methodGroupInfo?.Symbol as IMethodSymbol
+            ?? methodGroupInfo?.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault();
+        if (methodGroupSym != null
             && !(node.Parent is InvocationExpressionSyntax inv && inv.Expression == node))
         {
+            if (methodGroupSym.ContainingType?.ToDisplayString() == "System.Threading.Tasks.Parallel"
+                && methodGroupSym.Name == "Invoke")
+            {
+                context.AddImport("java.util.Arrays");
+                return "actions -> Arrays.stream(actions).forEach(Runnable::run)";
+            }
+
             var javaMethodName = memberName switch
             {
                 "GetHashCode"   => "hashCode",
