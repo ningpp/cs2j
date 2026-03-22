@@ -270,6 +270,32 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return $"{receiver}.hasNext()";
         }
 
+        // Java21+ semantic mapping for System.Random.Next overloads.
+        // C# semantics:
+        //   Next()          -> [0, Int32.MaxValue)
+        //   Next(maxValue)  -> maxValue <= 0 ? 0 : [0, maxValue)
+        //   Next(min, max)  -> min >= max ? min : [min, max)
+        // Java Random APIs differ on edge conditions, so preserve C# behavior explicitly.
+        if (originalMethodName == "Next"
+            && node.ArgumentList.Arguments.Count is 0 or 1 or 2
+            && (earlyMethodSymbol?.ContainingType.ToDisplayString() == "System.Random"))
+        {
+            if (node.ArgumentList.Arguments.Count == 0)
+            {
+                return $"{receiver}.nextInt(0, Integer.MAX_VALUE)";
+            }
+
+            if (node.ArgumentList.Arguments.Count == 1)
+            {
+                var maxArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"(({maxArg}) <= 0 ? 0 : {receiver}.nextInt({maxArg}))";
+            }
+
+            var minArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var maxArg2 = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            return $"(({minArg}) >= ({maxArg2}) ? ({minArg}) : {receiver}.nextInt({minArg}, {maxArg2}))";
+        }
+
         if (originalMethodName == "Reset" && node.ArgumentList.Arguments.Count == 0)
         {
             var resetReceiverType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type as INamedTypeSymbol;
