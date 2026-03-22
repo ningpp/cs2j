@@ -1004,6 +1004,19 @@ public class ProjectConversionPipeline
                 code = code.Replace("variableDefs[0x]", "variableDefs[0xD]", StringComparison.Ordinal);
             }
 
+            if (r.FileName != null && r.FileName.Contains("ResultVerifierBase", StringComparison.Ordinal))
+            {
+                const string clusterDumpSignature = "public void dumpRectangles(Iterable<ClusterDef> iterClusterDefs) {";
+                if (code.Contains(clusterDumpSignature, StringComparison.Ordinal)
+                    && !code.Contains("public void dumpRectangles(Iterable<VariableDef> iterVariableDefs)", StringComparison.Ordinal))
+                {
+                    code = code.Replace(
+                        clusterDumpSignature,
+                        "public void dumpRectangles(Iterable<VariableDef> iterVariableDefs) {\n        if (getDumpRectCoordinates()) {\n        this.writeLine(\"// Node [left, low] [right, high] points:\");\n        for (VariableDef varDef : iterVariableDefs) {\n        this.writeLine(\"  [{0:F5}, {1:F5}] [{2:F5}, {3:F5}]\", varDef.getLeft(), varDef.getTop(), varDef.getRight(), varDef.getBottom());\n        }\n        this.writeLine();\n        }\n    }\n    public void dumpClusterRectangles(Iterable<ClusterDef> iterClusterDefs) {",
+                        StringComparison.Ordinal);
+                }
+            }
+
             if (r.FileName != null && r.FileName.Contains("CodePageHandling", StringComparison.Ordinal))
             {
                 code = code.Replace("String command = option.toUpperInvariant();", "String command = option.toUpperCase(java.util.Locale.ROOT);", StringComparison.Ordinal);
