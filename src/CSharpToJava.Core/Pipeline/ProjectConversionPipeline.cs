@@ -856,6 +856,46 @@ public class ProjectConversionPipeline
                 code = code.Replace("public static void write(Graph graph, String outputFile, Function<String, String> nodeSanitizer, Function<String, String> attrSanitizer, int precision) {", "public static void write(Graph graph, String outputFile, Function<String, String> nodeSanitizer, Function<String, String> attrSanitizer, int precision) throws Exception {", StringComparison.Ordinal);
                 code = code.Replace("public static void writeAllExceptEdgesInBlack(Graph graph, String outputFile) {", "public static void writeAllExceptEdgesInBlack(Graph graph, String outputFile) throws Exception {", StringComparison.Ordinal);
             }
+
+            if (r.FileName != null && r.FileName.Contains("ShiftReduceParser", StringComparison.Ordinal))
+            {
+                code = Regex.Replace(
+                    code,
+                    @"switch \(ex\)\s*\{\s*case\s*:\s*return false;\s*case\s*:\s*return true;\s*case\s*:\s*num = \(this\.errorRecovery\(\) \? 1 : 0\);\s*break;\s*default:\s*num = 1;\s*break;\s*\}",
+                    "if (ex instanceof AbortException) {\n        return false;\n        } else if (ex instanceof AcceptException) {\n        return true;\n        } else if (ex instanceof ErrorException) {\n        num = (this.errorRecovery() ? 1 : 0);\n        } else {\n        num = 1;\n        }");
+
+                code = code.Replace("case MinValue:", "case Character.MIN_VALUE:", StringComparison.Ordinal);
+                code = code.Replace("case '\\a':", "case '\\u0007':", StringComparison.Ordinal);
+                code = code.Replace("case '\\v':", "case '\\u000B':", StringComparison.Ordinal);
+                code = code.Replace("SerializationInfo", "Object", StringComparison.Ordinal);
+                code = code.Replace("StreamingContext", "Object", StringComparison.Ordinal);
+                code = Regex.Replace(code, @"(\w+)\.appendFormat\(([^;]+)\);", "$1.append(String.format($2));");
+                code = code.Replace("Console.Error.writeLine();", "System.err.println();", StringComparison.Ordinal);
+                code = code.Replace("Console.Error.writeLine(", "System.err.printf(", StringComparison.Ordinal);
+                code = code.Replace("Console.Error.write(", "System.err.printf(", StringComparison.Ordinal);
+                code = code.Replace("{0}", "%s", StringComparison.Ordinal);
+                code = code.Replace("String.format((IFormatProvider)(java.util.Locale.ROOT), ", "String.format(", StringComparison.Ordinal);
+                code = code.Replace("super(i, c);", "super();", StringComparison.Ordinal);
+                code = code.Replace("protected static void yYAccept() {", "protected static void yYAccept() throws AcceptException {", StringComparison.Ordinal);
+                code = code.Replace("protected static void yYAbort() {", "protected static void yYAbort() throws AbortException {", StringComparison.Ordinal);
+                code = code.Replace("protected static void yYError() {", "protected static void yYError() throws ErrorException {", StringComparison.Ordinal);
+            }
+
+            if (r.FileName != null && r.FileName.Contains("AttributeValuePair", StringComparison.Ordinal))
+            {
+                code = Regex.Replace(
+                    code,
+                    "txt\\.split\\(\"\\[ \\,\\s*\\r?\\n\\s*;\\t?\\]\\\"\\)",
+                    "txt.split(\"[ ,\\\\n;\\\\t]\")");
+                code = Regex.Replace(code, @"(?<=<|,|\(|\s)Label(?=>|,|\)|\s)", "Microsoft.Msagl.Drawing.Label");
+            }
+
+            if (r.FileName != null && r.FileName.Contains("ValueType", StringComparison.Ordinal))
+            {
+                code = code.Replace("public Cell<String> sList;", "public Parser.Cell<String> sList;", StringComparison.Ordinal);
+                code = code.Replace("public Cell<Cell<String>> sLists;", "public Parser.Cell<Parser.Cell<String>> sLists;", StringComparison.Ordinal);
+            }
+
             code = code.Replace("if (!d.get(v, /* out */ getResult()[i])) {\n        getResult()[i] = Double.POSITIVE_INFINITY;\n        }", "if (d.containsKey(v)) {\n        getResult()[i] = d.get(v);\n        } else {\n        getResult()[i] = Double.POSITIVE_INFINITY;\n        }", StringComparison.Ordinal);
             code = code.Replace("var _coalesce5 = (pushingNodes instanceof Node[] ? (Node[])(pushingNodes) : null) /* result may be null — check before use */;\n        pushingNodesArray = _coalesce5 != null ? _coalesce5 : StreamSupport.stream(pushingNodes.spliterator(), false).toArray(Node[]::new);", "pushingNodesArray = StreamSupport.stream(pushingNodes.spliterator(), false).toArray(Node[]::new);", StringComparison.Ordinal);
             code = code.Replace("if (!d.get(v, /* out */ getResult()[i])) {\n        getResult()[i] = Double.POSITIVE_INFINITY;\n        }", "if (d.containsKey(v)) {\n        getResult()[i] = d.get(v);\n        } else {\n        getResult()[i] = Double.POSITIVE_INFINITY;\n        }", StringComparison.Ordinal);
@@ -1764,9 +1804,9 @@ public class XmlReader implements AutoCloseable {{
     }}
 
     public static int getReadState() {{
-        if (reader == null) return Microsoft.Msagl.ReadState.getClosed();
-        try {{ return reader.hasNext() ? Microsoft.Msagl.ReadState.getInteractive() : Microsoft.Msagl.ReadState.getEndOfFile(); }}
-        catch (Exception e) {{ return Microsoft.Msagl.ReadState.getError(); }}
+        if (reader == null) return {basePackage}.ReadState.getClosed();
+        try {{ return reader.hasNext() ? {basePackage}.ReadState.getInteractive() : {basePackage}.ReadState.getEndOfFile(); }}
+        catch (Exception e) {{ return {basePackage}.ReadState.getError(); }}
     }}
 
     @Override

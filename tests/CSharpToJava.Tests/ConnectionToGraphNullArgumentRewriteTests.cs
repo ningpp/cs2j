@@ -127,4 +127,107 @@ public class ConnectionToGraphNullArgumentRewriteTests
         Assert.DoesNotContain("InputStream stream;", results[0].GeneratedCode);
         Assert.DoesNotContain("FileInputStream stream = FileHelper.create(outputFile)", results[0].GeneratedCode);
     }
+
+    [Fact]
+    public async Task ProjectPipeline_GeneratesXmlReaderWithLocalReadStateWrapper()
+    {
+        const string code = "namespace Demo { public class Placeholder { } }";
+
+        var pipeline = new ProjectConversionPipeline(new ConversionOptions { TargetJavaVersion = JavaVersion.Java17 });
+        var files = new[] { new SourceFile { FilePath = "Placeholder.cs", Content = code } };
+
+        var results = await pipeline.ConvertProjectAsync(files);
+        var xmlReader = results.FirstOrDefault(r => string.Equals(r.FileName, "XmlReader.java", StringComparison.Ordinal));
+
+        Assert.NotNull(xmlReader);
+        Assert.NotNull(xmlReader!.GeneratedCode);
+        Assert.Contains(".ReadState.getClosed();", xmlReader.GeneratedCode);
+        Assert.Contains(".ReadState.getInteractive()", xmlReader.GeneratedCode);
+        Assert.Contains(".ReadState.getEndOfFile()", xmlReader.GeneratedCode);
+        Assert.Contains(".ReadState.getError()", xmlReader.GeneratedCode);
+        Assert.DoesNotContain("Microsoft.Msagl.ReadState", xmlReader.GeneratedCode);
+    }
+
+    [Fact]
+    public void CompatibilityRewrites_FixesAttributeValuePairSplitPattern()
+    {
+        const string snippet = "return Arrays.stream(txt.split(\"[ ,\n        ;\t]\")).filter(s -> !s.isEmpty()).toArray(String[]::new);";
+
+        var results = new List<ConversionResult>
+        {
+            new ConversionResult
+            {
+                Success = true,
+                FileName = "AttributeValuePair.java",
+                GeneratedCode = snippet
+            }
+        };
+
+        var method = typeof(ProjectConversionPipeline).GetMethod(
+            "ApplyCompatibilityRewrites",
+            BindingFlags.NonPublic | BindingFlags.Static);
+
+        Assert.NotNull(method);
+        method!.Invoke(null, new object[] { results });
+
+        var output = results[0].GeneratedCode;
+        Assert.Contains("txt.split(", output);
+        Assert.Contains("\\n;", output);
+        Assert.DoesNotContain("txt.split(\"[ ,\n", output);
+    }
+
+    [Fact]
+    public void CompatibilityRewrites_QualifiesValueTypeCellReferences()
+    {
+        const string snippet = "public Cell<String> sList;\npublic Cell<Cell<String>> sLists;";
+
+        var results = new List<ConversionResult>
+        {
+            new ConversionResult
+            {
+                Success = true,
+                FileName = "ValueType.java",
+                GeneratedCode = snippet
+            }
+        };
+
+        var method = typeof(ProjectConversionPipeline).GetMethod(
+            "ApplyCompatibilityRewrites",
+            BindingFlags.NonPublic | BindingFlags.Static);
+
+        Assert.NotNull(method);
+        method!.Invoke(null, new object[] { results });
+
+        var output = results[0].GeneratedCode;
+        Assert.Contains("public Parser.Cell<String> sList;", output);
+        Assert.Contains("public Parser.Cell<Parser.Cell<String>> sLists;", output);
+        Assert.DoesNotContain("public Cell<String> sList;", output);
+    }
+
+    [Fact]
+    public void CompatibilityRewrites_QualifiesAttributeValuePairLabelType()
+    {
+        const string snippet = "public static AbstractMap.SimpleEntry<Label, GraphAttr> addGraphAttrs(AbstractMap.SimpleEntry<Label, GraphAttr> couple, ArrayList arrayList) { return couple; }";
+
+        var results = new List<ConversionResult>
+        {
+            new ConversionResult
+            {
+                Success = true,
+                FileName = "AttributeValuePair.java",
+                GeneratedCode = snippet
+            }
+        };
+
+        var method = typeof(ProjectConversionPipeline).GetMethod(
+            "ApplyCompatibilityRewrites",
+            BindingFlags.NonPublic | BindingFlags.Static);
+
+        Assert.NotNull(method);
+        method!.Invoke(null, new object[] { results });
+
+        var output = results[0].GeneratedCode;
+        Assert.Contains("AbstractMap.SimpleEntry<Microsoft.Msagl.Drawing.Label, GraphAttr>", output);
+        Assert.DoesNotContain("SimpleEntry<Label, GraphAttr>", output);
+    }
 }
