@@ -230,4 +230,131 @@ public class ConnectionToGraphNullArgumentRewriteTests
         Assert.Contains("AbstractMap.SimpleEntry<Microsoft.Msagl.Drawing.Label, GraphAttr>", output);
         Assert.DoesNotContain("SimpleEntry<Label, GraphAttr>", output);
     }
+
+    [Fact]
+    public void CompatibilityRewrites_DisambiguatesAttributeValuePairEdgeAndGeometryLabel()
+    {
+        const string snippet = """
+            import Microsoft.Msagl.Core.Layout.Edge;
+            import Microsoft.Msagl.Core.Layout.Label;
+            public static void addEdgeAttrs(ArrayList arrayList, Edge edge) { }
+            static void addBezieSegsToEdgeFromPosData(Edge edge, ArrayList<Point> list) { }
+            static void initGeomEdge(Edge edge) { }
+            static void initGeomLabel(Microsoft.Msagl.Drawing.Label label) { label.setGeometryLabel(new Label()); }
+            int st = NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowParentheses;
+            if (MathHelper.tryParseDouble(val, st, AttributeBase.getUSCultureInfo(), _resultHolder1)) { }
+            String[] vals = split(val);
+            av.val = tryParseDouble(get(vals, 0), name);
+            av.val = Integer.parseInt(val, AttributeBase.getUSCultureInfo());
+            av.val = Float.parseFloat(val, java.util.Locale.ROOT);
+            x = Double.parseDouble(get(ret, 0), AttributeBase.getUSCultureInfo());
+            y = Double.parseDouble(get(ret, 1), AttributeBase.getUSCultureInfo());
+            z = Integer.parseInt(s, NumberStyles.AllowHexSpecifier, AttributeBase.getUSCultureInfo());
+            Match m = Regex.match(v, "setlinewidth\\((\\d+)\\)");
+            if (!m.Success) {
+            return false;
+            }
+            lw.value = (int)(getNumber(m.Groups.get(1).Value));
+            """;
+
+        var results = new List<ConversionResult>
+        {
+            new ConversionResult
+            {
+                Success = true,
+                FileName = "AttributeValuePair.java",
+                GeneratedCode = snippet
+            }
+        };
+
+        var method = typeof(ProjectConversionPipeline).GetMethod(
+            "ApplyCompatibilityRewrites",
+            BindingFlags.NonPublic | BindingFlags.Static);
+
+        Assert.NotNull(method);
+        method!.Invoke(null, new object[] { results });
+
+        var output = results[0].GeneratedCode;
+        Assert.DoesNotContain("import Microsoft.Msagl.Core.Layout.Edge;", output);
+        Assert.DoesNotContain("import Microsoft.Msagl.Core.Layout.Label;", output);
+        Assert.Contains("addEdgeAttrs(ArrayList arrayList, Microsoft.Msagl.Drawing.Edge edge)", output);
+        Assert.Contains("addBezieSegsToEdgeFromPosData(Microsoft.Msagl.Drawing.Edge edge, ArrayList<Point> list)", output);
+        Assert.Contains("initGeomEdge(Microsoft.Msagl.Drawing.Edge edge)", output);
+        Assert.Contains("label.setGeometryLabel(new Microsoft.Msagl.Core.Layout.Label());", output);
+        Assert.DoesNotContain("NumberStyles.AllowDecimalPoint", output);
+        Assert.Contains("MathHelper.tryParseDouble(val, _resultHolder1)", output);
+        Assert.Contains("var _marginVals = split(val);", output);
+        Assert.Contains("tryParseDouble(get(_marginVals, 0), name)", output);
+        Assert.Contains("Integer.parseInt(val)", output);
+        Assert.Contains("Float.parseFloat(val)", output);
+        Assert.Contains("Double.parseDouble(get(ret, 0))", output);
+        Assert.Contains("Double.parseDouble(get(ret, 1))", output);
+        Assert.Contains("Integer.parseInt(s, 16)", output);
+        Assert.Contains("java.util.regex.Matcher m = java.util.regex.Pattern.compile(\"setlinewidth", output);
+        Assert.Contains("lw.value = (int)(getNumber(m.group(1)));", output);
+    }
+
+    [Fact]
+    public void CompatibilityRewrites_NormalizesBufferExceptionSerializationSignature()
+    {
+        const string snippet = "protected BufferException(SerializationInfo info, StreamingContext context) { super(); }";
+
+        var results = new List<ConversionResult>
+        {
+            new ConversionResult
+            {
+                Success = true,
+                FileName = "BufferException.java",
+                GeneratedCode = snippet
+            }
+        };
+
+        var method = typeof(ProjectConversionPipeline).GetMethod(
+            "ApplyCompatibilityRewrites",
+            BindingFlags.NonPublic | BindingFlags.Static);
+
+        Assert.NotNull(method);
+        method!.Invoke(null, new object[] { results });
+
+        var output = results[0].GeneratedCode;
+        Assert.Contains("BufferException(Object info, Object context)", output);
+        Assert.DoesNotContain("SerializationInfo", output);
+        Assert.DoesNotContain("StreamingContext", output);
+    }
+
+    [Fact]
+    public void CompatibilityRewrites_DisambiguatesParserNodeImportsAndGeomNodeType()
+    {
+        const string snippet = """
+            import Microsoft.Msagl.Core.Layout.Edge;
+            import Microsoft.Msagl.Core.Layout.Node;
+            import Microsoft.Msagl.Drawing.Edge;
+            import Microsoft.Msagl.Drawing.Node;
+            Node geomNode;
+            ObjectHolder<Node> _geomNodeHolder1 = new ObjectHolder<>();
+            """;
+
+        var results = new List<ConversionResult>
+        {
+            new ConversionResult
+            {
+                Success = true,
+                FileName = "Parser.java",
+                GeneratedCode = snippet
+            }
+        };
+
+        var method = typeof(ProjectConversionPipeline).GetMethod(
+            "ApplyCompatibilityRewrites",
+            BindingFlags.NonPublic | BindingFlags.Static);
+
+        Assert.NotNull(method);
+        method!.Invoke(null, new object[] { results });
+
+        var output = results[0].GeneratedCode;
+        Assert.DoesNotContain("import Microsoft.Msagl.Core.Layout.Edge;", output);
+        Assert.DoesNotContain("import Microsoft.Msagl.Core.Layout.Node;", output);
+        Assert.Contains("Microsoft.Msagl.Core.Layout.Node geomNode;", output);
+        Assert.Contains("ObjectHolder<Microsoft.Msagl.Core.Layout.Node> _geomNodeHolder1 = new ObjectHolder<>();", output);
+    }
 }

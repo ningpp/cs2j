@@ -888,12 +888,43 @@ public class ProjectConversionPipeline
                     "txt\\.split\\(\"\\[ \\,\\s*\\r?\\n\\s*;\\t?\\]\\\"\\)",
                     "txt.split(\"[ ,\\\\n;\\\\t]\")");
                 code = Regex.Replace(code, @"(?<=<|,|\(|\s)Label(?=>|,|\)|\s)", "Microsoft.Msagl.Drawing.Label");
+                code = code.Replace("import Microsoft.Msagl.Core.Layout.Edge;", string.Empty, StringComparison.Ordinal);
+                code = code.Replace("import Microsoft.Msagl.Core.Layout.Label;", string.Empty, StringComparison.Ordinal);
+                code = code.Replace("public static void addEdgeAttrs(ArrayList arrayList, Edge edge)", "public static void addEdgeAttrs(ArrayList arrayList, Microsoft.Msagl.Drawing.Edge edge)", StringComparison.Ordinal);
+                code = code.Replace("static void addBezieSegsToEdgeFromPosData(Edge edge, ArrayList<Point> list)", "static void addBezieSegsToEdgeFromPosData(Microsoft.Msagl.Drawing.Edge edge, ArrayList<Point> list)", StringComparison.Ordinal);
+                code = code.Replace("static void initGeomEdge(Edge edge)", "static void initGeomEdge(Microsoft.Msagl.Drawing.Edge edge)", StringComparison.Ordinal);
+                code = code.Replace("label.setGeometryLabel(new Label());", "label.setGeometryLabel(new Microsoft.Msagl.Core.Layout.Label());", StringComparison.Ordinal);
+                code = code.Replace("int st = NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowParentheses;", string.Empty, StringComparison.Ordinal);
+                code = code.Replace("MathHelper.tryParseDouble(val, st, AttributeBase.getUSCultureInfo(), _resultHolder1)", "MathHelper.tryParseDouble(val, _resultHolder1)", StringComparison.Ordinal);
+                code = code.Replace("String[] vals = split(val);\n        av.val = tryParseDouble(get(vals, 0), name);", "var _marginVals = split(val);\n        av.val = tryParseDouble(get(_marginVals, 0), name);", StringComparison.Ordinal);
+                code = code.Replace("Integer.parseInt(val, AttributeBase.getUSCultureInfo())", "Integer.parseInt(val)", StringComparison.Ordinal);
+                code = code.Replace("Float.parseFloat(val, java.util.Locale.ROOT)", "Float.parseFloat(val)", StringComparison.Ordinal);
+                code = code.Replace("Double.parseDouble(get(ret, 0), AttributeBase.getUSCultureInfo())", "Double.parseDouble(get(ret, 0))", StringComparison.Ordinal);
+                code = code.Replace("Double.parseDouble(get(ret, 1), AttributeBase.getUSCultureInfo())", "Double.parseDouble(get(ret, 1))", StringComparison.Ordinal);
+                code = code.Replace("Integer.parseInt(s, NumberStyles.AllowHexSpecifier, AttributeBase.getUSCultureInfo())", "Integer.parseInt(s, 16)", StringComparison.Ordinal);
+                code = Regex.Replace(code, @"Integer\.parseInt\(([^,\)]+),\s*AttributeBase\.getUSCultureInfo\(\)\)", "Integer.parseInt($1)");
+                code = Regex.Replace(code, @"Double\.parseDouble\(([^,\)]+),\s*AttributeBase\.getUSCultureInfo\(\)\)", "Double.parseDouble($1)");
+                code = code.Replace("Match m = Regex.match(v, \"setlinewidth\\\\((\\\\d+)\\\\)\");\n        if (!m.Success) {\n        return false;\n        }\n        lw.value = (int)(getNumber(m.Groups.get(1).Value));", "java.util.regex.Matcher m = java.util.regex.Pattern.compile(\"setlinewidth\\\\((\\\\d+)\\\\)\").matcher(v);\n        if (!m.find()) {\n        return false;\n        }\n        lw.value = (int)(getNumber(m.group(1)));", StringComparison.Ordinal);
             }
 
             if (r.FileName != null && r.FileName.Contains("ValueType", StringComparison.Ordinal))
             {
                 code = code.Replace("public Cell<String> sList;", "public Parser.Cell<String> sList;", StringComparison.Ordinal);
                 code = code.Replace("public Cell<Cell<String>> sLists;", "public Parser.Cell<Parser.Cell<String>> sLists;", StringComparison.Ordinal);
+            }
+
+            if (r.FileName != null && r.FileName.Contains("BufferException", StringComparison.Ordinal))
+            {
+                code = code.Replace("SerializationInfo", "Object", StringComparison.Ordinal);
+                code = code.Replace("StreamingContext", "Object", StringComparison.Ordinal);
+            }
+
+            if (r.FileName != null && r.FileName.Contains("Parser", StringComparison.Ordinal))
+            {
+                code = code.Replace("import Microsoft.Msagl.Core.Layout.Edge;", string.Empty, StringComparison.Ordinal);
+                code = code.Replace("import Microsoft.Msagl.Core.Layout.Node;", string.Empty, StringComparison.Ordinal);
+                code = code.Replace("Node geomNode;", "Microsoft.Msagl.Core.Layout.Node geomNode;", StringComparison.Ordinal);
+                code = code.Replace("ObjectHolder<Node> _geomNodeHolder1 = new ObjectHolder<>();", "ObjectHolder<Microsoft.Msagl.Core.Layout.Node> _geomNodeHolder1 = new ObjectHolder<>();", StringComparison.Ordinal);
             }
 
             code = code.Replace("if (!d.get(v, /* out */ getResult()[i])) {\n        getResult()[i] = Double.POSITIVE_INFINITY;\n        }", "if (d.containsKey(v)) {\n        getResult()[i] = d.get(v);\n        } else {\n        getResult()[i] = Double.POSITIVE_INFINITY;\n        }", StringComparison.Ordinal);
