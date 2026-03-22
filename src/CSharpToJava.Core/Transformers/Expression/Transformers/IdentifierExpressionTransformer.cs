@@ -306,6 +306,9 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
         var target = facade.Transform(node.Expression, context);
         var memberName = node.Name.Identifier.Text;
 
+        if (target == "String" && memberName == "Empty")
+            return "\"\"";
+
         // Fallback for unresolved method-group symbol: Parallel.Invoke used as delegate value.
         if (memberName == "Invoke" && node.Expression.ToString() is "Parallel" or "System.Threading.Tasks.Parallel")
         {

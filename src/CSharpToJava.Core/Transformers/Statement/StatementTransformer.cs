@@ -835,6 +835,7 @@ public class StatementTransformer : IStatementTransformer
         // but we only skip if the OUTERMOST call is already .collect(Collectors.toList()).
         bool isStream = !expression.TrimEnd().EndsWith(".collect(Collectors.toList())")
             && !expression.TrimEnd().EndsWith(".collect(Collectors.toCollection(ArrayList::new))")
+            && !System.Text.RegularExpressions.Regex.IsMatch(expression.TrimEnd(), @"\.collect\(.+\)$")
             && !expression.TrimEnd().EndsWith(".toArray()")
             && !System.Text.RegularExpressions.Regex.IsMatch(expression.TrimEnd(), @"\.toArray\([^)]+\)$")
             && (

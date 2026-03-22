@@ -140,6 +140,15 @@ public class ObjectCreationTransformer : IExpressionTransformer
         if (argumentList == null || argumentList.Arguments.Count == 0)
             return $"new {typeName}()";
 
+        if (typeName == "Exception")
+        {
+            var exArgs = ArgumentTransformer.TransformArgumentList(
+                argumentList, context, ExpressionTransformerFacade.Instance);
+            return string.IsNullOrWhiteSpace(exArgs)
+                ? "new RuntimeException()"
+                : $"new RuntimeException({exArgs})";
+        }
+
         // Resolve constructor/delegate symbol early so delegate construction can be handled
         // as a functional value assignment instead of Java object instantiation.
         IMethodSymbol? ctorSymbol = null;
@@ -284,7 +293,7 @@ public class ObjectCreationTransformer : IExpressionTransformer
         if (bare.Contains('.', StringComparison.Ordinal))
             bare = bare[(bare.LastIndexOf('.') + 1)..];
         return bare is "ArrayList" or "HashSet" or "TreeSet" or "LinkedList"
-            or "ArrayDeque" or "LinkedHashSet" or "PriorityQueue" or "Stack" or "Vector";
+            or "ArrayDeque" or "LinkedHashSet" or "PriorityQueue" or "Stack";
     }
 
     /// <summary>

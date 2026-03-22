@@ -250,7 +250,7 @@ public class LambdaTransformer : IExpressionTransformer
 
         var seen = new HashSet<string>();
 
-        foreach (var node in body.DescendantNodes())
+        foreach (var node in body.DescendantNodesAndSelf())
         {
             // Match assignment targets and ++ / -- operands
             IdentifierNameSyntax? targetId = node switch

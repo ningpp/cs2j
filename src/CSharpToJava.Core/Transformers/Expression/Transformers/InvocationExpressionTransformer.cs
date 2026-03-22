@@ -1030,6 +1030,40 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         // that was already prepended; use 0 for standard instance calls.
         int argStartIndex = isExtensionInStaticPath ? 1 : 0;
 
+        // Fallback: String.IsNullOrEmpty(s) -> (s == null || s.isEmpty())
+        bool isStringIsNullOrEmpty = originalMethodName == "IsNullOrEmpty"
+            && node.ArgumentList.Arguments.Count - argStartIndex >= 1
+            && (methodSymbol?.ContainingType.ToDisplayString() is "string" or "System.String"
+                || memberAccess.Expression.ToString() is "String" or "string" or "System.String");
+        if (isStringIsNullOrEmpty)
+        {
+            var valueExpr = facade.Transform(node.ArgumentList.Arguments[argStartIndex].Expression, context);
+            return $"({valueExpr} == null || {valueExpr}.isEmpty())";
+        }
+
+        // Fallback: unresolved numeric TryParse static calls.
+        // Emit converter helper calls instead of invalid Double.TryParse/Integer.TryParse in Java.
+        if (originalMethodName == "TryParse" && node.ArgumentList.Arguments.Count - argStartIndex >= 2)
+        {
+            var receiverText = memberAccess.Expression.ToString();
+            string? helper = receiverText switch
+            {
+                "Double" or "double" or "System.Double" => "MathHelper.tryParseDouble",
+                "Single" or "float" or "System.Single" => "MathHelper.tryParseFloat",
+                "Int32" or "int" or "Integer" or "System.Int32" => "MathHelper.tryParseInt",
+                "Int64" or "long" or "Long" or "System.Int64" => "MathHelper.tryParseLong",
+                "Boolean" or "bool" or "System.Boolean" => "MathHelper.tryParseBool",
+                _ => null
+            };
+
+            if (helper != null)
+            {
+                var helperArgs = ArgumentTransformer.TransformArgumentList(
+                    node.ArgumentList, context, facade, argStartIndex, methodSymbol);
+                return $"{helper}({helperArgs})";
+            }
+        }
+
         // JsonSerializer.Deserialize<T>(json) needs the runtime class token in Java.
         // Emit deserialize(json, T.class) so the generated variable keeps type information.
         bool isJsonDeserialize = originalMethodName == "Deserialize"
