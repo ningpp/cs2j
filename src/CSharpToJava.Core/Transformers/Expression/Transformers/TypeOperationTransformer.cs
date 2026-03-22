@@ -391,10 +391,7 @@ public class TypeOperationTransformer : IExpressionTransformer
             }
 
             // C#: default(Type)  → Java default values
-            // For struct/value types, emit new T()
-            if (typeInfo.HasValue && typeInfo.Value.Type is INamedTypeSymbol { TypeKind: TypeKind.Struct })
-                return $"new {typeName}()";
-            return typeName switch
+            var defaultValue = typeName switch
             {
                 "int" => "0",
                 "long" => "0L",
@@ -404,8 +401,17 @@ public class TypeOperationTransformer : IExpressionTransformer
                 "double" => "0.0",
                 "boolean" => "false",
                 "char" => "'\\0'",
-                _ => "null" // Reference types default to null
+                _ => null
             };
+
+            if (defaultValue != null)
+                return defaultValue;
+
+            // For user-defined structs/value types, emit new T().
+            if (typeInfo.HasValue && typeInfo.Value.Type is INamedTypeSymbol { TypeKind: TypeKind.Struct })
+                return $"new {typeName}()";
+
+            return "null"; // Reference types default to null
         }
         else
         {

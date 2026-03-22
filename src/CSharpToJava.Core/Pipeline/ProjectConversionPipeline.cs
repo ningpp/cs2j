@@ -977,7 +977,7 @@ public class ProjectConversionPipeline
                     code,
                     @"private static int getMaxParseToken\(\)\s*\{\s*Field f = Tokens\.class\.getField\(\""maxParseToken\""\);\s*return \(\(Field\.valueEquals\(f, null\) \? Integer\.MAX_VALUE : \(int\)\(f\.getValue\(null\)\)\)\);\s*\}",
                     "private static int getMaxParseToken() {\n        return Arrays.stream(Tokens.values()).mapToInt(Tokens::getValue).max().orElse(ScanBuff.EndOfFile);\n    }");
-                code = Regex.Replace(code, @"return ([^;]+);\s*\r?\n\s*break;", "return $1;");
+                code = Regex.Replace(code, @"return ([^\r\n]+);\s*\r?\n\s*break;", "return $1;");
             }
 
             if (r.FileName != null && r.FileName.Contains("Dot2SvgMain", StringComparison.Ordinal))
