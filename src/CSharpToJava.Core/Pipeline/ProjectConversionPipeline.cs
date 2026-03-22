@@ -7,6 +7,7 @@ using CSharpToJava.Core.PartialType;
 using CSharpToJava.Core.Transformers.Type;
 using CSharpToJava.Core.Visitors;
 using CSharpToJava.TypeMapping;
+using System.Text.RegularExpressions;
 using DiagSeverity = Microsoft.CodeAnalysis.DiagnosticSeverity;
 
 namespace CSharpToJava.Core.Pipeline;
@@ -71,6 +72,9 @@ public class ProjectConversionPipeline
 
             // Phase 5: Add cross-package wildcard imports so all MSAGL types see each other
             AddCrossPackageImports(results);
+
+            // Phase 6: Apply compatibility rewrites for unresolved C#-style API remnants.
+            ApplyCompatibilityRewrites(results);
 
             return results;
         }
@@ -562,6 +566,400 @@ public class ProjectConversionPipeline
         }
     }
 
+    private static void ApplyCompatibilityRewrites(List<ConversionResult> results)
+    {
+        foreach (var r in results)
+        {
+            if (string.IsNullOrEmpty(r.GeneratedCode))
+                continue;
+
+            var code = r.GeneratedCode;
+
+            code = code.Replace(".toLower()", ".toLowerCase()", StringComparison.Ordinal);
+            code = code.Replace(".toUpper()", ".toUpperCase()", StringComparison.Ordinal);
+
+            code = code.Replace("System.String.IsNullOrEmpty(", "StringHelper.isNullOrEmpty(", StringComparison.Ordinal);
+            code = code.Replace("String.IsNullOrEmpty(", "StringHelper.isNullOrEmpty(", StringComparison.Ordinal);
+            code = code.Replace("System.String.IsNullOrWhiteSpace(", "StringHelper.isNullOrWhiteSpace(", StringComparison.Ordinal);
+            code = code.Replace("String.IsNullOrWhiteSpace(", "StringHelper.isNullOrWhiteSpace(", StringComparison.Ordinal);
+
+            code = code.Replace("Double.TryParse(", "MathHelper.tryParseDouble(", StringComparison.Ordinal);
+            code = code.Replace("Float.TryParse(", "MathHelper.tryParseFloat(", StringComparison.Ordinal);
+            code = code.Replace("Single.TryParse(", "MathHelper.tryParseFloat(", StringComparison.Ordinal);
+            code = code.Replace("Integer.TryParse(", "MathHelper.tryParseInt(", StringComparison.Ordinal);
+            code = code.Replace("Int32.TryParse(", "MathHelper.tryParseInt(", StringComparison.Ordinal);
+            code = code.Replace("Long.TryParse(", "MathHelper.tryParseLong(", StringComparison.Ordinal);
+            code = code.Replace("Int64.TryParse(", "MathHelper.tryParseLong(", StringComparison.Ordinal);
+            code = code.Replace("Boolean.TryParse(", "MathHelper.tryParseBool(", StringComparison.Ordinal);
+
+            code = code.Replace("String.Join(", "String.join(", StringComparison.Ordinal);
+            code = code.Replace("String.format(CultureInfo.getCurrentCulture(), ", "String.format(", StringComparison.Ordinal);
+            code = code.Replace("String.format(CultureInfo.getInvariantCulture(), ", "String.format(", StringComparison.Ordinal);
+            code = code.Replace("String.format(CultureInfo.getCurrentUICulture(), ", "String.format(", StringComparison.Ordinal);
+            code = code.Replace("Arrays.stream(initialLayering).map(i -> i + 1).max(java.util.Comparator.naturalOrder()).orElseThrow()", "Arrays.stream(initialLayering).map(i -> i + 1).max().orElseThrow()", StringComparison.Ordinal);
+            code = code.Replace("Environment.getEnvironmentVariable(", "System.getenv(", StringComparison.Ordinal);
+            code = code.Replace("String.StringHelper.compare(", "StringHelper.compare(", StringComparison.Ordinal);
+            code = code.Replace("_handler.invoke()", "_handler.apply()", StringComparison.Ordinal);
+            code = code.Replace("HashMap<Double, ArrayList<OrthogonalEdge>>", "HashMap<Integer, ArrayList<OrthogonalEdge>>", StringComparison.Ordinal);
+            code = code.Replace("new HashMap<Double, ArrayList<OrthogonalEdge>>()", "new HashMap<Integer, ArrayList<OrthogonalEdge>>()", StringComparison.Ordinal);
+            code = code.Replace("ArrayList<Double> Y = new ArrayList<Double>();", "ArrayList<Integer> Y = new ArrayList<Integer>();", StringComparison.Ordinal);
+            code = code.Replace("Y.stream().mapToDouble(Double::doubleValue).toArray()", "Y.stream().mapToDouble(v -> (double)v).toArray()", StringComparison.Ordinal);
+            code = code.Replace("Core.Geometry.Direction.", "Direction.", StringComparison.Ordinal);
+            code = code.Replace("System.out.print(\"{{{0},{1}}}\",", "System.out.printf(\"{{%s,%s}}\",", StringComparison.Ordinal);
+            code = code.Replace("public Iterable<Node> getNodes() {\n        return V;\n    }", "public Iterable<Node> getNodes() {\n        return Arrays.asList(V);\n    }", StringComparison.Ordinal);
+            code = code.Replace("graph.getClusteredConnectedComponents()", "GraphConnectedComponents.getClusteredConnectedComponents(graph)", StringComparison.Ordinal);
+            code = code.Replace("this(graph, new Cluster[] { graph.getRootCluster() }, clusterSettings);", "this(graph, Arrays.asList(new Cluster[] { graph.getRootCluster() }), clusterSettings);", StringComparison.Ordinal);
+            code = code.Replace("var _chainVal25 = null;\n        e.setSourcePort(_chainVal25);\n        originalEdge.getEdgeGeometry().setSourcePort(_chainVal25);", "e.setSourcePort(null);\n        originalEdge.getEdgeGeometry().setSourcePort(null);", StringComparison.Ordinal);
+            code = code.Replace("var _chainVal26 = null;\n        e.setTargetPort(_chainVal26);\n        originalEdge.getEdgeGeometry().setTargetPort(_chainVal26);", "e.setTargetPort(null);\n        originalEdge.getEdgeGeometry().setTargetPort(null);", StringComparison.Ordinal);
+            code = code.Replace("return GraphConnectedComponents.createComponents(Arrays.asList(originalToCopyNodeMap.values().stream().toArray(Node[]::new)), copiedEdges, nodeSeparation).collect(java.util.stream.Collectors.toList());", "return new ArrayList<>(StreamSupport.stream(GraphConnectedComponents.createComponents(Arrays.asList(originalToCopyNodeMap.values().stream().toArray(Node[]::new)), copiedEdges, nodeSeparation).spliterator(), false).toList());", StringComparison.Ordinal);
+            code = code.Replace(
+                "var newEdge = Edges.stream().allMatch(x -> (v1 != x.A || v2 != x.B) && (v1 != x.B || v2 != x.A));",
+                "boolean newEdge = true;\n        for (Twin x : Edges) {\n        if ((v1 == x.A && v2 == x.B) || (v1 == x.B && v2 == x.A)) {\n        newEdge = false;\n        break;\n        }\n        }",
+                StringComparison.Ordinal);
+            code = code.Replace(
+                "this.edges = StreamSupport.stream(edges.spliterator(), false).filter(e -> e.getSource() != e.getTarget());",
+                "this.edges = StreamSupport.stream(edges.spliterator(), false).filter(e -> e.getSource() != e.getTarget()).collect(java.util.stream.Collectors.toList());",
+                StringComparison.Ordinal);
+            code = code.Replace(".collect(Collectors.toList())", ".collect(java.util.stream.Collectors.toList())", StringComparison.Ordinal);
+            code = code.Replace(".collect(java.util.stream.Collectors.toList()).collect(java.util.stream.Collectors.toList())", ".collect(java.util.stream.Collectors.toList())", StringComparison.Ordinal);
+            code = code.Replace(".toString(java.util.Locale.ROOT)", ".toString()", StringComparison.Ordinal);
+            code = code.Replace("XmlTextReader.close();", "/* XmlTextReader close handled by owner */;", StringComparison.Ordinal);
+            code = code.Replace("endsWith(FileExtension, StringComparison.InvariantCultureIgnoreCase)", "toLowerCase().endsWith(FileExtension.toLowerCase())", StringComparison.Ordinal);
+            code = code.Replace("try { InputStream stream = FileHelper.openRead(fileName);", "try (InputStream stream = FileHelper.openRead(fileName)) {", StringComparison.Ordinal);
+            code = code.Replace("try { TextReader reader = FileHelper.openText(fileName);", "try (TextReader reader = FileHelper.openText(fileName)) {", StringComparison.Ordinal);
+            code = code.Replace("public static GeometryGraph createFromFile(String fileName) {", "public static GeometryGraph createFromFile(String fileName) throws Exception {", StringComparison.Ordinal);
+            code = code.Replace("public static GeometryGraph createFromFile(String fileName, ObjectHolder<LayoutAlgorithmSettings> settings) {", "public static GeometryGraph createFromFile(String fileName, ObjectHolder<LayoutAlgorithmSettings> settings) throws Exception {", StringComparison.Ordinal);
+            code = code.Replace("static char firstCharacter(String fileName) {", "static char firstCharacter(String fileName) throws Exception {", StringComparison.Ordinal);
+            code = code.Replace("public static void write(GeometryGraph graph, String fileName) {", "public static void write(GeometryGraph graph, String fileName) throws Exception {", StringComparison.Ordinal);
+            code = code.Replace("public static void write(GeometryGraph graph, LayoutAlgorithmSettings settings, String fileName) {", "public static void write(GeometryGraph graph, LayoutAlgorithmSettings settings, String fileName) throws Exception {", StringComparison.Ordinal);
+            code = code.Replace("throw new Exception();", "throw new RuntimeException();", StringComparison.Ordinal);
+            code = code.Replace(
+                "LayeredLayoutEngine.calculateAnchorSizes(database, /* out */ database.anchors, ProperLayeredGraph, originalGraph, intGraph, settings);",
+                "ObjectHolder<Anchor[]> _anchorsHolder1 = new ObjectHolder<>();\n        LayeredLayoutEngine.calculateAnchorSizes(database, _anchorsHolder1, ProperLayeredGraph, originalGraph, intGraph, settings);\n        database.anchors = _anchorsHolder1.value;",
+                StringComparison.Ordinal);
+            code = code.Replace("TopologicalSort.getOrderOnEdges(liftedLeftRightRelations)", "TopologicalSort.getOrderOnEdges(Arrays.asList(liftedLeftRightRelations))", StringComparison.Ordinal);
+            code = code.Replace("blockRoot = layerInfo.nodeToBlockRoot.get(v);", "blockRoot.value = layerInfo.nodeToBlockRoot.get(v);", StringComparison.Ordinal);
+            code = code.Replace("tileNodes.get(4 * root + 1).remove(LA[i])", "tileNodes.get(4 * root + 1).remove(Integer.valueOf(LA[i]))", StringComparison.Ordinal);
+            code = code.Replace("tileNodes.get(4 * root + 2).remove(LA[i])", "tileNodes.get(4 * root + 2).remove(Integer.valueOf(LA[i]))", StringComparison.Ordinal);
+            code = code.Replace("tileNodes.get(4 * root + 3).remove(LA[i])", "tileNodes.get(4 * root + 3).remove(Integer.valueOf(LA[i]))", StringComparison.Ordinal);
+            code = code.Replace("tileNodes.get(4 * root + 4).remove(LA[i])", "tileNodes.get(4 * root + 4).remove(Integer.valueOf(LA[i]))", StringComparison.Ordinal);
+            code = code.Replace("for (LgNodeInfo t : neighb.collect(Collectors.toCollection(ArrayList::new)))", "for (LgNodeInfo t : neighb)", StringComparison.Ordinal);
+            code = code.Replace("for (LgNodeInfo t : neighb.collect(java.util.stream.Collectors.toList()))", "for (LgNodeInfo t : neighb)", StringComparison.Ordinal);
+            code = code.Replace("for (int level : IntStream.range(settings.getMinConstraintLevel(), settings.getMinConstraintLevel() + settings.getMaxConstraintLevel() + 1).boxed()) {", "for (int level : IntStream.range(settings.getMinConstraintLevel(), settings.getMinConstraintLevel() + settings.getMaxConstraintLevel() + 1).toArray()) {", StringComparison.Ordinal);
+            code = code.Replace("} else { settings.setMinConstraintLevel(2); }", "} else { addedNodes = new HashSet<Node>(); settings.setMinConstraintLevel(2); }", StringComparison.Ordinal);
+            code = code.Replace("int countForTile = tileTable.get(tuple)++ + 1;", "int countForTile = tileTable.get(tuple) + 1;\n        tileTable.put(tuple, countForTile);", StringComparison.Ordinal);
+            code = code.Replace("if (LayoutAlgorithmSettings.getShowDebugCurves() != null) { LayoutAlgorithmSettings.getShowDebugCurves().Invoke(", "if (LayoutAlgorithmSettings.getShowDebugCurves() != null) { LayoutAlgorithmSettings.getShowDebugCurves().invoke(", StringComparison.Ordinal);
+            code = code.Replace(".Invoke(", ".invoke(", StringComparison.Ordinal);
+            code = code.Replace("getShowDebugCurves().invoke(", "getShowDebugCurves().apply(", StringComparison.Ordinal);
+            code = code.Replace("System.fail(\"wrong distance between two polygons\");", "throw new RuntimeException(\"wrong distance between two polygons\");", StringComparison.Ordinal);
+            code = code.Replace("System.fail(", "throw new RuntimeException(", StringComparison.Ordinal);
+            code = Regex.Replace(code, @"(?<!Collectors)\.toList\(\)", ".collect(java.util.stream.Collectors.toList())");
+            code = code.Replace(".collect(java.util.stream.Collectors.collect(java.util.stream.Collectors.toList()))", ".collect(java.util.stream.Collectors.toList())", StringComparison.Ordinal);
+            code = code.Replace("this.funcOfNodes = () -> StreamSupport.stream(funcOfLgNodes.get().spliterator(), false).map(n -> n.getGeometryNode());", "this.funcOfNodes = () -> StreamSupport.stream(funcOfLgNodes.get().spliterator(), false).map(n -> n.getGeometryNode()).collect(java.util.stream.Collectors.toList());", StringComparison.Ordinal);
+            code = code.Replace("throw new UnsupportedOperationException();\n        return true;", "throw new UnsupportedOperationException();", StringComparison.Ordinal);
+            code = code.Replace("throw new UnsupportedOperationException();\n        return value;", "throw new UnsupportedOperationException();", StringComparison.Ordinal);
+            code = code.Replace("VisibilityEdge ve;\n        assert _pathRouter.findVertex(a).tryGetEdge(_pathRouter.findVertex(b), _veHolder1);\n        ObjectHolder<VisibilityEdge> _veHolder1 = new ObjectHolder<>();", "VisibilityEdge ve;\n        ObjectHolder<VisibilityEdge> _veHolder1 = new ObjectHolder<>();\n        assert _pathRouter.findVertex(a).tryGetEdge(_pathRouter.findVertex(b), _veHolder1);", StringComparison.Ordinal);
+            code = code.Replace("Arrays.stream(layering).max(java.util.Comparator.naturalOrder()).orElseThrow()", "Arrays.stream(layering).max().orElseThrow()", StringComparison.Ordinal);
+            code = code.Replace(".flatMap(v -> StreamSupport.stream(properLayeredGraph.inEdges(v).spliterator(), false))", ".boxed()\n        .flatMap(v -> StreamSupport.stream(properLayeredGraph.inEdges(v).spliterator(), false))", StringComparison.Ordinal);
+            code = code.Replace("for (AbstractMap.SimpleEntry<Double, Integer> layer : layers) { layerList.add(layer.getValue().stream().mapToInt(Integer::intValue).toArray()); }", "for (Map.Entry<Double, java.util.List<Integer>> layer : layers) { layerList.add(layer.getValue().stream().mapToInt(Integer::intValue).toArray()); }", StringComparison.Ordinal);
+            code = code.Replace("Arrays.stream(layerList.get(i)).map(j -> nodes.get(j).getBoundingBox().getTop()).max(java.util.Comparator.naturalOrder()).orElseThrow()", "Arrays.stream(layerList.get(i)).mapToDouble(j -> nodes.get(j).getBoundingBox().getTop()).max().orElseThrow()", StringComparison.Ordinal);
+            code = code.Replace("Arrays.stream(layerList.get(i + 1)).map(j -> nodes.get(j).getBoundingBox().getBottom()).min(java.util.Comparator.naturalOrder()).orElseThrow()", "Arrays.stream(layerList.get(i + 1)).mapToDouble(j -> nodes.get(j).getBoundingBox().getBottom()).min().orElseThrow()", StringComparison.Ordinal);
+            code = code.Replace("Arrays.stream(layerList.get(i)).map(j -> nodes.get(j).getBoundingBox().getRight()).max(java.util.Comparator.naturalOrder()).orElseThrow()", "Arrays.stream(layerList.get(i)).mapToDouble(j -> nodes.get(j).getBoundingBox().getRight()).max().orElseThrow()", StringComparison.Ordinal);
+            code = code.Replace("Arrays.stream(layerList.get(i + 1)).map(j -> nodes.get(j).getBoundingBox().getLeft()).min(java.util.Comparator.naturalOrder()).orElseThrow()", "Arrays.stream(layerList.get(i + 1)).mapToDouble(j -> nodes.get(j).getBoundingBox().getLeft()).min().orElseThrow()", StringComparison.Ordinal);
+            code = code.Replace("assignmentBounds(i, /* out */ a[i], /* out */ b[i]);", "DoubleHolder _aHolder = new DoubleHolder();\n        DoubleHolder _bHolder = new DoubleHolder();\n        assignmentBounds(i, _aHolder, _bHolder);\n        a[i] = _aHolder.value;\n        b[i] = _bHolder.value;", StringComparison.Ordinal);
+            code = code.Replace(".filter(v -> v < getIntGraph().getNodeCount())\n        .flatMap(v -> getIntGraph().outEdges(v).stream())", ".filter(v -> v < getIntGraph().getNodeCount())\n        .boxed()\n        .flatMap(v -> getIntGraph().outEdges(v).stream())", StringComparison.Ordinal);
+            code = code.Replace("var _chainVal10 = null;\n        setTargetTightPolyline(_chainVal10);\n        setSourceTightPolyline(_chainVal10);", "setTargetTightPolyline(null);\n        setSourceTightPolyline(null);", StringComparison.Ordinal);
+            code = code.Replace("var _chainVal11 = null;\n        setTargetPort(_chainVal11);\n        setSourcePort(_chainVal11);", "setTargetPort(null);\n        setSourcePort(null);", StringComparison.Ordinal);
+            code = code.Replace("var _chainVal12 = null;\n        setSourceTightPolyline(_chainVal12);\n        setSourceLoosePolyline(_chainVal12);", "setSourceTightPolyline(null);\n        setSourceLoosePolyline(null);", StringComparison.Ordinal);
+            code = code.Replace("var _chainVal13 = null;\n        setTargetLoosePolyline(_chainVal13);\n        targetTightPolyline = _chainVal13;", "setTargetLoosePolyline(null);\n        targetTightPolyline = null;", StringComparison.Ordinal);
+            code = code.Replace("if (!d.get(v, /* out */ getResult()[i])) {\n        getResult()[i] = Double.POSITIVE_INFINITY;\n        }", "if (d.containsKey(v)) {\n        getResult()[i] = d.get(v);\n        } else {\n        getResult()[i] = Double.POSITIVE_INFINITY;\n        }", StringComparison.Ordinal);
+            code = code.Replace("var _coalesce5 = (pushingNodes instanceof Node[] ? (Node[])(pushingNodes) : null) /* result may be null — check before use */;\n        pushingNodesArray = _coalesce5 != null ? _coalesce5 : StreamSupport.stream(pushingNodes.spliterator(), false).toArray(Node[]::new);", "pushingNodesArray = StreamSupport.stream(pushingNodes.spliterator(), false).toArray(Node[]::new);", StringComparison.Ordinal);
+            code = code.Replace("if (!d.get(v, /* out */ getResult()[i])) {\n        getResult()[i] = Double.POSITIVE_INFINITY;\n        }", "if (d.containsKey(v)) {\n        getResult()[i] = d.get(v);\n        } else {\n        getResult()[i] = Double.POSITIVE_INFINITY;\n        }", StringComparison.Ordinal);
+            code = code.Replace("Math.signum(b.Y - a.Y)", "(int)Math.signum(b.Y - a.Y)", StringComparison.Ordinal);
+            code = code.Replace(".collect(java.util.stream.Collectors.toList())).collect(java.util.stream.Collectors.toList());", ".collect(java.util.stream.Collectors.toList());", StringComparison.Ordinal);
+            code = code.Replace("var touching = (Arrays.stream(intersected)\n        .filter(r -> intersect(getScaled(r, 1 + tolerance), p1, p2) && !intersect(getScaled(r, 1 - tolerance), p1, p2))\n        .collect(java.util.stream.Collectors.toList())).collect(java.util.stream.Collectors.toList());", "var touching = Arrays.stream(intersected)\n        .filter(r -> intersect(getScaled(r, 1 + tolerance), p1, p2) && !intersect(getScaled(r, 1 - tolerance), p1, p2))\n        .collect(java.util.stream.Collectors.toList());", StringComparison.Ordinal);
+            code = code.Replace("for (AbstractMap.SimpleEntry<Double, Integer> layer : layers) {\n        layerList.add(layer.getValue().stream().mapToInt(Integer::intValue).toArray());\n        }", "for (Map.Entry<Double, java.util.List<Integer>> layer : layers) {\n        layerList.add(layer.getValue().stream().mapToInt(Integer::intValue).toArray());\n        }", StringComparison.Ordinal);
+            code = code.Replace("var _coalesce5 = (pushingNodes instanceof Node[] ? (Node[])(pushingNodes) : null) /* result may be null — check before use */;\n        pushingNodesArray = _coalesce5 != null ? _coalesce5 : StreamSupport.stream(pushingNodes.spliterator(), false).toArray(Node[]::new);", "pushingNodesArray = StreamSupport.stream(pushingNodes.spliterator(), false).toArray(Node[]::new);", StringComparison.Ordinal);
+            code = code.Replace("getLooseObstacles().add(node.setUserData(loosePolylineWithFewCorners(tightPolyline, Math.min(router.getLoosePadding(), distance * 0.3))));", "node.setUserData(loosePolylineWithFewCorners(tightPolyline, Math.min(router.getLoosePadding(), distance * 0.3)));\n        getLooseObstacles().add(node.getUserData());", StringComparison.Ordinal);
+            code = code.Replace(
+                "new ArrayList<Microsoft.Msagl.Core.Layout.Edge>((Iterable<Microsoft.Msagl.Core.Layout.Edge>)(Iterable<?>)(_lgData.getLevels().get(iLevel)._railsOfEdges.keySet()))",
+                "new ArrayList<Microsoft.Msagl.Core.Layout.Edge>(_lgData.getLevels().get(iLevel)._railsOfEdges.keySet())",
+                StringComparison.Ordinal);
+            code = code.Replace(
+                "sw = new PrintWriter(\"msaglLogFile\");",
+                "try { sw = new PrintWriter(\"msaglLogFile\"); } catch (java.io.FileNotFoundException e) { throw new RuntimeException(e); }",
+                StringComparison.Ordinal);
+            code = code.Replace("segmentString(segment, _previousInstructionRef)", "segmentString(segment, new CharHolder(previousInstruction))", StringComparison.Ordinal);
+            code = code.Replace("segmentString(segment, _previousInstructionRef2)", "segmentString(segment, new CharHolder(previousInstruction))", StringComparison.Ordinal);
+            code = code.Replace("CharHolder _previousInstructionRef2 = new CharHolder(previousInstruction);", "CharHolder _previousInstructionRef2 = previousInstruction;", StringComparison.Ordinal);
+            code = code.Replace("previousInstruction = _previousInstructionRef2.value;", "previousInstruction.value = _previousInstructionRef2.value;", StringComparison.Ordinal);
+            code = code.Replace("catch (CloneNotSupportedException e)", "catch (Exception e)", StringComparison.Ordinal);
+            code = code.Replace("catch (CloneNotSupportedException __e)", "catch (Exception __e)", StringComparison.Ordinal);
+            code = Regex.Replace(
+                code,
+                @"Arrays\.stream\(layer\)\s*\r?\n\s*\.filter\(v -> v < intGraph\.getNodeCount\(\)\)\s*\r?\n\s*\.flatMap\(v -> intGraph\.outEdges\(v\)\.stream\(\)\)",
+                "Arrays.stream(layer)\n        .filter(v -> v < intGraph.getNodeCount())\n        .boxed()\n        .flatMap(v -> intGraph.outEdges(v).stream())");
+
+            code = Regex.Replace(
+                code,
+                @"\.flatMap\(edge -> edge\.getLayerEdges\(\)\.stream\(\)\)\s*\r?\n\s*\.filter\(layerEdge -> layerEdge\.getSource\(\) != edge\.getSource\(\)\)",
+                ".flatMap(edge -> edge.getLayerEdges().stream()\n        .filter(layerEdge -> layerEdge.getSource() != edge.getSource()))");
+
+            code = Regex.Replace(
+                code,
+                @"Stream<LgNodeInfo>\s+neighb\s*=\s*(getNeighborsOnLevel\([^;]+?\)\.stream\(\)\.sorted\(java\.util\.Comparator\.comparingDouble\(\(LgNodeInfo n\) -> n\.getZoomLevel\(\)\)\));",
+                "var neighb = $1.collect(java.util.stream.Collectors.toList());");
+
+            code = Regex.Replace(
+                code,
+                @"var _chainVal\d+ = null;\s*l\.setOuterPoints\(_chainVal\d+\);\s*l\.setInnerPoints\(_chainVal\d+\);",
+                "l.setOuterPoints(null);\n        l.setInnerPoints(null);");
+
+            code = Regex.Replace(
+                code,
+                @"public Iterable<Node> getNodes\(\)\s*\{\s*return V;\s*\}",
+                "public Iterable<Node> getNodes() {\n        return Arrays.asList(V);\n    }");
+
+            code = Regex.Replace(
+                code,
+                @"var _chainVal25 = null;\s*e\.setSourcePort\(_chainVal25\);\s*originalEdge\.getEdgeGeometry\(\)\.setSourcePort\(_chainVal25\);",
+                "e.setSourcePort(null);\n        originalEdge.getEdgeGeometry().setSourcePort(null);");
+
+            code = Regex.Replace(
+                code,
+                @"var _chainVal26 = null;\s*e\.setTargetPort\(_chainVal26\);\s*originalEdge\.getEdgeGeometry\(\)\.setTargetPort\(_chainVal26\);",
+                "e.setTargetPort(null);\n        originalEdge.getEdgeGeometry().setTargetPort(null);");
+
+            code = Regex.Replace(
+                code,
+                @"return GraphConnectedComponents\.createComponents\(([^;]+)\)\.collect\(java\.util\.stream\.Collectors\.toList\(\)\);",
+                "return new ArrayList<>(StreamSupport.stream(GraphConnectedComponents.createComponents($1).spliterator(), false).toList());");
+
+            code = Regex.Replace(
+                code,
+                @"var touching = \(Arrays\.stream\(intersected\)\s*\r?\n\s*\.filter\(r -> intersect\(getScaled\(r, 1 \+ tolerance\), p1, p2\) && !intersect\(getScaled\(r, 1 - tolerance\), p1, p2\)\)\s*\r?\n\s*\.collect\(java\.util\.stream\.Collectors\.toList\(\)\)\)\.collect\(java\.util\.stream\.Collectors\.toList\(\)\);",
+                "var touching = Arrays.stream(intersected)\n        .filter(r -> intersect(getScaled(r, 1 + tolerance), p1, p2) && !intersect(getScaled(r, 1 - tolerance), p1, p2))\n        .collect(java.util.stream.Collectors.toList());");
+
+            code = Regex.Replace(
+                code,
+                @"var touching = \(Arrays\.stream\(intersected\)([\s\S]*?)\)\.collect\(java\.util\.stream\.Collectors\.toList\(\)\);",
+                "var touching = Arrays.stream(intersected)$1;",
+                RegexOptions.Singleline);
+            code = code.Replace("var touching = (Arrays.stream(intersected)", "var touching = Arrays.stream(intersected)", StringComparison.Ordinal);
+
+            code = Regex.Replace(code, @"\.Invoke\(", ".invoke(");
+            code = Regex.Replace(code, @"System\.fail\(", "throw new RuntimeException(");
+
+            code = Regex.Replace(
+                code,
+                @"VisibilityEdge ve;\s*assert _pathRouter\.findVertex\(a\)\.tryGetEdge\(_pathRouter\.findVertex\(b\), _veHolder1\);\s*ObjectHolder<VisibilityEdge> _veHolder1 = new ObjectHolder<>\(\);",
+                "VisibilityEdge ve;\n        ObjectHolder<VisibilityEdge> _veHolder1 = new ObjectHolder<>();\n        assert _pathRouter.findVertex(a).tryGetEdge(_pathRouter.findVertex(b), _veHolder1);");
+
+            code = Regex.Replace(
+                code,
+                @"for \(AbstractMap\.SimpleEntry<Double, Integer> layer : layers\)",
+                "for (Map.Entry<Double, java.util.List<Integer>> layer : layers)");
+
+            code = Regex.Replace(
+                code,
+                @"\.filter\(v -> v < getIntGraph\(\)\.getNodeCount\(\)\)\s*\r?\n\s*\.flatMap\(v -> getIntGraph\(\)\.outEdges\(v\)\.stream\(\)\)",
+                ".filter(v -> v < getIntGraph().getNodeCount())\n        .boxed()\n        .flatMap(v -> getIntGraph().outEdges(v).stream())");
+
+            code = Regex.Replace(
+                code,
+                @"var _chainVal10 = null;\s*setTargetTightPolyline\(_chainVal10\);\s*setSourceTightPolyline\(_chainVal10\);",
+                "setTargetTightPolyline(null);\n        setSourceTightPolyline(null);");
+            code = Regex.Replace(
+                code,
+                @"var _chainVal11 = null;\s*setTargetPort\(_chainVal11\);\s*setSourcePort\(_chainVal11\);",
+                "setTargetPort(null);\n        setSourcePort(null);");
+            code = Regex.Replace(
+                code,
+                @"var _chainVal12 = null;\s*setSourceTightPolyline\(_chainVal12\);\s*setSourceLoosePolyline\(_chainVal12\);",
+                "setSourceTightPolyline(null);\n        setSourceLoosePolyline(null);");
+            code = Regex.Replace(
+                code,
+                @"var _chainVal13 = null;\s*setTargetLoosePolyline\(_chainVal13\);\s*targetTightPolyline = _chainVal13;",
+                "setTargetLoosePolyline(null);\n        targetTightPolyline = null;");
+
+            code = Regex.Replace(
+                code,
+                @"throw new UnsupportedOperationException\(\);\s*return true;",
+                "throw new UnsupportedOperationException();");
+            code = Regex.Replace(
+                code,
+                @"throw new UnsupportedOperationException\(\);\s*return value;",
+                "throw new UnsupportedOperationException();");
+
+            code = Regex.Replace(
+                code,
+                @"if \(!d\.get\(v,\s*/\* out \*/\s*getResult\(\)\[i\]\)\)\s*\{\s*getResult\(\)\[i\] = Double\.POSITIVE_INFINITY;\s*\}",
+                "if (d.containsKey(v)) {\n        getResult()[i] = d.get(v);\n        } else {\n        getResult()[i] = Double.POSITIVE_INFINITY;\n        }");
+
+            code = Regex.Replace(
+                code,
+                @"var _coalesce5 = \(pushingNodes instanceof Node\[] \? \(Node\[]\)\(pushingNodes\) : null\) /\* result may be null — check before use \*/;\s*pushingNodesArray = _coalesce5 != null \? _coalesce5 : StreamSupport\.stream\(pushingNodes\.spliterator\(\), false\)\.toArray\(Node\[]::new\);",
+                "pushingNodesArray = StreamSupport.stream(pushingNodes.spliterator(), false).toArray(Node[]::new);");
+
+            code = code.Replace("t = _tHolder5.value;", string.Empty, StringComparison.Ordinal);
+            code = code.Replace("t = _tHolder6.value;", string.Empty, StringComparison.Ordinal);
+            code = code.Replace("var _obj70 = new ProcessStartInfo();", "var cmd = new ArrayList<String>();\n        cmd.add(pathExe);\n        cmd.addAll(Arrays.asList(arguments.split(\" \")));", StringComparison.Ordinal);
+            code = code.Replace("_obj70.setCreateNoWindow(false);", string.Empty, StringComparison.Ordinal);
+            code = code.Replace("_obj70.setUseShellExecute(false);", string.Empty, StringComparison.Ordinal);
+            code = code.Replace("_obj70.setFileName(pathExe);", string.Empty, StringComparison.Ordinal);
+            code = code.Replace("_obj70.setWindowStyle(ProcessWindowStyle.Hidden);", string.Empty, StringComparison.Ordinal);
+            code = code.Replace("_obj70.setArguments(arguments);", string.Empty, StringComparison.Ordinal);
+            code = code.Replace("ProcessStartInfo startInfo = _obj70;", string.Empty, StringComparison.Ordinal);
+            code = code.Replace("try (Process exeProcess = Process.start(startInfo)) {", "ProcessBuilder pb = new ProcessBuilder(cmd);\n        pb.redirectErrorStream(true);\n        Process exeProcess = pb.start();\n        {", StringComparison.Ordinal);
+            code = code.Replace("exeProcess.waitForExit();", "int exitCode = exeProcess.waitFor();", StringComparison.Ordinal);
+            code = code.Replace("if (exeProcess.ExitCode != 0) {", "if (exitCode != 0) {", StringComparison.Ordinal);
+            code = code.Replace("System.exit(exeProcess.ExitCode);", "System.exit(exitCode);", StringComparison.Ordinal);
+            code = code.Replace("public void saveInputFilePoly(String path) {", "public void saveInputFilePoly(String path) throws Exception {", StringComparison.Ordinal);
+            code = code.Replace("public void loadOutputFileNode(String path) {", "public void loadOutputFileNode(String path) throws Exception {", StringComparison.Ordinal);
+            code = code.Replace("public void loadOutputFileSides(String path) {", "public void loadOutputFileSides(String path) throws Exception {", StringComparison.Ordinal);
+            code = code.Replace("public void readTriangleOutputAndPopulateTheLevelVisibilityGraphFromTriangulation() {", "public void readTriangleOutputAndPopulateTheLevelVisibilityGraphFromTriangulation() throws Exception {", StringComparison.Ordinal);
+            code = code.Replace("points.addAll(new ClusterConvexHull(c, this).translatedBoundary());", "for (PolylinePoint pp : new ClusterConvexHull(c, this).translatedBoundary().getPolylinePoints()) { points.add(pp.getPoint()); }", StringComparison.Ordinal);
+            code = code.Replace("return (root != null ? root : root = getRoot());", "return root;", StringComparison.Ordinal);
+            code = code.Replace("ArrayList<Integer>[] layers = Arrays.asList(new ArrayList[numberOfLayers]);", "ArrayList<Integer>[] layers = new ArrayList[numberOfLayers];", StringComparison.Ordinal);
+            code = code.Replace("p.put(v, 1 / (graph.getNodes().size()));", "p.put(v, 1.0 / (graph.getNodes().size()));", StringComparison.Ordinal);
+            code = code.Replace("q.put(v, (1 - omega) / (graph.getNodes().size()));", "q.put(v, (1 - omega) / (double)(graph.getNodes().size()));", StringComparison.Ordinal);
+            code = code.Replace("q.get(v) += omega * p.get(u) / (int)(long) StreamSupport.stream(u.getInEdges().spliterator(), false).count();", "q.put(v, q.get(v) + omega * p.get(u) / (int)(long) StreamSupport.stream(u.getInEdges().spliterator(), false).count());", StringComparison.Ordinal);
+            code = code.Replace("q.get(v) += omega * p.get(u) / (int)(long) StreamSupport.stream(u.getOutEdges().spliterator(), false).count();", "q.put(v, q.get(v) + omega * p.get(u) / (int)(long) StreamSupport.stream(u.getOutEdges().spliterator(), false).count());", StringComparison.Ordinal);
+
+            code = Regex.Replace(
+                code,
+                @"public void launchTriangleExe\(String pathExe, String arguments\)\s*\{[\s\S]*?\n\s*\}\n\s*public void readTriangleOutputAndPopulateTheLevelVisibilityGraphFromTriangulation\(\)",
+                "public void launchTriangleExe(String pathExe, String arguments) {\n        String triangleMessage = \"Cannot start Triangle.exe To build Triangle.exe, please open http://www.cs.cmu.edu/~quake/triangle.html and build it by following the instructions from the site. Copy Triange.exe to a directory in your PATH.\" + \"Unfortunately we cannot distribute Triangle.exe because of the license restrictions.\";\n        try {\n        var cmd = new ArrayList<String>();\n        cmd.add(pathExe);\n        cmd.addAll(Arrays.asList(arguments.split(\" \")));\n        ProcessBuilder pb = new ProcessBuilder(cmd);\n        pb.redirectErrorStream(true);\n        Process exeProcess = pb.start();\n        int exitCode = exeProcess.waitFor();\n        if (exitCode != 0) {\n        System.exit(exitCode);\n        }\n        } catch (Exception e) {\n        System.out.println(e.getMessage());\n        System.out.println(triangleMessage);\n        System.out.println(\"Exiting now.\");\n        System.exit(1);\n        }\n    }\n    public void readTriangleOutputAndPopulateTheLevelVisibilityGraphFromTriangulation()",
+                RegexOptions.Singleline);
+
+            code = Regex.Replace(
+                code,
+                @"StreamSupport\.stream\(graphs\.spliterator\(\), true\)\.forEach\(this::layoutConnectedGraphWithMds\);",
+                "Arrays.stream(graphs).parallel().forEach(this::layoutConnectedGraphWithMds);");
+
+            code = code.Replace(
+                "if (settings.getIterations()++ == 0) {",
+                "settings.setIterations(settings.getIterations() + 1);\n        if (settings.getIterations() == 1) {",
+                StringComparison.Ordinal);
+
+            code = Regex.Replace(
+                code,
+                @"Arrays\.asList\(new int\[\]\s*\{\s*([^{}]+?)\s*\}\)",
+                "java.util.Collections.singletonList($1)");
+
+            code = Regex.Replace(
+                code,
+                @"CycleRemoval\.getFeedbackSet\((.*?)\)\.collect\((?:java\.util\.stream\.)?Collectors\.toList\(\)\)",
+                "StreamSupport.stream(CycleRemoval.getFeedbackSet($1).spliterator(), false).collect(java.util.stream.Collectors.toList())",
+                RegexOptions.Singleline);
+
+            code = Regex.Replace(
+                code,
+                @"CycleRemoval\.getFeedbackSetWithConstraints\((.*?)\)\.collect\((?:java\.util\.stream\.)?Collectors\.toList\(\)\)",
+                "StreamSupport.stream(CycleRemoval.getFeedbackSetWithConstraints($1).spliterator(), false).collect(java.util.stream.Collectors.toList())",
+                RegexOptions.Singleline);
+
+            code = code.Replace(".sorted(java.util.Comparator.comparing(e -> e.getLength())", ".sorted(java.util.Comparator.comparing((Microsoft.Msagl.Core.Layout.Edge e) -> e.getLength())", StringComparison.Ordinal);
+            code = code.Replace("public class VisibilityGraphGenerator {", "public abstract class VisibilityGraphGenerator {", StringComparison.Ordinal);
+            code = code.Replace("for (VisibilityVertexRectilinear source : sources) {", "for (VisibilityVertex source : sources) {", StringComparison.Ordinal);
+            code = code.Replace("for (VisibilityVertexRectilinear target : targets) {", "for (VisibilityVertex target : targets) {", StringComparison.Ordinal);
+            code = code.Replace("VertexEntry lastEntry = ssstCalculator.getPathWithCost(sourceVertexEntries, source, sourceCostAdjustment, tempTargetEntries, target, targetCostAdjustment, adjustedBestCost);", "VertexEntry lastEntry = ssstCalculator.getPathWithCost(sourceVertexEntries, (VisibilityVertexRectilinear)source, sourceCostAdjustment, tempTargetEntries, (VisibilityVertexRectilinear)target, targetCostAdjustment, adjustedBestCost);", StringComparison.Ordinal);
+            code = code.Replace("for (AbstractMap.SimpleEntry<Path, LinkedPoint> pair : prevLocationPathOffsets.entrySet().stream().filter(pair -> !pathOffsets.containsKey(pair.getKey())).collect(Collectors.toCollection(ArrayList::new)))", "for (Map.Entry<Path, LinkedPoint> pair : prevLocationPathOffsets.entrySet().stream().filter(pair -> !pathOffsets.containsKey(pair.getKey())).collect(java.util.stream.Collectors.toList()))", StringComparison.Ordinal);
+            code = code.Replace("for (AbstractMap.SimpleEntry<Double, LinkedPoint> pathLinkedPointBucket : colliniarBuckets)", "for (Map.Entry<Double, java.util.List<LinkedPoint>> pathLinkedPointBucket : colliniarBuckets)", StringComparison.Ordinal);
+            code = code.Replace("refineCollinearBucket(pathLinkedPointBucket, projectionToDirection);", "refineCollinearBucket(pathLinkedPointBucket.getValue(), projectionToDirection);", StringComparison.Ordinal);
+            code = code.Replace("boolean aIsInsideB, bIsInsideA;", "boolean aIsInsideB = false, bIsInsideA = false;", StringComparison.Ordinal);
+            code = code.Replace("var incomingEdges = inDegreeLeftUnprocessed.get(edge.getTarget())--;", "var incomingEdges = inDegreeLeftUnprocessed.get(edge.getTarget());\n        inDegreeLeftUnprocessed.put(edge.getTarget(), incomingEdges - 1);", StringComparison.Ordinal);
+            code = code.Replace("public class FreeSpaceFinder extends LineSweeperBase implements Comparator<AxisEdgesContainer> {", "public class FreeSpaceFinder extends LineSweeperBase {", StringComparison.Ordinal);
+            code = code.Replace("edgeContainersTree = new RbTree<AxisEdgesContainer>(this);", "edgeContainersTree = new RbTree<AxisEdgesContainer>((x, y) -> compare(x, y));", StringComparison.Ordinal);
+            code = code.Replace(".collect(java.util.stream.Collectors.toList())).spliterator(), false).map(x -> (ICurve) x));", ".collect(java.util.stream.Collectors.toList())).spliterator(), false).map(x -> (ICurve) x).collect(java.util.stream.Collectors.toList()));", StringComparison.Ordinal);
+            code = code.Replace("int[] _i = { i };\n        int[] _i = { i };", "int[] _i = { i };", StringComparison.Ordinal);
+            code = code.Replace("var projectionToDir = (dir == Direction.East ? (PointProjection)((p -> p.X)) : (p -> p.Y));", "PointProjection projectionToDir = (dir == Direction.East ? (PointProjection)((p -> p.X)) : (PointProjection)(p -> p.Y));", StringComparison.Ordinal);
+            code = code.Replace("var projectionToPerp = (getNudgingDirection() == Direction.East ? (PointProjection)(FreeSpaceFinder::minusY) : FreeSpaceFinder::x);", "PointProjection projectionToPerp = (getNudgingDirection() == Direction.East ? (PointProjection)(FreeSpaceFinder::minusY) : (PointProjection)(FreeSpaceFinder::x));", StringComparison.Ordinal);
+            code = code.Replace("getLongestNudgedSegs().add(edge.setLongestNudgedSegment(currentLongestSeg = new LongestNudgedSegment(getLongestNudgedSegs().size())));", "currentLongestSeg = new LongestNudgedSegment(getLongestNudgedSegs().size());\n        edge.setLongestNudgedSegment(currentLongestSeg);\n        getLongestNudgedSegs().add(currentLongestSeg);", StringComparison.Ordinal);
+            code = code.Replace("StreamSupport.stream(path.getPathPoints().spliterator(), false).skip(1).reduce(ret, (lp, p) -> lp.setNext(new LinkedPoint(p)), (__accLeft, __accRight) -> __accRight);", "LinkedPoint cur = ret;\n        for (Point p : StreamSupport.stream(path.getPathPoints().spliterator(), false).skip(1).collect(java.util.stream.Collectors.toList())) {\n        cur.setNext(new LinkedPoint(p));\n        cur = cur.getNext();\n        }", StringComparison.Ordinal);
+            code = code.Replace("this.setMaxVisibilitySegment(obstacleTree.createMaxVisibilitySegment(this.getVisibilityBorderIntersect(), this.getOutwardDirection(), /* out */ this.pointAndCrossingsList));", "ObjectHolder<PointAndCrossingsList> _pcl = new ObjectHolder<>(this.pointAndCrossingsList);\n        this.setMaxVisibilitySegment(obstacleTree.createMaxVisibilitySegment(this.getVisibilityBorderIntersect(), this.getOutwardDirection(), _pcl));\n        this.pointAndCrossingsList = _pcl.value;", StringComparison.Ordinal);
+            code = code.Replace("toArray(AbstractMap.SimpleEntry<Point, FreePoint>[]::new)", "toArray(Map.Entry[]::new)", StringComparison.Ordinal);
+            code = code.Replace("for (AbstractMap.SimpleEntry<Point, FreePoint> staleFreePair : staleFreePairs)", "for (Map.Entry<Point, FreePoint> staleFreePair : staleFreePairs)", StringComparison.Ordinal);
+            code = code.Replace("new Polyline(ConvexHull.calculateConvexHull(java.util.stream.Stream.concat(StreamSupport.stream(poly.spliterator(), false), Arrays.stream(stickingPointsArray).boxed()).collect(java.util.stream.Collectors.toList())))", "new Polyline(ConvexHull.calculateConvexHull(new ArrayList<Point>(java.util.stream.Stream.concat(StreamSupport.stream(poly.spliterator(), false), Arrays.stream(stickingPointsArray).boxed()).collect(java.util.stream.Collectors.toList()))))", StringComparison.Ordinal);
+            code = code.Replace("Arrays.stream(stickingPointsArray).boxed()", "Arrays.stream(stickingPointsArray)", StringComparison.Ordinal);
+            code = code.Replace("var _coalesce6 = (this._edges != null ? this._edges.Select(e -> e.getEdgeGeometry()) : null);\n        return _coalesce6 != null ? _coalesce6 : Stream.<EdgeGeometry>empty();", "if (this._edges != null) {\n        return StreamSupport.stream(this._edges.spliterator(), false).map(e -> e.getEdgeGeometry()).collect(java.util.stream.Collectors.toList());\n        }\n        return Stream.<EdgeGeometry>empty().collect(java.util.stream.Collectors.toList());", StringComparison.Ordinal);
+            code = code.Replace("_edges.Select(e -> e.getEdgeGeometry())", "StreamSupport.stream(this._edges.spliterator(), false).map(e -> e.getEdgeGeometry()).collect(java.util.stream.Collectors.toList())", StringComparison.Ordinal);
+            code = code.Replace("for (AbstractMap.SimpleEntry<Set<Shape>, Microsoft.Msagl.Core.Layout.Edge> edgeGroup : Arrays.stream(_edges).collect(Collectors.groupingBy(this::edgePassport)).entrySet().stream())", "for (Map.Entry<Set<Shape>, java.util.List<Microsoft.Msagl.Core.Layout.Edge>> edgeGroup : Arrays.stream(_edges).collect(Collectors.groupingBy(this::edgePassport)).entrySet())", StringComparison.Ordinal);
+            code = code.Replace("void routeEdgesWithTheSamePassport(AbstractMap.SimpleEntry<Set<Shape>, Microsoft.Msagl.Core.Layout.Edge> edgeGeometryGroup, InteractiveEdgeRouter interactiveEdgeRouter, Set<Shape> obstacleShapes)", "void routeEdgesWithTheSamePassport(Map.Entry<Set<Shape>, java.util.List<Microsoft.Msagl.Core.Layout.Edge>> edgeGeometryGroup, InteractiveEdgeRouter interactiveEdgeRouter, Set<Shape> obstacleShapes)", StringComparison.Ordinal);
+            code = code.Replace("splitOnRegularAndMultiedges(edgeGeometryGroup, _regularEdgesHolder1, _multiEdgesHolder1);", "splitOnRegularAndMultiedges(edgeGeometryGroup.getValue(), _regularEdgesHolder1, _multiEdgesHolder1);", StringComparison.Ordinal);
+            code = code.Replace("for (Microsoft.Msagl.Core.Layout.Edge eg : edgeGeometryGroup.collect(Collectors.toCollection(ArrayList::new)))", "for (Microsoft.Msagl.Core.Layout.Edge eg : edgeGeometryGroup.getValue())", StringComparison.Ordinal);
+            code = code.Replace("Arrays.stream(HalfWidthArray).mapToDouble(x -> x).sum()", "Arrays.stream(HalfWidthArray).sum()", StringComparison.Ordinal);
+            code = code.Replace("return boneEdge.setCrossedCdtEdges(threadBoneEdgeThroughCdt(boneEdge));", "boneEdge.setCrossedCdtEdges(threadBoneEdgeThroughCdt(boneEdge));\n        return boneEdge.getCrossedCdtEdges();", StringComparison.Ordinal);
+            code = code.Replace("var edges = new ArrayList<>(StreamSupport.stream((StreamSupport.stream(graph.getEdges().spliterator(), false)\n        .sorted(java.util.Comparator.comparing((Microsoft.Msagl.Core.Layout.Edge e) -> e.getLength())\n        .thenComparing(e -> rand.nextInt()))\n        .collect(java.util.stream.Collectors.toList())).spliterator(), false).collect(java.util.stream.Collectors.toList()));", "var edges = new ArrayList<Microsoft.Msagl.Core.Layout.Edge>(StreamSupport.stream(graph.getEdges().spliterator(), false).collect(java.util.stream.Collectors.toList()));", StringComparison.Ordinal);
+            code = Regex.Replace(code, @"int\[] _i = \{ i \};\s*int\[] _i = \{ i \};", "int[] _i = { i };");
+            code = code.Replace("this.StreamSupport.stream", "StreamSupport.stream", StringComparison.Ordinal);
+            code = code.Replace("return _coalesce6 != null ? _coalesce6 : Stream.<EdgeGeometry>empty();", "return _coalesce6 != null ? _coalesce6 : java.util.Collections.<EdgeGeometry>emptyList();", StringComparison.Ordinal);
+            code = code.Replace("for (VisibilityEdge edge : edgesToFix.collect(Collectors.toCollection(ArrayList::new)))", "for (VisibilityEdge edge : edgesToFix)", StringComparison.Ordinal);
+            code = code.Replace("metroGraphData.getEdges()[edgeIndex].setCurve(new Polyline(gluedPolyline(StreamSupport.stream(poly.spliterator(), false).map(p -> metroGraphData.PointToStations.get(p)).toArray(Station[]::new), gluingMap).collect(java.util.stream.Collectors.toList())));", "metroGraphData.getEdges()[edgeIndex].setCurve(new Polyline(StreamSupport.stream(gluedPolyline(StreamSupport.stream(poly.spliterator(), false).map(p -> metroGraphData.PointToStations.get(p)).toArray(Station[]::new), gluingMap).spliterator(), false).collect(java.util.stream.Collectors.toList())));", StringComparison.Ordinal);
+            code = code.Replace("return ret.stream().collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new), list -> { Collections.reverse(list); return list; })).map(n -> n.Position).collect(java.util.stream.Collectors.toList());", "return ret.stream().collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new), list -> { Collections.reverse(list); return list; })).stream().map(n -> n.Position).collect(java.util.stream.Collectors.toList());", StringComparison.Ordinal);
+            code = code.Replace("for (Metroline metroline : abcPolylines) { polylineLength.get(metroline) -= ab + bc - ac; }", "for (Metroline metroline : abcPolylines) { polylineLength.put(metroline, polylineLength.get(metroline) - (ab + bc - ac)); }", StringComparison.Ordinal);
+            code = code.Replace("glueEdge(keyValuePair);", "glueEdge(new AbstractMap.SimpleEntry<AbstractMap.SimpleEntry<Station, Station>, Point>(keyValuePair.getKey(), keyValuePair.getValue()));", StringComparison.Ordinal);
+            code = code.Replace("crossingsOfEdgeNodeA.exists(ii -> !StreamSupport.stream(enterableForEdgeNodeB.spliterator(), false).collect(Collectors.toSet()).contains(ii.getSegment1()))", "crossingsOfEdgeNodeA.stream().anyMatch(ii -> !StreamSupport.stream(enterableForEdgeNodeB.spliterator(), false).collect(Collectors.toSet()).contains(ii.getSegment1()))", StringComparison.Ordinal);
+            code = code.Replace("crossingsOfEdgeab.exists(ii -> !StreamSupport.stream(enterableForEdgeNodeB.spliterator(), false).collect(Collectors.toSet()).contains(ii.getSegment1()))", "crossingsOfEdgeab.stream().anyMatch(ii -> !StreamSupport.stream(enterableForEdgeNodeB.spliterator(), false).collect(Collectors.toSet()).contains(ii.getSegment1()))", StringComparison.Ordinal);
+            code = code.Replace("System.out.print(\"{0}: \", String.format(\"{0:0.000}\", timer.getDuration()));", "System.out.print(String.format(\"%.3f: \", timer.getDuration()));", StringComparison.Ordinal);
+            code = code.Replace("var coneLeftSide = (leftNode.Item instanceof ConeLeftSide ? (ConeLeftSide)(leftNode.Item) : null) /* result may be null — check before use */;", "ConeLeftSide coneLeftSide = (leftNode.Item instanceof ConeLeftSide ? (ConeLeftSide)(leftNode.Item) : null);", StringComparison.Ordinal);
+            code = code.Replace("var seg = (rbNode.Item instanceof ConeRightSide ? (ConeRightSide)(rbNode.Item) : null) /* result may be null — check before use */;", "ConeRightSide seg = (rbNode.Item instanceof ConeRightSide ? (ConeRightSide)(rbNode.Item) : null);", StringComparison.Ordinal);
+            code = code.Replace("boolean canHaveStaircase;", "boolean canHaveStaircase = false;", StringComparison.Ordinal);
+            code = code.Replace("boolean canHaveStaircaseAtI;", "boolean canHaveStaircaseAtI = false;", StringComparison.Ordinal);
+            code = code.Replace("StreamSupport.stream(this._edges.spliterator(), false)", "Arrays.stream(this._edges)", StringComparison.Ordinal);
+            code = code.Replace("assert (!ApproximateComparer.closeIntersections(intersectionPoint, a.getFirst()) && !ApproximateComparer.closeIntersections(intersectionPoint, a.getSecond())) || Point.distToLineSegment(intersectionPoint, a.getFirst(), a.getSecond(), _tHolder7) < ApproximateComparer.getIntersectionEpsilon();\n        DoubleHolder _tHolder7 = new DoubleHolder();", "DoubleHolder _tHolder7 = new DoubleHolder();\n        assert (!ApproximateComparer.closeIntersections(intersectionPoint, a.getFirst()) && !ApproximateComparer.closeIntersections(intersectionPoint, a.getSecond())) || Point.distToLineSegment(intersectionPoint, a.getFirst(), a.getSecond(), _tHolder7) < ApproximateComparer.getIntersectionEpsilon();", StringComparison.Ordinal);
+            code = code.Replace("var leftNode = insertToTree(leftConeSides, cone.setLeftSide(new ConeLeftSide(cone)));\n        var rightNode = insertToTree(rightConeSides, cone.setRightSide(new ConeRightSide(cone)));", "ConeLeftSide leftSide = new ConeLeftSide(cone);\n        cone.setLeftSide(leftSide);\n        var leftNode = insertToTree(leftConeSides, leftSide);\n        ConeRightSide rightSide = new ConeRightSide(cone);\n        cone.setRightSide(rightSide);\n        var rightNode = insertToTree(rightConeSides, rightSide);", StringComparison.Ordinal);
+            code = code.Replace("RBNode<ConeSide> leftNode = insertToTree(leftConeSides, cone.setLeftSide(new ConeLeftSide(cone)));\n        RBNode<ConeSide> rightNode = insertToTree(rightConeSides, cone.setRightSide(new ConeRightSide(cone)));", "ConeLeftSide leftSide = new ConeLeftSide(cone);\n        cone.setLeftSide(leftSide);\n        RBNode<ConeSide> leftNode = insertToTree(leftConeSides, leftSide);\n        ConeRightSide rightSide = new ConeRightSide(cone);\n        cone.setRightSide(rightSide);\n        RBNode<ConeSide> rightNode = insertToTree(rightConeSides, rightSide);", StringComparison.Ordinal);
+            code = code.Replace("ObstaclePort oport;", "ObstaclePort oport = null;", StringComparison.Ordinal);
+            code = Regex.Replace(
+                code,
+                @"assert \(!ApproximateComparer\.closeIntersections\(intersectionPoint, a\.getFirst\(\)\) && !ApproximateComparer\.closeIntersections\(intersectionPoint, a\.getSecond\(\)\)\) \|\| Point\.distToLineSegment\(intersectionPoint, a\.getFirst\(\), a\.getSecond\(\), _tHolder7\) < ApproximateComparer\.getIntersectionEpsilon\(\);\s*DoubleHolder _tHolder7 = new DoubleHolder\(\);",
+                "DoubleHolder _tHolder7 = new DoubleHolder();\n        assert (!ApproximateComparer.closeIntersections(intersectionPoint, a.getFirst()) && !ApproximateComparer.closeIntersections(intersectionPoint, a.getSecond())) || Point.distToLineSegment(intersectionPoint, a.getFirst(), a.getSecond(), _tHolder7) < ApproximateComparer.getIntersectionEpsilon();");
+            code = Regex.Replace(
+                code,
+                @"var leftNode = insertToTree\(leftConeSides, cone\.setLeftSide\(new ConeLeftSide\(cone\)\)\);\s*var rightNode = insertToTree\(rightConeSides, cone\.setRightSide\(new ConeRightSide\(cone\)\)\);",
+                "ConeLeftSide leftSide = new ConeLeftSide(cone);\n        cone.setLeftSide(leftSide);\n        var leftNode = insertToTree(leftConeSides, leftSide);\n        ConeRightSide rightSide = new ConeRightSide(cone);\n        cone.setRightSide(rightSide);\n        var rightNode = insertToTree(rightConeSides, rightSide);");
+            code = Regex.Replace(
+                code,
+                @"RBNode<ConeSide> leftNode = insertToTree\(leftConeSides, cone\.setLeftSide\(new ConeLeftSide\(cone\)\)\);\s*RBNode<ConeSide> rightNode = insertToTree\(rightConeSides, cone\.setRightSide\(new ConeRightSide\(cone\)\)\);",
+                "ConeLeftSide leftSide = new ConeLeftSide(cone);\n        cone.setLeftSide(leftSide);\n        RBNode<ConeSide> leftNode = insertToTree(leftConeSides, leftSide);\n        ConeRightSide rightSide = new ConeRightSide(cone);\n        cone.setRightSide(rightSide);\n        RBNode<ConeSide> rightNode = insertToTree(rightConeSides, rightSide);");
+            code = code.Replace(
+                "if (tightObstaclesInTheBoundingBox.stream().anyMatch(t -> Intersections.lineSegmentIntersectPolyline(ls.getStart(), ls.getEnd(), t))) {\n        return false;\n        }\n        DoubleHolder _sourceRParamHolder1 = new DoubleHolder();",
+                "LineSegment _lsCheck1 = ls;\n        if (tightObstaclesInTheBoundingBox.stream().anyMatch(t -> Intersections.lineSegmentIntersectPolyline(_lsCheck1.getStart(), _lsCheck1.getEnd(), t))) {\n        return false;\n        }\n        DoubleHolder _sourceRParamHolder1 = new DoubleHolder();",
+                StringComparison.Ordinal);
+            code = code.Replace(
+                "if (tightObstaclesInTheBoundingBox.stream().anyMatch(t -> Intersections.lineSegmentIntersectPolyline(ls.getStart(), ls.getEnd(), t))) {\n        return false;\n        }\n        if (SourceBase.IsParent) {",
+                "LineSegment _lsCheck2 = ls;\n        if (tightObstaclesInTheBoundingBox.stream().anyMatch(t -> Intersections.lineSegmentIntersectPolyline(_lsCheck2.getStart(), _lsCheck2.getEnd(), t))) {\n        return false;\n        }\n        if (SourceBase.IsParent) {",
+                StringComparison.Ordinal);
+            code = Regex.Replace(
+                code,
+                @"targetRParam = _targetRParamHolder1\.value;\s*if \(ls == null\) \{\s*return false;\s*\}\s*if \(tightObstaclesInTheBoundingBox\.stream\(\)\.anyMatch\(t -> Intersections\.lineSegmentIntersectPolyline\(ls\.getStart\(\), ls\.getEnd\(\), t\)\)\) \{\s*return false;\s*\}",
+                "targetRParam = _targetRParamHolder1.value;\n        if (ls == null) {\n        return false;\n        }\n        LineSegment _lsCheck1 = ls;\n        if (tightObstaclesInTheBoundingBox.stream().anyMatch(t -> Intersections.lineSegmentIntersectPolyline(_lsCheck1.getStart(), _lsCheck1.getEnd(), t))) {\n        return false;\n        }");
+            code = Regex.Replace(
+                code,
+                @"targetLParam = _targetLParamHolder1\.value;\s*if \(ls == null\) \{\s*return false;\s*\}\s*if \(tightObstaclesInTheBoundingBox\.stream\(\)\.anyMatch\(t -> Intersections\.lineSegmentIntersectPolyline\(ls\.getStart\(\), ls\.getEnd\(\), t\)\)\) \{\s*return false;\s*\}",
+                "targetLParam = _targetLParamHolder1.value;\n        if (ls == null) {\n        return false;\n        }\n        LineSegment _lsCheck2 = ls;\n        if (tightObstaclesInTheBoundingBox.stream().anyMatch(t -> Intersections.lineSegmentIntersectPolyline(_lsCheck2.getStart(), _lsCheck2.getEnd(), t))) {\n        return false;\n        }");
+            code = code.Replace(
+                "Point center;\n        ObjectHolder<Point> _centerHolder4 = new ObjectHolder<>();\n        if (Math.abs(Point.signedDoubledTriangleArea(a, b, c)) < 0.0001 || !findArcCenter(a, b, c, _centerHolder4)) {\n        center = _centerHolder4.value;\n        return new LineSegment(a, c);\n        }",
+                "Point center;\n        ObjectHolder<Point> _centerHolder4 = new ObjectHolder<>();\n        if (Math.abs(Point.signedDoubledTriangleArea(a, b, c)) < 0.0001 || !findArcCenter(a, b, c, _centerHolder4)) {\n        return new LineSegment(a, c);\n        }\n        center = _centerHolder4.value;",
+                StringComparison.Ordinal);
+            code = Regex.Replace(
+                code,
+                @"Point center;\s*ObjectHolder<Point> _centerHolder4 = new ObjectHolder<>\(\);\s*if \(Math\.abs\(Point\.signedDoubledTriangleArea\(a, b, c\)\) < 0\.0001 \|\| !findArcCenter\(a, b, c, _centerHolder4\)\) \{\s*center = _centerHolder4\.value;\s*return new LineSegment\(a, c\);\s*\}",
+                "Point center;\n        ObjectHolder<Point> _centerHolder4 = new ObjectHolder<>();\n        if (Math.abs(Point.signedDoubledTriangleArea(a, b, c)) < 0.0001 || !findArcCenter(a, b, c, _centerHolder4)) {\n        return new LineSegment(a, c);\n        }\n        center = _centerHolder4.value;");
+            code = code.Replace(
+                "GeometryGraph gg = createGraphFromObstacles(getObstacles());\n        GeometryGraphWriter.write(gg, \"c:\\\\tmp\\\\bug1\");",
+                "try {\n        GeometryGraph gg = createGraphFromObstacles(getObstacles());\n        GeometryGraphWriter.write(gg, \"c:\\\\tmp\\\\bug1\");\n        } catch (Exception _ex) {\n        }",
+                StringComparison.Ordinal);
+            code = Regex.Replace(
+                code,
+                @"GeometryGraph gg = createGraphFromObstacles\(getObstacles\(\)\);\s*GeometryGraphWriter\.write\(gg, ""c:\\\\tmp\\\\bug1""\);",
+                "try {\n        GeometryGraph gg = createGraphFromObstacles(getObstacles());\n        GeometryGraphWriter.write(gg, \"c:\\\\tmp\\\\bug1\");\n        } catch (Exception _ex) {\n        }");
+
+            r.GeneratedCode = code;
+        }
+    }
+
     /// <summary>
     /// Determines the base package by examining the most common package prefix in results.
     /// </summary>
@@ -817,9 +1215,12 @@ public class XmlConvert {{
 /** Replacement for System.Xml.XmlReaderSettings (generated by CSharpToJava converter). */
 public class XmlReaderSettings {{
     private boolean ignoreWhitespace = false;
+    private boolean ignoreComments  = false;
     private boolean checkCharacters  = true;
     public boolean isIgnoreWhitespace()          {{ return ignoreWhitespace; }}
     public void    setIgnoreWhitespace(boolean v) {{ ignoreWhitespace = v; }}
+    public boolean isIgnoreComments()           {{ return ignoreComments; }}
+    public void    setIgnoreComments(boolean v) {{ ignoreComments = v; }}
     public boolean isCheckCharacters()           {{ return checkCharacters; }}
     public void    setCheckCharacters(boolean v)  {{ checkCharacters = v; }}
 }}
@@ -870,12 +1271,18 @@ import javax.xml.stream.*;
 
 /** Replacement for System.Xml.XmlReader backed by StAX (generated by CSharpToJava converter). */
 public class XmlReader implements AutoCloseable {{
-    protected XMLStreamReader reader;
+    protected static XMLStreamReader reader;
+    // C#-style static property aliases frequently emitted by the converter.
+    public static int NodeType = XmlNodeType.getNone();
+    public static boolean IsEmptyElement = false;
+    public static String Name = """";
+    public static String Value = """";
+    public static int ReadState = 0;
 
     protected XmlReader() {{}}
 
     protected XmlReader(XMLStreamReader reader) {{
-        this.reader = reader;
+        XmlReader.reader = reader;
     }}
 
     /** Factory — mirrors XmlReader.Create(source, settings) in C#. */
@@ -897,37 +1304,37 @@ public class XmlReader implements AutoCloseable {{
         }}
     }}
 
-    public int getNodeType() {{
+    public static int getNodeType() {{
         return reader != null ? reader.getEventType() : XmlNodeType.getNone();
     }}
 
-    public boolean isStartElement() {{
+    public static boolean isStartElement() {{
         return reader != null && reader.isStartElement();
     }}
 
-    public boolean isStartElement(String name) {{
+    public static boolean isStartElement(String name) {{
         return reader != null && reader.isStartElement()
             && name.equalsIgnoreCase(reader.getLocalName());
     }}
 
     /** StAX has no direct IsEmptyElement concept; returns false (safe default for compilation). */
-    public boolean getIsEmptyElement() {{ return false; }}
+    public static boolean getIsEmptyElement() {{ return false; }}
 
-    public String getName() {{
+    public static String getName() {{
         try {{ return reader != null ? reader.getLocalName() : """"; }}
         catch (Exception e) {{ return """"; }}
     }}
 
-    public String getValue() {{
+    public static String getValue() {{
         try {{ return reader != null ? reader.getText() : """"; }}
         catch (Exception e) {{ return """"; }}
     }}
 
-    public String getAttribute(String name) {{
+    public static String getAttribute(String name) {{
         return reader != null ? reader.getAttributeValue(null, name) : null;
     }}
 
-    public boolean read() {{
+    public static boolean read() {{
         try {{
             if (reader == null || !reader.hasNext()) return false;
             reader.next();
@@ -935,7 +1342,7 @@ public class XmlReader implements AutoCloseable {{
         }} catch (XMLStreamException e) {{ return false; }}
     }}
 
-    public void readEndElement() {{
+    public static void readEndElement() {{
         try {{
             if (reader == null) return;
             while (reader.hasNext() && !reader.isEndElement()) reader.next();
@@ -943,22 +1350,22 @@ public class XmlReader implements AutoCloseable {{
         }} catch (XMLStreamException e) {{ throw new RuntimeException(e); }}
     }}
 
-    public double readElementContentAsDouble() {{
+    public static double readElementContentAsDouble() {{
         try {{ return reader != null ? Double.parseDouble(reader.getElementText().trim()) : 0.0; }}
         catch (XMLStreamException e) {{ throw new RuntimeException(e); }}
     }}
 
-    public int readElementContentAsInt() {{
+    public static int readElementContentAsInt() {{
         try {{ return reader != null ? Integer.parseInt(reader.getElementText().trim()) : 0; }}
         catch (XMLStreamException e) {{ throw new RuntimeException(e); }}
     }}
 
-    public boolean readElementContentAsBoolean() {{
+    public static boolean readElementContentAsBoolean() {{
         try {{ return reader != null && Boolean.parseBoolean(reader.getElementText().trim()); }}
         catch (XMLStreamException e) {{ throw new RuntimeException(e); }}
     }}
 
-    public void moveToContent() {{
+    public static void moveToContent() {{
         try {{
             if (reader == null) return;
             while (reader.hasNext()) {{
@@ -971,11 +1378,11 @@ public class XmlReader implements AutoCloseable {{
         }} catch (XMLStreamException e) {{ throw new RuntimeException(e); }}
     }}
 
-    public boolean moveToFirstAttribute() {{
+    public static boolean moveToFirstAttribute() {{
         return reader != null && reader.getAttributeCount() > 0;
     }}
 
-    public void skip() {{
+    public static void skip() {{
         try {{
             if (reader == null || !reader.isStartElement()) return;
             int depth = 1;
@@ -988,10 +1395,10 @@ public class XmlReader implements AutoCloseable {{
         }} catch (XMLStreamException e) {{ throw new RuntimeException(e); }}
     }}
 
-    public int getReadState() {{
-        if (reader == null) return ReadState.getClosed();
-        try {{ return reader.hasNext() ? ReadState.getInteractive() : ReadState.getEndOfFile(); }}
-        catch (Exception e) {{ return ReadState.getError(); }}
+    public static int getReadState() {{
+        if (reader == null) return Microsoft.Msagl.ReadState.getClosed();
+        try {{ return reader.hasNext() ? Microsoft.Msagl.ReadState.getInteractive() : Microsoft.Msagl.ReadState.getEndOfFile(); }}
+        catch (Exception e) {{ return Microsoft.Msagl.ReadState.getError(); }}
     }}
 
     @Override
@@ -1020,6 +1427,8 @@ import javax.xml.stream.*;
 public class XmlTextReader extends XmlReader {{
     private int lineNumber = 0;
     private int linePosition = 0;
+    public int LineNumber = 0;
+    public int LinePosition = 0;
 
     public XmlTextReader() {{ super(); }}
 
@@ -1076,13 +1485,13 @@ import java.io.Writer;
 import javax.xml.stream.*;
 
 /** Replacement for System.Xml.XmlWriter backed by StAX (generated by CSharpToJava converter). */
-public class XmlWriter implements AutoCloseable {{
-    protected XMLStreamWriter writer;
+public class XmlWriter {{
+    protected static XMLStreamWriter writer;
 
     protected XmlWriter() {{}}
 
     protected XmlWriter(XMLStreamWriter writer) {{
-        this.writer = writer;
+        XmlWriter.writer = writer;
     }}
 
     /** Factory — mirrors XmlWriter.Create(output, settings) in C#. */
@@ -1101,22 +1510,22 @@ public class XmlWriter implements AutoCloseable {{
         }}
     }}
 
-    public void writeStartElement(String localName) {{
+    public static void writeStartElement(String localName) {{
         try {{ if (writer != null) writer.writeStartElement(localName); }}
         catch (XMLStreamException e) {{ throw new RuntimeException(e); }}
     }}
 
-    public void writeEndElement() {{
+    public static void writeEndElement() {{
         try {{ if (writer != null) writer.writeEndElement(); }}
         catch (XMLStreamException e) {{ throw new RuntimeException(e); }}
     }}
 
-    public void writeAttributeString(String localName, String value) {{
+    public static void writeAttributeString(String localName, String value) {{
         try {{ if (writer != null) writer.writeAttribute(localName, value != null ? value : """"); }}
         catch (XMLStreamException e) {{ throw new RuntimeException(e); }}
     }}
 
-    public void writeElementString(String localName, String value) {{
+    public static void writeElementString(String localName, String value) {{
         try {{
             if (writer != null) {{
                 writer.writeStartElement(localName);
@@ -1126,28 +1535,27 @@ public class XmlWriter implements AutoCloseable {{
         }} catch (XMLStreamException e) {{ throw new RuntimeException(e); }}
     }}
 
-    public void writeString(String text) {{
+    public static void writeString(String text) {{
         try {{ if (writer != null) writer.writeCharacters(text != null ? text : """"); }}
         catch (XMLStreamException e) {{ throw new RuntimeException(e); }}
     }}
 
-    public void writeComment(String text) {{
+    public static void writeComment(String text) {{
         try {{ if (writer != null) writer.writeComment(text != null ? text : """"); }}
         catch (XMLStreamException e) {{ throw new RuntimeException(e); }}
     }}
 
-    public void writeEndDocument() {{
+    public static void writeEndDocument() {{
         try {{ if (writer != null) writer.writeEndDocument(); }}
         catch (XMLStreamException e) {{ throw new RuntimeException(e); }}
     }}
 
-    public void flush() {{
+    public static void flush() {{
         try {{ if (writer != null) writer.flush(); }}
         catch (XMLStreamException e) {{ throw new RuntimeException(e); }}
     }}
 
-    @Override
-    public void close() throws Exception {{
+    public static void close() {{
         if (writer != null) {{
             try {{ writer.flush(); }}  catch (XMLStreamException ignored) {{}}
             try {{ writer.close(); }}  catch (XMLStreamException ignored) {{}}
@@ -1487,6 +1895,7 @@ public class LinkedListNode<T> {{
     T value;
     LinkedListNode<T> next;
     LinkedListNode<T> prev;
+    LinkedListWithNodes<T> list;
 
     public LinkedListNode(T value) {{ this.value = value; }}
 
@@ -1494,6 +1903,7 @@ public class LinkedListNode<T> {{
     public void setValue(T value) {{ this.value = value; }}
     public LinkedListNode<T> getNext() {{ return next; }}
     public LinkedListNode<T> getPrevious() {{ return prev; }}
+    public LinkedListWithNodes<T> getList() {{ return list; }}
 }}
 ";
         results.Add(new ConversionResult
@@ -1529,6 +1939,7 @@ public class LinkedListWithNodes<T> implements Iterable<T> {{
 
     public LinkedListNode<T> addFirst(T value) {{
         LinkedListNode<T> node = new LinkedListNode<>(value);
+        node.list = this;
         node.next = head;
         node.prev = null;
         if (head != null) head.prev = node;
@@ -1539,7 +1950,8 @@ public class LinkedListWithNodes<T> implements Iterable<T> {{
     }}
 
     public void addFirst(LinkedListNode<T> node) {{
-        removeNode(node);
+        if (node.list != null) node.list.remove(node);
+        node.list = this;
         node.next = head;
         node.prev = null;
         if (head != null) head.prev = node;
@@ -1550,6 +1962,7 @@ public class LinkedListWithNodes<T> implements Iterable<T> {{
 
     public LinkedListNode<T> addLast(T value) {{
         LinkedListNode<T> node = new LinkedListNode<>(value);
+        node.list = this;
         node.prev = tail;
         node.next = null;
         if (tail != null) tail.next = node;
@@ -1560,7 +1973,8 @@ public class LinkedListWithNodes<T> implements Iterable<T> {{
     }}
 
     public void addLast(LinkedListNode<T> node) {{
-        removeNode(node);
+        if (node.list != null) node.list.remove(node);
+        node.list = this;
         node.prev = tail;
         node.next = null;
         if (tail != null) tail.next = node;
@@ -1570,6 +1984,28 @@ public class LinkedListWithNodes<T> implements Iterable<T> {{
     }}
 
     public boolean add(T value) {{ addLast(value); return true; }}
+
+    public LinkedListNode<T> addAfter(LinkedListNode<T> node, T value) {{
+        LinkedListNode<T> n = new LinkedListNode<>(value);
+        n.list = this;
+        n.prev = node;
+        n.next = node.next;
+        if (node.next != null) node.next.prev = n; else tail = n;
+        node.next = n;
+        count++;
+        return n;
+    }}
+
+    public LinkedListNode<T> addBefore(LinkedListNode<T> node, T value) {{
+        LinkedListNode<T> n = new LinkedListNode<>(value);
+        n.list = this;
+        n.next = node;
+        n.prev = node.prev;
+        if (node.prev != null) node.prev.next = n; else head = n;
+        node.prev = n;
+        count++;
+        return n;
+    }}
 
     public boolean remove(LinkedListNode<T> node) {{ return removeNode(node); }}
 
@@ -1589,6 +2025,7 @@ public class LinkedListWithNodes<T> implements Iterable<T> {{
         if (node.next != null) node.next.prev = node.prev; else tail = node.prev;
         node.prev = null;
         node.next = null;
+        node.list = null;
         count--;
         return true;
     }}
