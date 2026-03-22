@@ -2,6 +2,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
+using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression.Utilities;
@@ -37,6 +38,8 @@ public class EnumTransformer : ITypeTransformer
                 Name = enumDecl.Identifier.Text,
                 Modifiers = ConvertModifiers(enumDecl.Modifiers)
             };
+            var flagsSymbol = context.SemanticModel?.GetDeclaredSymbol(enumDecl);
+            flagsClass.LeadingComment = context.GetDeclarationComments(enumDecl, flagsSymbol).ToCombinedComment();
 
             // Register in context so that type references to this enum return "int"
             // Register both short name and fully-qualified name to cover cross-namespace references
@@ -132,6 +135,8 @@ public class EnumTransformer : ITypeTransformer
             Name = enumDecl.Identifier.Text,
             Modifiers = ConvertModifiers(enumDecl.Modifiers)
         };
+        var enumSymbol = context.SemanticModel?.GetDeclaredSymbol(enumDecl);
+        javaEnum.LeadingComment = context.GetDeclarationComments(enumDecl, enumSymbol).ToCombinedComment();
 
         // Check if any member has an explicit value initializer
         bool hasExplicitValues = enumDecl.Members.OfType<EnumMemberDeclarationSyntax>()

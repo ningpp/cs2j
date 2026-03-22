@@ -2,6 +2,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
+using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 
@@ -24,6 +25,9 @@ public class InterfaceTransformer : ITypeTransformer
             Name = interfaceDecl.Identifier.Text,
             Modifiers = ConvertModifiers(interfaceDecl.Modifiers)
         };
+
+        var interfaceSymbol = context.SemanticModel?.GetDeclaredSymbol(interfaceDecl);
+        javaInterface.LeadingComment = context.GetDeclarationComments(interfaceDecl, interfaceSymbol).ToCombinedComment();
 
         // 处理基接口
         if (interfaceDecl.BaseList != null)

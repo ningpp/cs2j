@@ -2,6 +2,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.PartialType;
 using CSharpToJava.Core.Transformers;
 using System.Text;
@@ -93,6 +94,11 @@ public class ConversionContext
     public SemanticModel? SemanticModel { get; set; }
     public TypeMapping.TypeMappingRegistry TypeMappings { get; }
     public DiagnosticCollector Diagnostics { get; } = new();
+
+    internal ConvertedCommentSet GetDeclarationComments(SyntaxNode node, ISymbol? symbol = null)
+    {
+        return CommentConversion.ExtractDeclarationComments(node, symbol, this);
+    }
 
     /// <summary>
     /// 当前命名空间

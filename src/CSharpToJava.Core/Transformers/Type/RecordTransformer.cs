@@ -2,6 +2,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
+using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression;
@@ -50,6 +51,8 @@ public class RecordTransformer : ITypeTransformer
             IsRecord = true,
             Modifiers = ConvertModifiers(recordDecl.Modifiers)
         };
+        var recordSymbol = context.SemanticModel?.GetDeclaredSymbol(recordDecl);
+        javaRecord.LeadingComment = context.GetDeclarationComments(recordDecl, recordSymbol).ToCombinedComment();
 
         // Fix 1: Populate positional record component list so Java record header includes (Type name, ...)
         var positionalNames = new HashSet<string>(StringComparer.Ordinal);
@@ -100,6 +103,8 @@ public class RecordTransformer : ITypeTransformer
             Name = recordDecl.Identifier.Text,
             Modifiers = ConvertModifiers(recordDecl.Modifiers) | JavaModifiers.Final
         };
+        var recordSymbol = context.SemanticModel?.GetDeclaredSymbol(recordDecl);
+        javaClass.LeadingComment = context.GetDeclarationComments(recordDecl, recordSymbol).ToCombinedComment();
 
         // 为每个位置参数创建字段和构造函数
         var fields = new List<JavaFieldDeclaration>();
@@ -374,6 +379,8 @@ public class RecordTransformer : ITypeTransformer
             Name = recordDecl.Identifier.Text,
             Modifiers = ConvertModifiers(recordDecl.Modifiers)
         };
+        var recordSymbol = context.SemanticModel?.GetDeclaredSymbol(recordDecl);
+        javaClass.LeadingComment = context.GetDeclarationComments(recordDecl, recordSymbol).ToCombinedComment();
 
         var constructorParams = new List<JavaParameter>();
 

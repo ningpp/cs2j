@@ -21,11 +21,7 @@ public class JavaFieldDeclaration : JavaSyntaxNode
     {
         var sb = new StringBuilder();
 
-        if (!string.IsNullOrEmpty(LeadingComment))
-        {
-            sb.AppendLine($"// {LeadingComment}");
-            sb.Append(indentation);
-        }
+        JavaCommentEmitter.AppendLeadingComment(sb, indentation, LeadingComment);
 
         foreach (var annotation in Annotations)
         {
@@ -77,10 +73,7 @@ public class JavaMethodDeclaration : JavaSyntaxNode
     {
         var sb = new StringBuilder();
 
-        if (!string.IsNullOrEmpty(LeadingComment))
-        {
-            sb.AppendLine($"{indentation}{LeadingComment}");
-        }
+        JavaCommentEmitter.AppendLeadingComment(sb, indentation, LeadingComment);
 
         foreach (var annotation in Annotations)
         {
@@ -162,6 +155,7 @@ public class JavaConstructorDeclaration : JavaSyntaxNode
     public List<JavaParameter> Parameters { get; } = new();
     public List<string> ThrownExceptions { get; } = new();
     public string? Body { get; set; }
+    public string? LeadingComment { get; set; }
     /// <summary>
     /// Optional super/this constructor call emitted as the first statement in the body.
     /// e.g. "super(a, b)" or "this(x)".
@@ -171,6 +165,8 @@ public class JavaConstructorDeclaration : JavaSyntaxNode
     public override string ToString(string indentation)
     {
         var sb = new StringBuilder();
+
+        JavaCommentEmitter.AppendLeadingComment(sb, indentation, LeadingComment);
 
         foreach (var annotation in Annotations)
         {

@@ -2,6 +2,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
+using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.PartialType;
@@ -203,6 +204,9 @@ public class ClassTransformer : ITypeTransformer
             Name = GetJavaClassName(classDecl),
             Modifiers = ConvertModifiers(classDecl.Modifiers, context),
         };
+
+        var classSymbol = context.SemanticModel?.GetDeclaredSymbol(classDecl);
+        javaClass.LeadingComment = context.GetDeclarationComments(classDecl, classSymbol).ToCombinedComment();
 
         // Pre-scan members to determine if the class provides its own ICollection<T> implementation.
         // Only substitute ICollection→Iterable when the class does NOT declare ICollection members,

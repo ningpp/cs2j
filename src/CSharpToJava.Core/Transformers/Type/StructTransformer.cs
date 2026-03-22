@@ -2,6 +2,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
+using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 
@@ -29,6 +30,8 @@ public class StructTransformer : ITypeTransformer
             Name = structDecl.Identifier.Text,
             Modifiers = ConvertModifiers(structDecl.Modifiers)
         };
+        var structSymbol = context.SemanticModel?.GetDeclaredSymbol(structDecl);
+        var convertedComments = context.GetDeclarationComments(structDecl, structSymbol).ToCombinedComment();
 
         // Fix 3: ref struct — emit a leading comment since Java has no stack-only equivalent.
         var leadingCommentLines = new List<string>();
@@ -43,7 +46,7 @@ public class StructTransformer : ITypeTransformer
         leadingCommentLines.Add(" * the value; in Java, assignment copies the reference.");
         leadingCommentLines.Add(" * Use {@link #clone()} to manually copy instances when value semantics are required.");
         leadingCommentLines.Add(" */");
-        javaClass.LeadingComment = string.Join("\n", leadingCommentLines);
+        javaClass.LeadingComment = ConvertedCommentSet.JoinComments(convertedComments, string.Join("\n", leadingCommentLines));
 
         // 处理类型参数
         foreach (var typeParam in structDecl.TypeParameterList?.Parameters ?? Enumerable.Empty<TypeParameterSyntax>())

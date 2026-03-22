@@ -2,6 +2,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
+using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression;
@@ -37,7 +38,8 @@ public class ConstructorTransformer : IMemberTransformer
         var javaCtor = new JavaConstructorDeclaration
         {
             ClassName = className,
-            Modifiers = ConvertModifiers(ctorDecl.Modifiers)
+            Modifiers = ConvertModifiers(ctorDecl.Modifiers),
+            LeadingComment = context.GetDeclarationComments(ctorDecl, context.SemanticModel?.GetDeclaredSymbol(ctorDecl)).ToCombinedComment()
         };
 
         // 处理参数

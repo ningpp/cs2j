@@ -2,6 +2,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
+using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Type;
@@ -26,7 +27,7 @@ public class MethodTransformer : IMemberTransformer
         if (isPartialDeclaration)
             return null!;
 
-        var methodInfo = context.SemanticModel?.GetSymbolInfo(methodDecl).Symbol as IMethodSymbol;
+        var methodInfo = context.SemanticModel?.GetDeclaredSymbol(methodDecl);
         context.EnterMethod(methodInfo);
 
         var javaMethod = new JavaMethodDeclaration
@@ -35,6 +36,7 @@ public class MethodTransformer : IMemberTransformer
             Modifiers = ConvertModifiers(methodDecl.Modifiers),
             ReturnType = GetReturnType(methodDecl, context)
         };
+        javaMethod.LeadingComment = context.GetDeclarationComments(methodDecl, methodInfo).ToCombinedComment();
 
         // Explicit interface implementations (e.g., ICurve ICurve.Clone()) have no access modifier in C#,
         // but interface implementations in Java MUST be public.
@@ -224,6 +226,7 @@ public class MethodTransformer : IMemberTransformer
                     Name = javaMethod.Name,
                     Modifiers = javaMethod.Modifiers,
                     ReturnType = javaMethod.ReturnType,
+                    LeadingComment = javaMethod.LeadingComment,
                 };
                 foreach (var tp in javaMethod.TypeParameters) overload.TypeParameters.Add(tp);
                 foreach (var p2 in javaMethod.Parameters.Take(cutAt)) overload.Parameters.Add(p2);

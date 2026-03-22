@@ -2,6 +2,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
+using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using System.Collections.Generic;
@@ -29,6 +30,8 @@ public class PropertyTransformer : IMemberTransformer
         var fieldName = ConversionContext.EscapeJavaKeyword(ToCamelCase(propName));
         var isStatic = propDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword));
         var modifiers = ConvertModifiers(propDecl.Modifiers, isStatic);
+        var propertySymbol = context.SemanticModel?.GetDeclaredSymbol(propDecl);
+        var propertyComments = context.GetDeclarationComments(propDecl, propertySymbol).ToCombinedComment();
 
         // 判断是否有显式实现
         var hasGetter = propDecl.AccessorList != null &&
@@ -109,6 +112,7 @@ public class PropertyTransformer : IMemberTransformer
                 Name = "get" + ToPascalCase(propName),
                 ReturnType = propType,
                 Modifiers = getterModifiers,
+                LeadingComment = propertyComments,
                 Body = getAccessor?.ExpressionBody != null
                     ? Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(getAccessor.ExpressionBody.Expression, context)
                     : $"return {fieldName};",
@@ -170,6 +174,7 @@ public class PropertyTransformer : IMemberTransformer
                 Name = "set" + ToPascalCase(propName),
                 ReturnType = "void",
                 Modifiers = setterModifiers,
+                LeadingComment = hasGetter ? null : propertyComments,
                 Parameters = { new JavaParameter(propType, "value") },
                 Body = setAccessor?.ExpressionBody != null
                     ? Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(setAccessor.ExpressionBody.Expression, context)
@@ -188,7 +193,7 @@ public class PropertyTransformer : IMemberTransformer
             // Detect C# 9 init-only setter and annotate the generated Java setter
             bool isInitSetter = setAccessor?.IsKind(SyntaxKind.InitAccessorDeclaration) == true;
             if (isInitSetter)
-                setter.LeadingComment = "/** @implNote Set during construction only (C# init accessor). */";
+                setter.LeadingComment = ConvertedCommentSet.JoinComments(setter.LeadingComment, "/** @implNote Set during construction only (C# init accessor). */");
 
             results.Add(setter);
         }

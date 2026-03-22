@@ -2,6 +2,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
+using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression;
@@ -36,6 +37,11 @@ public class FieldTransformer : IMemberTransformer
             ? context.MapType(typeInfo.Value.Type)
             : context.MapTypeFromSyntax(fieldDecl.Declaration.Type);
         var modifiers = ConvertModifiers(fieldDecl.Modifiers);
+        var firstVariable = fieldDecl.Declaration.Variables.FirstOrDefault();
+        var fieldSymbol = firstVariable != null
+            ? context.SemanticModel?.GetDeclaredSymbol(firstVariable)
+            : null;
+        var sharedComment = context.GetDeclarationComments(fieldDecl, fieldSymbol).ToCombinedComment();
 
         // Handle const/readonly modifiers
         if (fieldDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.ConstKeyword)))
@@ -52,6 +58,7 @@ public class FieldTransformer : IMemberTransformer
         // so we can warn when a subsequent initializer cross-references a prior variable.
         var declaredNames = new HashSet<string>();
 
+        bool commentAssigned = false;
         foreach (var variable in fieldDecl.Declaration.Variables)
         {
             var javaField = new JavaFieldDeclaration
@@ -60,6 +67,11 @@ public class FieldTransformer : IMemberTransformer
                 Name = ConversionContext.EscapeJavaKeyword(variable.Identifier.Text),
                 Modifiers = modifiers
             };
+            if (!commentAssigned)
+            {
+                javaField.LeadingComment = sharedComment;
+                commentAssigned = !string.IsNullOrWhiteSpace(sharedComment);
+            }
 
             // Issue 4: warn when this initializer references an earlier variable in the same declaration.
             if (declaredNames.Count > 0 && variable.Initializer != null)
@@ -69,7 +81,7 @@ public class FieldTransformer : IMemberTransformer
                     .OfType<IdentifierNameSyntax>()
                     .Any(id => declaredNames.Contains(id.Identifier.Text));
                 if (crossRef)
-                    javaField.LeadingComment = "NOTE: Initializer order may differ from C# instance field semantics.";
+                    javaField.LeadingComment = ConvertedCommentSet.JoinComments(javaField.LeadingComment, "// NOTE: Initializer order may differ from C# instance field semantics.");
             }
             declaredNames.Add(variable.Identifier.Text);
 
@@ -119,7 +131,7 @@ public class FieldTransformer : IMemberTransformer
 
             // Issue 5: suggest AtomicReference for volatile fields of non-primitive types.
             if (isVolatile && !isJavaPrimitive)
-                javaField.LeadingComment = "Consider replacing with AtomicReference<T> for idiomatic Java concurrency.";
+                javaField.LeadingComment = ConvertedCommentSet.JoinComments(javaField.LeadingComment, "// Consider replacing with AtomicReference<T> for idiomatic Java concurrency.");
 
             yield return javaField;
         }

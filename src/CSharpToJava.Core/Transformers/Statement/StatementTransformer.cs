@@ -2,6 +2,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
+using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression;
@@ -68,7 +69,7 @@ public class StatementTransformer : IStatementTransformer
                         !memberText.TrimStart().StartsWith("#") &&
                         !memberText.TrimStart().StartsWith("/* TODO: UncheckedStatement"))
                     {
-                        results.Add(memberText);
+                        results.Add(AttachStatementComments(statement, memberText));
                     }
                 }
             }
@@ -80,12 +81,31 @@ public class StatementTransformer : IStatementTransformer
                     !stmtText.TrimStart().StartsWith("#") &&
                     !stmtText.TrimStart().StartsWith("/* TODO: UncheckedStatement"))
                 {
-                    results.Add(stmtText);
+                    results.Add(AttachStatementComments(statement, stmtText));
                 }
             }
         }
 
         return results;
+    }
+
+    private static string AttachStatementComments(StatementSyntax statement, string statementText)
+    {
+        var leadingComments = CommentConversion.ExtractStatementLeadingComments(statement);
+        var trailingComments = CommentConversion.ExtractStatementTrailingComments(statement);
+        var result = statementText;
+
+        if (!string.IsNullOrWhiteSpace(leadingComments))
+            result = leadingComments + "\n" + result;
+
+        if (!string.IsNullOrWhiteSpace(trailingComments))
+        {
+            result = trailingComments.Contains('\n')
+                ? result + "\n" + trailingComments
+                : result + " " + trailingComments;
+        }
+
+        return result;
     }
 
     private JavaSyntaxNode TransformExpressionStatement(ExpressionStatementSyntax stmt, ConversionContext context)

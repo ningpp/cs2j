@@ -99,13 +99,7 @@ public class JavaClassDeclaration : JavaTypeDeclaration
         var sb = new StringBuilder();
         var innerIndentation = indentation + "    ";
 
-        if (!string.IsNullOrEmpty(LeadingComment))
-        {
-            foreach (var commentLine in LeadingComment.Split('\n'))
-            {
-                sb.Append(indentation).AppendLine(commentLine.TrimEnd('\r'));
-            }
-        }
+        JavaCommentEmitter.AppendLeadingComment(sb, indentation, LeadingComment);
 
         WriteAnnotations(sb);
         WriteModifiers(sb);
@@ -217,6 +211,8 @@ public class JavaInterfaceDeclaration : JavaTypeDeclaration
         var sb = new StringBuilder();
         var innerIndentation = indentation + "    ";
 
+        JavaCommentEmitter.AppendLeadingComment(sb, indentation, LeadingComment);
+
         WriteAnnotations(sb);
         WriteModifiers(sb);
         sb.Append("interface ");
@@ -270,6 +266,8 @@ public class JavaEnumDeclaration : JavaTypeDeclaration
     {
         var sb = new StringBuilder();
         var innerIndentation = indentation + "    ";
+
+        JavaCommentEmitter.AppendLeadingComment(sb, indentation, LeadingComment);
 
         WriteAnnotations(sb);
         WriteModifiers(sb);
