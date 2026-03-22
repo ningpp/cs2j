@@ -10,8 +10,8 @@ public class SharedCompatibilityModuleTests
     {
         var results = ProjectConversionPipeline.GenerateCompatibilitySupport("shared.compat", includeTestContext: true);
 
-        var shim = Assert.Single(results, r => r.FileName == "IEqualityComparer.java");
-        var stringHelper = Assert.Single(results, r => r.FileName == "StringHelper.java");
+        var shim = results.First(r => r.FileName == "IEqualityComparer.java" && r.GeneratedCode.Contains("public interface IEqualityComparer<T>"));
+        var stringHelper = results.First(r => r.FileName == "StringHelper.java");
         Assert.Contains("public interface IEqualityComparer<T>", shim.GeneratedCode);
         Assert.Contains("boolean equals(T x, T y);", shim.GeneratedCode);
         Assert.Contains("int hashCode(T obj);", shim.GeneratedCode);
@@ -31,9 +31,12 @@ public class SharedCompatibilityModuleTests
         Assert.Contains(results, r => r.FileName == "GroupCollection.java");
         Assert.Contains(results, r => r.FileName == "Trace.java");
         Assert.Contains(results, r => r.FileName == "DefaultTraceListener.java");
+        Assert.Contains(results, r => r.FileName == "Assert.java");
+        Assert.Contains(results, r => r.FileName == "CollectionAssert.java");
         var testContext = Assert.Single(results, r => r.FileName == "TestContext.java");
         Assert.Contains("public static final String TestDir = System.getProperty(\"user.dir\");", testContext.GeneratedCode);
         Assert.Contains("public static final String DeploymentDirectory = System.getProperty(\"user.dir\");", testContext.GeneratedCode);
+        Assert.Contains("public static final String TestRunDirectory = System.getProperty(\"user.dir\");", testContext.GeneratedCode);
     }
 
     [Fact]

@@ -26,4 +26,23 @@ public class StringConcatConversionTests
         Assert.Contains("StringHelper.concat(values)", result.GeneratedCode);
         Assert.DoesNotContain("String.concat(values)", result.GeneratedCode);
     }
+
+    [Fact]
+    public void CompatibilityRewrites_RewritesResidualStaticStringConcatCalls()
+    {
+        const string generated = """
+            package Demo;
+
+            public class C {
+                public String joinAll(String... values) {
+                    return String.Concat(values);
+                }
+            }
+            """;
+
+        var output = ProjectConversionPipeline.ApplyCompatibilityRewritesForTesting("C.java", generated);
+
+        Assert.Contains("StringHelper.concat(values)", output);
+        Assert.DoesNotContain("String.Concat(values)", output);
+    }
 }

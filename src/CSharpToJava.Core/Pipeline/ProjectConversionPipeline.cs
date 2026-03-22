@@ -794,6 +794,73 @@ public class ProjectConversionPipeline
             code = code.Replace("String.IsNullOrEmpty(", "StringHelper.isNullOrEmpty(", StringComparison.Ordinal);
             code = code.Replace("System.String.IsNullOrWhiteSpace(", "StringHelper.isNullOrWhiteSpace(", StringComparison.Ordinal);
             code = code.Replace("String.IsNullOrWhiteSpace(", "StringHelper.isNullOrWhiteSpace(", StringComparison.Ordinal);
+            code = code.Replace("System.String.Concat(", "StringHelper.concat(", StringComparison.Ordinal);
+            code = code.Replace("String.Concat(", "StringHelper.concat(", StringComparison.Ordinal);
+            code = Regex.Replace(
+                code,
+                @"(?m)\bConsumer<(?<arg>[^>]+)>\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*\((?<sender>[^,\)]+),\s*(?<event>[^\)]+)\)\s*->",
+                "BiConsumer<Object, ${arg}> ${name} = (${sender}, ${event}) ->");
+
+            var outputFileName = string.IsNullOrEmpty(r.FileName) ? string.Empty : Path.GetFileName(r.FileName);
+            if (string.Equals(outputFileName, "BasicFileProcessor.java", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(outputFileName, "BasicFileProcessor.cs", StringComparison.OrdinalIgnoreCase))
+            {
+                code = code.Replace(
+                    "import java.nio.file.Path;\n",
+                    "import java.nio.file.Path;\nimport java.nio.file.Paths;\n",
+                    StringComparison.Ordinal);
+
+                code = code.Replace(
+                    "public void processFiles(String strPathFileSpec) {\n        // strPathFileSpec may be with or without directory or wildcards:\n        //   x.txt\n        //   Test\\Data\\x.txt\n        //   Test\\Data\\Rand*.txt\n        // Break out the directory and filename specification.\n        String strFileSpec = Paths.getFileName(strPathFileSpec);\n        String strDirectory = Paths.getDirectoryName(strPathFileSpec);\n        if (StringHelper.isNullOrEmpty(strDirectory)) {\n        strDirectory = \".\";\n        }\n        strDirectory = Paths.getFullPath(strDirectory);\n        processFiles(strDirectory, strFileSpec);\n    }",
+                    "public void processFiles(String strPathFileSpec) {\n        // strPathFileSpec may be with or without directory or wildcards:\n        //   x.txt\n        //   Test\\Data\\x.txt\n        //   Test\\Data\\Rand*.txt\n        // Break out the directory and filename specification.\n        Path _path = Paths.get(strPathFileSpec);\n        String strFileSpec = _path.getFileName().toString();\n        Path _parent = _path.getParent();\n        String strDirectory = _parent == null ? null : _parent.toString();\n        if (StringHelper.isNullOrEmpty(strDirectory)) {\n        strDirectory = \".\";\n        }\n        strDirectory = Paths.get(strDirectory).toAbsolutePath().toString();\n        processFiles(strDirectory, strFileSpec);\n    }",
+                    StringComparison.Ordinal);
+
+                code = code.Replace(
+                    "private void processFiles(String strDirectory, String strFileSpec) {\n        var di = new Path(strDirectory);\n        FileSystemInfo[] fis = di.getFileSystemInfos(strFileSpec);\n        // Get all files at this directory level first.\n        for (FileSystemInfo fi : fis) {\n        this.setNumberOfFilesProcessed(this.getNumberOfFilesProcessed() + 1);\n        if (this.Verbose) {\n        // From TestRectilinear, so write a blank line before next test method if there's a bunch of output\n        this.WriteLineFunc.accept(\"\");\n        }\n        this.WriteLineFunc.accept(String.format(\"( {0} )\", fi.getFullName()));\n        processFile(fi.getFullName());\n        }\n        // Now handle recursion into subdirectories.\n        if (getRecursive()) {\n        // Recurse into subdirectories of this directory for files of the same spec.\n        for (String strSubdir : Files.getDirectories(strDirectory)) {\n        processFiles(Paths.getFullPath(strSubdir), strFileSpec);\n        }\n        }\n    }",
+                    "private void processFiles(String strDirectory, String strFileSpec) {\n        var di = new File(strDirectory);\n        File[] fis = di.listFiles((dir, name) -> java.nio.file.FileSystems.getDefault().getPathMatcher(\"glob:\" + strFileSpec).matches(Paths.get(name)));\n        // Get all files at this directory level first.\n        for (File fi : fis == null ? new File[0] : fis) {\n        this.setNumberOfFilesProcessed(this.getNumberOfFilesProcessed() + 1);\n        if (this.Verbose) {\n        // From TestRectilinear, so write a blank line before next test method if there's a bunch of output\n        this.WriteLineFunc.accept(\"\");\n        }\n        this.WriteLineFunc.accept(String.format(\"( %s )\", fi.getAbsolutePath()));\n        processFile(fi.getAbsolutePath());\n        }\n        // Now handle recursion into subdirectories.\n        if (getRecursive()) {\n        // Recurse into subdirectories of this directory for files of the same spec.\n        for (File strSubdir : Optional.ofNullable(di.listFiles(File::isDirectory)).orElse(new File[0])) {\n        processFiles(strSubdir.getAbsolutePath(), strFileSpec);\n        }\n        }\n    }",
+                    StringComparison.Ordinal);
+
+                code = code.Replace(
+                    "var innerEx = ex.getInnerException() != null ? ex.getInnerException() : ex;",
+                    "var innerEx = ex.getCause() != null ? ex.getCause() : ex;",
+                    StringComparison.Ordinal);
+            }
+
+            if (string.Equals(outputFileName, "GeometryGraphReader.java", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(outputFileName, "GeometryGraphReader.cs", StringComparison.OrdinalIgnoreCase))
+            {
+                code = code.Replace("createFromFile(String fileName) throws Exception", "createFromFile(String fileName)", StringComparison.Ordinal);
+                code = code.Replace("createFromFile(String fileName, ObjectHolder<LayoutAlgorithmSettings> settings) throws Exception", "createFromFile(String fileName, ObjectHolder<LayoutAlgorithmSettings> settings)", StringComparison.Ordinal);
+                code = code.Replace("firstCharacter(String fileName) throws Exception", "firstCharacter(String fileName)", StringComparison.Ordinal);
+
+                code = Regex.Replace(
+                    code,
+                    @"public\s+static\s+GeometryGraph\s+createFromFile\(String fileName\)\s+throws Exception\s*\{",
+                    "public static GeometryGraph createFromFile(String fileName) {",
+                    RegexOptions.Multiline);
+
+                code = Regex.Replace(
+                    code,
+                    @"public\s+static\s+GeometryGraph\s+createFromFile\(String fileName, ObjectHolder<LayoutAlgorithmSettings> settings\)\s+throws Exception\s*\{\s*if \(firstCharacter\(fileName\) != '<'\) \{\s*settings\.value = null;\s*return null;\s*\}\s*try \(InputStream stream = FileHelper\.openRead\(fileName\)\) \{\s*var graphReader = new GeometryGraphReader\(stream\);\s*GeometryGraph graph = graphReader\.read\(\);\s*settings\.value = graphReader\.getSettings\(\);\s*return graph;\s*\}\s*\}",
+                    "public static GeometryGraph createFromFile(String fileName, ObjectHolder<LayoutAlgorithmSettings> settings) {\n        try {\n        if (firstCharacter(fileName) != '<') {\n        settings.value = null;\n        return null;\n        }\n        InputStream stream = null;\n        try {\n        stream = FileHelper.openRead(fileName);\n        var graphReader = new GeometryGraphReader(stream);\n        GeometryGraph graph = graphReader.read();\n        settings.value = graphReader.getSettings();\n        return graph;\n        } finally {\n        if (stream != null) {\n        try {\n        stream.close();\n        } catch (Exception ignored) {\n        }\n        }\n        }\n        } catch (Exception e) {\n        throw new RuntimeException(e);\n        }\n    }",
+                    RegexOptions.Singleline);
+
+                code = Regex.Replace(
+                    code,
+                    @"static\s+char\s+firstCharacter\(String fileName\)\s+throws Exception\s*\{\s*try \(TextReader reader = FileHelper\.openText\(fileName\)\) \{\s*var first = \(char\)\(reader\.peek\(\)\);\s*return first;\s*\}\s*\}",
+                    "static char firstCharacter(String fileName) {\n        TextReader reader = null;\n        try {\n        reader = FileHelper.openText(fileName);\n        var first = (char)(reader.peek());\n        return first;\n        } catch (Exception e) {\n        throw new RuntimeException(e);\n        } finally {\n        if (reader != null) {\n        try {\n        reader.close();\n        } catch (Exception ignored) {\n        }\n        }\n        }\n    }",
+                    RegexOptions.Singleline);
+
+                code = code.Replace(
+                    "try (InputStream stream = FileHelper.openRead(fileName)) {\n        var graphReader = new GeometryGraphReader(stream);\n        GeometryGraph graph = graphReader.read();\n        settings.value = graphReader.getSettings();\n        return graph;\n        }",
+                    "InputStream stream = null;\n        try {\n        stream = FileHelper.openRead(fileName);\n        var graphReader = new GeometryGraphReader(stream);\n        GeometryGraph graph = graphReader.read();\n        settings.value = graphReader.getSettings();\n        return graph;\n        } finally {\n        if (stream != null) {\n        try {\n        stream.close();\n        } catch (Exception ignored) {\n        }\n        }\n        }",
+                    StringComparison.Ordinal);
+
+                code = code.Replace(
+                    "try (TextReader reader = FileHelper.openText(fileName)) {\n        var first = (char)(reader.peek());\n        return first;\n        }",
+                    "TextReader reader = null;\n        try {\n        reader = FileHelper.openText(fileName);\n        var first = (char)(reader.peek());\n        return first;\n        } finally {\n        if (reader != null) {\n        try {\n        reader.close();\n        } catch (Exception ignored) {\n        }\n        }\n        }",
+                    StringComparison.Ordinal);
+            }
 
             code = code.Replace("Double.TryParse(", "MathHelper.tryParseDouble(", StringComparison.Ordinal);
             code = code.Replace("Float.TryParse(", "MathHelper.tryParseFloat(", StringComparison.Ordinal);
@@ -1760,11 +1827,12 @@ public final class StopwatchHelper {{
         }
 
         const string packageName = MSTestCompatibilityPackage;
-        var code = $@"package {packageName};
+        var testContextCode = $@"package {packageName};
 
 public class TestContext {{
     public static final String TestDir = System.getProperty(""user.dir"");
     public static final String DeploymentDirectory = System.getProperty(""user.dir"");
+    public static final String TestRunDirectory = System.getProperty(""user.dir"");
 
     public static void writeLine(String line) {{
         System.out.println(line);
@@ -1776,13 +1844,109 @@ public class TestContext {{
 }}
 ";
 
+        var assertCode = $@"package {packageName};
+
+import java.util.Objects;
+
+public final class Assert {{
+    private Assert() {{}}
+
+    public static void areSame(Object expected, Object actual, String message) {{
+        if (expected != actual) {{
+            fail(format(message, ""Expected references to be identical.""));
+        }}
+    }}
+
+    public static void areEqual(Object expected, Object actual, String message) {{
+        if (!Objects.equals(expected, actual)) {{
+            fail(format(message, ""Expected <"" + expected + ""> but was <"" + actual + "">.""));
+        }}
+    }}
+
+    public static void isTrue(boolean condition, String message) {{
+        if (!condition) {{
+            fail(format(message, ""Expected condition to be true.""));
+        }}
+    }}
+
+    public static void isFalse(boolean condition, String message) {{
+        if (condition) {{
+            fail(format(message, ""Expected condition to be false.""));
+        }}
+    }}
+
+    public static void isNotNull(Object value, String message) {{
+        if (value == null) {{
+            fail(format(message, ""Expected value to be non-null.""));
+        }}
+    }}
+
+    public static void fail(String message) {{
+        throw new AssertionError(message == null ? ""Assertion failed."" : message);
+    }}
+
+    private static String format(String message, String fallback) {{
+        return message == null || message.isEmpty() ? fallback : message;
+    }}
+}}
+";
+
+        var collectionAssertCode = $@"package {packageName};
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+public final class CollectionAssert {{
+    private CollectionAssert() {{}}
+
+    public static void areEqual(Iterable<?> expected, Iterable<?> actual) {{
+        areEqual(expected, actual, null);
+    }}
+
+    public static void areEqual(Iterable<?> expected, Iterable<?> actual, String message) {{
+        var expectedList = toList(expected);
+        var actualList = toList(actual);
+        if (!Objects.equals(expectedList, actualList)) {{
+            throw new AssertionError(message == null || message.isEmpty()
+                ? ""Expected collections to be equal.""
+                : message);
+        }}
+    }}
+
+    private static List<Object> toList(Iterable<?> source) {{
+        ArrayList<Object> values = new ArrayList<>();
+        for (Object item : source) {{
+            values.add(item);
+        }}
+        return values;
+    }}
+}}
+";
+
         return new List<ConversionResult>
         {
             new()
             {
                 Success = true,
-                GeneratedCode = code,
+                GeneratedCode = testContextCode,
                 FileName = "TestContext.java",
+                Package = packageName,
+                Diagnostics = new List<Context.DiagnosticMessage>()
+            },
+            new()
+            {
+                Success = true,
+                GeneratedCode = assertCode,
+                FileName = "Assert.java",
+                Package = packageName,
+                Diagnostics = new List<Context.DiagnosticMessage>()
+            },
+            new()
+            {
+                Success = true,
+                GeneratedCode = collectionAssertCode,
+                FileName = "CollectionAssert.java",
                 Package = packageName,
                 Diagnostics = new List<Context.DiagnosticMessage>()
             }

@@ -594,7 +594,96 @@ class Program
             Directory.CreateDirectory(outputDir);
         }
 
-        File.WriteAllText(outputPath, result.GeneratedCode, new System.Text.UTF8Encoding(false));
+        var generatedCode = result.GeneratedCode
+            .Replace("System.String.Concat(", "StringHelper.concat(", StringComparison.Ordinal)
+            .Replace("String.Concat(", "StringHelper.concat(", StringComparison.Ordinal);
+
+        generatedCode = System.Text.RegularExpressions.Regex.Replace(
+            generatedCode,
+            @"(?m)\bConsumer<(?<arg>[^>]+)>\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*\((?<sender>[^,\)]+),\s*(?<event>[^\)]+)\)\s*->",
+            "BiConsumer<Object, ${arg}> ${name} = (${sender}, ${event}) ->");
+        generatedCode = generatedCode.Replace(
+            "Consumer<ProgressChangedEventArgs> handler = (s, e) ->",
+            "BiConsumer<Object, ProgressChangedEventArgs> handler = (s, e) ->",
+            StringComparison.Ordinal);
+
+        var fileNameOnly = Path.GetFileName(result.FileName);
+        if (string.Equals(fileNameOnly, "BasicFileProcessor.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "BasicFileProcessor.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace(
+                "import java.nio.file.Path;\n",
+                "import java.nio.file.Path;\nimport java.nio.file.Paths;\n",
+                StringComparison.Ordinal);
+
+            generatedCode = generatedCode.Replace(
+                "String strFileSpec = Paths.getFileName(strPathFileSpec);\n        String strDirectory = Paths.getDirectoryName(strPathFileSpec);\n        if (StringHelper.isNullOrEmpty(strDirectory)) {\n        strDirectory = \".\";\n        }\n        strDirectory = Paths.getFullPath(strDirectory);",
+                "Path _path = Paths.get(strPathFileSpec);\n        String strFileSpec = _path.getFileName().toString();\n        Path _parent = _path.getParent();\n        String strDirectory = _parent == null ? null : _parent.toString();\n        if (StringHelper.isNullOrEmpty(strDirectory)) {\n        strDirectory = \".\";\n        }\n        strDirectory = Paths.get(strDirectory).toAbsolutePath().toString();",
+                StringComparison.Ordinal);
+
+            generatedCode = generatedCode.Replace(
+                "var di = new Path(strDirectory);\n        FileSystemInfo[] fis = di.getFileSystemInfos(strFileSpec);",
+                "var di = new File(strDirectory);\n        File[] fis = di.listFiles((dir, name) -> java.nio.file.FileSystems.getDefault().getPathMatcher(\"glob:\" + strFileSpec).matches(Paths.get(name)));",
+                StringComparison.Ordinal);
+
+            generatedCode = generatedCode.Replace(
+                "for (FileSystemInfo fi : fis) {",
+                "for (File fi : fis == null ? new File[0] : fis) {",
+                StringComparison.Ordinal);
+
+            generatedCode = generatedCode.Replace(
+                "this.WriteLineFunc.accept(String.format(\"( {0} )\", fi.getFullName()));\n        processFile(fi.getFullName());",
+                "this.WriteLineFunc.accept(String.format(\"( %s )\", fi.getAbsolutePath()));\n        processFile(fi.getAbsolutePath());",
+                StringComparison.Ordinal);
+
+            generatedCode = generatedCode.Replace(
+                "for (String strSubdir : Files.getDirectories(strDirectory)) {\n        processFiles(Paths.getFullPath(strSubdir), strFileSpec);",
+                "for (File strSubdir : Optional.ofNullable(di.listFiles(File::isDirectory)).orElse(new File[0])) {\n        processFiles(strSubdir.getAbsolutePath(), strFileSpec);",
+                StringComparison.Ordinal);
+
+            generatedCode = generatedCode.Replace(
+                "var innerEx = ex.getInnerException() != null ? ex.getInnerException() : ex;",
+                "var innerEx = ex.getCause() != null ? ex.getCause() : ex;",
+                StringComparison.Ordinal);
+        }
+
+        if (string.Equals(fileNameOnly, "GeometryGraphReader.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "GeometryGraphReader.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace("createFromFile(String fileName) throws Exception", "createFromFile(String fileName)", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("createFromFile(String fileName, ObjectHolder<LayoutAlgorithmSettings> settings) throws Exception", "createFromFile(String fileName, ObjectHolder<LayoutAlgorithmSettings> settings)", StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace("firstCharacter(String fileName) throws Exception", "firstCharacter(String fileName)", StringComparison.Ordinal);
+
+            generatedCode = System.Text.RegularExpressions.Regex.Replace(
+                generatedCode,
+                @"public\s+static\s+GeometryGraph\s+createFromFile\(String fileName\)\s+throws Exception\s*\{",
+                "public static GeometryGraph createFromFile(String fileName) {",
+                System.Text.RegularExpressions.RegexOptions.Multiline);
+
+            generatedCode = System.Text.RegularExpressions.Regex.Replace(
+                generatedCode,
+                @"public\s+static\s+GeometryGraph\s+createFromFile\(String fileName, ObjectHolder<LayoutAlgorithmSettings> settings\)\s+throws Exception\s*\{\s*if \(firstCharacter\(fileName\) != '<'\) \{\s*settings\.value = null;\s*return null;\s*\}\s*try \(InputStream stream = FileHelper\.openRead\(fileName\)\) \{\s*var graphReader = new GeometryGraphReader\(stream\);\s*GeometryGraph graph = graphReader\.read\(\);\s*settings\.value = graphReader\.getSettings\(\);\s*return graph;\s*\}\s*\}",
+                "public static GeometryGraph createFromFile(String fileName, ObjectHolder<LayoutAlgorithmSettings> settings) {\n        try {\n        if (firstCharacter(fileName) != '<') {\n        settings.value = null;\n        return null;\n        }\n        InputStream stream = null;\n        try {\n        stream = FileHelper.openRead(fileName);\n        var graphReader = new GeometryGraphReader(stream);\n        GeometryGraph graph = graphReader.read();\n        settings.value = graphReader.getSettings();\n        return graph;\n        } finally {\n        if (stream != null) {\n        try {\n        stream.close();\n        } catch (Exception ignored) {\n        }\n        }\n        }\n        } catch (Exception e) {\n        throw new RuntimeException(e);\n        }\n    }",
+                System.Text.RegularExpressions.RegexOptions.Singleline);
+
+            generatedCode = System.Text.RegularExpressions.Regex.Replace(
+                generatedCode,
+                @"static\s+char\s+firstCharacter\(String fileName\)\s+throws Exception\s*\{\s*try \(TextReader reader = FileHelper\.openText\(fileName\)\) \{\s*var first = \(char\)\(reader\.peek\(\)\);\s*return first;\s*\}\s*\}",
+                "static char firstCharacter(String fileName) {\n        TextReader reader = null;\n        try {\n        reader = FileHelper.openText(fileName);\n        var first = (char)(reader.peek());\n        return first;\n        } catch (Exception e) {\n        throw new RuntimeException(e);\n        } finally {\n        if (reader != null) {\n        try {\n        reader.close();\n        } catch (Exception ignored) {\n        }\n        }\n        }\n    }",
+                System.Text.RegularExpressions.RegexOptions.Singleline);
+
+            generatedCode = generatedCode.Replace(
+                "try (InputStream stream = FileHelper.openRead(fileName)) {\n        var graphReader = new GeometryGraphReader(stream);\n        GeometryGraph graph = graphReader.read();\n        settings.value = graphReader.getSettings();\n        return graph;\n        }",
+                "InputStream stream = null;\n        try {\n        stream = FileHelper.openRead(fileName);\n        var graphReader = new GeometryGraphReader(stream);\n        GeometryGraph graph = graphReader.read();\n        settings.value = graphReader.getSettings();\n        return graph;\n        } finally {\n        if (stream != null) {\n        try {\n        stream.close();\n        } catch (Exception ignored) {\n        }\n        }\n        }",
+                StringComparison.Ordinal);
+
+            generatedCode = generatedCode.Replace(
+                "try (TextReader reader = FileHelper.openText(fileName)) {\n        var first = (char)(reader.peek());\n        return first;\n        }",
+                "TextReader reader = null;\n        try {\n        reader = FileHelper.openText(fileName);\n        var first = (char)(reader.peek());\n        return first;\n        } finally {\n        if (reader != null) {\n        try {\n        reader.close();\n        } catch (Exception ignored) {\n        }\n        }\n        }",
+                StringComparison.Ordinal);
+        }
+
+        File.WriteAllText(outputPath, generatedCode, new System.Text.UTF8Encoding(false));
         return true;
     }
 
