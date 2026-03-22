@@ -428,6 +428,14 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 isExtensionInStaticPath = false;
         }
 
+        // MSTest Assert.* -> JUnit Assertions.*
+        if (TryMapMSTestAssertInvocation(memberAccess.Expression, originalMethodName, methodSymbol, out var junitAssertName))
+        {
+            var assertArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+            context.AddImport("org.junit.jupiter.api.Assertions");
+            return $"Assertions.{junitAssertName}({assertArgs})";
+        }
+
         // C# String.Format(...) -> Java String.format(...)
         if (originalMethodName == "Format"
             && (methodSymbol?.ContainingType.ToDisplayString() == "System.String"
@@ -2863,6 +2871,38 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         param = "_x";
         body = facade.Transform(argExpr, context);
         return false;
+    }
+
+    private static bool TryMapMSTestAssertInvocation(
+        ExpressionSyntax receiverExpression,
+        string originalMethodName,
+        IMethodSymbol? methodSymbol,
+        out string junitMethodName)
+    {
+        junitMethodName = string.Empty;
+
+        var receiverText = receiverExpression.ToString();
+        var isAssertReceiver = receiverText is "Assert" or "Microsoft.VisualStudio.TestTools.UnitTesting.Assert";
+        var containingType = methodSymbol?.ContainingType.ToDisplayString();
+        var isMSTestAssert = containingType == "Microsoft.VisualStudio.TestTools.UnitTesting.Assert";
+        if (!isAssertReceiver && !isMSTestAssert)
+        {
+            return false;
+        }
+
+        junitMethodName = originalMethodName switch
+        {
+            "AreEqual" => "assertEquals",
+            "AreNotEqual" => "assertNotEquals",
+            "IsTrue" => "assertTrue",
+            "IsFalse" => "assertFalse",
+            "IsNull" => "assertNull",
+            "IsNotNull" => "assertNotNull",
+            "Fail" => "fail",
+            _ => string.Empty,
+        };
+
+        return !string.IsNullOrEmpty(junitMethodName);
     }
 
     /// <summary>

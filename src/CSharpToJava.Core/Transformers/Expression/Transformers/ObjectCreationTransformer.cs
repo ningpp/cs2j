@@ -732,6 +732,18 @@ public class ObjectCreationTransformer : IExpressionTransformer
             }
         }
 
+        // If semantic inference failed (e.g. overloaded operators in large project mode),
+        // try to infer from initializer expressions and operand symbols.
+        if (string.IsNullOrWhiteSpace(elementType) && node.Initializer != null)
+        {
+            elementType = InferElementTypeFromInitializer(node.Initializer.Expressions, context);
+        }
+
+        if (string.IsNullOrWhiteSpace(elementType))
+        {
+            elementType = "Object";
+        }
+
         // When the element type resolved to "Object" and all initializer elements are
         // anonymous-type creations in Java-records mode, synthesize the record and use its name.
         // This turns new Object[] { new A(1), ... } into new A[] { new A(1), ... } so that
@@ -774,6 +786,59 @@ public class ObjectCreationTransformer : IExpressionTransformer
         }
 
         return result.ToString();
+    }
+
+    private static string InferElementTypeFromInitializer(SeparatedSyntaxList<ExpressionSyntax> expressions, ConversionContext context)
+    {
+        if (expressions.Count == 0)
+        {
+            return "Object";
+        }
+
+        var inferred = new List<string>();
+
+        foreach (var expr in expressions)
+        {
+            var type = context.SemanticModel?.GetTypeInfo(expr).Type
+                ?? context.SemanticModel?.GetTypeInfo(expr).ConvertedType;
+            if (type != null)
+            {
+                var mapped = context.MapType(type);
+                if (!string.IsNullOrWhiteSpace(mapped))
+                {
+                    inferred.Add(mapped);
+                    continue;
+                }
+            }
+
+            // Binary expressions may fail to resolve as a whole while operands still resolve.
+            if (expr is BinaryExpressionSyntax binary)
+            {
+                var leftType = context.SemanticModel?.GetTypeInfo(binary.Left).Type;
+                var rightType = context.SemanticModel?.GetTypeInfo(binary.Right).Type;
+                if (leftType != null && rightType != null && SymbolEqualityComparer.Default.Equals(leftType, rightType))
+                {
+                    var mapped = context.MapType(leftType);
+                    if (!string.IsNullOrWhiteSpace(mapped))
+                    {
+                        inferred.Add(mapped);
+                    }
+                }
+            }
+        }
+
+        var first = inferred.FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(first))
+        {
+            return "Object";
+        }
+
+        if (inferred.All(t => t == first))
+        {
+            return first;
+        }
+
+        return "Object";
     }
 
     private string TransformArrayInitializer(InitializerExpressionSyntax node, ConversionContext context)

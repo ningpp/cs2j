@@ -431,11 +431,6 @@ public class ConversionContext
     {
         // 跳过 java.lang 包下的类型
         if (typeName.StartsWith("java.lang.")) return;
-        // 跳过 C# 命名空间风格的导入（首段首字母大写，如 System.*, Microsoft.*）
-        // Java 包名首段必须为全小写 (java.*, com.*, org.* 等)
-        var firstDot = typeName.IndexOf('.');
-        var firstSegment = firstDot >= 0 ? typeName.Substring(0, firstDot) : typeName;
-        if (firstSegment.Length > 0 && char.IsUpper(firstSegment[0])) return;
         ImportedTypes.Add(typeName);
     }
 
@@ -534,6 +529,7 @@ public class ConversionContext
         if (typeSymbol is INamedTypeSymbol namedType && namedType.TypeArguments.Length > 0)
         {
             var baseType = namedType.Name;
+            var genericTypeNamespace = namedType.ContainingNamespace?.ToDisplayString();
 
             // Expression<TDelegate> (System.Linq.Expressions) has no Java equivalent.
             // Strip the wrapper and map the inner delegate type to its Java functional interface.
@@ -603,6 +599,16 @@ public class ConversionContext
             if (tickIndex > 0)
             {
                 baseType = baseType.Substring(0, tickIndex);
+            }
+
+            if (!string.IsNullOrEmpty(genericTypeNamespace)
+                && genericTypeNamespace.StartsWith("Microsoft.", StringComparison.Ordinal)
+                && !string.Equals(CurrentNamespace, genericTypeNamespace, StringComparison.Ordinal)
+                && namedType.ContainingType == null
+                && (!string.IsNullOrWhiteSpace(CurrentNamespace) ? !NamespaceContainsType(CurrentNamespace, baseType) : true))
+            {
+                var javaPackage = NamespaceToPackage(genericTypeNamespace);
+                AddImport($"{javaPackage}.{baseType}");
             }
 
             // Object doesn't take type parameters in Java - strip them
@@ -675,16 +681,14 @@ public class ConversionContext
             return mappedSimple;
         }
 
-        // For unmapped types from the project being converted (e.g. Microsoft.Msagl.*), add an explicit
-        // import when the simple name conflicts with a java.util.* or other wildcard-imported type.
-        // This prevents ambiguous reference errors like "reference to Timer is ambiguous".
+        // For unmapped types from the project being converted (e.g. Microsoft.Msagl.*), add explicit
+        // imports for cross-namespace references so simple names resolve reliably.
         if (!string.IsNullOrEmpty(ns) && ns.StartsWith("Microsoft."))
         {
-            // Names that are also in java.util or other wildcard imports
-            if (name is "Timer" or "Set" or "Date" or "Random" or "Scanner" or "Arrays" or "Collections"
-                or "Optional" or "Stack" or "Queue" or "Deque" or "Iterator")
+            if (!string.Equals(CurrentNamespace, ns, StringComparison.Ordinal)
+                && typeSymbol.ContainingType == null
+                && (!string.IsNullOrWhiteSpace(CurrentNamespace) ? !NamespaceContainsType(CurrentNamespace, name) : true))
             {
-                // Add explicit import to resolve ambiguity
                 var javaPackage = NamespaceToPackage(ns);
                 AddImport($"{javaPackage}.{name}");
             }

@@ -98,9 +98,11 @@ class Program
     {
         try
         {
-            if (!Directory.Exists(opts.Source))
+            var hasDirectorySource = Directory.Exists(opts.Source);
+            var hasProjectSource = File.Exists(opts.Source) && Path.GetExtension(opts.Source).Equals(".csproj", StringComparison.OrdinalIgnoreCase);
+            if (!hasDirectorySource && !hasProjectSource)
             {
-                Console.Error.WriteLine($"Error: Source directory not found: {opts.Source}");
+                Console.Error.WriteLine($"Error: Source not found: {opts.Source}");
                 return 1;
             }
 
@@ -130,28 +132,30 @@ class Program
                 PreferStreamApi = opts.PreferStreamApi
             };
 
-            // 确定输出根目录（Maven 标准目录结构）
+            // 优先走 .csproj 模式（支持项目引用图、测试分类和 resources 分流）
+            if (ProjectDiscovery.TryResolveProjectEntry(opts.Source, out var entryProject))
+            {
+                return await ConvertFromProjectGraph(opts, options, entryProject);
+            }
+
+            // 兼容旧目录模式
             var outputRoot = opts.GeneratePom
                 ? Path.Combine(opts.Destination, "src", "main", "java")
                 : opts.Destination;
 
-            // 当 --force 时清空 Java 源码目录以避免残留旧文件（如 Holder 类）
             if (opts.Force && Directory.Exists(outputRoot))
             {
                 Directory.Delete(outputRoot, recursive: true);
             }
 
-            // 创建输出目录
             if (!Directory.Exists(outputRoot))
             {
                 Directory.CreateDirectory(outputRoot);
             }
 
-            // 执行项目转换 (uses ProjectConversionPipeline for partial type merging + Holder generation)
             var pipeline = new ConversionPipeline();
             var results = await pipeline.ConvertProjectWithPartialMergeAsync(opts.Source, options);
 
-            // 保存结果
             int successCount = 0;
             int failureCount = 0;
 
@@ -159,42 +163,9 @@ class Program
             {
                 if (result.FileName == null) continue;
 
-                string outputPath;
-
-                // Holder files and other generated files have FileName without a source path prefix
-                // and have a Package set. Use the Package to determine the output directory.
-                bool isGeneratedFile = !string.IsNullOrEmpty(result.Package) &&
-                    !Path.IsPathFullyQualified(result.FileName) &&
-                    !result.FileName.StartsWith(opts.Source);
-
-                if (isGeneratedFile && !string.IsNullOrEmpty(result.Package))
+                if (TryWriteConvertedFile(result, opts.Source, outputRoot, out var outputPath))
                 {
-                    var packageDir = result.Package.Replace('.', Path.DirectorySeparatorChar);
-                    outputPath = Path.Combine(outputRoot, packageDir, result.FileName);
-                    if (!result.FileName.EndsWith(".java"))
-                        outputPath = Path.ChangeExtension(outputPath, ".java");
-                }
-                else
-                {
-                    var relativePath = Path.IsPathFullyQualified(result.FileName)
-                        ? Path.GetRelativePath(opts.Source, result.FileName)
-                        : result.FileName;
-                    outputPath = Path.Combine(outputRoot, Path.ChangeExtension(relativePath, ".java"));
-                }
-
-                // 创建输出目录
-                var outputDir = Path.GetDirectoryName(outputPath);
-                if (!string.IsNullOrEmpty(outputDir))
-                {
-                    Directory.CreateDirectory(outputDir);
-                }
-
-                if (!string.IsNullOrEmpty(result.GeneratedCode))
-                {
-                    // 使用 UTF-8 without BOM 编码写入Java文件
-                    await File.WriteAllTextAsync(outputPath, result.GeneratedCode, new System.Text.UTF8Encoding(false));
                     successCount++;
-
                     if (opts.Verbose)
                     {
                         Console.WriteLine($"Converted: {result.FileName} -> {outputPath}");
@@ -215,7 +186,7 @@ class Program
             if (opts.GeneratePom)
             {
                 var artifactId = new DirectoryInfo(opts.Destination).Name;
-                var pomContent = GenerateMavenPom(artifactId, opts.MavenGroupId, opts.MavenVersion, opts.JavaVersion);
+                var pomContent = GenerateMavenPom(artifactId, opts.MavenGroupId, opts.MavenVersion, opts.JavaVersion, includeTests: false);
                 var pomPath = Path.Combine(opts.Destination, "pom.xml");
                 // pom.xml 使用 UTF-8 without BOM
                 await File.WriteAllTextAsync(pomPath, pomContent, new System.Text.UTF8Encoding(false));
@@ -236,6 +207,349 @@ class Program
             }
             return 1;
         }
+    }
+
+    private static async Task<int> ConvertFromProjectGraph(ConvertProjectOptions opts, ConversionOptions options, string entryProject)
+    {
+        var graph = ProjectDiscovery.LoadProjectGraph(entryProject);
+        if (graph.ProjectsInTopologicalOrder.Count == 0)
+        {
+            Console.Error.WriteLine($"Error: No project discovered from {entryProject}");
+            return 1;
+        }
+
+        if (opts.Mode.Equals("multi-module", StringComparison.OrdinalIgnoreCase))
+        {
+            return await ConvertFromProjectGraphMultiModule(opts, options, graph);
+        }
+
+        return await ConvertFromProjectGraphSingleModule(opts, options, graph);
+    }
+
+    private static async Task<int> ConvertFromProjectGraphSingleModule(ConvertProjectOptions opts, ConversionOptions options, ProjectGraph graph)
+    {
+
+        var mainJavaRoot = opts.GeneratePom
+            ? Path.Combine(opts.Destination, "src", "main", "java")
+            : opts.Destination;
+        var testJavaRoot = opts.GeneratePom
+            ? Path.Combine(opts.Destination, "src", "test", "java")
+            : Path.Combine(opts.Destination, "test");
+        var mainResourcesRoot = opts.GeneratePom
+            ? Path.Combine(opts.Destination, "src", "main", "resources")
+            : Path.Combine(opts.Destination, "resources");
+        var testResourcesRoot = opts.GeneratePom
+            ? Path.Combine(opts.Destination, "src", "test", "resources")
+            : Path.Combine(opts.Destination, "test-resources");
+
+        if (opts.Force)
+        {
+            DeleteIfExists(mainJavaRoot);
+            DeleteIfExists(testJavaRoot);
+            DeleteIfExists(mainResourcesRoot);
+            DeleteIfExists(testResourcesRoot);
+        }
+
+        Directory.CreateDirectory(mainJavaRoot);
+        Directory.CreateDirectory(mainResourcesRoot);
+        if (opts.IncludeTests)
+        {
+            Directory.CreateDirectory(testJavaRoot);
+            Directory.CreateDirectory(testResourcesRoot);
+        }
+
+        var pipeline = new ConversionPipeline();
+        int successCount = 0;
+        int failureCount = 0;
+        int copiedResourceCount = 0;
+
+        foreach (var project in graph.ProjectsInTopologicalOrder)
+        {
+            if (!opts.IncludeTests && project.Kind == ProjectKind.Test)
+            {
+                continue;
+            }
+
+            var isTest = project.Kind == ProjectKind.Test;
+            if (opts.Verbose)
+            {
+                Console.WriteLine($"Converting project [{project.Kind}]: {project.Name}");
+            }
+
+            var targetJavaRoot = isTest ? testJavaRoot : mainJavaRoot;
+            var targetResourcesRoot = isTest ? testResourcesRoot : mainResourcesRoot;
+
+            var semanticContextDirs = GetReferencedProjectDirectories(project, graph);
+            var results = await pipeline.ConvertProjectWithPartialMergeAsync(project.ProjectDirectory, options, semanticContextDirs);
+            foreach (var result in results)
+            {
+                if (result.FileName == null) continue;
+
+                if (TryWriteConvertedFile(result, project.ProjectDirectory, targetJavaRoot, out var outputPath))
+                {
+                    successCount++;
+                    if (opts.Verbose)
+                    {
+                        Console.WriteLine($"Converted: {result.FileName} -> {outputPath}");
+                    }
+                }
+                else
+                {
+                    failureCount++;
+                    Console.Error.WriteLine($"Failed: {result.FileName}");
+                    foreach (var diag in result.Diagnostics)
+                    {
+                        Console.Error.WriteLine($"  [{diag.Severity}] {diag.Message}");
+                    }
+                }
+            }
+
+            foreach (var resource in project.ResourceItems)
+            {
+                var destination = Path.Combine(targetResourcesRoot, resource.RelativePath);
+                var destinationDir = Path.GetDirectoryName(destination);
+                if (!string.IsNullOrEmpty(destinationDir))
+                {
+                    Directory.CreateDirectory(destinationDir);
+                }
+
+                File.Copy(resource.SourcePath, destination, overwrite: true);
+                copiedResourceCount++;
+
+                if (opts.Verbose)
+                {
+                    Console.WriteLine($"Resource: {resource.SourcePath} -> {destination}");
+                }
+            }
+        }
+
+        if (opts.GeneratePom)
+        {
+            var artifactId = new DirectoryInfo(opts.Destination).Name;
+            var pomContent = GenerateMavenPom(artifactId, opts.MavenGroupId, opts.MavenVersion, opts.JavaVersion, includeTests: opts.IncludeTests);
+            var pomPath = Path.Combine(opts.Destination, "pom.xml");
+            await File.WriteAllTextAsync(pomPath, pomContent, new System.Text.UTF8Encoding(false));
+            Console.WriteLine($"Generated Maven pom.xml: {pomPath}");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine($"Conversion complete: {successCount} succeeded, {failureCount} failed, {copiedResourceCount} resources copied");
+
+        return failureCount > 0 ? 1 : 0;
+    }
+
+    private static async Task<int> ConvertFromProjectGraphMultiModule(ConvertProjectOptions opts, ConversionOptions options, ProjectGraph graph)
+    {
+        var plan = MultiModulePlanner.Build(graph, opts.IncludeTests);
+        if (plan.ModulesInBuildOrder.Count == 0)
+        {
+            Console.Error.WriteLine("Error: No modules planned for conversion.");
+            return 1;
+        }
+
+        if (opts.Force && Directory.Exists(opts.Destination))
+        {
+            Directory.Delete(opts.Destination, recursive: true);
+            Directory.CreateDirectory(opts.Destination);
+        }
+
+        int successCount = 0;
+        int failureCount = 0;
+        int copiedResourceCount = 0;
+
+        var pipeline = new ConversionPipeline();
+
+        foreach (var module in plan.ModulesInBuildOrder)
+        {
+            var moduleRoot = Path.Combine(opts.Destination, module.Name);
+            var mainJavaRoot = Path.Combine(moduleRoot, "src", "main", "java");
+            var testJavaRoot = Path.Combine(moduleRoot, "src", "test", "java");
+            var mainResourcesRoot = Path.Combine(moduleRoot, "src", "main", "resources");
+            var testResourcesRoot = Path.Combine(moduleRoot, "src", "test", "resources");
+
+            if (!module.IsTestOnly)
+            {
+                Directory.CreateDirectory(mainJavaRoot);
+                Directory.CreateDirectory(mainResourcesRoot);
+            }
+
+            if (module.HasTestSources)
+            {
+                Directory.CreateDirectory(testJavaRoot);
+                Directory.CreateDirectory(testResourcesRoot);
+            }
+
+            if (opts.Verbose)
+            {
+                Console.WriteLine($"Converting module: {module.Name}");
+            }
+
+            foreach (var assignment in module.Assignments)
+            {
+                var targetJavaRoot = assignment.AsTestSources ? testJavaRoot : mainJavaRoot;
+                var targetResourcesRoot = assignment.AsTestSources ? testResourcesRoot : mainResourcesRoot;
+
+                if (opts.Verbose)
+                {
+                    var slot = assignment.AsTestSources ? "test" : "main";
+                    Console.WriteLine($"  Project [{assignment.Project.Kind}] -> {slot}: {assignment.Project.Name}");
+                }
+
+                var semanticContextDirs = GetReferencedProjectDirectories(assignment.Project, graph);
+                var results = await pipeline.ConvertProjectWithPartialMergeAsync(assignment.Project.ProjectDirectory, options, semanticContextDirs);
+                foreach (var result in results)
+                {
+                    if (result.FileName == null) continue;
+
+                    if (TryWriteConvertedFile(result, assignment.Project.ProjectDirectory, targetJavaRoot, out var outputPath))
+                    {
+                        successCount++;
+                        if (opts.Verbose)
+                        {
+                            Console.WriteLine($"Converted: {result.FileName} -> {outputPath}");
+                        }
+                    }
+                    else
+                    {
+                        failureCount++;
+                        Console.Error.WriteLine($"Failed: {result.FileName}");
+                        foreach (var diag in result.Diagnostics)
+                        {
+                            Console.Error.WriteLine($"  [{diag.Severity}] {diag.Message}");
+                        }
+                    }
+                }
+
+                foreach (var resource in assignment.Project.ResourceItems)
+                {
+                    var destination = Path.Combine(targetResourcesRoot, resource.RelativePath);
+                    var destinationDir = Path.GetDirectoryName(destination);
+                    if (!string.IsNullOrEmpty(destinationDir))
+                    {
+                        Directory.CreateDirectory(destinationDir);
+                    }
+
+                    File.Copy(resource.SourcePath, destination, overwrite: true);
+                    copiedResourceCount++;
+
+                    if (opts.Verbose)
+                    {
+                        Console.WriteLine($"Resource: {resource.SourcePath} -> {destination}");
+                    }
+                }
+            }
+
+            if (opts.GeneratePom)
+            {
+                var modulePom = GenerateChildModulePom(
+                    module,
+                    opts.MavenGroupId,
+                    opts.MavenVersion,
+                    opts.JavaVersion,
+                    new DirectoryInfo(opts.Destination).Name);
+                var modulePomPath = Path.Combine(moduleRoot, "pom.xml");
+                await File.WriteAllTextAsync(modulePomPath, modulePom, new System.Text.UTF8Encoding(false));
+            }
+        }
+
+        if (opts.GeneratePom)
+        {
+            var parentArtifactId = new DirectoryInfo(opts.Destination).Name;
+            var parentPom = GenerateParentPom(
+                parentArtifactId,
+                opts.MavenGroupId,
+                opts.MavenVersion,
+                opts.JavaVersion,
+                plan.ModulesInBuildOrder.Select(m => m.Name).ToList());
+            var parentPomPath = Path.Combine(opts.Destination, "pom.xml");
+            await File.WriteAllTextAsync(parentPomPath, parentPom, new System.Text.UTF8Encoding(false));
+            Console.WriteLine($"Generated parent Maven pom.xml: {parentPomPath}");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine($"Conversion complete: {successCount} succeeded, {failureCount} failed, {copiedResourceCount} resources copied, modules={plan.ModulesInBuildOrder.Count}");
+
+        return failureCount > 0 ? 1 : 0;
+    }
+
+    private static bool TryWriteConvertedFile(ConversionResult result, string sourceRoot, string outputRoot, out string outputPath)
+    {
+        outputPath = string.Empty;
+
+        if (string.IsNullOrEmpty(result.GeneratedCode) || string.IsNullOrEmpty(result.FileName))
+        {
+            return false;
+        }
+
+        bool isGeneratedFile = !string.IsNullOrEmpty(result.Package) &&
+            !Path.IsPathFullyQualified(result.FileName) &&
+            !result.FileName.StartsWith(sourceRoot, StringComparison.OrdinalIgnoreCase);
+
+        if (isGeneratedFile && !string.IsNullOrEmpty(result.Package))
+        {
+            var packageDir = result.Package.Replace('.', Path.DirectorySeparatorChar);
+            outputPath = Path.Combine(outputRoot, packageDir, result.FileName);
+            if (!result.FileName.EndsWith(".java", StringComparison.OrdinalIgnoreCase))
+            {
+                outputPath = Path.ChangeExtension(outputPath, ".java");
+            }
+        }
+        else
+        {
+            var relativePath = Path.IsPathFullyQualified(result.FileName)
+                ? Path.GetRelativePath(sourceRoot, result.FileName)
+                : result.FileName;
+            outputPath = Path.Combine(outputRoot, Path.ChangeExtension(relativePath, ".java"));
+        }
+
+        var outputDir = Path.GetDirectoryName(outputPath);
+        if (!string.IsNullOrEmpty(outputDir))
+        {
+            Directory.CreateDirectory(outputDir);
+        }
+
+        File.WriteAllText(outputPath, result.GeneratedCode, new System.Text.UTF8Encoding(false));
+        return true;
+    }
+
+    private static void DeleteIfExists(string path)
+    {
+        if (Directory.Exists(path))
+        {
+            Directory.Delete(path, recursive: true);
+        }
+    }
+
+    private static IReadOnlyList<string> GetReferencedProjectDirectories(DiscoveredProject project, ProjectGraph graph)
+    {
+        var byProjectPath = graph.ProjectsInTopologicalOrder
+            .ToDictionary(p => p.ProjectFilePath, p => p, StringComparer.OrdinalIgnoreCase);
+
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var queue = new Queue<string>(project.ProjectReferences);
+
+        while (queue.Count > 0)
+        {
+            var referencePath = queue.Dequeue();
+            if (!visited.Add(referencePath))
+            {
+                continue;
+            }
+
+            if (!byProjectPath.TryGetValue(referencePath, out var referencedProject))
+            {
+                continue;
+            }
+
+            result.Add(referencedProject.ProjectDirectory);
+            foreach (var next in referencedProject.ProjectReferences)
+            {
+                queue.Enqueue(next);
+            }
+        }
+
+        return result.ToList();
     }
 
     private static async Task<int> AnalyzeProject(AnalyzeOptions opts)
@@ -363,9 +677,34 @@ class Program
         }
     }
 
-    private static string GenerateMavenPom(string artifactId, string groupId, string version, string javaVersion)
+    private static string GenerateMavenPom(string artifactId, string groupId, string version, string javaVersion, bool includeTests)
     {
         int javaVer = int.Parse(javaVersion.Replace("Java", ""));
+        var testDependencies = includeTests
+            ? @"
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.11.4</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
+            <version>5.11.4</version>
+            <scope>test</scope>
+        </dependency>"
+            : string.Empty;
+
+        var surefirePlugin = includeTests
+            ? @"
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.3.1</version>
+            </plugin>"
+            : string.Empty;
+
         return $@"<?xml version=""1.0"" encoding=""UTF-8""?>
 <project xmlns=""http://maven.apache.org/POM/4.0.0""
     xmlns:xsi=""http://www.w3.org/2001/XMLSchema-instance""
@@ -424,6 +763,7 @@ class Program
                     </execution>
                 </executions>
             </plugin>
+{surefirePlugin}
         </plugins>
     </build>
 
@@ -438,6 +778,158 @@ class Program
             <artifactId>jackson-databind</artifactId>
             <version>2.17.2</version>
         </dependency>
+{testDependencies}
+    </dependencies>
+
+</project>
+";
+    }
+
+    private static string GenerateParentPom(
+        string artifactId,
+        string groupId,
+        string version,
+        string javaVersion,
+        IReadOnlyList<string> modules)
+    {
+        int javaVer = int.Parse(javaVersion.Replace("Java", ""));
+        var moduleSection = string.Join(Environment.NewLine, modules.Select(m => $"        <module>{m}</module>"));
+
+        return $@"<?xml version=""1.0"" encoding=""UTF-8""?>
+<project xmlns=""http://maven.apache.org/POM/4.0.0""
+    xmlns:xsi=""http://www.w3.org/2001/XMLSchema-instance""
+    xsi:schemaLocation=""http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"">
+
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>{groupId}</groupId>
+    <artifactId>{artifactId}</artifactId>
+    <version>{version}</version>
+    <packaging>pom</packaging>
+
+    <properties>
+        <java.version>{javaVer}</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.source>${{java.version}}</maven.compiler.source>
+        <maven.compiler.target>${{java.version}}</maven.compiler.target>
+    </properties>
+
+    <modules>
+{moduleSection}
+    </modules>
+
+</project>
+";
+    }
+
+    private static string GenerateChildModulePom(
+        PlannedModule module,
+        string groupId,
+        string version,
+        string javaVersion,
+        string parentArtifactId)
+    {
+        int javaVer = int.Parse(javaVersion.Replace("Java", ""));
+
+        var depLines = new List<string>
+        {
+            @"        <dependency>
+            <groupId>io.vavr</groupId>
+            <artifactId>vavr</artifactId>
+            <version>0.10.4</version>
+        </dependency>",
+            @"        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.17.2</version>
+        </dependency>"
+        };
+
+        foreach (var dep in module.CompileDependencies.OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
+        {
+            depLines.Add($@"        <dependency>
+            <groupId>{groupId}</groupId>
+            <artifactId>{dep}</artifactId>
+            <version>${{project.version}}</version>
+        </dependency>");
+        }
+
+        foreach (var dep in module.TestDependencies.OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
+        {
+            depLines.Add($@"        <dependency>
+            <groupId>{groupId}</groupId>
+            <artifactId>{dep}</artifactId>
+            <version>${{project.version}}</version>
+            <scope>test</scope>
+        </dependency>");
+        }
+
+        if (module.HasTestSources)
+        {
+            depLines.Add(@"        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.11.4</version>
+            <scope>test</scope>
+        </dependency>");
+            depLines.Add(@"        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
+            <version>5.11.4</version>
+            <scope>test</scope>
+        </dependency>");
+        }
+
+        var surefirePlugin = module.HasTestSources
+            ? @"
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.3.1</version>
+            </plugin>"
+            : string.Empty;
+
+        var deps = string.Join(Environment.NewLine, depLines);
+
+        return $@"<?xml version=""1.0"" encoding=""UTF-8""?>
+<project xmlns=""http://maven.apache.org/POM/4.0.0""
+    xmlns:xsi=""http://www.w3.org/2001/XMLSchema-instance""
+    xsi:schemaLocation=""http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>{groupId}</groupId>
+        <artifactId>{parentArtifactId}</artifactId>
+        <version>{version}</version>
+    </parent>
+
+    <artifactId>{module.Name}</artifactId>
+    <packaging>jar</packaging>
+
+    <properties>
+        <java.version>{javaVer}</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.source>${{java.version}}</maven.compiler.source>
+        <maven.compiler.target>${{java.version}}</maven.compiler.target>
+    </properties>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>${{java.version}}</source>
+                    <target>${{java.version}}</target>
+                    <encoding>UTF-8</encoding>
+                </configuration>
+            </plugin>
+{surefirePlugin}
+        </plugins>
+    </build>
+
+    <dependencies>
+{deps}
     </dependencies>
 
 </project>
@@ -494,7 +986,7 @@ class ConvertOptions
 [Verb("convert-project", HelpText = "Convert a C# project to Java")]
 class ConvertProjectOptions
 {
-    [Option('s', "source", Required = true, HelpText = "Source directory path")]
+    [Option('s', "source", Required = true, HelpText = "Source directory path or .csproj path")]
     public string Source { get; set; } = string.Empty;
 
     [Option('d', "destination", Required = true, HelpText = "Destination directory path")]
@@ -538,6 +1030,12 @@ class ConvertProjectOptions
 
     [Option("maven-version", Default = "0.0.1-SNAPSHOT", HelpText = "Maven version")]
     public string MavenVersion { get; set; } = "0.0.1-SNAPSHOT";
+
+    [Option("include-tests", Default = true, HelpText = "Include discovered test projects and write them to src/test/java")]
+    public bool IncludeTests { get; set; } = true;
+
+    [Option("mode", Default = "multi-module", HelpText = "Output mode: single-module or multi-module")]
+    public string Mode { get; set; } = "multi-module";
 
     public bool UseRecords => !NoRecords;
     public bool GenerateJavaDoc => !NoJavaDoc;

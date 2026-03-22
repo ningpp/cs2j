@@ -265,14 +265,39 @@ public class ConversionPipeline
     /// </summary>
     public async Task<List<ConversionResult>> ConvertProjectWithPartialMergeAsync(
         string projectPath,
-        ConversionOptions options)
+        ConversionOptions options,
+        IEnumerable<string>? additionalSemanticProjectPaths = null)
     {
         // 查找所有 .cs 文件
-        var csFiles = Directory.GetFiles(projectPath, "*.cs", SearchOption.AllDirectories);
+        var primaryProjectPath = Path.GetFullPath(projectPath);
+        var csFiles = Directory.GetFiles(primaryProjectPath, "*.cs", SearchOption.AllDirectories);
+
+        var allSourceFiles = new HashSet<string>(csFiles, StringComparer.OrdinalIgnoreCase);
+        if (additionalSemanticProjectPaths != null)
+        {
+            foreach (var extraProjectPath in additionalSemanticProjectPaths)
+            {
+                if (string.IsNullOrWhiteSpace(extraProjectPath))
+                {
+                    continue;
+                }
+
+                var fullExtra = Path.GetFullPath(extraProjectPath);
+                if (!Directory.Exists(fullExtra) || string.Equals(fullExtra, primaryProjectPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                foreach (var extraFile in Directory.GetFiles(fullExtra, "*.cs", SearchOption.AllDirectories))
+                {
+                    allSourceFiles.Add(extraFile);
+                }
+            }
+        }
 
         // 创建源文件列表
         var sourceFiles = new List<SourceFile>();
-        foreach (var file in csFiles)
+        foreach (var file in allSourceFiles)
         {
             try
             {
@@ -302,7 +327,8 @@ public class ConversionPipeline
 
         // 使用 ProjectConversionPipeline 进行转换
         var pipeline = new ProjectConversionPipeline(options);
-        return await pipeline.ConvertProjectAsync(sourceFiles);
+        var emitFilePaths = new HashSet<string>(csFiles.Select(Path.GetFullPath), StringComparer.OrdinalIgnoreCase);
+        return await pipeline.ConvertProjectAsync(sourceFiles, emitFilePaths);
     }
 
     private ConversionResult CreateSuccessResult(string code, ConversionContext context, string? fileName)

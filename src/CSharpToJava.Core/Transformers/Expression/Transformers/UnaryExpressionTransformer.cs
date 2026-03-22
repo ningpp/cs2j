@@ -143,7 +143,7 @@ public class UnaryExpressionTransformer : IExpressionTransformer
         var containingType = context.MapType(operatorSymbol.ContainingType);
         var currentType = context.CurrentType?.Name;
 
-        if (containingType == currentType || IsInSameCompilationUnit(context, operatorSymbol.ContainingType))
+        if (containingType == currentType)
         {
             return $"{javaMethodName}({operand})";
         }
@@ -238,7 +238,7 @@ public class UnaryExpressionTransformer : IExpressionTransformer
         // Postfix semantics: save pre-increment value, apply operator, return saved value
         var tmp = context.GenerateSyntheticName("_post");
         context.AddPreStatement($"var {tmp} = {operand};");
-        var methodCall = (containingType == currentType || IsInSameCompilationUnit(context, operatorSymbol.ContainingType))
+        var methodCall = (containingType == currentType)
             ? $"{operand} = {javaMethodName}({operand});"
             : $"{operand} = {containingType}.{javaMethodName}({operand});";
         context.AddPreStatement(methodCall);

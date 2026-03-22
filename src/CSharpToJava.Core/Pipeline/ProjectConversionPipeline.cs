@@ -37,7 +37,8 @@ public class ProjectConversionPipeline
     /// <param name="sourceFiles">源代码文件列表</param>
     /// <returns>转换结果列表</returns>
     public async Task<List<ConversionResult>> ConvertProjectAsync(
-        IEnumerable<SourceFile> sourceFiles)
+        IEnumerable<SourceFile> sourceFiles,
+        ISet<string>? emitFilePaths = null)
     {
         var context = new ConversionContext(_options, _typeMappings);
         var results = new List<ConversionResult>();
@@ -59,6 +60,39 @@ public class ProjectConversionPipeline
             // Phase 3: 转换每个类型
             foreach (var typeGroup in mergedTypes)
             {
+                if (emitFilePaths != null && emitFilePaths.Count > 0)
+                {
+                    var candidatePaths = new List<string>();
+
+                    foreach (var syntaxNode in typeGroup.SyntaxNodes)
+                    {
+                        var path = syntaxNode.SyntaxTree.FilePath;
+                        if (!string.IsNullOrWhiteSpace(path))
+                        {
+                            candidatePaths.Add(path);
+                        }
+                    }
+
+                    if (candidatePaths.Count == 0)
+                    {
+                        foreach (var syntaxRef in typeGroup.TypeSymbol.DeclaringSyntaxReferences)
+                        {
+                            var path = syntaxRef.SyntaxTree.FilePath;
+                            if (!string.IsNullOrWhiteSpace(path))
+                            {
+                                candidatePaths.Add(path);
+                            }
+                        }
+                    }
+
+                    var shouldEmit = candidatePaths.Any(path => emitFilePaths.Contains(Path.GetFullPath(path)));
+
+                    if (!shouldEmit)
+                    {
+                        continue;
+                    }
+                }
+
                 var result = ConvertTypeGroup(typeGroup, compilation, context);
                 if (result != null)
                 {
@@ -249,74 +283,85 @@ public class ProjectConversionPipeline
             var semanticModel = compilation.GetSemanticModel(validSyntaxTree);
             context.SemanticModel = semanticModel;
 
-            // Create merged declaration
-            var mergedDeclaration = MergedTypeDeclaration.FromPartialTypeGroup(typeGroup, semanticModel);
+            AddImportsFromTypeUsings(typeGroup, context, compilation);
 
-            // Register merged type in context
-            context.RegisterMergedPartialType(mergedDeclaration);
-
-            // Dispatch to the right transformer based on TypeKind
-            Java.JavaTypeDeclaration? javaType;
-            switch (typeGroup.TypeSymbol.TypeKind)
+            var typeNamespace = typeGroup.TypeSymbol.ContainingNamespace?.ToDisplayString() ?? string.Empty;
+            context.EnterNamespace(typeNamespace);
+            try
             {
-                case TypeKind.Class:
-                    javaType = new ClassTransformer().TransformMerged(mergedDeclaration, context);
-                    break;
-                case TypeKind.Struct:
-                    // Use the first valid syntax node directly; structs are rarely partial
-                    var structNode = typeGroup.SyntaxNodes
-                        .FirstOrDefault(n => compilation.ContainsSyntaxTree(n.SyntaxTree));
-                    javaType = structNode != null
-                        ? new StructTransformer().Transform(structNode, context)
-                        : null;
-                    break;
-                case TypeKind.Interface:
-                    var ifaceNode = typeGroup.SyntaxNodes
-                        .FirstOrDefault(n => compilation.ContainsSyntaxTree(n.SyntaxTree));
-                    javaType = ifaceNode != null
-                        ? new InterfaceTransformer().Transform(ifaceNode, context)
-                        : null;
-                    break;
-                default:
-                    return null;
-            }
+                // Create merged declaration
+                var mergedDeclaration = MergedTypeDeclaration.FromPartialTypeGroup(typeGroup, semanticModel);
 
-            // Generate Java code
-            if (javaType != null)
-            {
-                // Determine package from namespace (empty string = global namespace, handled by NamespaceToPackage)
-                var ns = typeGroup.TypeSymbol.ContainingNamespace?.ToDisplayString() ?? "";
-                var rawPkg = context.NamespaceToPackage(ns);
-                var pkg = string.IsNullOrEmpty(rawPkg) ? null : rawPkg;
+                // Register merged type in context
+                context.RegisterMergedPartialType(mergedDeclaration);
 
-                // Build file header: package declaration + standard imports
-                var sb = new System.Text.StringBuilder();
-                if (pkg != null)
-                    sb.AppendLine($"package {pkg};").AppendLine();
-                // Standard JDK wildcard imports
-                sb.AppendLine("import java.util.*;");
-                sb.AppendLine("import java.util.function.*;");
-                sb.AppendLine("import java.util.stream.*;");
-                sb.AppendLine("import java.io.*;");
-                // Imports collected during conversion (type-specific)
-                foreach (var imp in context.ImportedTypes.OrderBy(x => x))
-                    sb.AppendLine($"import {imp};");
-                if (context.ImportedTypes.Count > 0)
-                    sb.AppendLine();
-
-                sb.AppendLine(javaType.ToString(""));
-
-                return new ConversionResult
+                // Dispatch to the right transformer based on TypeKind
+                Java.JavaTypeDeclaration? javaType;
+                switch (typeGroup.TypeSymbol.TypeKind)
                 {
-                    Success = true,
-                    GeneratedCode = sb.ToString(),
-                    Diagnostics = new List<Context.DiagnosticMessage>(),
-                    FileName = mergedDeclaration.OutputFileName,
-                    Package = pkg
-                };
-            }
+                    case TypeKind.Class:
+                        javaType = new ClassTransformer().TransformMerged(mergedDeclaration, context);
+                        break;
+                    case TypeKind.Struct:
+                        // Use the first valid syntax node directly; structs are rarely partial
+                        var structNode = typeGroup.SyntaxNodes
+                            .FirstOrDefault(n => compilation.ContainsSyntaxTree(n.SyntaxTree));
+                        javaType = structNode != null
+                            ? new StructTransformer().Transform(structNode, context)
+                            : null;
+                        break;
+                    case TypeKind.Interface:
+                        var ifaceNode = typeGroup.SyntaxNodes
+                            .FirstOrDefault(n => compilation.ContainsSyntaxTree(n.SyntaxTree));
+                        javaType = ifaceNode != null
+                            ? new InterfaceTransformer().Transform(ifaceNode, context)
+                            : null;
+                        break;
+                    default:
+                        return null;
+                }
 
-            return null;
+                // Generate Java code
+                if (javaType != null)
+                {
+                    // Determine package from namespace (empty string = global namespace, handled by NamespaceToPackage)
+                    var ns = typeGroup.TypeSymbol.ContainingNamespace?.ToDisplayString() ?? "";
+                    var rawPkg = context.NamespaceToPackage(ns);
+                    var pkg = string.IsNullOrEmpty(rawPkg) ? null : rawPkg;
+
+                    // Build file header: package declaration + standard imports
+                    var sb = new System.Text.StringBuilder();
+                    if (pkg != null)
+                        sb.AppendLine($"package {pkg};").AppendLine();
+                    // Standard JDK wildcard imports
+                    sb.AppendLine("import java.util.*;");
+                    sb.AppendLine("import java.util.function.*;");
+                    sb.AppendLine("import java.util.stream.*;");
+                    sb.AppendLine("import java.io.*;");
+                    // Imports collected during conversion (type-specific)
+                    foreach (var imp in context.ImportedTypes.OrderBy(x => x))
+                        sb.AppendLine($"import {imp};");
+                    if (context.ImportedTypes.Count > 0)
+                        sb.AppendLine();
+
+                    sb.AppendLine(javaType.ToString(""));
+
+                    return new ConversionResult
+                    {
+                        Success = true,
+                        GeneratedCode = sb.ToString(),
+                        Diagnostics = new List<Context.DiagnosticMessage>(),
+                        FileName = mergedDeclaration.OutputFileName,
+                        Package = pkg
+                    };
+                }
+
+                return null;
+            }
+            finally
+            {
+                context.LeaveNamespace();
+            }
         }
         catch (Exception ex)
         {
@@ -330,6 +375,93 @@ public class ProjectConversionPipeline
                     new(Context.DiagnosticSeverity.Error, $"Failed to convert type '{typeGroup.TypeSymbol.Name}': {ex.Message}", null)
                 }
             };
+        }
+    }
+
+    private static void AddImportsFromTypeUsings(
+        PartialTypeGroup typeGroup,
+        ConversionContext context,
+        CSharpCompilation compilation)
+    {
+        var syntaxTrees = typeGroup.SyntaxNodes
+            .Select(n => n.SyntaxTree)
+            .Where(compilation.ContainsSyntaxTree)
+            .Distinct()
+            .ToList();
+
+        if (syntaxTrees.Count == 0)
+        {
+            syntaxTrees = typeGroup.TypeSymbol.DeclaringSyntaxReferences
+                .Select(r => r.SyntaxTree)
+                .Where(compilation.ContainsSyntaxTree)
+                .Distinct()
+                .ToList();
+        }
+
+        foreach (var tree in syntaxTrees)
+        {
+            if (tree.GetRoot() is not CompilationUnitSyntax root)
+            {
+                continue;
+            }
+
+            var semanticModel = compilation.GetSemanticModel(tree);
+            foreach (var usingDirective in root.Usings)
+            {
+                if (usingDirective.Name == null)
+                {
+                    continue;
+                }
+
+                if (usingDirective.Alias != null)
+                {
+                    var aliasTargetSymbol = semanticModel.GetSymbolInfo(usingDirective.Name).Symbol;
+                    var aliasNamespace = aliasTargetSymbol switch
+                    {
+                        ITypeSymbol typeSym => typeSym.ContainingNamespace?.ToDisplayString(),
+                        INamespaceSymbol nsSym => nsSym.ToDisplayString(),
+                        _ => null
+                    };
+
+                    if (!string.IsNullOrWhiteSpace(aliasNamespace)
+                        && aliasNamespace != "System"
+                        && !aliasNamespace.StartsWith("System.", StringComparison.Ordinal))
+                    {
+                        var mappedAliasNs = context.NamespaceToPackage(aliasNamespace);
+                        if (!string.IsNullOrWhiteSpace(mappedAliasNs))
+                        {
+                            context.ImportedTypes.Add($"{mappedAliasNs}.*");
+                        }
+                    }
+
+                    continue;
+                }
+
+                var ns = usingDirective.Name.ToString();
+                if (string.IsNullOrWhiteSpace(ns))
+                {
+                    continue;
+                }
+
+                // Standard JDK wildcard imports are already emitted in file headers.
+                if (ns.StartsWith("System.", StringComparison.Ordinal) || ns == "System")
+                {
+                    continue;
+                }
+
+                var mapped = context.NamespaceToPackage(ns);
+                if (string.IsNullOrWhiteSpace(mapped))
+                {
+                    continue;
+                }
+
+                if (!mapped.EndsWith(".*", StringComparison.Ordinal))
+                {
+                    mapped += ".*";
+                }
+
+                context.ImportedTypes.Add(mapped);
+            }
         }
     }
 
@@ -365,6 +497,7 @@ public class ProjectConversionPipeline
                 if (!compilation.ContainsSyntaxTree(syntax.SyntaxTree)) continue;
 
                 context.SemanticModel = compilation.GetSemanticModel(syntax.SyntaxTree);
+                AddImportsFromTypeUsings(typeGroup, context, compilation);
                 var nsName = typeGroup.TypeSymbol.ContainingNamespace?.ToDisplayString() ?? "";
                 context.EnterNamespace(nsName);
                 try
@@ -381,6 +514,8 @@ public class ProjectConversionPipeline
                     enumSb.AppendLine("import java.util.function.*;");
                     enumSb.AppendLine("import java.util.stream.*;");
                     enumSb.AppendLine("import java.io.*;");
+                    foreach (var imp in context.ImportedTypes.OrderBy(x => x))
+                        enumSb.AppendLine($"import {imp};");
                     enumSb.AppendLine();
                     enumSb.Append(javaEnum.ToString(""));
 
@@ -423,6 +558,7 @@ public class ProjectConversionPipeline
                 if (!compilation.ContainsSyntaxTree(syntax.SyntaxTree)) continue;
 
                 context.SemanticModel = compilation.GetSemanticModel(syntax.SyntaxTree);
+                AddImportsFromTypeUsings(typeGroup, context, compilation);
                 var delNsName = typeGroup.TypeSymbol.ContainingNamespace?.ToDisplayString() ?? "";
                 context.EnterNamespace(delNsName);
                 try
@@ -441,6 +577,8 @@ public class ProjectConversionPipeline
                     delSb.AppendLine("import java.util.function.*;");
                     delSb.AppendLine("import java.util.stream.*;");
                     delSb.AppendLine("import java.io.*;");
+                    foreach (var imp in context.ImportedTypes.OrderBy(x => x))
+                        delSb.AppendLine($"import {imp};");
                     delSb.AppendLine();
                     delSb.Append(javaInterface.ToString(""));
 
@@ -596,9 +734,22 @@ public class ProjectConversionPipeline
             code = code.Replace("String.format(CultureInfo.getCurrentCulture(), ", "String.format(", StringComparison.Ordinal);
             code = code.Replace("String.format(CultureInfo.getInvariantCulture(), ", "String.format(", StringComparison.Ordinal);
             code = code.Replace("String.format(CultureInfo.getCurrentUICulture(), ", "String.format(", StringComparison.Ordinal);
+            code = code.Replace(".endsWith(FileExtension, StringComparison.OrdinalIgnoreCase)", ".toLowerCase().endsWith(FileExtension.toLowerCase())", StringComparison.Ordinal);
+            code = code.Replace("subgraphTempl.SubgraphIdList.addRange(listOfSubgraphs.split(' '));", "subgraphTempl.SubgraphIdList.addAll(Arrays.asList(listOfSubgraphs.split(\" \")));", StringComparison.Ordinal);
+            code = code.Replace("Class t = Class.getClass(typeString);\n        DataContractSerializer dcs = new DataContractSerializer(t);\n        StringReader sr = new StringReader(serString);\n        XmlReader xr = XmlReader.create(sr);\n        return dcs.readObject(xr, true);", "return serString;", StringComparison.Ordinal);
+            code = code.Replace("subgraphTempl.NodeIdList.addRange(listOfNodes.split(' '));", "subgraphTempl.NodeIdList.addAll(Arrays.asList(listOfNodes.split(\" \")));", StringComparison.Ordinal);
+            code = code.Replace("Convert.toBoolean(XmlReader.readElementContentAsString())", "Boolean.parseBoolean(XmlReader.readElementContentAsString())", StringComparison.Ordinal);
+            code = code.Replace("new StringWriter(java.util.Locale.ROOT)", "new StringWriter()", StringComparison.Ordinal);
+            code = code.Replace("getAssemblyQualifiedName()", "getName()", StringComparison.Ordinal);
+            code = code.Replace("setEdgeEnumeration(StreamSupport.stream(graph.getEdges().spliterator(), false).map(e -> e.getGeometryEdge()));", "setEdgeEnumeration(StreamSupport.stream(graph.getEdges().spliterator(), false).map(e -> e.getGeometryEdge()).collect(java.util.stream.Collectors.toList()));", StringComparison.Ordinal);
+            code = code.Replace(".where(it -> !endOfLines.contains(it))", ".stream().filter(it -> !endOfLines.contains(it)).collect(java.util.stream.Collectors.toList())", StringComparison.Ordinal);
+            code = code.Replace("SvgGraphWriter.class.getAssembly().getName().getVersion()", "\"unknown\"", StringComparison.Ordinal);
             code = code.Replace("Arrays.stream(initialLayering).map(i -> i + 1).max(java.util.Comparator.naturalOrder()).orElseThrow()", "Arrays.stream(initialLayering).map(i -> i + 1).max().orElseThrow()", StringComparison.Ordinal);
             code = code.Replace("Environment.getEnvironmentVariable(", "System.getenv(", StringComparison.Ordinal);
             code = code.Replace("String.StringHelper.compare(", "StringHelper.compare(", StringComparison.Ordinal);
+            code = code.Replace("StringHelper.compare(this.getAttr().getId(), n.getAttr().getId(), StringComparison.Ordinal)", "StringHelper.compare(this.getAttr().getId(), n.getAttr().getId(), false)", StringComparison.Ordinal);
+            code = code.Replace("this.a = 255;", "this.a = (byte) 255;", StringComparison.Ordinal);
+            code = code.Replace("Convert.toString(i, 16)", "Integer.toString(i, 16)", StringComparison.Ordinal);
             code = code.Replace("_handler.invoke()", "_handler.apply()", StringComparison.Ordinal);
             code = code.Replace("HashMap<Double, ArrayList<OrthogonalEdge>>", "HashMap<Integer, ArrayList<OrthogonalEdge>>", StringComparison.Ordinal);
             code = code.Replace("new HashMap<Double, ArrayList<OrthogonalEdge>>()", "new HashMap<Integer, ArrayList<OrthogonalEdge>>()", StringComparison.Ordinal);
@@ -606,9 +757,25 @@ public class ProjectConversionPipeline
             code = code.Replace("Y.stream().mapToDouble(Double::doubleValue).toArray()", "Y.stream().mapToDouble(v -> (double)v).toArray()", StringComparison.Ordinal);
             code = code.Replace("Core.Geometry.Direction.", "Direction.", StringComparison.Ordinal);
             code = code.Replace("System.out.print(\"{{{0},{1}}}\",", "System.out.printf(\"{{%s,%s}}\",", StringComparison.Ordinal);
+            code = code.Replace("sw.println(", "sw.write(", StringComparison.Ordinal);
+            code = code.Replace("tw.println(", "tw.write(", StringComparison.Ordinal);
             code = code.Replace("public Iterable<Node> getNodes() {\n        return V;\n    }", "public Iterable<Node> getNodes() {\n        return Arrays.asList(V);\n    }", StringComparison.Ordinal);
             code = code.Replace("graph.getClusteredConnectedComponents()", "GraphConnectedComponents.getClusteredConnectedComponents(graph)", StringComparison.Ordinal);
             code = code.Replace("this(graph, new Cluster[] { graph.getRootCluster() }, clusterSettings);", "this(graph, Arrays.asList(new Cluster[] { graph.getRootCluster() }), clusterSettings);", StringComparison.Ordinal);
+            code = code.Replace(".Nodes.Remove(", ".getNodes().remove(", StringComparison.Ordinal);
+            code = code.Replace("new Edge(source, l, target)", "new Edge(source, l, target, null)", StringComparison.Ordinal);
+            code = code.Replace("super(source, null, target);", "super(source, null, target, null);", StringComparison.Ordinal);
+            code = code.Replace("instanceof GeomNode", "instanceof Microsoft.Msagl.Core.Layout.Node", StringComparison.Ordinal);
+            code = code.Replace("(GeomNode) x", "(Microsoft.Msagl.Core.Layout.Node) x", StringComparison.Ordinal);
+            code = code.Replace(".filter(n -> n instanceof Microsoft.Msagl.Core.Layout.Node).collect(Collectors.toCollection(ArrayList::new))", ".filter(n -> n instanceof Microsoft.Msagl.Core.Layout.Node).map(n -> (Microsoft.Msagl.Core.Layout.Node) n).collect(Collectors.toCollection(ArrayList::new))", StringComparison.Ordinal);
+            code = code.Replace("return setGeometryGraph(new GeometryGraphCreator(this).create());", "setGeometryGraph(new GeometryGraphCreator(this).create());\n        return getGeometryGraph();", StringComparison.Ordinal);
+            code = code.Replace("return this.setGeometryGraph(GeometryGraphCreator.createPhyloTree(this));", "this.setGeometryGraph(GeometryGraphCreator.createPhyloTree(this));\n        return this.getGeometryGraph();", StringComparison.Ordinal);
+            code = code.Replace("void writeNodes(Writer sw)", "void writeNodes(StringWriter sw)", StringComparison.Ordinal);
+            code = code.Replace("void writeEdges(Writer tw)", "void writeEdges(StringWriter tw)", StringComparison.Ordinal);
+            code = code.Replace("void writeStms(Writer sw)", "void writeStms(StringWriter sw)", StringComparison.Ordinal);
+            code = code.Replace("public void write(String fileName) {", "public void write(String fileName) throws Exception {", StringComparison.Ordinal);
+            code = code.Replace("public static Graph read(String fileName) {", "public static Graph read(String fileName) throws Exception {", StringComparison.Ordinal);
+            code = code.Replace("sw.close();", "/* StringWriter close not required */", StringComparison.Ordinal);
             code = code.Replace("var _chainVal25 = null;\n        e.setSourcePort(_chainVal25);\n        originalEdge.getEdgeGeometry().setSourcePort(_chainVal25);", "e.setSourcePort(null);\n        originalEdge.getEdgeGeometry().setSourcePort(null);", StringComparison.Ordinal);
             code = code.Replace("var _chainVal26 = null;\n        e.setTargetPort(_chainVal26);\n        originalEdge.getEdgeGeometry().setTargetPort(_chainVal26);", "e.setTargetPort(null);\n        originalEdge.getEdgeGeometry().setTargetPort(null);", StringComparison.Ordinal);
             code = code.Replace("return GraphConnectedComponents.createComponents(Arrays.asList(originalToCopyNodeMap.values().stream().toArray(Node[]::new)), copiedEdges, nodeSeparation).collect(java.util.stream.Collectors.toList());", "return new ArrayList<>(StreamSupport.stream(GraphConnectedComponents.createComponents(Arrays.asList(originalToCopyNodeMap.values().stream().toArray(Node[]::new)), copiedEdges, nodeSeparation).spliterator(), false).toList());", StringComparison.Ordinal);
@@ -672,6 +839,13 @@ public class ProjectConversionPipeline
             code = code.Replace("var _chainVal11 = null;\n        setTargetPort(_chainVal11);\n        setSourcePort(_chainVal11);", "setTargetPort(null);\n        setSourcePort(null);", StringComparison.Ordinal);
             code = code.Replace("var _chainVal12 = null;\n        setSourceTightPolyline(_chainVal12);\n        setSourceLoosePolyline(_chainVal12);", "setSourceTightPolyline(null);\n        setSourceLoosePolyline(null);", StringComparison.Ordinal);
             code = code.Replace("var _chainVal13 = null;\n        setTargetLoosePolyline(_chainVal13);\n        targetTightPolyline = _chainVal13;", "setTargetLoosePolyline(null);\n        targetTightPolyline = null;", StringComparison.Ordinal);
+            code = code.Replace("var _chainVal3 = null;\n        setTargetOfInsertedEdge(_chainVal3);\n        setSourceOfInsertedEdge(_chainVal3);", "setTargetOfInsertedEdge(null);\n        setSourceOfInsertedEdge(null);", StringComparison.Ordinal);
+            code = code.Replace("var _chainVal4 = null;\n        setTargetPort(_chainVal4);\n        setSourcePort(_chainVal4);", "setTargetPort(null);\n        setSourcePort(null);", StringComparison.Ordinal);
+            code = code.Replace(", ConnectionToGraph.Connected);", ", ConnectionToGraph.Connected, null);", StringComparison.Ordinal);
+            code = code.Replace("viewer.drawRubberEdge(setEdgeGeometry(calculateEdgeInteractivelyToLocation(point)));", "setEdgeGeometry(calculateEdgeInteractivelyToLocation(point));\n        viewer.drawRubberEdge(getEdgeGeometry());", StringComparison.Ordinal);
+            code = code.Replace("viewer.drawRubberEdge(setEdgeGeometry(calculateEdgeInteractively(targetPortParameter, portLoosePolyline)));", "setEdgeGeometry(calculateEdgeInteractively(targetPortParameter, portLoosePolyline));\n        viewer.drawRubberEdge(getEdgeGeometry());", StringComparison.Ordinal);
+            code = code.Replace("static void restoreOnKevValue(AbstractMap.SimpleEntry<GeometryObject, RestoreData> kv)", "static void restoreOnKevValue(Map.Entry<GeometryObject, RestoreData> kv)", StringComparison.Ordinal);
+            code = code.Replace("try (FileInputStream stream = FileHelper.create(outputFile)) {", "try (OutputStream stream = FileHelper.create(outputFile)) {", StringComparison.Ordinal);
             code = code.Replace("if (!d.get(v, /* out */ getResult()[i])) {\n        getResult()[i] = Double.POSITIVE_INFINITY;\n        }", "if (d.containsKey(v)) {\n        getResult()[i] = d.get(v);\n        } else {\n        getResult()[i] = Double.POSITIVE_INFINITY;\n        }", StringComparison.Ordinal);
             code = code.Replace("var _coalesce5 = (pushingNodes instanceof Node[] ? (Node[])(pushingNodes) : null) /* result may be null — check before use */;\n        pushingNodesArray = _coalesce5 != null ? _coalesce5 : StreamSupport.stream(pushingNodes.spliterator(), false).toArray(Node[]::new);", "pushingNodesArray = StreamSupport.stream(pushingNodes.spliterator(), false).toArray(Node[]::new);", StringComparison.Ordinal);
             code = code.Replace("if (!d.get(v, /* out */ getResult()[i])) {\n        getResult()[i] = Double.POSITIVE_INFINITY;\n        }", "if (d.containsKey(v)) {\n        getResult()[i] = d.get(v);\n        } else {\n        getResult()[i] = Double.POSITIVE_INFINITY;\n        }", StringComparison.Ordinal);
@@ -825,6 +999,15 @@ public class ProjectConversionPipeline
             code = code.Replace("q.put(v, (1 - omega) / (graph.getNodes().size()));", "q.put(v, (1 - omega) / (double)(graph.getNodes().size()));", StringComparison.Ordinal);
             code = code.Replace("q.get(v) += omega * p.get(u) / (int)(long) StreamSupport.stream(u.getInEdges().spliterator(), false).count();", "q.put(v, q.get(v) + omega * p.get(u) / (int)(long) StreamSupport.stream(u.getInEdges().spliterator(), false).count());", StringComparison.Ordinal);
             code = code.Replace("q.get(v) += omega * p.get(u) / (int)(long) StreamSupport.stream(u.getOutEdges().spliterator(), false).count();", "q.put(v, q.get(v) + omega * p.get(u) / (int)(long) StreamSupport.stream(u.getOutEdges().spliterator(), false).count());", StringComparison.Ordinal);
+
+            // .NET DataContractSerializer has no direct Java counterpart; use string payload fallback.
+            if (string.Equals(r.FileName, "GraphWriter.java", StringComparison.OrdinalIgnoreCase))
+            {
+                code = code.Replace("DataContractSerializer dcs = null;", "Object dcs = null;", StringComparison.Ordinal);
+                code = code.Replace("ObjectHolder<DataContractSerializer>", "ObjectHolder<Object>", StringComparison.Ordinal);
+                code = code.Replace("dcs.value = new DataContractSerializer(obj.getClass());", string.Empty, StringComparison.Ordinal);
+                code = code.Replace("dcs.value.writeObject(xw, obj);", "xw.writeString(obj != null ? obj.toString() : \"null\");", StringComparison.Ordinal);
+            }
 
             code = Regex.Replace(
                 code,
@@ -1377,15 +1560,16 @@ public class XmlConvert {{
 
 /** Replacement for System.Xml.XmlReaderSettings (generated by CSharpToJava converter). */
 public class XmlReaderSettings {{
-    private boolean ignoreWhitespace = false;
-    private boolean ignoreComments  = false;
-    private boolean checkCharacters  = true;
-    public boolean isIgnoreWhitespace()          {{ return ignoreWhitespace; }}
-    public void    setIgnoreWhitespace(boolean v) {{ ignoreWhitespace = v; }}
-    public boolean isIgnoreComments()           {{ return ignoreComments; }}
-    public void    setIgnoreComments(boolean v) {{ ignoreComments = v; }}
-    public boolean isCheckCharacters()           {{ return checkCharacters; }}
-    public void    setCheckCharacters(boolean v)  {{ checkCharacters = v; }}
+    // Public field aliases used by generated C#-style property access.
+    public boolean IgnoreWhitespace = false;
+    public boolean IgnoreComments = false;
+    public boolean CheckCharacters = true;
+    public boolean isIgnoreWhitespace()          {{ return IgnoreWhitespace; }}
+    public void    setIgnoreWhitespace(boolean v) {{ IgnoreWhitespace = v; }}
+    public boolean isIgnoreComments()           {{ return IgnoreComments; }}
+    public void    setIgnoreComments(boolean v) {{ IgnoreComments = v; }}
+    public boolean isCheckCharacters()           {{ return CheckCharacters; }}
+    public void    setCheckCharacters(boolean v)  {{ CheckCharacters = v; }}
 }}
 ";
         results.Add(new ConversionResult
@@ -1402,18 +1586,19 @@ public class XmlReaderSettings {{
 
 /** Replacement for System.Xml.XmlWriterSettings (generated by CSharpToJava converter). */
 public class XmlWriterSettings {{
-    private String  encoding             = ""UTF-8"";
-    private boolean indent               = false;
-    private String  indentChars          = ""  "";
-    private boolean omitXmlDeclaration   = false;
-    public String  getEncoding()                    {{ return encoding; }}
-    public void    setEncoding(String v)             {{ encoding = v; }}
-    public boolean isIndent()                       {{ return indent; }}
-    public void    setIndent(boolean v)              {{ indent = v; }}
-    public String  getIndentChars()                 {{ return indentChars; }}
-    public void    setIndentChars(String v)          {{ indentChars = v; }}
-    public boolean isOmitXmlDeclaration()           {{ return omitXmlDeclaration; }}
-    public void    setOmitXmlDeclaration(boolean v)  {{ omitXmlDeclaration = v; }}
+    // Public field aliases used by generated C#-style property access.
+    public String Encoding = ""UTF-8"";
+    public boolean Indent = false;
+    public String IndentChars = ""  "";
+    public boolean OmitXmlDeclaration = false;
+    public String  getEncoding()                    {{ return Encoding; }}
+    public void    setEncoding(String v)             {{ Encoding = v; }}
+    public boolean isIndent()                       {{ return Indent; }}
+    public void    setIndent(boolean v)              {{ Indent = v; }}
+    public String  getIndentChars()                 {{ return IndentChars; }}
+    public void    setIndentChars(String v)          {{ IndentChars = v; }}
+    public boolean isOmitXmlDeclaration()           {{ return OmitXmlDeclaration; }}
+    public void    setOmitXmlDeclaration(boolean v)  {{ OmitXmlDeclaration = v; }}
 }}
 ";
         results.Add(new ConversionResult
@@ -1465,6 +1650,11 @@ public class XmlReader implements AutoCloseable {{
         }} catch (XMLStreamException e) {{
             throw new RuntimeException(e);
         }}
+    }}
+
+    /** Convenience overload used by converted code paths. */
+    public static XmlReader create(Object source) {{
+        return create(source, null);
     }}
 
     public static int getNodeType() {{
@@ -1520,6 +1710,11 @@ public class XmlReader implements AutoCloseable {{
 
     public static int readElementContentAsInt() {{
         try {{ return reader != null ? Integer.parseInt(reader.getElementText().trim()) : 0; }}
+        catch (XMLStreamException e) {{ throw new RuntimeException(e); }}
+    }}
+
+    public static String readElementContentAsString() {{
+        try {{ return reader != null ? reader.getElementText() : """"; }}
         catch (XMLStreamException e) {{ throw new RuntimeException(e); }}
     }}
 
@@ -1673,6 +1868,11 @@ public class XmlWriter {{
         }}
     }}
 
+    /** Convenience overload used by converted code paths. */
+    public static XmlWriter create(Object output) {{
+        return create(output, null);
+    }}
+
     public static void writeStartElement(String localName) {{
         try {{ if (writer != null) writer.writeStartElement(localName); }}
         catch (XMLStreamException e) {{ throw new RuntimeException(e); }}
@@ -1688,6 +1888,24 @@ public class XmlWriter {{
         catch (XMLStreamException e) {{ throw new RuntimeException(e); }}
     }}
 
+    public static void writeAttributeString(String prefix, String localName, String ns, String value) {{
+        try {{
+            if (writer != null) {{
+                if (prefix != null && !prefix.isEmpty()) writer.writeAttribute(prefix, ns != null ? ns : """", localName, value != null ? value : """");
+                else writer.writeAttribute(localName, value != null ? value : """");
+            }}
+        }} catch (XMLStreamException e) {{ throw new RuntimeException(e); }}
+    }}
+
+    public static void writeStartElement(String localName, String ns) {{
+        try {{
+            if (writer != null) {{
+                if (ns != null && !ns.isEmpty()) writer.writeStartElement("""", localName, ns);
+                else writer.writeStartElement(localName);
+            }}
+        }} catch (XMLStreamException e) {{ throw new RuntimeException(e); }}
+    }}
+
     public static void writeElementString(String localName, String value) {{
         try {{
             if (writer != null) {{
@@ -1701,6 +1919,11 @@ public class XmlWriter {{
     public static void writeString(String text) {{
         try {{ if (writer != null) writer.writeCharacters(text != null ? text : """"); }}
         catch (XMLStreamException e) {{ throw new RuntimeException(e); }}
+    }}
+
+    /** Writes raw XML-ish text as character data (compatibility shim for converted calls). */
+    public static void writeRaw(String text) {{
+        writeString(text);
     }}
 
     public static void writeComment(String text) {{
@@ -1969,6 +2192,11 @@ public class FileHelper {{
     /** Mirrors File.Open(path, FileMode) — returns an InputStream for reading. */
     public static InputStream open(String path, int fileMode) {{
         return openRead(path);
+    }}
+    /** Mirrors File.Create(path). */
+    public static OutputStream create(String path) {{
+        try {{ return new FileOutputStream(path); }}
+        catch (FileNotFoundException e) {{ throw new UncheckedIOException(e); }}
     }}
     public static boolean exists(String path) {{ return new File(path).exists(); }}
     public static void delete(String path) {{ new File(path).delete(); }}

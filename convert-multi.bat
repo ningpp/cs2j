@@ -1,0 +1,1 @@
+dotnet run --project "d:\code\CSharpToJavaConverter\src\CSharpToJava.CLI\CSharpToJava.CLI.csproj" -- convert-project -s "E:\agl-master\GraphLayout\Test\MSAGLTests\MSAGLTests.csproj" -d "C:\agl\v20260322-msagltests-multi" -m "d:\code\CSharpToJavaConverter\config\TypeMappings.json" --mode multi-module --include-tests true

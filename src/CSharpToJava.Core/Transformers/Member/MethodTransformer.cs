@@ -37,6 +37,7 @@ public class MethodTransformer : IMemberTransformer
             ReturnType = GetReturnType(methodDecl, context)
         };
         javaMethod.LeadingComment = context.GetDeclarationComments(methodDecl, methodInfo).ToCombinedComment();
+        ApplyTestMethodAnnotations(methodDecl, javaMethod, context);
 
         // Explicit interface implementations (e.g., ICurve ICurve.Clone()) have no access modifier in C#,
         // but interface implementations in Java MUST be public.
@@ -252,6 +253,72 @@ public class MethodTransformer : IMemberTransformer
         }
 
         return javaMethod;
+    }
+
+    private static void ApplyTestMethodAnnotations(
+        MethodDeclarationSyntax methodDecl,
+        JavaMethodDeclaration javaMethod,
+        ConversionContext context)
+    {
+        var attributeNames = methodDecl.AttributeLists
+            .SelectMany(al => al.Attributes)
+            .Select(a => NormalizeAttributeName(a.Name.ToString()))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (attributeNames.Contains("TestMethod"))
+        {
+            javaMethod.Annotations.Add(new JavaAnnotation("Test"));
+            context.AddImport("org.junit.jupiter.api.Test");
+        }
+
+        if (attributeNames.Contains("DataTestMethod"))
+        {
+            javaMethod.Annotations.Add(new JavaAnnotation("ParameterizedTest"));
+            context.AddImport("org.junit.jupiter.params.ParameterizedTest");
+        }
+
+        if (attributeNames.Contains("TestInitialize"))
+        {
+            javaMethod.Annotations.Add(new JavaAnnotation("BeforeEach"));
+            context.AddImport("org.junit.jupiter.api.BeforeEach");
+        }
+
+        if (attributeNames.Contains("TestCleanup"))
+        {
+            javaMethod.Annotations.Add(new JavaAnnotation("AfterEach"));
+            context.AddImport("org.junit.jupiter.api.AfterEach");
+        }
+
+        if (attributeNames.Contains("ClassInitialize"))
+        {
+            javaMethod.Annotations.Add(new JavaAnnotation("BeforeAll"));
+            javaMethod.Modifiers |= JavaModifiers.Static;
+            context.AddImport("org.junit.jupiter.api.BeforeAll");
+        }
+
+        if (attributeNames.Contains("ClassCleanup"))
+        {
+            javaMethod.Annotations.Add(new JavaAnnotation("AfterAll"));
+            javaMethod.Modifiers |= JavaModifiers.Static;
+            context.AddImport("org.junit.jupiter.api.AfterAll");
+        }
+    }
+
+    private static string NormalizeAttributeName(string rawName)
+    {
+        var name = rawName.Trim();
+        var lastDot = name.LastIndexOf('.');
+        if (lastDot >= 0)
+        {
+            name = name[(lastDot + 1)..];
+        }
+
+        if (name.EndsWith("Attribute", StringComparison.OrdinalIgnoreCase))
+        {
+            name = name[..^9];
+        }
+
+        return name;
     }
 
     private string GetJavaMethodName(MethodDeclarationSyntax methodDecl, IMethodSymbol? methodInfo, ConversionContext context)

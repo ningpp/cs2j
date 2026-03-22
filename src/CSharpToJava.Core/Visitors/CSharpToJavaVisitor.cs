@@ -245,7 +245,20 @@ public class CSharpToJavaVisitor : CSharpSyntaxVisitor<JavaSyntaxNode?>
             };
         }
 
-        return null;
+        // Preserve custom namespace imports so cross-project symbols remain resolvable
+        // after conversion to Java modules.
+        var mappedNamespace = _context.NamespaceToPackage(csharpUsing);
+        if (string.IsNullOrWhiteSpace(mappedNamespace))
+        {
+            return null;
+        }
+
+        if (mappedNamespace.EndsWith(".*", StringComparison.Ordinal))
+        {
+            return mappedNamespace;
+        }
+
+        return mappedNamespace + ".*";
     }
 
     /// <summary>
@@ -256,6 +269,11 @@ public class CSharpToJavaVisitor : CSharpSyntaxVisitor<JavaSyntaxNode?>
         var ns = namespaceDecl.Name.ToString();
 
         _context.EnterNamespace(ns);
+
+        if (namespaceDecl.Usings.Count > 0)
+        {
+            ProcessUsings(namespaceDecl.Usings, compilation);
+        }
 
         // 设置包名
         if (string.IsNullOrEmpty(compilation.Package))
