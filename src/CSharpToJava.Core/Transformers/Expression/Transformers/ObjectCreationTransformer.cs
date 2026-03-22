@@ -657,6 +657,9 @@ public class ObjectCreationTransformer : IExpressionTransformer
         // Fix: Java doesn't allow creating arrays of type parameters (e.g., new T[n]).
         // Use (T[]) new Object[n] with an unchecked cast instead.
         bool isTypeParameterArray = elemSemType != null && elemSemType.TypeKind == TypeKind.TypeParameter;
+        string? constrainedArrayElementType = elemSemType is ITypeParameterSymbol typeParameterSymbol
+            ? GetConstrainedArrayElementType(typeParameterSymbol, context)
+            : null;
 
         var result = new StringBuilder();
         if (isTypeParameterArray)
@@ -666,7 +669,8 @@ public class ObjectCreationTransformer : IExpressionTransformer
             result.Append(elementType);
             for (int i = 0; i < sizes.Count; i++)
                 result.Append("[]");
-            result.Append(") new Object");
+            result.Append(") new ");
+            result.Append(string.IsNullOrEmpty(constrainedArrayElementType) ? "Object" : constrainedArrayElementType);
         }
         else
         {
@@ -694,6 +698,26 @@ public class ObjectCreationTransformer : IExpressionTransformer
         }
 
         return result.ToString();
+    }
+
+    private static string? GetConstrainedArrayElementType(ITypeParameterSymbol typeParameterSymbol, ConversionContext context)
+    {
+        var constraintType = typeParameterSymbol.ConstraintTypes
+            .FirstOrDefault(t => t.SpecialType != SpecialType.System_Object);
+
+        if (constraintType == null)
+        {
+            return null;
+        }
+
+        var mappedType = context.MapType(constraintType);
+        if (string.IsNullOrWhiteSpace(mappedType))
+        {
+            return null;
+        }
+
+        var genericArgStart = mappedType.IndexOf('<');
+        return genericArgStart > 0 ? mappedType[..genericArgStart] : mappedType;
     }
 
     private string TransformImplicitArrayCreation(ImplicitArrayCreationExpressionSyntax node, ConversionContext context)
