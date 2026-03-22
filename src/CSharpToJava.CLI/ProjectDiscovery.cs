@@ -116,25 +116,14 @@ internal static class ProjectDiscovery
             .ToList();
 
         var isTestProject = IsTestProject(doc, projectName, packageReferences);
-        var isToolProject = IsToolProject(projectPath, projectName);
         var resources = GetCopyResources(doc, projectDir);
-
-        var kind = ProjectKind.Production;
-        if (isToolProject)
-        {
-            kind = ProjectKind.Tool;
-        }
-        else if (isTestProject)
-        {
-            kind = ProjectKind.Test;
-        }
 
         projectMap[projectPath] = new DiscoveredProject
         {
             Name = projectName,
             ProjectFilePath = projectPath,
             ProjectDirectory = projectDir,
-            Kind = kind,
+            Kind = isTestProject ? ProjectKind.Test : ProjectKind.Production,
             ProjectReferences = projectReferences,
             ResourceItems = resources,
         };
@@ -174,21 +163,6 @@ internal static class ProjectDiscovery
             || name.Contains("mstest")
             || name.Contains("xunit")
             || name.Contains("nunit");
-    }
-
-    private static bool IsToolProject(string projectPath, string projectName)
-    {
-        var normalizedPath = Path.GetFullPath(projectPath)
-            .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-
-        var toolsSegment = $"{Path.DirectorySeparatorChar}tools{Path.DirectorySeparatorChar}";
-        if (normalizedPath.Contains(toolsSegment, StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        return projectName.EndsWith(".Tool", StringComparison.OrdinalIgnoreCase)
-            || projectName.EndsWith(".Tools", StringComparison.OrdinalIgnoreCase);
     }
 
     private static List<ResourceItem> GetCopyResources(XDocument projectDoc, string projectDir)
