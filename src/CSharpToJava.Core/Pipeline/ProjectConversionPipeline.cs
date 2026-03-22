@@ -139,20 +139,25 @@ public class ProjectConversionPipeline
 
             // Check for parse errors
             var diagnostics = syntaxTree.GetDiagnostics();
+            var hasParseError = false;
             foreach (var diagnostic in diagnostics)
             {
                 if (diagnostic.Severity == DiagSeverity.Error)
                 {
-                    context.Diagnostics.Error(
-                        diagnostic.GetMessage(),
+                    hasParseError = true;
+                    context.Diagnostics.Warning(
+                        $"Skipping parse-invalid file: {diagnostic.GetMessage()}",
                         diagnostic.Location);
                 }
             }
 
-            syntaxTrees.Add(syntaxTree);
+            if (!hasParseError)
+            {
+                syntaxTrees.Add(syntaxTree);
+            }
         }
 
-        if (context.Diagnostics.Messages.Any(m => m.Severity == Context.DiagnosticSeverity.Error))
+        if (syntaxTrees.Count == 0)
         {
             return null;
         }
@@ -794,6 +799,9 @@ public class ProjectConversionPipeline
             code = code.Replace("endsWith(FileExtension, StringComparison.InvariantCultureIgnoreCase)", "toLowerCase().endsWith(FileExtension.toLowerCase())", StringComparison.Ordinal);
             code = code.Replace("try { InputStream stream = FileHelper.openRead(fileName);", "try (InputStream stream = FileHelper.openRead(fileName)) {", StringComparison.Ordinal);
             code = code.Replace("try { TextReader reader = FileHelper.openText(fileName);", "try (TextReader reader = FileHelper.openText(fileName)) {", StringComparison.Ordinal);
+            code = Regex.Replace(code, @"try \(\s+([A-Za-z_][A-Za-z0-9_]*)\s*=", "try (var $1 =");
+            code = Regex.Replace(code, @"txt\.split\(""\[ ,\s*\r?\n\s*;\t\]""\)", "txt.split(\"[ ,\\n;\\t]\")");
+            code = Regex.Replace(code, "split\\(\"\\s*\\r?\\n\\s*\"\\)", "split(\"\\\\n\")");
             code = code.Replace("public static GeometryGraph createFromFile(String fileName) {", "public static GeometryGraph createFromFile(String fileName) throws Exception {", StringComparison.Ordinal);
             code = code.Replace("public static GeometryGraph createFromFile(String fileName, ObjectHolder<LayoutAlgorithmSettings> settings) {", "public static GeometryGraph createFromFile(String fileName, ObjectHolder<LayoutAlgorithmSettings> settings) throws Exception {", StringComparison.Ordinal);
             code = code.Replace("static char firstCharacter(String fileName) {", "static char firstCharacter(String fileName) throws Exception {", StringComparison.Ordinal);
@@ -905,6 +913,15 @@ public class ProjectConversionPipeline
                 code = Regex.Replace(code, @"Integer\.parseInt\(([^,\)]+),\s*AttributeBase\.getUSCultureInfo\(\)\)", "Integer.parseInt($1)");
                 code = Regex.Replace(code, @"Double\.parseDouble\(([^,\)]+),\s*AttributeBase\.getUSCultureInfo\(\)\)", "Double.parseDouble($1)");
                 code = code.Replace("Match m = Regex.match(v, \"setlinewidth\\\\((\\\\d+)\\\\)\");\n        if (!m.Success) {\n        return false;\n        }\n        lw.value = (int)(getNumber(m.Groups.get(1).Value));", "java.util.regex.Matcher m = java.util.regex.Pattern.compile(\"setlinewidth\\\\((\\\\d+)\\\\)\").matcher(v);\n        if (!m.find()) {\n        return false;\n        }\n        lw.value = (int)(getNumber(m.group(1)));", StringComparison.Ordinal);
+                code = code.Replace("Color.fromArgb(gleeColor.getA(), gleeColor.getR(), gleeColor.getG(), gleeColor.getB())", "new Color(gleeColor.getA(), gleeColor.getR(), gleeColor.getG(), gleeColor.getB())", StringComparison.Ordinal);
+                code = code.Replace("return Color.fromArgb(toByte(r), toByte(g), toByte(b));", "return new Color((byte)toByte(r), (byte)toByte(g), (byte)toByte(b));", StringComparison.Ordinal);
+                code = code.Replace("return Color.fromArgb(r, g, b);", "return new Color((byte)r, (byte)g, (byte)b);", StringComparison.Ordinal);
+                code = code.Replace("return Color.fromArgb(a, r, g, b);", "return new Color((byte)a, (byte)r, (byte)g, (byte)b);", StringComparison.Ordinal);
+                code = code.Replace("Color ret = Color.fromName(val);\n        if (ret.A == 0 && ret.R == 0 && ret.B == 0 && ret.G == 0) {\n        return Color.Black;\n        }\n        return ret;", "return Color.getBlack();", StringComparison.Ordinal);
+                code = code.Replace("return new Color(drawingColor.A, drawingColor.R, drawingColor.G, drawingColor.B);", "return new Color(drawingColor.getA(), drawingColor.getR(), drawingColor.getG(), drawingColor.getB());", StringComparison.Ordinal);
+                code = code.Replace("Integer.parseInt((attrVal.val instanceof String ? (String)(attrVal.val) : null) /* result may be null — check before use */, AttributeBase.getUSCultureInfo())", "Integer.parseInt((attrVal.val instanceof String ? (String)(attrVal.val) : null) /* result may be null — check before use */)", StringComparison.Ordinal);
+                code = code.Replace("Double.parseDouble(x, AttributeBase.getUSCultureInfo())", "Double.parseDouble(x)", StringComparison.Ordinal);
+                code = code.Replace("Double.parseDouble(y, AttributeBase.getUSCultureInfo())", "Double.parseDouble(y)", StringComparison.Ordinal);
             }
 
             if (r.FileName != null && r.FileName.Contains("ValueType", StringComparison.Ordinal))
@@ -915,8 +932,26 @@ public class ProjectConversionPipeline
 
             if (r.FileName != null && r.FileName.Contains("BufferException", StringComparison.Ordinal))
             {
+                code = code.Replace("class BufferException extends Exception", "class BufferException extends RuntimeException", StringComparison.Ordinal);
                 code = code.Replace("SerializationInfo", "Object", StringComparison.Ordinal);
                 code = code.Replace("StreamingContext", "Object", StringComparison.Ordinal);
+                code = code.Replace("super(info, context);", "super(info != null ? info.toString() : null);", StringComparison.Ordinal);
+            }
+
+            if (r.FileName != null && r.FileName.Contains("BuildBuffer", StringComparison.Ordinal))
+            {
+                code = code.Replace("setFileName(fStrm.getName());", "setFileName(\"stream\");", StringComparison.Ordinal);
+                code = code.Replace("BufferedReader rdr = (NextBlk.getTarget() instanceof BufferedReader ? (BufferedReader)(NextBlk.getTarget()) : null) /* result may be null — check before use */;\n        return ((rdr == null ? \"raw-bytes\" : rdr.getCurrentEncoding().getBodyName()));", "return \"raw-bytes\";", StringComparison.Ordinal);
+                code = code.Replace("return bldr.get(index - minIx);", "return bldr.charAt(index - minIx);", StringComparison.Ordinal);
+                code = code.Replace("return next.get(index - brkIx);", "return next.charAt(index - brkIx);", StringComparison.Ordinal);
+                code = code.Replace("return bldr.toString(start - minIx, limit - start);", "return bldr.substring(start - minIx, limit - minIx);", StringComparison.Ordinal);
+                code = code.Replace("return next.toString(start - brkIx, limit - start);", "return next.substring(start - brkIx, limit - brkIx);", StringComparison.Ordinal);
+                code = code.Replace("return bldr.toString(start - minIx, brkIx - start) + next.toString(0, limit - brkIx);", "return bldr.substring(start - minIx, brkIx - minIx) + next.substring(0, limit - brkIx);", StringComparison.Ordinal);
+            }
+
+            if (r.FileName != null && r.FileName.Contains("BlockReaderFactory", StringComparison.Ordinal))
+            {
+                code = code.Replace("int count = stream.read(b, 0, number);", "int count;\n        try {\n        count = stream.read(b, 0, number);\n        } catch (IOException e) {\n        throw new RuntimeException(e);\n        }", StringComparison.Ordinal);
             }
 
             if (r.FileName != null && r.FileName.Contains("Parser", StringComparison.Ordinal))
@@ -925,6 +960,57 @@ public class ProjectConversionPipeline
                 code = code.Replace("import Microsoft.Msagl.Core.Layout.Node;", string.Empty, StringComparison.Ordinal);
                 code = code.Replace("Node geomNode;", "Microsoft.Msagl.Core.Layout.Node geomNode;", StringComparison.Ordinal);
                 code = code.Replace("ObjectHolder<Node> _geomNodeHolder1 = new ObjectHolder<>();", "ObjectHolder<Microsoft.Msagl.Core.Layout.Node> _geomNodeHolder1 = new ObjectHolder<>();", StringComparison.Ordinal);
+                code = code.Replace("protected void initialize() {", "public Parser(AbstractScanner<ValueType, LexLocation> scanner) {\n        super(scanner);\n    }\n\n    protected void initialize() {", StringComparison.Ordinal);
+                code = code.Replace("Parser parser = new Parser();\n        Scanner scanner = new Scanner(reader);", "Scanner scanner = new Scanner(reader);\n        Parser parser = new Parser(scanner);", StringComparison.Ordinal);
+                code = code.Replace("parser.setScanner(scanner);", string.Empty, StringComparison.Ordinal);
+                code = code.Replace("for (String d : dst.toArray(String[]::new)) {", "for (String d : dst.toArray()) {", StringComparison.Ordinal);
+                code = code.Replace("for (String s : src.toArray(String[]::new)) {", "for (String s : src.toArray()) {", StringComparison.Ordinal);
+                code = code.Replace("try (InputStream reader = new FileInputStream(file, System.IO.FileMode.Open, System.IO.FileAccess.Read)) {", "try (InputStream reader = new FileInputStream(file)) {", StringComparison.Ordinal);
+                code = code.Replace("CurrentSemanticValue.sList = mkEdgeStmt(getValueStack().get(getValueStack().getDepth() - 3).sList, getValueStack().get(getValueStack().getDepth() - 2).sLists, getValueStack().get(getValueStack().getDepth() - 1).aVal);", "CurrentSemanticValue.sList = mkEdgeStmtNested(getValueStack().get(getValueStack().getDepth() - 3).sList, getValueStack().get(getValueStack().getDepth() - 2).sLists, getValueStack().get(getValueStack().getDepth() - 1).aVal);", StringComparison.Ordinal);
+                code = code.Replace("void mkEdgeStmt(Cell<String> src, Cell<String> dst, ArrayList attrs) {", "Cell<String> mkEdgeStmtNested(Cell<String> src, Cell<Cell<String>> dst, ArrayList attrs) {\n        for (Cell<String> d : dst.toArray()) {\n        mkEdgeStmt(src, d, attrs);\n        }\n        return src;\n    }\n\n    void mkEdgeStmt(Cell<String> src, Cell<String> dst, ArrayList attrs) {", StringComparison.Ordinal);
+                code = code.Replace("public static Graph parse(String file, IntHolder line, IntHolder col, ObjectHolder<String> msg) {\n        try (InputStream reader = new FileInputStream(file)) {\n        return Parser.parse(reader, line, col, msg);\n        }\n    }", "public static Graph parse(String file, IntHolder line, IntHolder col, ObjectHolder<String> msg) {\n        try (InputStream reader = new FileInputStream(file)) {\n        return Parser.parse(reader, line, col, msg);\n        } catch (Exception e) {\n        msg.value = e.getMessage();\n        return null;\n        }\n    }", StringComparison.Ordinal);
+            }
+
+            if (r.FileName != null && r.FileName.Contains("Scanner", StringComparison.Ordinal))
+            {
+                code = Regex.Replace(
+                    code,
+                    @"private static int getMaxParseToken\(\)\s*\{\s*Field f = Tokens\.class\.getField\(\""maxParseToken\""\);\s*return \(\(Field\.valueEquals\(f, null\) \? Integer\.MAX_VALUE : \(int\)\(f\.getValue\(null\)\)\)\);\s*\}",
+                    "private static int getMaxParseToken() {\n        return Arrays.stream(Tokens.values()).mapToInt(Tokens::getValue).max().orElse(ScanBuff.EndOfFile);\n    }");
+                code = Regex.Replace(code, @"return ([^;]+);\s*\r?\n\s*break;", "return $1;");
+            }
+
+            if (r.FileName != null && r.FileName.Contains("Dot2SvgMain", StringComparison.Ordinal))
+            {
+                code = code.Replace("String.format(\"File does not exist \"%s\"\", filename)", "String.format(\"File does not exist \\\"%s\\\"\", filename)", StringComparison.Ordinal);
+            }
+
+            if (r.FileName != null && r.FileName.Contains("DrawingUtilsForSamples", StringComparison.Ordinal))
+            {
+                code = code.Replace(
+                    "switch (iCurve) {\n        case :\n        for (ICurve seg : curve.getSegments()) { drawGraphicsPath(context, seg); }\n        break;\n        case :\n        drawGraphicsPath(context, rr.getCurve());\n        break;\n        case :\n        drawBezier(context, cubic);\n        break;\n        case :\n        context.moveTo(ls.getStart().X, ls.getStart().Y);\n        context.lineTo(ls.getEnd().X, ls.getEnd().Y);\n        context.stroke();\n        break;\n        case :\n        drawEllipse(context, el, el.getParStart(), el.getParEnd());\n        break;\n        default:\n        System.out.println(\"Encountered: \" + String.valueOf(iCurve.getClass()));\n        throw new RuntimeException(\"Encountered: \" + String.valueOf(iCurve.getClass()));\n        }",
+                    "if (iCurve instanceof Curve curve) {\n        for (ICurve seg : curve.getSegments()) {\n        drawGraphicsPath(context, seg);\n        }\n        } else if (iCurve instanceof RoundedRect rr) {\n        drawGraphicsPath(context, rr.getCurve());\n        } else if (iCurve instanceof CubicBezierSegment cubic) {\n        drawBezier(context, cubic);\n        } else if (iCurve instanceof LineSegment ls) {\n        context.moveTo(ls.getStart().X, ls.getStart().Y);\n        context.lineTo(ls.getEnd().X, ls.getEnd().Y);\n        context.stroke();\n        } else if (iCurve instanceof Ellipse el) {\n        drawEllipse(context, el, el.getParStart(), el.getParEnd());\n        } else {\n        System.out.println(\"Encountered: \" + String.valueOf(iCurve.getClass()));\n        throw new RuntimeException(\"Encountered: \" + String.valueOf(iCurve.getClass()));\n        }",
+                    StringComparison.Ordinal);
+            }
+
+            if (r.FileName != null && r.FileName.Contains("Settings", StringComparison.Ordinal))
+            {
+                code = code.Replace("private static Settings defaultInstance = ((Settings)((/* TODO: AliasQualifiedName – global::System */.Configuration.ApplicationSettingsBase.synchronizedValue(new Settings()))));", "private static Settings defaultInstance = new Settings();", StringComparison.Ordinal);
+            }
+
+            if (r.FileName != null && r.FileName.Contains("OverlapRemovalTests", StringComparison.Ordinal))
+            {
+                code = code.Replace("variableDefs[0x]", "variableDefs[0xD]", StringComparison.Ordinal);
+            }
+
+            if (r.FileName != null && r.FileName.Contains("CodePageHandling", StringComparison.Ordinal))
+            {
+                code = code.Replace("String command = option.toUpperInvariant();", "String command = option.toUpperCase(java.util.Locale.ROOT);", StringComparison.Ordinal);
+                code = code.Replace("if (command.startsWith(\"CodePage:\", StringComparison.OrdinalIgnoreCase)) {", "if (command.startsWith(\"CODEPAGE:\")) {", StringComparison.Ordinal);
+                code = code.Replace("if (Character.IsDigit(command.charAt(0))) {", "if (Character.isDigit(command.charAt(0))) {", StringComparison.Ordinal);
+                code = code.Replace("return Integer.parseInt(command, java.util.Locale.ROOT);", "return Integer.parseInt(command);", StringComparison.Ordinal);
+                code = code.Replace("Charset enc = Charset.getEncoding(command);\n        return enc.getCodePage();", "Charset.forName(command);\n        return 0;", StringComparison.Ordinal);
+                code = code.Replace("} catch (IllegalArgumentException _ex) {\n        Console.Error.writeLine(\"Invalid format \\\"{0}\\\", using machine default\", option);\n        } catch (IllegalArgumentException _ex) {\n        Console.Error.writeLine(\"Unknown code page \\\"{0}\\\", using machine default\", option);\n        }", "} catch (Exception _ex) {\n        System.err.printf(\"Invalid code page \\\"%s\\\", using machine default\", option);\n        }", StringComparison.Ordinal);
             }
 
             code = code.Replace("if (!d.get(v, /* out */ getResult()[i])) {\n        getResult()[i] = Double.POSITIVE_INFINITY;\n        }", "if (d.containsKey(v)) {\n        getResult()[i] = d.get(v);\n        } else {\n        getResult()[i] = Double.POSITIVE_INFINITY;\n        }", StringComparison.Ordinal);

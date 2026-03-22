@@ -77,7 +77,7 @@ class Program
                         DiagnosticSeverity.Warning => "WARNING",
                         _ => "INFO"
                     };
-                    Console.WriteLine($"  [{prefix}] {diag.Message}");
+                    Console.WriteLine($"  [{prefix}] {FormatDiagnostic(diag)}");
                 }
             }
 
@@ -155,7 +155,6 @@ class Program
 
             var pipeline = new ConversionPipeline();
             var results = await pipeline.ConvertProjectWithPartialMergeAsync(opts.Source, options);
-
             int successCount = 0;
             int failureCount = 0;
 
@@ -177,7 +176,7 @@ class Program
                     Console.Error.WriteLine($"Failed: {result.FileName}");
                     foreach (var diag in result.Diagnostics)
                     {
-                        Console.Error.WriteLine($"  [{diag.Severity}] {diag.Message}");
+                        Console.Error.WriteLine($"  [{diag.Severity}] {FormatDiagnostic(diag)}");
                     }
                 }
             }
@@ -299,7 +298,7 @@ class Program
                     Console.Error.WriteLine($"Failed: {result.FileName}");
                     foreach (var diag in result.Diagnostics)
                     {
-                        Console.Error.WriteLine($"  [{diag.Severity}] {diag.Message}");
+                        Console.Error.WriteLine($"  [{diag.Severity}] {FormatDiagnostic(diag)}");
                     }
                 }
             }
@@ -415,7 +414,7 @@ class Program
                         Console.Error.WriteLine($"Failed: {result.FileName}");
                         foreach (var diag in result.Diagnostics)
                         {
-                            Console.Error.WriteLine($"  [{diag.Severity}] {diag.Message}");
+                            Console.Error.WriteLine($"  [{diag.Severity}] {FormatDiagnostic(diag)}");
                         }
                     }
                 }
@@ -934,6 +933,19 @@ class Program
 
 </project>
 ";
+    }
+
+    private static string FormatDiagnostic(DiagnosticMessage diag)
+    {
+        if (diag.Location == null || !diag.Location.IsInSource)
+        {
+            return diag.Message;
+        }
+
+        var lineSpan = diag.Location.GetLineSpan();
+        var line = lineSpan.StartLinePosition.Line + 1;
+        var column = lineSpan.StartLinePosition.Character + 1;
+        return $"{diag.Message} ({lineSpan.Path}:{line}:{column})";
     }
 }
 

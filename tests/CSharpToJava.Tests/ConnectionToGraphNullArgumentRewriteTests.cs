@@ -255,6 +255,19 @@ public class ConnectionToGraphNullArgumentRewriteTests
             return false;
             }
             lw.value = (int)(getNumber(m.Groups.get(1).Value));
+            return Color.fromArgb(gleeColor.getA(), gleeColor.getR(), gleeColor.getG(), gleeColor.getB());
+            return Color.fromArgb(toByte(r), toByte(g), toByte(b));
+            return Color.fromArgb(r, g, b);
+            return Color.fromArgb(a, r, g, b);
+            return new Color(drawingColor.A, drawingColor.R, drawingColor.G, drawingColor.B);
+            edgeAttr.setWeight(Integer.parseInt((attrVal.val instanceof String ? (String)(attrVal.val) : null) /* result may be null — check before use */, AttributeBase.getUSCultureInfo()));
+            p.X = Double.parseDouble(x, AttributeBase.getUSCultureInfo());
+            p.Y = Double.parseDouble(y, AttributeBase.getUSCultureInfo());
+            Color ret = Color.fromName(val);
+            if (ret.A == 0 && ret.R == 0 && ret.B == 0 && ret.G == 0) {
+            return Color.Black;
+            }
+            return ret;
             """;
 
         var results = new List<ConversionResult>
@@ -292,6 +305,15 @@ public class ConnectionToGraphNullArgumentRewriteTests
         Assert.Contains("Integer.parseInt(s, 16)", output);
         Assert.Contains("java.util.regex.Matcher m = java.util.regex.Pattern.compile(\"setlinewidth", output);
         Assert.Contains("lw.value = (int)(getNumber(m.group(1)));", output);
+        Assert.Contains("new Color(gleeColor.getA(), gleeColor.getR(), gleeColor.getG(), gleeColor.getB())", output);
+        Assert.Contains("new Color((byte)toByte(r), (byte)toByte(g), (byte)toByte(b))", output);
+        Assert.Contains("new Color((byte)r, (byte)g, (byte)b)", output);
+        Assert.Contains("new Color((byte)a, (byte)r, (byte)g, (byte)b)", output);
+        Assert.Contains("new Color(drawingColor.getA(), drawingColor.getR(), drawingColor.getG(), drawingColor.getB())", output);
+        Assert.Contains("Integer.parseInt((attrVal.val instanceof String ? (String)(attrVal.val) : null) /* result may be null — check before use */)", output);
+        Assert.Contains("Double.parseDouble(x)", output);
+        Assert.Contains("Double.parseDouble(y)", output);
+        Assert.Contains("return Color.getBlack();", output);
     }
 
     [Fact]
@@ -330,8 +352,22 @@ public class ConnectionToGraphNullArgumentRewriteTests
             import Microsoft.Msagl.Core.Layout.Node;
             import Microsoft.Msagl.Drawing.Edge;
             import Microsoft.Msagl.Drawing.Node;
+            protected void initialize() { }
             Node geomNode;
             ObjectHolder<Node> _geomNodeHolder1 = new ObjectHolder<>();
+            Parser parser = new Parser();
+            Scanner scanner = new Scanner(reader);
+            parser.setScanner(scanner);
+            for (String d : dst.toArray(String[]::new)) { }
+            for (String s : src.toArray(String[]::new)) { }
+            try (InputStream reader = new FileInputStream(file, System.IO.FileMode.Open, System.IO.FileAccess.Read)) { }
+            CurrentSemanticValue.sList = mkEdgeStmt(getValueStack().get(getValueStack().getDepth() - 3).sList, getValueStack().get(getValueStack().getDepth() - 2).sLists, getValueStack().get(getValueStack().getDepth() - 1).aVal);
+            void mkEdgeStmt(Cell<String> src, Cell<String> dst, ArrayList attrs) { }
+            public static Graph parse(String file, IntHolder line, IntHolder col, ObjectHolder<String> msg) {
+            try (InputStream reader = new FileInputStream(file)) {
+            return Parser.parse(reader, line, col, msg);
+            }
+            }
             """;
 
         var results = new List<ConversionResult>
@@ -356,5 +392,257 @@ public class ConnectionToGraphNullArgumentRewriteTests
         Assert.DoesNotContain("import Microsoft.Msagl.Core.Layout.Node;", output);
         Assert.Contains("Microsoft.Msagl.Core.Layout.Node geomNode;", output);
         Assert.Contains("ObjectHolder<Microsoft.Msagl.Core.Layout.Node> _geomNodeHolder1 = new ObjectHolder<>();", output);
+        Assert.Contains("public Parser(AbstractScanner<ValueType, LexLocation> scanner)", output);
+        Assert.Contains("Parser parser = new Parser(scanner);", output);
+        Assert.DoesNotContain("parser.setScanner(scanner);", output);
+        Assert.Contains("dst.toArray())", output);
+        Assert.Contains("src.toArray())", output);
+        Assert.Contains("new FileInputStream(file))", output);
+        Assert.Contains("mkEdgeStmtNested", output);
+        Assert.Contains("Cell<String> mkEdgeStmtNested(Cell<String> src, Cell<Cell<String>> dst, ArrayList attrs)", output);
+        Assert.Contains("} catch (Exception e) {", output);
+        Assert.Contains("msg.value = e.getMessage();", output);
+    }
+
+    [Fact]
+    public void CompatibilityRewrites_WrapsBlockReaderFactoryIoExceptions()
+    {
+        const string snippet = "int count = stream.read(b, 0, number);";
+
+        var results = new List<ConversionResult>
+        {
+            new ConversionResult
+            {
+                Success = true,
+                FileName = "BlockReaderFactory.java",
+                GeneratedCode = snippet
+            }
+        };
+
+        var method = typeof(ProjectConversionPipeline).GetMethod(
+            "ApplyCompatibilityRewrites",
+            BindingFlags.NonPublic | BindingFlags.Static);
+
+        Assert.NotNull(method);
+        method!.Invoke(null, new object[] { results });
+
+        var output = results[0].GeneratedCode;
+        Assert.Contains("try {", output);
+        Assert.Contains("count = stream.read(b, 0, number);", output);
+        Assert.Contains("} catch (IOException e) {", output);
+        Assert.Contains("throw new RuntimeException(e);", output);
+    }
+
+    [Fact]
+    public void CompatibilityRewrites_NormalizesBufferExceptionSerializationSuperCall()
+    {
+        const string snippet = "class BufferException extends Exception { protected BufferException(Object info, Object context) { super(info, context); } }";
+
+        var results = new List<ConversionResult>
+        {
+            new ConversionResult
+            {
+                Success = true,
+                FileName = "BufferException.java",
+                GeneratedCode = snippet
+            }
+        };
+
+        var method = typeof(ProjectConversionPipeline).GetMethod(
+            "ApplyCompatibilityRewrites",
+            BindingFlags.NonPublic | BindingFlags.Static);
+
+        Assert.NotNull(method);
+        method!.Invoke(null, new object[] { results });
+
+        var output = results[0].GeneratedCode;
+        Assert.Contains("class BufferException extends RuntimeException", output);
+        Assert.Contains("super(info != null ? info.toString() : null);", output);
+        Assert.DoesNotContain("super(info, context);", output);
+    }
+
+    [Fact]
+    public void CompatibilityRewrites_NormalizesBuildBufferApis()
+    {
+        const string snippet = """
+            setFileName(fStrm.getName());
+            BufferedReader rdr = (NextBlk.getTarget() instanceof BufferedReader ? (BufferedReader)(NextBlk.getTarget()) : null) /* result may be null — check before use */;
+            return ((rdr == null ? "raw-bytes" : rdr.getCurrentEncoding().getBodyName()));
+            return bldr.get(index - minIx);
+            return next.get(index - brkIx);
+            return bldr.toString(start - minIx, limit - start);
+            return next.toString(start - brkIx, limit - start);
+            return bldr.toString(start - minIx, brkIx - start) + next.toString(0, limit - brkIx);
+            """;
+
+        var results = new List<ConversionResult>
+        {
+            new ConversionResult
+            {
+                Success = true,
+                FileName = "BuildBuffer.java",
+                GeneratedCode = snippet
+            }
+        };
+
+        var method = typeof(ProjectConversionPipeline).GetMethod(
+            "ApplyCompatibilityRewrites",
+            BindingFlags.NonPublic | BindingFlags.Static);
+
+        Assert.NotNull(method);
+        method!.Invoke(null, new object[] { results });
+
+        var output = results[0].GeneratedCode;
+        Assert.Contains("setFileName(\"stream\");", output);
+        Assert.Contains("return \"raw-bytes\";", output);
+        Assert.Contains("bldr.charAt(index - minIx)", output);
+        Assert.Contains("next.charAt(index - brkIx)", output);
+        Assert.Contains("bldr.substring(start - minIx, limit - minIx)", output);
+        Assert.Contains("next.substring(start - brkIx, limit - brkIx)", output);
+    }
+
+    [Fact]
+    public void CompatibilityRewrites_NormalizesCodePageHandlingDotNetApis()
+    {
+        const string snippet = """
+            String command = option.toUpperInvariant();
+            if (command.startsWith("CodePage:", StringComparison.OrdinalIgnoreCase)) {
+            }
+            if (Character.IsDigit(command.charAt(0))) {
+            return Integer.parseInt(command, java.util.Locale.ROOT);
+            }
+            Charset enc = Charset.getEncoding(command);
+            return enc.getCodePage();
+            } catch (IllegalArgumentException _ex) {
+            Console.Error.writeLine("Invalid format \"{0}\", using machine default", option);
+            } catch (IllegalArgumentException _ex) {
+            Console.Error.writeLine("Unknown code page \"{0}\", using machine default", option);
+            }
+            """;
+
+        var results = new List<ConversionResult>
+        {
+            new ConversionResult
+            {
+                Success = true,
+                FileName = "CodePageHandling.java",
+                GeneratedCode = snippet
+            }
+        };
+
+        var method = typeof(ProjectConversionPipeline).GetMethod(
+            "ApplyCompatibilityRewrites",
+            BindingFlags.NonPublic | BindingFlags.Static);
+
+        Assert.NotNull(method);
+        method!.Invoke(null, new object[] { results });
+
+        var output = results[0].GeneratedCode;
+        Assert.Contains("option.toUpperCase(java.util.Locale.ROOT)", output);
+        Assert.Contains("command.startsWith(\"CODEPAGE:\")", output);
+        Assert.Contains("Character.isDigit(command.charAt(0))", output);
+        Assert.Contains("Integer.parseInt(command)", output);
+        Assert.Contains("Charset.forName(command);", output);
+        Assert.Contains("System.err.printf(\"Invalid code page \\\"%s\\\", using machine default\", option);", output);
+        Assert.DoesNotContain("StringComparison.OrdinalIgnoreCase", output);
+        Assert.DoesNotContain("Console.Error", output);
+    }
+
+    [Fact]
+    public void CompatibilityRewrites_NormalizesScannerMaxParseTokenReflection()
+    {
+        const string snippet = """
+            private static int getMaxParseToken() {
+            Field f = Tokens.class.getField("maxParseToken");
+            return ((Field.valueEquals(f, null) ? Integer.MAX_VALUE : (int)(f.getValue(null))));
+            }
+            """;
+
+        var results = new List<ConversionResult>
+        {
+            new ConversionResult
+            {
+                Success = true,
+                FileName = "Scanner.java",
+                GeneratedCode = snippet
+            }
+        };
+
+        var method = typeof(ProjectConversionPipeline).GetMethod(
+            "ApplyCompatibilityRewrites",
+            BindingFlags.NonPublic | BindingFlags.Static);
+
+        Assert.NotNull(method);
+        method!.Invoke(null, new object[] { results });
+
+        var output = results[0].GeneratedCode;
+        Assert.Contains("Arrays.stream(Tokens.values()).mapToInt(Tokens::getValue).max()", output);
+        Assert.DoesNotContain("Tokens.class.getField(\"maxParseToken\")", output);
+    }
+
+    [Fact]
+    public void CompatibilityRewrites_RemovesUnreachableBreakAfterReturnInScanner()
+    {
+        const string snippet = """
+            switch (state) {
+            case 1:
+                return Tokens.id;
+                break;
+            case 2:
+                return Tokens.eof;
+                break;
+            }
+            """;
+
+        var results = new List<ConversionResult>
+        {
+            new ConversionResult
+            {
+                Success = true,
+                FileName = "Scanner.java",
+                GeneratedCode = snippet
+            }
+        };
+
+        var method = typeof(ProjectConversionPipeline).GetMethod(
+            "ApplyCompatibilityRewrites",
+            BindingFlags.NonPublic | BindingFlags.Static);
+
+        Assert.NotNull(method);
+        method!.Invoke(null, new object[] { results });
+
+        var output = results[0].GeneratedCode;
+        Assert.Contains("return Tokens.id;", output);
+        Assert.Contains("return Tokens.eof;", output);
+        Assert.DoesNotContain("return Tokens.id;\n        break;", output);
+        Assert.DoesNotContain("return Tokens.eof;\n        break;", output);
+    }
+
+    [Fact]
+    public void CompatibilityRewrites_FixesDot2SvgMainQuotedFormatString()
+    {
+        const string snippet = """
+            System.out.println(String.format("File does not exist "%s"", filename));
+            """;
+
+        var results = new List<ConversionResult>
+        {
+            new ConversionResult
+            {
+                Success = true,
+                FileName = "Dot2SvgMain.java",
+                GeneratedCode = snippet
+            }
+        };
+
+        var method = typeof(ProjectConversionPipeline).GetMethod(
+            "ApplyCompatibilityRewrites",
+            BindingFlags.NonPublic | BindingFlags.Static);
+
+        Assert.NotNull(method);
+        method!.Invoke(null, new object[] { results });
+
+        var output = results[0].GeneratedCode;
+        Assert.Contains("String.format(\"File does not exist \\\"%s\\\"\", filename)", output);
     }
 }
