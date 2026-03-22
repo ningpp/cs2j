@@ -573,7 +573,7 @@ public class ProjectConversionPipeline
             if (string.IsNullOrEmpty(r.GeneratedCode))
                 continue;
 
-            var code = r.GeneratedCode;
+            var code = r.GeneratedCode.Replace("\r\n", "\n");
 
             code = code.Replace(".toLower()", ".toLowerCase()", StringComparison.Ordinal);
             code = code.Replace(".toUpper()", ".toUpperCase()", StringComparison.Ordinal);
@@ -956,8 +956,171 @@ public class ProjectConversionPipeline
                 @"GeometryGraph gg = createGraphFromObstacles\(getObstacles\(\)\);\s*GeometryGraphWriter\.write\(gg, ""c:\\\\tmp\\\\bug1""\);",
                 "try {\n        GeometryGraph gg = createGraphFromObstacles(getObstacles());\n        GeometryGraphWriter.write(gg, \"c:\\\\tmp\\\\bug1\");\n        } catch (Exception _ex) {\n        }");
 
+            // Iterator compatibility bridge: many translated IEnumerator classes expose getCurrent()/hasNext()
+            // but miss Java Iterator.next(). Add a thin bridge for compile-time compatibility.
+            code = code.Replace(
+                "public T getCurrent() {\n        return c.Item;\n    }\n    public void reset() {",
+                "public T getCurrent() {\n        return c.Item;\n    }\n    @Override\n    public T next() {\n        return getCurrent();\n    }\n    public void reset() {",
+                StringComparison.Ordinal);
+            code = code.Replace(
+                "public Point getCurrent() {\n        return currentNode.getData();\n    }\n    public boolean hasNext() {",
+                "public Point getCurrent() {\n        return currentNode.getData();\n    }\n    @Override\n    public Point next() {\n        return getCurrent();\n    }\n    public boolean hasNext() {",
+                StringComparison.Ordinal);
+            code = code.Replace(
+                "public Point getCurrent() {\n        return currentNode.getPoint();\n    }\n    public void close() {",
+                "public Point getCurrent() {\n        return currentNode.getPoint();\n    }\n    @Override\n    public Point next() {\n        return getCurrent();\n    }\n    public void close() {",
+                StringComparison.Ordinal);
+            code = code.Replace(
+                "public int getCurrent() {\n        return 0;\n    }\n    public void reset() {",
+                "public int getCurrent() {\n        return 0;\n    }\n    @Override\n    public Integer next() {\n        return getCurrent();\n    }\n    public void reset() {",
+                StringComparison.Ordinal);
+            code = code.Replace(
+                "public int getCurrent() {\n        return sucsV[currentSuccOffset];\n    }\n    public void close() {",
+                "public int getCurrent() {\n        return sucsV[currentSuccOffset];\n    }\n    @Override\n    public Integer next() {\n        return getCurrent();\n    }\n    public void close() {",
+                StringComparison.Ordinal);
+            code = code.Replace(
+                "public int getCurrent() {\n        return predsV[currentPredOffset];\n    }\n    public void close() {",
+                "public int getCurrent() {\n        return predsV[currentPredOffset];\n    }\n    @Override\n    public Integer next() {\n        return getCurrent();\n    }\n    public void close() {",
+                StringComparison.Ordinal);
+            code = code.Replace(
+                "public NetworkEdge getCurrent() {\n            if (outIsActive) {",
+                "public NetworkEdge getCurrent() {\n            if (outIsActive) {",
+                StringComparison.Ordinal);
+            code = code.Replace(
+                "            throw new IllegalStateException();\n        }",
+                "            throw new IllegalStateException();\n        }\n        @Override\n        public NetworkEdge next() {\n            return getCurrent();\n        }",
+                StringComparison.Ordinal);
+
+            // List.remove(int) signature compatibility for java.util.List implementations.
+            code = code.Replace(
+                "public void remove(int index) {\n        var node = nodes.get(index);\n        detouchNode(node);\n        nodes.remove(index);\n    }",
+                "public Node remove(int index) {\n        var node = nodes.get(index);\n        detouchNode(node);\n        nodes.remove(index);\n        return node;\n    }",
+                StringComparison.Ordinal);
+            code = code.Replace(
+                "public void remove(int index) {\n        throw new UnsupportedOperationException();\n    }",
+                "public Node remove(int index) {\n        throw new UnsupportedOperationException();\n    }",
+                StringComparison.Ordinal);
+
+            // Fallback bridge: if class implements Iterator<X> and still lacks next(), inject next() after getCurrent().
+            var iteratorTypeMatch = Regex.Match(code, @"implements\s+Iterator<(?<it>[^>]+)>");
+            var hasNextMethodDecl = Regex.IsMatch(code, @"public\s+[\w<>,\[\]\.?]+\s+next\s*\(");
+            if (iteratorTypeMatch.Success && code.Contains("getCurrent()", StringComparison.Ordinal) && !hasNextMethodDecl)
+            {
+                var iteratorType = iteratorTypeMatch.Groups["it"].Value.Trim();
+                // Use brace-counting to find the full method body (lazy regex would stop at first inner brace)
+                code = InjectNextAfterGetCurrent(code, iteratorType);
+            }
+
+            // Fallback for List remove(int) return contract in known Node list wrappers.
+            if (code.Contains("class NodeCollection", StringComparison.Ordinal))
+            {
+                code = Regex.Replace(
+                    code,
+                    @"public\s+void\s+remove\(int\s+index\)",
+                    "public Node remove(int index)");
+                code = Regex.Replace(
+                    code,
+                    @"nodes\.remove\(index\);\s*\}",
+                    "nodes.remove(index);\n        return node;\n    }");
+            }
+            if (code.Contains("class LgNodeCollection", StringComparison.Ordinal)
+                || code.Contains("class SimpleNodeCollection", StringComparison.Ordinal))
+            {
+                code = Regex.Replace(
+                    code,
+                    @"public\s+void\s+remove\(int\s+index\)",
+                    "public Node remove(int index)");
+            }
+
+            // CRLF-safe, class-targeted iterator/list compatibility fixes.
+            if (code.Contains("class RBTreeEnumerator", StringComparison.Ordinal)
+                && !code.Contains("public T next()", StringComparison.Ordinal))
+            {
+                code = Regex.Replace(
+                    code,
+                    @"public\s+T\s+getCurrent\(\)\s*\{[\s\S]*?\}\s*public\s+void\s+reset\(\)",
+                    m => m.Value.Replace("public void reset()", "@Override\n    public T next() {\n        return getCurrent();\n    }\n    public void reset()"));
+            }
+            // iteratorBridgeClasses 循环已移除：懒惰正则会在方法体内错误插入 next()，
+            // 各类已由下方专项处理覆盖。
+            if ((code.Contains("class PolylineIterator", StringComparison.Ordinal)
+                || code.Contains("class PointNodesList", StringComparison.Ordinal))
+                && !code.Contains("public Point next()", StringComparison.Ordinal))
+            {
+                code = Regex.Replace(
+                    code,
+                    @"public\s+Point\s+getCurrent\(\)\s*\{[\s\S]*?\}\s*public\s+(?:boolean\s+hasNext\(\)|void\s+close\(\))",
+                    m => m.Value.Replace("public boolean hasNext()", "@Override\n    public Point next() {\n        return getCurrent();\n    }\n    public boolean hasNext()")
+                                .Replace("public void close()", "@Override\n    public Point next() {\n        return getCurrent();\n    }\n    public void close()"));
+            }
+            if ((code.Contains("class EmptyEnumerator", StringComparison.Ordinal)
+                || code.Contains("class PredEnumerator", StringComparison.Ordinal)
+                || code.Contains("class SuccEnumerator", StringComparison.Ordinal))
+                && !code.Contains("public Integer next()", StringComparison.Ordinal))
+            {
+                code = Regex.Replace(
+                    code,
+                    @"public\s+int\s+getCurrent\(\)\s*\{[\s\S]*?\}\s*public\s+(?:void\s+reset\(\)|void\s+close\(\))",
+                    m => m.Value.Replace("public void reset()", "@Override\n    public Integer next() {\n        return getCurrent();\n    }\n    public void reset()")
+                                .Replace("public void close()", "@Override\n    public Integer next() {\n        return getCurrent();\n    }\n    public void close()"));
+            }
+            if (code.Contains("class IncEdgeEnumerator", StringComparison.Ordinal)
+                && !code.Contains("public NetworkEdge next()", StringComparison.Ordinal))
+            {
+                code = Regex.Replace(
+                    code,
+                    @"public\s+NetworkEdge\s+getCurrent\(\)\s*\{[\s\S]*?throw\s+new\s+IllegalStateException\(\);\s*\}",
+                    m => m.Value + "\n        @Override\n        public NetworkEdge next() {\n            return getCurrent();\n        }");
+            }
+            if (code.Contains("class NodeCollection", StringComparison.Ordinal))
+            {
+                code = Regex.Replace(
+                    code,
+                    @"public\s+void\s+remove\(int\s+index\)\s*\{\s*var\s+node\s*=\s*nodes\.get\(index\);\s*detouchNode\(node\);\s*nodes\.remove\(index\);\s*\}",
+                    "public Node remove(int index) {\n        var node = nodes.get(index);\n        detouchNode(node);\n        nodes.remove(index);\n        return node;\n    }");
+            }
+            if (code.Contains("class LgNodeCollection", StringComparison.Ordinal)
+                || code.Contains("class SimpleNodeCollection", StringComparison.Ordinal))
+            {
+                code = Regex.Replace(
+                    code,
+                    @"public\s+void\s+remove\(int\s+index\)\s*\{\s*throw\s+new\s+UnsupportedOperationException\(\);\s*\}",
+                    "public Node remove(int index) {\n        throw new UnsupportedOperationException();\n    }");
+            }
+
             r.GeneratedCode = code;
         }
+    }
+
+    /// <summary>
+    /// Injects a next() bridge method after getCurrent() using brace-counting to find
+    /// the true end of the method body (lazy regex would incorrectly stop at inner braces).
+    /// </summary>
+    private static string InjectNextAfterGetCurrent(string code, string iteratorType)
+    {
+        var sigMatch = Regex.Match(code, @"public\s+[\w<>,\[\]\.?]+\s+getCurrent\s*\(\)\s*\{");
+        if (!sigMatch.Success)
+            return code;
+
+        // Count braces from the opening { to find the true closing }
+        int openBraceIdx = sigMatch.Index + sigMatch.Length - 1;
+        int depth = 1;
+        int pos = openBraceIdx + 1;
+        while (pos < code.Length && depth > 0)
+        {
+            if (code[pos] == '{') depth++;
+            else if (code[pos] == '}') depth--;
+            pos++;
+        }
+        // pos is now one past the closing } of getCurrent()
+
+        // Infer method indentation from the line where getCurrent() starts
+        int lineStart = code.LastIndexOf('\n', sigMatch.Index) + 1;
+        int indentLen = sigMatch.Index - lineStart;
+        string indent = new string(' ', indentLen);
+
+        string bridge = $"\n{indent}@Override\n{indent}public {iteratorType} next() {{\n{indent}    return getCurrent();\n{indent}}}";
+        return code.Substring(0, pos) + bridge + code.Substring(pos);
     }
 
     /// <summary>
