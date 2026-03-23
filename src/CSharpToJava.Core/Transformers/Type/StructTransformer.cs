@@ -96,6 +96,27 @@ public class StructTransformer : ITypeTransformer
             }
         }
 
+        // For non-readonly structs, still apply final to individually-declared readonly fields.
+        // The StructTransformer handles the no-arg ctor initialization, so final is safe here.
+        if (!isReadOnly)
+        {
+            var readonlyFieldNames = new HashSet<string>();
+            foreach (var member in structDecl.Members)
+            {
+                if (member is FieldDeclarationSyntax fieldDecl
+                    && fieldDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.ReadOnlyKeyword)))
+                {
+                    foreach (var v in fieldDecl.Declaration.Variables)
+                        readonlyFieldNames.Add(ConversionContext.EscapeJavaKeyword(v.Identifier.Text));
+                }
+            }
+            foreach (var field in javaClass.Fields)
+            {
+                if (readonlyFieldNames.Contains(field.Name))
+                    field.Modifiers |= JavaModifiers.Final;
+            }
+        }
+
         // Ensure the class implements Cloneable so Object.clone() works correctly
         // when accessed through a reference typed as Object.
         if (!javaClass.ImplementedTypes.Contains("Cloneable"))

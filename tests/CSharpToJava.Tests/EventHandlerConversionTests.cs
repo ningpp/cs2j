@@ -115,7 +115,8 @@ public class EventHandlerConversionTests
 
         // Should generate addProgressChangedListener with BiConsumer parameter
         Assert.Contains("addProgressChangedListener", result.GeneratedCode);
-        // Method reference should be compatible (BiConsumer.accept(Object, ProgressEventArgs))
-        Assert.Contains("this::notifyProgress", result.GeneratedCode);
+        // Method group should be wrapped in explicit lambda for BiConsumer type inference compatibility
+        // (see EventHandlerMethodReferenceTests for rationale)
+        Assert.Contains("notifyProgress(sender, args)", result.GeneratedCode);
     }
 }

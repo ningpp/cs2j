@@ -336,6 +336,20 @@ public class ConversionContext
     /// </summary>
     private readonly Dictionary<string, int> _refHolderAllocCounts = new(StringComparer.Ordinal);
 
+    private readonly Dictionary<string, int> _outHolderAllocCounts = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Allocates a unique out-holder name for the given variable.
+    /// First allocation returns "_{varName}Holder"; subsequent returns "_{varName}Holder2", etc.
+    /// </summary>
+    public string AllocateOutHolderName(string varName)
+    {
+        var key = $"_{varName}Holder";
+        var count = _outHolderAllocCounts.GetValueOrDefault(key, 0);
+        _outHolderAllocCounts[key] = count + 1;
+        return count == 0 ? key : $"{key}{count}";
+    }
+
     /// <summary>
     /// Returns true and sets holderName if an active (not-yet-drained) ref holder exists for the given variable.
     /// </summary>

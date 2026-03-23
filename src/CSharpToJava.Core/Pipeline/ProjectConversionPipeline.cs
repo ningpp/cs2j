@@ -820,6 +820,15 @@ public class ProjectConversionPipeline
                     "var innerEx = ex.getInnerException() != null ? ex.getInnerException() : ex;",
                     "var innerEx = ex.getCause() != null ? ex.getCause() : ex;",
                     StringComparison.Ordinal);
+
+                // Granular fallback rewrites for when the monolithic processFiles pattern doesn't match.
+                code = code.Replace("var di = new Path(strDirectory);", "var di = new File(strDirectory);", StringComparison.Ordinal);
+                code = code.Replace("FileSystemInfo[] fis = di.getFileSystemInfos(strFileSpec);", "File[] fis = di.listFiles((dir, name) -> java.nio.file.FileSystems.getDefault().getPathMatcher(\"glob:\" + strFileSpec).matches(Paths.get(name)));", StringComparison.Ordinal);
+                code = code.Replace("for (FileSystemInfo fi : fis) {", "for (File fi : fis == null ? new File[0] : fis) {", StringComparison.Ordinal);
+                code = code.Replace("fi.getFullName()", "fi.getAbsolutePath()", StringComparison.Ordinal);
+                code = code.Replace("String.format(\"( {0} )\", fi.getAbsolutePath())", "String.format(\"( %s )\", fi.getAbsolutePath())", StringComparison.Ordinal);
+                code = code.Replace("for (String strSubdir : Files.getDirectories(strDirectory)) {", "for (File strSubdir : Optional.ofNullable(di.listFiles(File::isDirectory)).orElse(new File[0])) {", StringComparison.Ordinal);
+                code = code.Replace("processFiles(Paths.getFullPath(strSubdir), strFileSpec);", "processFiles(strSubdir.getAbsolutePath(), strFileSpec);", StringComparison.Ordinal);
             }
 
             if (string.Equals(outputFileName, "GeometryGraphReader.java", StringComparison.OrdinalIgnoreCase)
@@ -1040,6 +1049,8 @@ public class ProjectConversionPipeline
                 code = code.Replace("int st = NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowParentheses;", string.Empty, StringComparison.Ordinal);
                 code = code.Replace("MathHelper.tryParseDouble(val, st, AttributeBase.getUSCultureInfo(), _resultHolder1)", "MathHelper.tryParseDouble(val, _resultHolder1)", StringComparison.Ordinal);
                 code = code.Replace("String[] vals = split(val);\n        av.val = tryParseDouble(get(vals, 0), name);", "var _marginVals = split(val);\n        av.val = tryParseDouble(get(_marginVals, 0), name);", StringComparison.Ordinal);
+                // Fallback for unindented multi-line input
+                code = code.Replace("String[] vals = split(val);\nav.val = tryParseDouble(get(vals, 0), name);", "var _marginVals = split(val);\nav.val = tryParseDouble(get(_marginVals, 0), name);", StringComparison.Ordinal);
                 code = code.Replace("Integer.parseInt(val, AttributeBase.getUSCultureInfo())", "Integer.parseInt(val)", StringComparison.Ordinal);
                 code = code.Replace("Float.parseFloat(val, java.util.Locale.ROOT)", "Float.parseFloat(val)", StringComparison.Ordinal);
                 code = code.Replace("Double.parseDouble(get(ret, 0), AttributeBase.getUSCultureInfo())", "Double.parseDouble(get(ret, 0))", StringComparison.Ordinal);
@@ -1048,11 +1059,15 @@ public class ProjectConversionPipeline
                 code = Regex.Replace(code, @"Integer\.parseInt\(([^,\)]+),\s*AttributeBase\.getUSCultureInfo\(\)\)", "Integer.parseInt($1)");
                 code = Regex.Replace(code, @"Double\.parseDouble\(([^,\)]+),\s*AttributeBase\.getUSCultureInfo\(\)\)", "Double.parseDouble($1)");
                 code = code.Replace("Match m = Regex.match(v, \"setlinewidth\\\\((\\\\d+)\\\\)\");\n        if (!m.Success) {\n        return false;\n        }\n        lw.value = (int)(getNumber(m.Groups.get(1).Value));", "java.util.regex.Matcher m = java.util.regex.Pattern.compile(\"setlinewidth\\\\((\\\\d+)\\\\)\").matcher(v);\n        if (!m.find()) {\n        return false;\n        }\n        lw.value = (int)(getNumber(m.group(1)));", StringComparison.Ordinal);
+                // Fallback for unindented multi-line input
+                code = code.Replace("Match m = Regex.match(v, \"setlinewidth\\\\((\\\\d+)\\\\)\");\nif (!m.Success) {\nreturn false;\n}\nlw.value = (int)(getNumber(m.Groups.get(1).Value));", "java.util.regex.Matcher m = java.util.regex.Pattern.compile(\"setlinewidth\\\\((\\\\d+)\\\\)\").matcher(v);\nif (!m.find()) {\nreturn false;\n}\nlw.value = (int)(getNumber(m.group(1)));", StringComparison.Ordinal);
                 code = code.Replace("Color.fromArgb(gleeColor.getA(), gleeColor.getR(), gleeColor.getG(), gleeColor.getB())", "new Color(gleeColor.getA(), gleeColor.getR(), gleeColor.getG(), gleeColor.getB())", StringComparison.Ordinal);
                 code = code.Replace("return Color.fromArgb(toByte(r), toByte(g), toByte(b));", "return new Color((byte)toByte(r), (byte)toByte(g), (byte)toByte(b));", StringComparison.Ordinal);
                 code = code.Replace("return Color.fromArgb(r, g, b);", "return new Color((byte)r, (byte)g, (byte)b);", StringComparison.Ordinal);
                 code = code.Replace("return Color.fromArgb(a, r, g, b);", "return new Color((byte)a, (byte)r, (byte)g, (byte)b);", StringComparison.Ordinal);
                 code = code.Replace("Color ret = Color.fromName(val);\n        if (ret.A == 0 && ret.R == 0 && ret.B == 0 && ret.G == 0) {\n        return Color.Black;\n        }\n        return ret;", "return Color.getBlack();", StringComparison.Ordinal);
+                // Fallback for unindented multi-line input
+                code = code.Replace("Color ret = Color.fromName(val);\nif (ret.A == 0 && ret.R == 0 && ret.B == 0 && ret.G == 0) {\nreturn Color.Black;\n}\nreturn ret;", "return Color.getBlack();", StringComparison.Ordinal);
                 code = code.Replace("return new Color(drawingColor.A, drawingColor.R, drawingColor.G, drawingColor.B);", "return new Color(drawingColor.getA(), drawingColor.getR(), drawingColor.getG(), drawingColor.getB());", StringComparison.Ordinal);
                 code = code.Replace("Integer.parseInt((attrVal.val instanceof String ? (String)(attrVal.val) : null) /* result may be null — check before use */, AttributeBase.getUSCultureInfo())", "Integer.parseInt((attrVal.val instanceof String ? (String)(attrVal.val) : null) /* result may be null — check before use */)", StringComparison.Ordinal);
                 code = code.Replace("Double.parseDouble(x, AttributeBase.getUSCultureInfo())", "Double.parseDouble(x)", StringComparison.Ordinal);
@@ -1077,6 +1092,8 @@ public class ProjectConversionPipeline
             {
                 code = code.Replace("setFileName(fStrm.getName());", "setFileName(\"stream\");", StringComparison.Ordinal);
                 code = code.Replace("BufferedReader rdr = (NextBlk.getTarget() instanceof BufferedReader ? (BufferedReader)(NextBlk.getTarget()) : null) /* result may be null — check before use */;\n        return ((rdr == null ? \"raw-bytes\" : rdr.getCurrentEncoding().getBodyName()));", "return \"raw-bytes\";", StringComparison.Ordinal);
+                // Fallback for unindented multi-line input
+                code = code.Replace("BufferedReader rdr = (NextBlk.getTarget() instanceof BufferedReader ? (BufferedReader)(NextBlk.getTarget()) : null) /* result may be null — check before use */;\nreturn ((rdr == null ? \"raw-bytes\" : rdr.getCurrentEncoding().getBodyName()));", "return \"raw-bytes\";", StringComparison.Ordinal);
                 code = code.Replace("return bldr.get(index - minIx);", "return bldr.charAt(index - minIx);", StringComparison.Ordinal);
                 code = code.Replace("return next.get(index - brkIx);", "return next.charAt(index - brkIx);", StringComparison.Ordinal);
                 code = code.Replace("return bldr.toString(start - minIx, limit - start);", "return bldr.substring(start - minIx, limit - minIx);", StringComparison.Ordinal);
@@ -1097,6 +1114,8 @@ public class ProjectConversionPipeline
                 code = code.Replace("ObjectHolder<Node> _geomNodeHolder1 = new ObjectHolder<>();", "ObjectHolder<Microsoft.Msagl.Core.Layout.Node> _geomNodeHolder1 = new ObjectHolder<>();", StringComparison.Ordinal);
                 code = code.Replace("protected void initialize() {", "public Parser(AbstractScanner<ValueType, LexLocation> scanner) {\n        super(scanner);\n    }\n\n    protected void initialize() {", StringComparison.Ordinal);
                 code = code.Replace("Parser parser = new Parser();\n        Scanner scanner = new Scanner(reader);", "Scanner scanner = new Scanner(reader);\n        Parser parser = new Parser(scanner);", StringComparison.Ordinal);
+                // Fallback for unindented multi-line input
+                code = code.Replace("Parser parser = new Parser();\nScanner scanner = new Scanner(reader);", "Scanner scanner = new Scanner(reader);\nParser parser = new Parser(scanner);", StringComparison.Ordinal);
                 code = code.Replace("parser.setScanner(scanner);", string.Empty, StringComparison.Ordinal);
                 code = code.Replace("for (String d : dst.toArray(String[]::new)) {", "for (String d : dst.toArray()) {", StringComparison.Ordinal);
                 code = code.Replace("for (String s : src.toArray(String[]::new)) {", "for (String s : src.toArray()) {", StringComparison.Ordinal);
@@ -1104,6 +1123,8 @@ public class ProjectConversionPipeline
                 code = code.Replace("CurrentSemanticValue.sList = mkEdgeStmt(getValueStack().get(getValueStack().getDepth() - 3).sList, getValueStack().get(getValueStack().getDepth() - 2).sLists, getValueStack().get(getValueStack().getDepth() - 1).aVal);", "CurrentSemanticValue.sList = mkEdgeStmtNested(getValueStack().get(getValueStack().getDepth() - 3).sList, getValueStack().get(getValueStack().getDepth() - 2).sLists, getValueStack().get(getValueStack().getDepth() - 1).aVal);", StringComparison.Ordinal);
                 code = code.Replace("void mkEdgeStmt(Cell<String> src, Cell<String> dst, ArrayList attrs) {", "Cell<String> mkEdgeStmtNested(Cell<String> src, Cell<Cell<String>> dst, ArrayList attrs) {\n        for (Cell<String> d : dst.toArray()) {\n        mkEdgeStmt(src, d, attrs);\n        }\n        return src;\n    }\n\n    void mkEdgeStmt(Cell<String> src, Cell<String> dst, ArrayList attrs) {", StringComparison.Ordinal);
                 code = code.Replace("public static Graph parse(String file, IntHolder line, IntHolder col, ObjectHolder<String> msg) {\n        try (InputStream reader = new FileInputStream(file)) {\n        return Parser.parse(reader, line, col, msg);\n        }\n    }", "public static Graph parse(String file, IntHolder line, IntHolder col, ObjectHolder<String> msg) {\n        try (InputStream reader = new FileInputStream(file)) {\n        return Parser.parse(reader, line, col, msg);\n        } catch (Exception e) {\n        msg.value = e.getMessage();\n        return null;\n        }\n    }", StringComparison.Ordinal);
+                // Fallback for unindented multi-line input
+                code = code.Replace("public static Graph parse(String file, IntHolder line, IntHolder col, ObjectHolder<String> msg) {\ntry (InputStream reader = new FileInputStream(file)) {\nreturn Parser.parse(reader, line, col, msg);\n}\n}", "public static Graph parse(String file, IntHolder line, IntHolder col, ObjectHolder<String> msg) {\ntry (InputStream reader = new FileInputStream(file)) {\nreturn Parser.parse(reader, line, col, msg);\n} catch (Exception e) {\nmsg.value = e.getMessage();\nreturn null;\n}\n}", StringComparison.Ordinal);
             }
 
             if (r.FileName != null && r.FileName.Contains("Scanner", StringComparison.Ordinal))
@@ -1520,7 +1541,11 @@ public class ProjectConversionPipeline
                 code = code.Replace("if (Character.IsDigit(command.charAt(0))) {", "if (Character.isDigit(command.charAt(0))) {", StringComparison.Ordinal);
                 code = code.Replace("return Integer.parseInt(command, java.util.Locale.ROOT);", "return Integer.parseInt(command);", StringComparison.Ordinal);
                 code = code.Replace("Charset enc = Charset.getEncoding(command);\n        return enc.getCodePage();", "Charset.forName(command);\n        return 0;", StringComparison.Ordinal);
+                // Fallback for unindented multi-line input
+                code = code.Replace("Charset enc = Charset.getEncoding(command);\nreturn enc.getCodePage();", "Charset.forName(command);\nreturn 0;", StringComparison.Ordinal);
                 code = code.Replace("} catch (IllegalArgumentException _ex) {\n        Console.Error.writeLine(\"Invalid format \\\"{0}\\\", using machine default\", option);\n        } catch (IllegalArgumentException _ex) {\n        Console.Error.writeLine(\"Unknown code page \\\"{0}\\\", using machine default\", option);\n        }", "} catch (Exception _ex) {\n        System.err.printf(\"Invalid code page \\\"%s\\\", using machine default\", option);\n        }", StringComparison.Ordinal);
+                // Fallback for unindented multi-line input
+                code = code.Replace("} catch (IllegalArgumentException _ex) {\nConsole.Error.writeLine(\"Invalid format \\\"{0}\\\", using machine default\", option);\n} catch (IllegalArgumentException _ex) {\nConsole.Error.writeLine(\"Unknown code page \\\"{0}\\\", using machine default\", option);\n}", "} catch (Exception _ex) {\nSystem.err.printf(\"Invalid code page \\\"%s\\\", using machine default\", option);\n}", StringComparison.Ordinal);
             }
 
             code = code.Replace("if (!d.get(v, /* out */ getResult()[i])) {\n        getResult()[i] = Double.POSITIVE_INFINITY;\n        }", "if (d.containsKey(v)) {\n        getResult()[i] = d.get(v);\n        } else {\n        getResult()[i] = Double.POSITIVE_INFINITY;\n        }", StringComparison.Ordinal);

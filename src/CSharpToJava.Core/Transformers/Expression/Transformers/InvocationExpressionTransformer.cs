@@ -1588,6 +1588,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
 
             // Contains on stream -> materialize to Set and call contains(value).
             // This avoids lambda capture constraints (effectively-final) in Java loops.
+            // Outside loops, use the more idiomatic anyMatch() terminal operation.
             if (originalMethodName == "Contains" && node.ArgumentList.Arguments.Count >= 1)
             {
                 var valArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
@@ -1599,7 +1600,15 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 {
                     return $"{receiver}.boxed().collect(Collectors.toSet()).contains({valArg})";
                 }
-                return $"{receiver}.collect(Collectors.toSet()).contains({valArg})";
+                // Inside loops, use collect+contains to avoid effectively-final capture issues
+                bool insideLoop = node.Ancestors().Any(a => a is ForStatementSyntax
+                    || a is ForEachStatementSyntax || a is WhileStatementSyntax
+                    || a is DoStatementSyntax);
+                if (insideLoop)
+                {
+                    return $"{receiver}.collect(Collectors.toSet()).contains({valArg})";
+                }
+                return $"{receiver}.anyMatch(_item -> java.util.Objects.equals(_item, {valArg}))";
             }
 
             // Concat → Stream.concat(stream, other)

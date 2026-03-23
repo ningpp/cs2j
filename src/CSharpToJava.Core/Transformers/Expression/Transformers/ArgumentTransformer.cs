@@ -191,7 +191,7 @@ public class ArgumentTransformer
                 outDecl.Designation is SingleVariableDesignationSyntax svd)
             {
                 var varName = svd.Identifier.Text;
-                var holderName = context.GenerateSyntheticName($"_{varName}Holder");
+                var holderName = context.AllocateOutHolderName(varName);
                 var javaType = ResolveOutVarType(outDecl, context);
                 var holderType = DelegateTransformer.GetHolderType(javaType);
                 var holderInit = GetHolderInstantiation(holderType);
@@ -214,7 +214,7 @@ public class ArgumentTransformer
                 }
 
                 var varName = ident.Identifier.Text;
-                var holderName = context.GenerateSyntheticName($"_{varName}Holder");
+                var holderName = context.AllocateOutHolderName(varName);
                 var javaType = "Object";
                 if (context.SemanticModel != null)
                 {
