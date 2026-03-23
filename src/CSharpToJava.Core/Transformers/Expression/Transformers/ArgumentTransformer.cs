@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Transformers;
 using CSharpToJava.Core.Transformers.Type;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -77,6 +78,8 @@ public class ArgumentTransformer
             }
 
             var result = TransformSingleArgument(arg, context, transformer, currentParam);
+
+            result = ApplyStructValueCopyIfNeeded(arg, result, currentParam, context);
 
             // Apply type coercion when we have parameter type information
             if (parameters.HasValue && context.SemanticModel != null)
@@ -496,6 +499,39 @@ public class ArgumentTransformer
 
         return transformedExpr;
     }
+
+    private static string ApplyStructValueCopyIfNeeded(
+        ArgumentSyntax arg,
+        string transformedExpr,
+        IParameterSymbol? targetParam,
+        ConversionContext context)
+    {
+        if (context.SemanticModel == null || targetParam == null)
+            return transformedExpr;
+
+        if (arg.RefKindKeyword.Kind() is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword)
+            return transformedExpr;
+
+        var paramType = targetParam.Type;
+        var argType = context.SemanticModel.GetTypeInfo(arg.Expression).Type;
+        if (!RequiresStructClone(argType, paramType))
+            return transformedExpr;
+
+        if (LooksLikeCloneableTemporary(arg.Expression))
+            return transformedExpr;
+
+        return BuildCloneInvocation(arg.Expression, transformedExpr);
+    }
+
+    private static bool RequiresStructClone(ITypeSymbol? argType, ITypeSymbol paramType)
+        => StructCloneHelper.IsUserDefinedStruct(argType) && StructCloneHelper.IsUserDefinedStruct(paramType);
+
+    private static bool LooksLikeCloneableTemporary(ExpressionSyntax expression)
+        => StructCloneHelper.IsCloneableTemporary(expression)
+            || expression is ElementAccessExpressionSyntax;  // keep backward compat for args
+
+    private static string BuildCloneInvocation(ExpressionSyntax expressionSyntax, string transformedExpression)
+        => StructCloneHelper.BuildCloneExpression(expressionSyntax, transformedExpression);
 
     /// <summary>
     /// Returns the Java narrowing cast keyword to insert when passing a wider integer to a

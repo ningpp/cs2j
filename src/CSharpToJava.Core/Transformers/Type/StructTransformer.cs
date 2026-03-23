@@ -96,6 +96,11 @@ public class StructTransformer : ITypeTransformer
             }
         }
 
+        // Ensure the class implements Cloneable so Object.clone() works correctly
+        // when accessed through a reference typed as Object.
+        if (!javaClass.ImplementedTypes.Contains("Cloneable"))
+            javaClass.ImplementedTypes.Add("Cloneable");
+
         // Fix 1: Emit a clone() method to approximate C# value-type copy semantics.
         AddCloneMethod(javaClass, isReadOnly);
 

@@ -169,6 +169,7 @@ public class ClassTransformer : ITypeTransformer
         }
 
         RemoveCompareToBridgeConflicts(javaClass);
+        RemoveCloneBridgeConflicts(javaClass);
         AddIteratorBridgeMethods(javaClass);
         AddIterableBridgeFromIteratorMethod(javaClass);
         AddCollectionInterfaceBridgeMethods(javaClass);
@@ -280,6 +281,7 @@ public class ClassTransformer : ITypeTransformer
         }
 
         RemoveCompareToBridgeConflicts(javaClass);
+        RemoveCloneBridgeConflicts(javaClass);
         AddIteratorBridgeMethods(javaClass);
         AddIterableBridgeFromIteratorMethod(javaClass);
         AddCollectionInterfaceBridgeMethods(javaClass);
@@ -461,6 +463,20 @@ public class ClassTransformer : ITypeTransformer
         // If an auto-property private setter collides with an explicit non-private method,
         // keep the non-private method so cross-type call sites remain accessible.
         if (existingIsPrivate && !incomingIsPrivate)
+        {
+            int idx = javaClass.Methods.IndexOf(existing);
+            if (idx >= 0)
+            {
+                javaClass.Methods[idx] = javaMethod;
+            }
+            return;
+        }
+
+        // When both methods have the same name and parameter signature but different return types,
+        // prefer the more specific (non-Object) return type. This handles explicit interface
+        // implementations (e.g., Object ICloneable.Clone()) vs typed public versions (e.g., Curve Clone())
+        // — Java supports covariant return types, so the typed version satisfies both.
+        if (existing.ReturnType == "Object" && javaMethod.ReturnType != "Object" && javaMethod.ReturnType != "void")
         {
             int idx = javaClass.Methods.IndexOf(existing);
             if (idx >= 0)
@@ -690,6 +706,20 @@ public class ClassTransformer : ITypeTransformer
         bool hasTyped = compareToMethods.Any(m => m.Parameters[0].Type != "Object");
         if (hasTyped)
             javaClass.Methods.RemoveAll(m => m.Name == "compareTo" && m.Parameters.Count == 1 && m.Parameters[0].Type == "Object");
+    }
+
+    /// <summary>
+    /// When a C# class has both an explicit ICloneable.Clone() (returning Object) and a public
+    /// typed Clone() method, both map to Java clone(). Remove the Object-returning version
+    /// since Java supports covariant return types and the typed version satisfies both.
+    /// </summary>
+    private static void RemoveCloneBridgeConflicts(JavaClassDeclaration javaClass)
+    {
+        var cloneMethods = javaClass.Methods.Where(m => m.Name == "clone" && m.Parameters.Count == 0).ToList();
+        if (cloneMethods.Count < 2) return;
+        bool hasTyped = cloneMethods.Any(m => m.ReturnType != "Object");
+        if (hasTyped)
+            javaClass.Methods.RemoveAll(m => m.Name == "clone" && m.Parameters.Count == 0 && m.ReturnType == "Object");
     }
 
     /// <summary>

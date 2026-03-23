@@ -331,6 +331,13 @@ public class MethodTransformer : IMemberTransformer
     {
         var name = methodDecl.Identifier.Text;
 
+        // IEnumerator/IEnumerator<T>.MoveNext declarations must remain an internal advancing method
+        // so the generated Java Iterator bridge can expose standard hasNext()/next() semantics.
+        if (name == "MoveNext" && methodInfo != null && IsEnumeratorMoveNextDeclaration(methodInfo))
+        {
+            return "moveNext";
+        }
+
         // 处理运算符重载
         if (methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.OperatorKeyword)))
         {
@@ -373,6 +380,32 @@ public class MethodTransformer : IMemberTransformer
         var camelName = name.Length > 0 ? char.ToLower(name[0]) + name.Substring(1) : name;
         // Escape Java keywords (e.g. Assert → assert → assertValue)
         return ConversionContext.EscapeJavaKeyword(camelName);
+    }
+
+    private static bool IsEnumeratorMoveNextDeclaration(IMethodSymbol methodInfo)
+    {
+        if (methodInfo.Name != "MoveNext" || methodInfo.Parameters.Length != 0)
+        {
+            return false;
+        }
+
+        static bool IsEnumeratorInterface(INamedTypeSymbol type)
+            => type.ToDisplayString() is "System.Collections.IEnumerator" or "System.Collections.Generic.IEnumerator<T>";
+
+        if (methodInfo.ContainingType is INamedTypeSymbol containingType)
+        {
+            if (IsEnumeratorInterface(containingType.OriginalDefinition))
+            {
+                return true;
+            }
+
+            if (containingType.AllInterfaces.Any(i => IsEnumeratorInterface(i.OriginalDefinition)))
+            {
+                return true;
+            }
+        }
+
+        return methodInfo.ExplicitInterfaceImplementations.Any(i => IsEnumeratorInterface(i.ContainingType.OriginalDefinition));
     }
 
     private string ConvertOperatorName(string csharpOperator)

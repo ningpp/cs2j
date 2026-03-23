@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Transformers;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
@@ -380,6 +381,14 @@ public class AssignmentTransformer : IExpressionTransformer
             var listenerField = $"_{char.ToLowerInvariant(eventName[0])}{eventName[1..]}Listeners";
             var listMethod = op == "+=" ? "add" : "remove";
             return $"{listenerField}.{listMethod}(handler)";
+        }
+
+        // Struct value copy: simple assignment of user-defined struct needs .clone()
+        // to preserve C# value-type copy semantics.
+        if (op == "=" && context.SemanticModel != null)
+        {
+            var rhsTypeForClone = context.SemanticModel.GetTypeInfo(rightNode).Type;
+            rightStr = StructCloneHelper.CloneStructValueIfNeeded(rightNode, rightStr, rhsTypeForClone, context);
         }
 
         return $"{left} {op} {rightStr}";

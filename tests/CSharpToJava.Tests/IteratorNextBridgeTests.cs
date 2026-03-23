@@ -100,8 +100,12 @@ public class IteratorNextBridgeTests
         // At most one next() method declaration (no duplicates — the core regression)
         Assert.True(nextDeclCount <= 1, $"Expected at most one next() method, found {nextDeclCount}. Generated:\n{generated}");
 
-        // next() must appear AFTER getCurrent() ends, not inside its body
-        AssertNextIsAfterGetCurrent(generated, "getCurrent", "next");
+        // next() must not appear inside getCurrent() body
+        AssertNextIsOutsideGetCurrent(generated, "getCurrent", "next");
+
+        // Current/as conversion must not evaluate nested iterators twice.
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(generated, @"outEdges\.next\(\)").Cast<System.Text.RegularExpressions.Match>());
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(generated, @"inEdges\.next\(\)").Cast<System.Text.RegularExpressions.Match>());
     }
 
     /// <summary>
@@ -192,6 +196,38 @@ public class IteratorNextBridgeTests
         }
     }
 
+    [Fact]
+    public async Task IEnumeratorMoveNext_Declaration_RemainsMoveNext_WithIteratorBridge()
+    {
+        const string code = """
+            using System.Collections;
+            using System.Collections.Generic;
+
+            namespace N {
+                public class PolylineIterator : IEnumerator<int> {
+                    int[] _items = new[] { 1, 2 };
+                    int _index = -1;
+
+                    public int Current => _items[_index];
+                    object IEnumerator.Current => Current;
+                    public void Dispose() {}
+                    public bool MoveNext() {
+                        _index++;
+                        return _index < _items.Length;
+                    }
+                    public void Reset() { _index = -1; }
+                }
+            }
+            """;
+
+        var generated = await ConvertSingleAsync(code, "PolylineIterator");
+
+        Assert.Contains("public boolean moveNext()", generated);
+        Assert.Contains("public boolean hasNext()", generated);
+        Assert.Contains("_iteratorHasNext = moveNext()", generated);
+        Assert.DoesNotContain("public boolean hasNext() {\n        _index++;", generated);
+    }
+
     private static int CountOccurrences(string text, string pattern)
     {
         int count = 0;
@@ -204,7 +240,7 @@ public class IteratorNextBridgeTests
         return count;
     }
 
-    private static void AssertNextIsAfterGetCurrent(string code, string getterName, string nextName)
+    private static void AssertNextIsOutsideGetCurrent(string code, string getterName, string nextName)
     {
         // Match method DECLARATIONS (not calls like outEdges.next())
         var getterDeclMatch = System.Text.RegularExpressions.Regex.Match(
@@ -233,7 +269,7 @@ public class IteratorNextBridgeTests
         }
 
         Assert.True(methodBodyEnd >= 0, "Could not find closing brace of getCurrent()");
-        Assert.True(nextIdx > methodBodyEnd,
-            $"next() at index {nextIdx} appears INSIDE getCurrent() body (ends at {methodBodyEnd})");
+        Assert.True(nextIdx < methodBodyStart || nextIdx > methodBodyEnd,
+            $"next() at index {nextIdx} appears INSIDE getCurrent() body ({methodBodyStart}-{methodBodyEnd})");
     }
 }

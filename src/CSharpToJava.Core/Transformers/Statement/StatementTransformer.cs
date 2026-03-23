@@ -5,6 +5,7 @@ using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.Transformers;
 using CSharpToJava.Core.Transformers.Expression;
 
 namespace CSharpToJava.Core.Transformers.Statement;
@@ -414,6 +415,14 @@ public class StatementTransformer : IStatementTransformer
                     expr = $"{expr}.collect(Collectors.toList())";
                 }
             }
+        }
+
+        // Struct value copy: when returning a user-defined struct expression that is not a temporary,
+        // clone it to preserve C# value-copy semantics (C# return always copies structs).
+        if (stmt.Expression != null && context.SemanticModel != null)
+        {
+            var retExprTypeForClone = context.SemanticModel.GetTypeInfo(stmt.Expression).Type;
+            expr = StructCloneHelper.CloneStructValueIfNeeded(stmt.Expression, expr, retExprTypeForClone, context);
         }
 
         // Bug 3: drain any pre/post statements produced while transforming the return expression
@@ -1584,6 +1593,13 @@ public class StatementTransformer : IStatementTransformer
                             initExpr.Contains(".skip(") || initExpr.Contains(".peek("));
                     if (initLooksLikeStream)
                         context.StreamLocalVariables.Add(v.Identifier.Text);
+                }
+                // Struct value copy: In C# struct assignment copies the value; in Java it copies the reference.
+                // Insert .clone() for user-defined struct initializers that are not fresh temporaries.
+                if (context.SemanticModel != null && v.Initializer != null)
+                {
+                    var initValueType = context.SemanticModel.GetTypeInfo(v.Initializer.Value).Type;
+                    initExpr = StructCloneHelper.CloneStructValueIfNeeded(v.Initializer.Value, initExpr, initValueType, context);
                 }
                 init = $" = {initExpr}";
                 // Java cannot auto-box int to Double/Float (only int→Integer is supported).

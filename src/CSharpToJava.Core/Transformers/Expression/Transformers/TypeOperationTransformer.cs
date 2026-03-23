@@ -340,9 +340,36 @@ public class TypeOperationTransformer : IExpressionTransformer
             targetType = context.MapTypeFromSyntax(node.Right as TypeSyntax ?? throw new ArgumentException("Expected type"));
         }
 
+        if (RequiresSingleEvaluation(node.Left, expression))
+        {
+            var tempName = context.GenerateSyntheticName("_asExpr");
+            context.AddPreStatement($"var {tempName} = {expression};");
+            expression = tempName;
+        }
+
         // C#: obj as Type  → Java doesn't have direct equivalent
         // We use: obj instanceof Type ? (Type)obj : null
         return $"({expression} instanceof {ToRuntimeTypeForInstanceOf(targetType)} ? ({targetType})({expression}) : null) /* result may be null — check before use */";
+    }
+
+    private static bool RequiresSingleEvaluation(ExpressionSyntax expressionSyntax, string transformedExpression)
+    {
+        if (transformedExpression.Contains(".next()", StringComparison.Ordinal))
+            return true;
+
+        return expressionSyntax switch
+        {
+            InvocationExpressionSyntax => true,
+            AwaitExpressionSyntax => true,
+            AssignmentExpressionSyntax => true,
+            ConditionalAccessExpressionSyntax => true,
+            ElementAccessExpressionSyntax => true,
+            ObjectCreationExpressionSyntax => true,
+            PostfixUnaryExpressionSyntax => true,
+            PrefixUnaryExpressionSyntax prefix when prefix.IsKind(SyntaxKind.PreIncrementExpression)
+                || prefix.IsKind(SyntaxKind.PreDecrementExpression) => true,
+            _ => false
+        };
     }
 
     private static string ToRuntimeTypeForInstanceOf(string mappedType)

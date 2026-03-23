@@ -983,7 +983,10 @@ public class ProjectConversionPipeline
             code = code.Replace("var _chainVal3 = null;\n        setTargetOfInsertedEdge(_chainVal3);\n        setSourceOfInsertedEdge(_chainVal3);", "setTargetOfInsertedEdge(null);\n        setSourceOfInsertedEdge(null);", StringComparison.Ordinal);
             code = code.Replace("var _chainVal4 = null;\n        setTargetPort(_chainVal4);\n        setSourcePort(_chainVal4);", "setTargetPort(null);\n        setSourcePort(null);", StringComparison.Ordinal);
             code = code.Replace("viewer.drawRubberEdge(setEdgeGeometry(calculateEdgeInteractivelyToLocation(point)));", "setEdgeGeometry(calculateEdgeInteractivelyToLocation(point));\n        viewer.drawRubberEdge(getEdgeGeometry());", StringComparison.Ordinal);
+            code = code.Replace("viewer.drawRubberEdge(setEdgeGeometry(calculateEdgeInteractivelyToLocation(point.clone())));", "setEdgeGeometry(calculateEdgeInteractivelyToLocation(point.clone()));\n        viewer.drawRubberEdge(getEdgeGeometry());", StringComparison.Ordinal);
             code = code.Replace("viewer.drawRubberEdge(setEdgeGeometry(calculateEdgeInteractively(targetPortParameter, portLoosePolyline)));", "setEdgeGeometry(calculateEdgeInteractively(targetPortParameter, portLoosePolyline));\n        viewer.drawRubberEdge(getEdgeGeometry());", StringComparison.Ordinal);
+            code = code.Replace("_yieldResult.add(((_asExpr1 instanceof CubicBezierSegment ? (CubicBezierSegment)(_asExpr1) : null) /* result may be null — check before use */).b(0));", "_yieldResult.add(((CubicBezierSegment)curve.getSegments().get(0)).b(0));", StringComparison.Ordinal);
+            code = code.Replace("public boolean getArrowAtTarget() {\n        var _asExpr1 = curve.getSegments().get(0);\n        return arrowAtTarget;\n    }", "public boolean getArrowAtTarget() {\n        return arrowAtTarget;\n    }", StringComparison.Ordinal);
             code = code.Replace("static void restoreOnKevValue(AbstractMap.SimpleEntry<GeometryObject, RestoreData> kv)", "static void restoreOnKevValue(Map.Entry<GeometryObject, RestoreData> kv)", StringComparison.Ordinal);
             if (r.FileName != null && r.FileName.Contains("SvgGraphWriter", StringComparison.Ordinal))
             {
@@ -1600,8 +1603,12 @@ public class ProjectConversionPipeline
 
             code = Regex.Replace(
                 code,
-                @"VisibilityEdge ve;\s*assert _pathRouter\.findVertex\(a\)\.tryGetEdge\(_pathRouter\.findVertex\(b\), _veHolder1\);\s*ObjectHolder<VisibilityEdge> _veHolder1 = new ObjectHolder<>\(\);",
-                "VisibilityEdge ve;\n        ObjectHolder<VisibilityEdge> _veHolder1 = new ObjectHolder<>();\n        assert _pathRouter.findVertex(a).tryGetEdge(_pathRouter.findVertex(b), _veHolder1);");
+                @"VisibilityEdge ve;\s*assert _pathRouter\.findVertex\(a(?:\.clone\(\))?\)\.tryGetEdge\(_pathRouter\.findVertex\(b(?:\.clone\(\))?\), _veHolder1\);\s*ObjectHolder<VisibilityEdge> _veHolder1 = new ObjectHolder<>\(\);",
+                m =>
+                {
+                    var assertLine = Regex.Match(m.Value, @"assert\s+[^;]+;").Value;
+                    return "VisibilityEdge ve;\n        ObjectHolder<VisibilityEdge> _veHolder1 = new ObjectHolder<>();\n        " + assertLine;
+                });
 
             code = Regex.Replace(
                 code,
@@ -1733,8 +1740,14 @@ public class ProjectConversionPipeline
             code = code.Replace("var projectionToDir = (dir == Direction.East ? (PointProjection)((p -> p.X)) : (p -> p.Y));", "PointProjection projectionToDir = (dir == Direction.East ? (PointProjection)((p -> p.X)) : (PointProjection)(p -> p.Y));", StringComparison.Ordinal);
             code = code.Replace("var projectionToPerp = (getNudgingDirection() == Direction.East ? (PointProjection)(FreeSpaceFinder::minusY) : FreeSpaceFinder::x);", "PointProjection projectionToPerp = (getNudgingDirection() == Direction.East ? (PointProjection)(FreeSpaceFinder::minusY) : (PointProjection)(FreeSpaceFinder::x));", StringComparison.Ordinal);
             code = code.Replace("getLongestNudgedSegs().add(edge.setLongestNudgedSegment(currentLongestSeg = new LongestNudgedSegment(getLongestNudgedSegs().size())));", "currentLongestSeg = new LongestNudgedSegment(getLongestNudgedSegs().size());\n        edge.setLongestNudgedSegment(currentLongestSeg);\n        getLongestNudgedSegs().add(currentLongestSeg);", StringComparison.Ordinal);
-            code = code.Replace("StreamSupport.stream(path.getPathPoints().spliterator(), false).skip(1).reduce(ret, (lp, p) -> lp.setNext(new LinkedPoint(p)), (__accLeft, __accRight) -> __accRight);", "LinkedPoint cur = ret;\n        for (Point p : StreamSupport.stream(path.getPathPoints().spliterator(), false).skip(1).collect(java.util.stream.Collectors.toList())) {\n        cur.setNext(new LinkedPoint(p));\n        cur = cur.getNext();\n        }", StringComparison.Ordinal);
-            code = code.Replace("this.setMaxVisibilitySegment(obstacleTree.createMaxVisibilitySegment(this.getVisibilityBorderIntersect(), this.getOutwardDirection(), /* out */ this.pointAndCrossingsList));", "ObjectHolder<PointAndCrossingsList> _pcl = new ObjectHolder<>(this.pointAndCrossingsList);\n        this.setMaxVisibilitySegment(obstacleTree.createMaxVisibilitySegment(this.getVisibilityBorderIntersect(), this.getOutwardDirection(), _pcl));\n        this.pointAndCrossingsList = _pcl.value;", StringComparison.Ordinal);
+            code = Regex.Replace(
+                code,
+                @"StreamSupport\.stream\(path\.getPathPoints\(\)\.spliterator\(\), false\)\.skip\(1\)\.reduce\(ret, \(lp, p\) -> lp\.setNext\(new LinkedPoint\(p(?:\.clone\(\))?\)\), \(__accLeft, __accRight\) -> __accRight\);",
+                "LinkedPoint cur = ret;\n        for (Point p : StreamSupport.stream(path.getPathPoints().spliterator(), false).skip(1).collect(java.util.stream.Collectors.toList())) {\n        cur.setNext(new LinkedPoint(p));\n        cur = cur.getNext();\n        }");
+            code = Regex.Replace(
+                code,
+                @"this\.setMaxVisibilitySegment\(obstacleTree\.createMaxVisibilitySegment\(this\.getVisibilityBorderIntersect\(\)(?:\.clone\(\))?, this\.getOutwardDirection\(\), /\* out \*/ this\.pointAndCrossingsList\)\);",
+                "ObjectHolder<PointAndCrossingsList> _pcl = new ObjectHolder<>(this.pointAndCrossingsList);\n        this.setMaxVisibilitySegment(obstacleTree.createMaxVisibilitySegment(this.getVisibilityBorderIntersect(), this.getOutwardDirection(), _pcl));\n        this.pointAndCrossingsList = _pcl.value;");
             code = code.Replace("toArray(AbstractMap.SimpleEntry<Point, FreePoint>[]::new)", "toArray(Map.Entry[]::new)", StringComparison.Ordinal);
             code = code.Replace("for (AbstractMap.SimpleEntry<Point, FreePoint> staleFreePair : staleFreePairs)", "for (Map.Entry<Point, FreePoint> staleFreePair : staleFreePairs)", StringComparison.Ordinal);
             code = code.Replace("new Polyline(ConvexHull.calculateConvexHull(java.util.stream.Stream.concat(StreamSupport.stream(poly.spliterator(), false), Arrays.stream(stickingPointsArray).boxed()).collect(java.util.stream.Collectors.toList())))", "new Polyline(ConvexHull.calculateConvexHull(new ArrayList<Point>(java.util.stream.Stream.concat(StreamSupport.stream(poly.spliterator(), false), Arrays.stream(stickingPointsArray).boxed()).collect(java.util.stream.Collectors.toList()))))", StringComparison.Ordinal);
@@ -1764,7 +1777,10 @@ public class ProjectConversionPipeline
             code = code.Replace("boolean canHaveStaircase;", "boolean canHaveStaircase = false;", StringComparison.Ordinal);
             code = code.Replace("boolean canHaveStaircaseAtI;", "boolean canHaveStaircaseAtI = false;", StringComparison.Ordinal);
             code = code.Replace("StreamSupport.stream(this._edges.spliterator(), false)", "Arrays.stream(this._edges)", StringComparison.Ordinal);
-            code = code.Replace("assert (!ApproximateComparer.closeIntersections(intersectionPoint, a.getFirst()) && !ApproximateComparer.closeIntersections(intersectionPoint, a.getSecond())) || Point.distToLineSegment(intersectionPoint, a.getFirst(), a.getSecond(), _tHolder7) < ApproximateComparer.getIntersectionEpsilon();\n        DoubleHolder _tHolder7 = new DoubleHolder();", "DoubleHolder _tHolder7 = new DoubleHolder();\n        assert (!ApproximateComparer.closeIntersections(intersectionPoint, a.getFirst()) && !ApproximateComparer.closeIntersections(intersectionPoint, a.getSecond())) || Point.distToLineSegment(intersectionPoint, a.getFirst(), a.getSecond(), _tHolder7) < ApproximateComparer.getIntersectionEpsilon();", StringComparison.Ordinal);
+            code = Regex.Replace(
+                code,
+                @"assert \(!ApproximateComparer\.closeIntersections\(intersectionPoint(?:\.clone\(\))?, a\.getFirst\(\)(?:\.clone\(\))?\) && !ApproximateComparer\.closeIntersections\(intersectionPoint(?:\.clone\(\))?, a\.getSecond\(\)(?:\.clone\(\))?\)\) \|\| Point\.distToLineSegment\(intersectionPoint(?:\.clone\(\))?, a\.getFirst\(\)(?:\.clone\(\))?, a\.getSecond\(\)(?:\.clone\(\))?, _tHolder7\) < ApproximateComparer\.getIntersectionEpsilon\(\);\s*DoubleHolder _tHolder7 = new DoubleHolder\(\);",
+                "DoubleHolder _tHolder7 = new DoubleHolder();\n        assert (!ApproximateComparer.closeIntersections(intersectionPoint.clone(), a.getFirst().clone()) && !ApproximateComparer.closeIntersections(intersectionPoint.clone(), a.getSecond().clone())) || Point.distToLineSegment(intersectionPoint.clone(), a.getFirst().clone(), a.getSecond().clone(), _tHolder7) < ApproximateComparer.getIntersectionEpsilon();");
             code = code.Replace("var leftNode = insertToTree(leftConeSides, cone.setLeftSide(new ConeLeftSide(cone)));\n        var rightNode = insertToTree(rightConeSides, cone.setRightSide(new ConeRightSide(cone)));", "ConeLeftSide leftSide = new ConeLeftSide(cone);\n        cone.setLeftSide(leftSide);\n        var leftNode = insertToTree(leftConeSides, leftSide);\n        ConeRightSide rightSide = new ConeRightSide(cone);\n        cone.setRightSide(rightSide);\n        var rightNode = insertToTree(rightConeSides, rightSide);", StringComparison.Ordinal);
             code = code.Replace("RBNode<ConeSide> leftNode = insertToTree(leftConeSides, cone.setLeftSide(new ConeLeftSide(cone)));\n        RBNode<ConeSide> rightNode = insertToTree(rightConeSides, cone.setRightSide(new ConeRightSide(cone)));", "ConeLeftSide leftSide = new ConeLeftSide(cone);\n        cone.setLeftSide(leftSide);\n        RBNode<ConeSide> leftNode = insertToTree(leftConeSides, leftSide);\n        ConeRightSide rightSide = new ConeRightSide(cone);\n        cone.setRightSide(rightSide);\n        RBNode<ConeSide> rightNode = insertToTree(rightConeSides, rightSide);", StringComparison.Ordinal);
             code = code.Replace("ObstaclePort oport;", "ObstaclePort oport = null;", StringComparison.Ordinal);
@@ -1796,6 +1812,22 @@ public class ProjectConversionPipeline
                 code,
                 @"targetLParam = _targetLParamHolder1\.value;\s*if \(ls == null\) \{\s*return false;\s*\}\s*if \(tightObstaclesInTheBoundingBox\.stream\(\)\.anyMatch\(t -> Intersections\.lineSegmentIntersectPolyline\(ls\.getStart\(\), ls\.getEnd\(\), t\)\)\) \{\s*return false;\s*\}",
                 "targetLParam = _targetLParamHolder1.value;\n        if (ls == null) {\n        return false;\n        }\n        LineSegment _lsCheck2 = ls;\n        if (tightObstaclesInTheBoundingBox.stream().anyMatch(t -> Intersections.lineSegmentIntersectPolyline(_lsCheck2.getStart(), _lsCheck2.getEnd(), t))) {\n        return false;\n        }");
+            code = Regex.Replace(
+                code,
+                @"if \(tightObstaclesInTheBoundingBox\.stream\(\)\.anyMatch\(t -> Intersections\.lineSegmentIntersectPolyline\(ls\.getStart\(\)(?:\.clone\(\))?, ls\.getEnd\(\)(?:\.clone\(\))?, t\)\)\) \{\s*return false;\s*\}\s*DoubleHolder _sourceRParamHolder1 = new DoubleHolder\(\);",
+                "LineSegment _lsCheck1 = ls;\n        if (tightObstaclesInTheBoundingBox.stream().anyMatch(t -> Intersections.lineSegmentIntersectPolyline(_lsCheck1.getStart(), _lsCheck1.getEnd(), t))) {\n        return false;\n        }\n        DoubleHolder _sourceRParamHolder1 = new DoubleHolder();");
+            code = Regex.Replace(
+                code,
+                @"if \(tightObstaclesInTheBoundingBox\.stream\(\)\.anyMatch\(t -> Intersections\.lineSegmentIntersectPolyline\(ls\.getStart\(\)(?:\.clone\(\))?, ls\.getEnd\(\)(?:\.clone\(\))?, t\)\)\) \{\s*return false;\s*\}\s*if \(SourceBase\.IsParent\) \{",
+                "LineSegment _lsCheck2 = ls;\n        if (tightObstaclesInTheBoundingBox.stream().anyMatch(t -> Intersections.lineSegmentIntersectPolyline(_lsCheck2.getStart(), _lsCheck2.getEnd(), t))) {\n        return false;\n        }\n        if (SourceBase.IsParent) {");
+            code = Regex.Replace(
+                code,
+                @"targetRParam = _targetRParamHolder1\.value;\s*if \(ls == null\) \{\s*return false;\s*\}\s*if \(tightObstaclesInTheBoundingBox\.stream\(\)\.anyMatch\(t -> Intersections\.lineSegmentIntersectPolyline\(ls\.getStart\(\)(?:\.clone\(\))?, ls\.getEnd\(\)(?:\.clone\(\))?, t\)\)\) \{\s*return false;\s*\}",
+                "targetRParam = _targetRParamHolder1.value;\n        if (ls == null) {\n        return false;\n        }\n        LineSegment _lsCheck1 = ls;\n        if (tightObstaclesInTheBoundingBox.stream().anyMatch(t -> Intersections.lineSegmentIntersectPolyline(_lsCheck1.getStart(), _lsCheck1.getEnd(), t))) {\n        return false;\n        }");
+            code = Regex.Replace(
+                code,
+                @"targetLParam = _targetLParamHolder1\.value;\s*if \(ls == null\) \{\s*return false;\s*\}\s*if \(tightObstaclesInTheBoundingBox\.stream\(\)\.anyMatch\(t -> Intersections\.lineSegmentIntersectPolyline\(ls\.getStart\(\)(?:\.clone\(\))?, ls\.getEnd\(\)(?:\.clone\(\))?, t\)\)\) \{\s*return false;\s*\}",
+                "targetLParam = _targetLParamHolder1.value;\n        if (ls == null) {\n        return false;\n        }\n        LineSegment _lsCheck2 = ls;\n        if (tightObstaclesInTheBoundingBox.stream().anyMatch(t -> Intersections.lineSegmentIntersectPolyline(_lsCheck2.getStart(), _lsCheck2.getEnd(), t))) {\n        return false;\n        }");
             code = code.Replace(
                 "Point center;\n        ObjectHolder<Point> _centerHolder4 = new ObjectHolder<>();\n        if (Math.abs(Point.signedDoubledTriangleArea(a, b, c)) < 0.0001 || !findArcCenter(a, b, c, _centerHolder4)) {\n        center = _centerHolder4.value;\n        return new LineSegment(a, c);\n        }",
                 "Point center;\n        ObjectHolder<Point> _centerHolder4 = new ObjectHolder<>();\n        if (Math.abs(Point.signedDoubledTriangleArea(a, b, c)) < 0.0001 || !findArcCenter(a, b, c, _centerHolder4)) {\n        return new LineSegment(a, c);\n        }\n        center = _centerHolder4.value;",
@@ -1804,6 +1836,10 @@ public class ProjectConversionPipeline
                 code,
                 @"Point center;\s*ObjectHolder<Point> _centerHolder4 = new ObjectHolder<>\(\);\s*if \(Math\.abs\(Point\.signedDoubledTriangleArea\(a, b, c\)\) < 0\.0001 \|\| !findArcCenter\(a, b, c, _centerHolder4\)\) \{\s*center = _centerHolder4\.value;\s*return new LineSegment\(a, c\);\s*\}",
                 "Point center;\n        ObjectHolder<Point> _centerHolder4 = new ObjectHolder<>();\n        if (Math.abs(Point.signedDoubledTriangleArea(a, b, c)) < 0.0001 || !findArcCenter(a, b, c, _centerHolder4)) {\n        return new LineSegment(a, c);\n        }\n        center = _centerHolder4.value;");
+            code = Regex.Replace(
+                code,
+                @"Point center;\s*ObjectHolder<Point> _centerHolder4 = new ObjectHolder<>\(\);\s*if \(Math\.abs\(Point\.signedDoubledTriangleArea\(a(?:\.clone\(\))?, b(?:\.clone\(\))?, c(?:\.clone\(\))?\)\) < 0\.0001 \|\| !findArcCenter\(a(?:\.clone\(\))?, b(?:\.clone\(\))?, c(?:\.clone\(\))?, _centerHolder4\)\) \{\s*center = _centerHolder4\.value;\s*return new LineSegment\(a(?:\.clone\(\))?, c(?:\.clone\(\))?\);\s*\}",
+                "Point center;\n        ObjectHolder<Point> _centerHolder4 = new ObjectHolder<>();\n        if (Math.abs(Point.signedDoubledTriangleArea(a.clone(), b.clone(), c.clone())) < 0.0001 || !findArcCenter(a.clone(), b.clone(), c.clone(), _centerHolder4)) {\n        return new LineSegment(a.clone(), c.clone());\n        }\n        center = _centerHolder4.value;");
             code = code.Replace(
                 "GeometryGraph gg = createGraphFromObstacles(getObstacles());\n        GeometryGraphWriter.write(gg, \"c:\\\\tmp\\\\bug1\");",
                 "try {\n        GeometryGraph gg = createGraphFromObstacles(getObstacles());\n        GeometryGraphWriter.write(gg, \"c:\\\\tmp\\\\bug1\");\n        } catch (Exception _ex) {\n        }",
@@ -1813,40 +1849,9 @@ public class ProjectConversionPipeline
                 @"GeometryGraph gg = createGraphFromObstacles\(getObstacles\(\)\);\s*GeometryGraphWriter\.write\(gg, ""c:\\\\tmp\\\\bug1""\);",
                 "try {\n        GeometryGraph gg = createGraphFromObstacles(getObstacles());\n        GeometryGraphWriter.write(gg, \"c:\\\\tmp\\\\bug1\");\n        } catch (Exception _ex) {\n        }");
 
-            // Iterator compatibility bridge: many translated IEnumerator classes expose getCurrent()/hasNext()
-            // but miss Java Iterator.next(). Add a thin bridge for compile-time compatibility.
-            code = code.Replace(
-                "public T getCurrent() {\n        return c.Item;\n    }\n    public void reset() {",
-                "public T getCurrent() {\n        return c.Item;\n    }\n    @Override\n    public T next() {\n        return getCurrent();\n    }\n    public void reset() {",
-                StringComparison.Ordinal);
-            code = code.Replace(
-                "public Point getCurrent() {\n        return currentNode.getData();\n    }\n    public boolean hasNext() {",
-                "public Point getCurrent() {\n        return currentNode.getData();\n    }\n    @Override\n    public Point next() {\n        return getCurrent();\n    }\n    public boolean hasNext() {",
-                StringComparison.Ordinal);
-            code = code.Replace(
-                "public Point getCurrent() {\n        return currentNode.getPoint();\n    }\n    public void close() {",
-                "public Point getCurrent() {\n        return currentNode.getPoint();\n    }\n    @Override\n    public Point next() {\n        return getCurrent();\n    }\n    public void close() {",
-                StringComparison.Ordinal);
-            code = code.Replace(
-                "public int getCurrent() {\n        return 0;\n    }\n    public void reset() {",
-                "public int getCurrent() {\n        return 0;\n    }\n    @Override\n    public Integer next() {\n        return getCurrent();\n    }\n    public void reset() {",
-                StringComparison.Ordinal);
-            code = code.Replace(
-                "public int getCurrent() {\n        return sucsV[currentSuccOffset];\n    }\n    public void close() {",
-                "public int getCurrent() {\n        return sucsV[currentSuccOffset];\n    }\n    @Override\n    public Integer next() {\n        return getCurrent();\n    }\n    public void close() {",
-                StringComparison.Ordinal);
-            code = code.Replace(
-                "public int getCurrent() {\n        return predsV[currentPredOffset];\n    }\n    public void close() {",
-                "public int getCurrent() {\n        return predsV[currentPredOffset];\n    }\n    @Override\n    public Integer next() {\n        return getCurrent();\n    }\n    public void close() {",
-                StringComparison.Ordinal);
-            code = code.Replace(
-                "public NetworkEdge getCurrent() {\n            if (outIsActive) {",
-                "public NetworkEdge getCurrent() {\n            if (outIsActive) {",
-                StringComparison.Ordinal);
-            code = code.Replace(
-                "            throw new IllegalStateException();\n        }",
-                "            throw new IllegalStateException();\n        }\n        @Override\n        public NetworkEdge next() {\n            return getCurrent();\n        }",
-                StringComparison.Ordinal);
+            // Iterator compatibility bridge: translated IEnumerator classes may expose getCurrent()
+            // without Java Iterator.next(). Inject the bridge once using brace-counting so nested
+            // conditionals inside getCurrent() do not confuse the insertion point.
 
             // List.remove(int) signature compatibility for java.util.List implementations.
             code = code.Replace(
@@ -1889,46 +1894,7 @@ public class ProjectConversionPipeline
                     "public Node remove(int index)");
             }
 
-            // CRLF-safe, class-targeted iterator/list compatibility fixes.
-            if (code.Contains("class RBTreeEnumerator", StringComparison.Ordinal)
-                && !code.Contains("public T next()", StringComparison.Ordinal))
-            {
-                code = Regex.Replace(
-                    code,
-                    @"public\s+T\s+getCurrent\(\)\s*\{[\s\S]*?\}\s*public\s+void\s+reset\(\)",
-                    m => m.Value.Replace("public void reset()", "@Override\n    public T next() {\n        return getCurrent();\n    }\n    public void reset()"));
-            }
-            // iteratorBridgeClasses 循环已移除：懒惰正则会在方法体内错误插入 next()，
-            // 各类已由下方专项处理覆盖。
-            if ((code.Contains("class PolylineIterator", StringComparison.Ordinal)
-                || code.Contains("class PointNodesList", StringComparison.Ordinal))
-                && !code.Contains("public Point next()", StringComparison.Ordinal))
-            {
-                code = Regex.Replace(
-                    code,
-                    @"public\s+Point\s+getCurrent\(\)\s*\{[\s\S]*?\}\s*public\s+(?:boolean\s+hasNext\(\)|void\s+close\(\))",
-                    m => m.Value.Replace("public boolean hasNext()", "@Override\n    public Point next() {\n        return getCurrent();\n    }\n    public boolean hasNext()")
-                                .Replace("public void close()", "@Override\n    public Point next() {\n        return getCurrent();\n    }\n    public void close()"));
-            }
-            if ((code.Contains("class EmptyEnumerator", StringComparison.Ordinal)
-                || code.Contains("class PredEnumerator", StringComparison.Ordinal)
-                || code.Contains("class SuccEnumerator", StringComparison.Ordinal))
-                && !code.Contains("public Integer next()", StringComparison.Ordinal))
-            {
-                code = Regex.Replace(
-                    code,
-                    @"public\s+int\s+getCurrent\(\)\s*\{[\s\S]*?\}\s*public\s+(?:void\s+reset\(\)|void\s+close\(\))",
-                    m => m.Value.Replace("public void reset()", "@Override\n    public Integer next() {\n        return getCurrent();\n    }\n    public void reset()")
-                                .Replace("public void close()", "@Override\n    public Integer next() {\n        return getCurrent();\n    }\n    public void close()"));
-            }
-            if (code.Contains("class IncEdgeEnumerator", StringComparison.Ordinal)
-                && !code.Contains("public NetworkEdge next()", StringComparison.Ordinal))
-            {
-                code = Regex.Replace(
-                    code,
-                    @"public\s+NetworkEdge\s+getCurrent\(\)\s*\{[\s\S]*?throw\s+new\s+IllegalStateException\(\);\s*\}",
-                    m => m.Value + "\n        @Override\n        public NetworkEdge next() {\n            return getCurrent();\n        }");
-            }
+            // iteratorBridgeClasses 循环已移除：统一由上面的 brace-counting 注入处理。
             if (code.Contains("class NodeCollection", StringComparison.Ordinal))
             {
                 code = Regex.Replace(
