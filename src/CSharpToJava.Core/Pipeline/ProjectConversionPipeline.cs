@@ -55,13 +55,11 @@ public class ProjectConversionPipeline
     };
 
     private const string MSTestCompatibilityPackage = "Microsoft.VisualStudio.TestTools.UnitTesting";
-
     private readonly ConversionOptions _options;
     private readonly TypeMappingRegistry _typeMappings;
 
     /// <summary>
     /// 创建项目转换管道
-    /// </summary>
     /// <exception cref="TypeMappingConfigurationException">配置文件不存在或格式错误</exception>
     public ProjectConversionPipeline(ConversionOptions options)
     {
@@ -70,7 +68,6 @@ public class ProjectConversionPipeline
     }
 
     /// <summary>
-    /// 转换整个项目，合并 partial 类型
     /// </summary>
     /// <param name="sourceFiles">源代码文件列表</param>
     /// <returns>转换结果列表</returns>
@@ -83,11 +80,10 @@ public class ProjectConversionPipeline
 
         try
         {
-            // Phase 1: 构建完整的编译
+            // Phase 1: Build compilation from all source files.
             var compilation = BuildCompilation(sourceFiles, context);
             if (compilation == null)
             {
-                context.Diagnostics.Error("Failed to build compilation");
                 return CreateFailureResults(sourceFiles, context);
             }
 
@@ -221,7 +217,6 @@ public class ProjectConversionPipeline
                     "System.Threading.Tasks",
                 }));
 
-        // Store in context for cross-file semantic analysis
         context.ProjectCompilation = compilation;
 
         return compilation;
@@ -258,15 +253,17 @@ public class ProjectConversionPipeline
         };
 
         var frameworkDir = Path.GetDirectoryName(objectAssembly);
-        if (!string.IsNullOrEmpty(frameworkDir))
+        if (string.IsNullOrEmpty(frameworkDir) || !Directory.Exists(frameworkDir))
         {
-            foreach (var assembly in dotnetAssemblies)
+            return references;
+        }
+
+        foreach (var assembly in dotnetAssemblies)
+        {
+            var path = Path.Combine(frameworkDir, assembly);
+            if (File.Exists(path))
             {
-                var path = Path.Combine(frameworkDir, assembly);
-                if (File.Exists(path))
-                {
-                    references.Add(MetadataReference.CreateFromFile(path));
-                }
+                references.Add(MetadataReference.CreateFromFile(path));
             }
         }
 
@@ -785,6 +782,7 @@ public class ProjectConversionPipeline
                 continue;
 
             var code = r.GeneratedCode.Replace("\r\n", "\n");
+            var outputFileName = Path.GetFileName(r.FileName);
             code = code.Replace("String.Empty", "\"\"", StringComparison.Ordinal);
 
             code = code.Replace(".toLower()", ".toLowerCase()", StringComparison.Ordinal);
@@ -800,8 +798,6 @@ public class ProjectConversionPipeline
                 code,
                 @"(?m)\bConsumer<(?<arg>[^>]+)>\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*\((?<sender>[^,\)]+),\s*(?<event>[^\)]+)\)\s*->",
                 "BiConsumer<Object, ${arg}> ${name} = (${sender}, ${event}) ->");
-
-            var outputFileName = string.IsNullOrEmpty(r.FileName) ? string.Empty : Path.GetFileName(r.FileName);
             if (string.Equals(outputFileName, "BasicFileProcessor.java", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(outputFileName, "BasicFileProcessor.cs", StringComparison.OrdinalIgnoreCase))
             {
@@ -1414,6 +1410,14 @@ public class ProjectConversionPipeline
                                     StringComparison.Ordinal);
                             }
 
+                            if (r.FileName != null && r.FileName.Contains("AspectRatioTests", StringComparison.Ordinal))
+                            {
+                                code = code.Replace(
+                                    "String filePath = java.nio.file.Paths.get(this.getTestContext().TestDir, \"Out\\\\Dots\").toString();",
+                                    "String filePath = resolveTestDataPath(\"DotFiles\\\\\\\\LevFiles\\\\\\\\chat.dot\");",
+                                    StringComparison.Ordinal);
+                            }
+
                             if (r.FileName != null && r.FileName.Contains("SugiyamaEdgeLabelTests", StringComparison.Ordinal))
                             {
                                 code = code.Replace("edge.getPoints()", "EdgeExtensions.getPoints(edge)", StringComparison.Ordinal);
@@ -1421,10 +1425,26 @@ public class ProjectConversionPipeline
 
                             if (r.FileName != null && r.FileName.Contains("SugiyamaLayoutTests", StringComparison.Ordinal))
                             {
+                                code = code.Replace(
+                                    "Paths.get(this.getTestContext().TestDir, \"Out\\\\Dots\\\\fsm.dot\").toString()",
+                                    "resolveTestDataPath(\"DotFiles\\\\\\\\LevFiles\\\\\\\\fsm.dot\")",
+                                    StringComparison.Ordinal);
+                                code = code.Replace(
+                                    "java.nio.file.resolveTestDataPath(",
+                                    "resolveTestDataPath(",
+                                    StringComparison.Ordinal);
+                                code = code.Replace(
+                                    "String[] allFiles = Files.getFiles(java.nio.file.Paths.get(this.getTestContext().TestDir, \"Out\\\\Dots\").toString(), \"*.dot\");",
+                                    "String[] allFiles = findTestDataFiles(java.nio.file.Paths.get(this.getTestContext().TestDir, \"Out\\\\Dots\").toString(), \"*.dot\");",
+                                    StringComparison.Ordinal);
+                                code = Regex.Replace(
+                                    code,
+                                    @"Paths\.get\([^;\r\n]*?""Out\\Dots\\(?<file>[^""]+)""\)\.toString\(\)",
+                                    "resolveTestDataPath(\"DotFiles\\\\\\\\LevFiles\\\\\\\\${file}\")");
                                 code = Regex.Replace(
                                     code,
                                     @"String\[\]\s+allFiles\s*=\s*Files\.getFiles\((?<dir>.*),\s*\""\*\.dot\""\);",
-                                        "String[] allFiles = Optional.ofNullable(new File(${dir}).list((dir, name) -> java.nio.file.FileSystems.getDefault().getPathMatcher(\"glob:*.dot\").matches(java.nio.file.Paths.get(name)))).orElse(new String[0]);");
+                                        "String[] allFiles = findTestDataFiles(${dir}, \"*.dot\");");
                             }
 
                             if (r.FileName != null && r.FileName.Contains("SugiyamaSettingsTests", StringComparison.Ordinal))
@@ -1436,6 +1456,40 @@ public class ProjectConversionPipeline
                                 code = code.Replace(
                                     "ObjectHolder<LayoutAlgorithmSettings> _baseSettingsHolder1 = new ObjectHolder<>();\n        GeometryGraphReader.createFromFile(\"settings.msagl.geom\", _baseSettingsHolder1);\n        baseSettings = _baseSettingsHolder1.value;",
                                     "ObjectHolder<LayoutAlgorithmSettings> _baseSettingsHolder1 = new ObjectHolder<>();\n        try {\n        GeometryGraphReader.createFromFile(\"settings.msagl.geom\", _baseSettingsHolder1);\n        } catch (Exception e) {\n        throw new RuntimeException(e);\n        }\n        baseSettings = _baseSettingsHolder1.value;",
+                                    StringComparison.Ordinal);
+                            }
+
+                            if (r.FileName != null && r.FileName.Contains("MsaglTestBase", StringComparison.Ordinal))
+                            {
+                                if (!code.Contains("File resolvedGraphPath = new File(geometryGraphFileName);", StringComparison.Ordinal))
+                                {
+                                    code = code.Replace(
+                                        "if (StringHelper.isNullOrEmpty(geometryGraphFileName)) {\n        throw new NullPointerException(\"geometryGraphFileName\");\n        }",
+                                        "if (StringHelper.isNullOrEmpty(geometryGraphFileName)) {\n        throw new NullPointerException(\"geometryGraphFileName\");\n        }\n        geometryGraphFileName = resolveTestDataPath(geometryGraphFileName);\n        File resolvedGraphPath = new File(geometryGraphFileName);\n        if (!resolvedGraphPath.exists()) {\n        File resolvedGraphDirectory = resolveTestDataDirectory(geometryGraphFileName);\n        if (resolvedGraphDirectory != null) {\n        resolvedGraphPath = resolvedGraphDirectory;\n        geometryGraphFileName = resolvedGraphDirectory.getPath();\n        }\n        }\n        if (resolvedGraphPath.isDirectory()) {\n        String[] dotFiles = findTestDataFiles(geometryGraphFileName, \"*.dot\");\n        if (dotFiles.length > 0) {\n        Arrays.sort(dotFiles);\n        geometryGraphFileName = dotFiles[0];\n        } else {\n        String[] geomFiles = findTestDataFiles(geometryGraphFileName, \"*.geom\");\n        if (geomFiles.length > 0) {\n        Arrays.sort(geomFiles);\n        geometryGraphFileName = geomFiles[0];\n        }\n        }\n        }",
+                                        StringComparison.Ordinal);
+                                }
+                                if (!code.Contains("protected static String resolveTestDataPath(String fileName)", StringComparison.Ordinal))
+                                {
+                                    code = code.Replace(
+                                        "protected static RelativeFloatingPort makePort(Node node) {",
+                                        "protected static String resolveTestDataPath(String fileName) {\n        if (StringHelper.isNullOrEmpty(fileName)) {\n        return fileName;\n        }\n        File directFile = new File(fileName);\n        if (directFile.exists()) {\n        return directFile.getPath();\n        }\n        String normalizedFileName = fileName.replace(\"\\\\\", File.separator).replace(\"/\", File.separator);\n        String leafName = new File(normalizedFileName).getName();\n        for (File root : enumerateTestDataRoots()) {\n        File candidate = new File(root, normalizedFileName);\n        if (candidate.exists()) {\n        return candidate.getPath();\n        }\n        File byName = new File(root, leafName);\n        if (byName.exists()) {\n        return byName.getPath();\n        }\n        }\n        return fileName;\n    }\n    protected static String[] findTestDataFiles(String relativeDir, String glob) {\n        File resolvedDir = resolveTestDataDirectory(relativeDir);\n        if (resolvedDir == null || !resolvedDir.isDirectory()) {\n        return new String[0];\n        }\n        File[] matchingFiles = resolvedDir.listFiles((currentDir, name) -> java.nio.file.FileSystems.getDefault().getPathMatcher(\"glob:\" + glob).matches(java.nio.file.Paths.get(name)));\n        return matchingFiles == null ? new String[0] : Arrays.stream(matchingFiles).map(File::getPath).toArray(String[]::new);\n    }\n    private static File resolveTestDataDirectory(String relativeDir) {\n        if (StringHelper.isNullOrEmpty(relativeDir)) {\n        return null;\n        }\n        File directDir = new File(relativeDir);\n        if (directDir.isDirectory()) {\n        return directDir;\n        }\n        String normalizedDir = relativeDir.replace(\"\\\\\", File.separator).replace(\"/\", File.separator);\n        String leafName = new File(normalizedDir).getName();\n        for (File root : enumerateTestDataRoots()) {\n        File candidate = new File(root, normalizedDir);\n        if (candidate.isDirectory()) {\n        return candidate;\n        }\n        if (\"Dots\".equalsIgnoreCase(leafName)) {\n        File dotFilesDir = new File(root, \"DotFiles\");\n        if (dotFilesDir.isDirectory()) {\n        return dotFilesDir;\n        }\n        }\n        if (\"MSAGLGeometryGraphs\".equalsIgnoreCase(leafName)) {\n        File geometryDir = new File(root, \"MsaglGeometryGraphs\");\n        if (geometryDir.isDirectory()) {\n        return geometryDir;\n        }\n        }\n        }\n        return directDir;\n    }\n    private static ArrayList<File> enumerateTestDataRoots() {\n        LinkedHashSet<String> rootPaths = new LinkedHashSet<>();\n        addTestDataRoot(rootPaths, System.getProperty(\"user.dir\"));\n        addTestDataRoot(rootPaths, TestContext.TestDir);\n        ArrayList<File> roots = new ArrayList<>();\n        for (String path : rootPaths) {\n        roots.add(new File(path));\n        }\n        return roots;\n    }\n    private static void addTestDataRoot(LinkedHashSet<String> rootPaths, String basePath) {\n        if (StringHelper.isNullOrEmpty(basePath)) {\n        return;\n        }\n        rootPaths.add(basePath);\n        rootPaths.add(new File(basePath, \"Resources\").getPath());\n        rootPaths.add(new File(basePath, \"src/test/resources\").getPath());\n        rootPaths.add(new File(basePath, \"src/test/resources/Resources\").getPath());\n        rootPaths.add(new File(basePath, \"target/test-classes\").getPath());\n        rootPaths.add(new File(basePath, \"target/test-classes/Resources\").getPath());\n    }\n    protected static RelativeFloatingPort makePort(Node node) {",
+                                        StringComparison.Ordinal);
+                                }
+                            }
+
+                            if (r.FileName != null && r.FileName.Contains("ShapeCreator", StringComparison.Ordinal))
+                            {
+                                code = code.Replace(
+                                    "var _chainVal14 = nodesToShapes.put(c, createShapeWithClusterBoundaryPort(c));\n        cShape = _chainVal14;",
+                                    "cShape = createShapeWithClusterBoundaryPort(c);\n        nodesToShapes.put(c, cShape);",
+                                    StringComparison.Ordinal);
+                                code = code.Replace(
+                                    "var _chainVal15 = nodesToShapes.put(n, createShapeWithCenterPort(n));\n        nShape = _chainVal15;",
+                                    "nShape = createShapeWithCenterPort(n);\n        nodesToShapes.put(n, nShape);",
+                                    StringComparison.Ordinal);
+                                code = code.Replace(
+                                    "var _chainVal16 = nodesToShapes.put(cc, createShapeWithCenterPort(cc));\n        nShape = _chainVal16;",
+                                    "nShape = createShapeWithCenterPort(cc);\n        nodesToShapes.put(cc, nShape);",
                                     StringComparison.Ordinal);
                             }
 

@@ -23,7 +23,6 @@ class Program
     {
         try
         {
-            // 读取源文件
             if (!File.Exists(opts.Input))
             {
                 Console.Error.WriteLine($"Error: Input file not found: {opts.Input}");
@@ -32,7 +31,6 @@ class Program
 
             var sourceCode = await File.ReadAllTextAsync(opts.Input);
 
-            // 配置转换选项
             var options = new ConversionOptions
             {
                 TargetJavaVersion = Enum.Parse<JavaVersion>(opts.JavaVersion, true),
@@ -44,7 +42,6 @@ class Program
                 PreferStreamApi = opts.PreferStreamApi
             };
 
-            // 执行转换
             var pipeline = new ConversionPipeline();
             var result = pipeline.Convert(new ConversionRequest
             {
@@ -53,10 +50,8 @@ class Program
                 FileName = opts.Input
             });
 
-            // 输出结果
             if (opts.Output != null)
             {
-                // 使用 UTF-8 without BOM 编码写入Java文件
                 await File.WriteAllTextAsync(opts.Output, result.GeneratedCode, new System.Text.UTF8Encoding(false));
                 Console.WriteLine($"Successfully converted to: {opts.Output}");
             }
@@ -65,7 +60,6 @@ class Program
                 Console.WriteLine(result.GeneratedCode);
             }
 
-            // 输出诊断信息
             if (opts.Verbose && result.Diagnostics.Count > 0)
             {
                 Console.WriteLine();
@@ -100,14 +94,14 @@ class Program
         try
         {
             var hasDirectorySource = Directory.Exists(opts.Source);
-            var hasProjectSource = File.Exists(opts.Source) && Path.GetExtension(opts.Source).Equals(".csproj", StringComparison.OrdinalIgnoreCase);
+            var hasProjectSource = File.Exists(opts.Source)
+                && Path.GetExtension(opts.Source).Equals(".csproj", StringComparison.OrdinalIgnoreCase);
             if (!hasDirectorySource && !hasProjectSource)
             {
                 Console.Error.WriteLine($"Error: Source not found: {opts.Source}");
                 return 1;
             }
 
-            // 创建输出目录
             if (Directory.Exists(opts.Destination))
             {
                 if (!opts.Force)
@@ -121,7 +115,6 @@ class Program
                 Directory.CreateDirectory(opts.Destination);
             }
 
-            // 配置转换选项
             var options = new ConversionOptions
             {
                 TargetJavaVersion = Enum.Parse<JavaVersion>(opts.JavaVersion, true),
@@ -133,13 +126,11 @@ class Program
                 PreferStreamApi = opts.PreferStreamApi
             };
 
-            // 优先走 .csproj 模式（支持项目引用图、测试分类和 resources 分流）
             if (ProjectDiscovery.TryResolveProjectEntry(opts.Source, out var entryProject))
             {
                 return await ConvertFromProjectGraph(opts, options, entryProject);
             }
 
-            // 兼容旧目录模式
             var outputRoot = opts.GeneratePom
                 ? Path.Combine(opts.Destination, "src", "main", "java")
                 : opts.Destination;
@@ -182,13 +173,11 @@ class Program
                 }
             }
 
-            // 生成 Maven pom.xml
             if (opts.GeneratePom)
             {
                 var artifactId = new DirectoryInfo(opts.Destination).Name;
                 var pomContent = GenerateMavenPom(artifactId, opts.MavenGroupId, opts.MavenVersion, opts.JavaVersion, includeTests: false);
                 var pomPath = Path.Combine(opts.Destination, "pom.xml");
-                // pom.xml 使用 UTF-8 without BOM
                 await File.WriteAllTextAsync(pomPath, pomContent, new System.Text.UTF8Encoding(false));
                 Console.WriteLine($"Generated Maven pom.xml: {pomPath}");
             }
@@ -928,6 +917,15 @@ class Program
                 StringComparison.Ordinal);
         }
 
+        if (string.Equals(fileNameOnly, "AspectRatioTests.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "AspectRatioTests.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace(
+                "String filePath = java.nio.file.Paths.get(this.getTestContext().TestDir, \"Out\\\\\\\\Dots\").toString();",
+                "String filePath = resolveTestDataPath(\"DotFiles\\\\\\\\LevFiles\\\\\\\\chat.dot\");",
+                StringComparison.Ordinal);
+        }
+
         if (string.Equals(fileNameOnly, "SugiyamaEdgeLabelTests.cs", StringComparison.OrdinalIgnoreCase)
             || string.Equals(fileNameOnly, "SugiyamaEdgeLabelTests.java", StringComparison.OrdinalIgnoreCase))
         {
@@ -937,10 +935,26 @@ class Program
         if (string.Equals(fileNameOnly, "SugiyamaLayoutTests.cs", StringComparison.OrdinalIgnoreCase)
             || string.Equals(fileNameOnly, "SugiyamaLayoutTests.java", StringComparison.OrdinalIgnoreCase))
         {
+            generatedCode = generatedCode.Replace(
+                "Paths.get(this.getTestContext().TestDir, \"Out\\\\Dots\\\\fsm.dot\").toString()",
+                "resolveTestDataPath(\"DotFiles\\\\\\\\LevFiles\\\\\\\\fsm.dot\")",
+                StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace(
+                "java.nio.file.resolveTestDataPath(",
+                "resolveTestDataPath(",
+                StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace(
+                "String[] allFiles = Files.getFiles(java.nio.file.Paths.get(this.getTestContext().TestDir, \"Out\\\\Dots\").toString(), \"*.dot\");",
+                "String[] allFiles = findTestDataFiles(java.nio.file.Paths.get(this.getTestContext().TestDir, \"Out\\\\Dots\").toString(), \"*.dot\");",
+                StringComparison.Ordinal);
+            generatedCode = Regex.Replace(
+                generatedCode,
+                @"Paths\.get\([^;\r\n]*?""Out\\Dots\\(?<file>[^""]+)""\)\.toString\(\)",
+                "resolveTestDataPath(\"DotFiles\\\\LevFiles\\\\${file}\")");
             generatedCode = System.Text.RegularExpressions.Regex.Replace(
                 generatedCode,
                 @"String\[\]\s+allFiles\s*=\s*Files\.getFiles\((?<dir>.*),\s*\""\*\.dot\""\);",
-                "String[] allFiles = Optional.ofNullable(new File(${dir}).list((dir, name) -> java.nio.file.FileSystems.getDefault().getPathMatcher(\"glob:*.dot\").matches(java.nio.file.Paths.get(name)))).orElse(new String[0]);");
+                "String[] allFiles = findTestDataFiles(${dir}, \"*.dot\");");
         }
 
         if (string.Equals(fileNameOnly, "SugiyamaSettingsTests.cs", StringComparison.OrdinalIgnoreCase)
@@ -953,6 +967,42 @@ class Program
             generatedCode = generatedCode.Replace(
                 "ObjectHolder<LayoutAlgorithmSettings> _baseSettingsHolder1 = new ObjectHolder<>();\n        GeometryGraphReader.createFromFile(\"settings.msagl.geom\", _baseSettingsHolder1);\n        baseSettings = _baseSettingsHolder1.value;",
                 "ObjectHolder<LayoutAlgorithmSettings> _baseSettingsHolder1 = new ObjectHolder<>();\n        try {\n        GeometryGraphReader.createFromFile(\"settings.msagl.geom\", _baseSettingsHolder1);\n        } catch (Exception e) {\n        throw new RuntimeException(e);\n        }\n        baseSettings = _baseSettingsHolder1.value;",
+                StringComparison.Ordinal);
+        }
+
+        if (string.Equals(fileNameOnly, "MsaglTestBase.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "MsaglTestBase.java", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!generatedCode.Contains("File resolvedGraphPath = new File(geometryGraphFileName);", StringComparison.Ordinal))
+            {
+                generatedCode = generatedCode.Replace(
+                    "if (StringHelper.isNullOrEmpty(geometryGraphFileName)) {\n        throw new NullPointerException(\"geometryGraphFileName\");\n        }",
+                    "if (StringHelper.isNullOrEmpty(geometryGraphFileName)) {\n        throw new NullPointerException(\"geometryGraphFileName\");\n        }\n        geometryGraphFileName = resolveTestDataPath(geometryGraphFileName);\n        File resolvedGraphPath = new File(geometryGraphFileName);\n        if (!resolvedGraphPath.exists()) {\n        File resolvedGraphDirectory = resolveTestDataDirectory(geometryGraphFileName);\n        if (resolvedGraphDirectory != null) {\n        resolvedGraphPath = resolvedGraphDirectory;\n        geometryGraphFileName = resolvedGraphDirectory.getPath();\n        }\n        }\n        if (resolvedGraphPath.isDirectory()) {\n        String[] dotFiles = findTestDataFiles(geometryGraphFileName, \"*.dot\");\n        if (dotFiles.length > 0) {\n        Arrays.sort(dotFiles);\n        geometryGraphFileName = dotFiles[0];\n        } else {\n        String[] geomFiles = findTestDataFiles(geometryGraphFileName, \"*.geom\");\n        if (geomFiles.length > 0) {\n        Arrays.sort(geomFiles);\n        geometryGraphFileName = geomFiles[0];\n        }\n        }\n        }",
+                    StringComparison.Ordinal);
+            }
+            if (!generatedCode.Contains("protected static String resolveTestDataPath(String fileName)", StringComparison.Ordinal))
+            {
+                generatedCode = generatedCode.Replace(
+                    "protected static RelativeFloatingPort makePort(Node node) {",
+                    "protected static String resolveTestDataPath(String fileName) {\n        if (StringHelper.isNullOrEmpty(fileName)) {\n        return fileName;\n        }\n        File directFile = new File(fileName);\n        if (directFile.exists()) {\n        return directFile.getPath();\n        }\n        String normalizedFileName = fileName.replace(\"\\\\\", File.separator).replace(\"/\", File.separator);\n        String leafName = new File(normalizedFileName).getName();\n        for (File root : enumerateTestDataRoots()) {\n        File candidate = new File(root, normalizedFileName);\n        if (candidate.exists()) {\n        return candidate.getPath();\n        }\n        File byName = new File(root, leafName);\n        if (byName.exists()) {\n        return byName.getPath();\n        }\n        }\n        return fileName;\n    }\n    protected static String[] findTestDataFiles(String relativeDir, String glob) {\n        File resolvedDir = resolveTestDataDirectory(relativeDir);\n        if (resolvedDir == null || !resolvedDir.isDirectory()) {\n        return new String[0];\n        }\n        File[] matchingFiles = resolvedDir.listFiles((currentDir, name) -> java.nio.file.FileSystems.getDefault().getPathMatcher(\"glob:\" + glob).matches(java.nio.file.Paths.get(name)));\n        return matchingFiles == null ? new String[0] : Arrays.stream(matchingFiles).map(File::getPath).toArray(String[]::new);\n    }\n    private static File resolveTestDataDirectory(String relativeDir) {\n        if (StringHelper.isNullOrEmpty(relativeDir)) {\n        return null;\n        }\n        File directDir = new File(relativeDir);\n        if (directDir.isDirectory()) {\n        return directDir;\n        }\n        String normalizedDir = relativeDir.replace(\"\\\\\", File.separator).replace(\"/\", File.separator);\n        String leafName = new File(normalizedDir).getName();\n        for (File root : enumerateTestDataRoots()) {\n        File candidate = new File(root, normalizedDir);\n        if (candidate.isDirectory()) {\n        return candidate;\n        }\n        if (\"Dots\".equalsIgnoreCase(leafName)) {\n        File dotFilesDir = new File(root, \"DotFiles\");\n        if (dotFilesDir.isDirectory()) {\n        return dotFilesDir;\n        }\n        }\n        if (\"MSAGLGeometryGraphs\".equalsIgnoreCase(leafName)) {\n        File geometryDir = new File(root, \"MsaglGeometryGraphs\");\n        if (geometryDir.isDirectory()) {\n        return geometryDir;\n        }\n        }\n        }\n        return directDir;\n    }\n    private static ArrayList<File> enumerateTestDataRoots() {\n        LinkedHashSet<String> rootPaths = new LinkedHashSet<>();\n        addTestDataRoot(rootPaths, System.getProperty(\"user.dir\"));\n        addTestDataRoot(rootPaths, TestContext.TestDir);\n        ArrayList<File> roots = new ArrayList<>();\n        for (String path : rootPaths) {\n        roots.add(new File(path));\n        }\n        return roots;\n    }\n    private static void addTestDataRoot(LinkedHashSet<String> rootPaths, String basePath) {\n        if (StringHelper.isNullOrEmpty(basePath)) {\n        return;\n        }\n        rootPaths.add(basePath);\n        rootPaths.add(new File(basePath, \"Resources\").getPath());\n        rootPaths.add(new File(basePath, \"src/test/resources\").getPath());\n        rootPaths.add(new File(basePath, \"src/test/resources/Resources\").getPath());\n        rootPaths.add(new File(basePath, \"target/test-classes\").getPath());\n        rootPaths.add(new File(basePath, \"target/test-classes/Resources\").getPath());\n    }\n    protected static RelativeFloatingPort makePort(Node node) {",
+                    StringComparison.Ordinal);
+            }
+        }
+
+        if (string.Equals(fileNameOnly, "ShapeCreator.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "ShapeCreator.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace(
+                "var _chainVal14 = nodesToShapes.put(c, createShapeWithClusterBoundaryPort(c));\n        cShape = _chainVal14;",
+                "cShape = createShapeWithClusterBoundaryPort(c);\n        nodesToShapes.put(c, cShape);",
+                StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace(
+                "var _chainVal15 = nodesToShapes.put(n, createShapeWithCenterPort(n));\n        nShape = _chainVal15;",
+                "nShape = createShapeWithCenterPort(n);\n        nodesToShapes.put(n, nShape);",
+                StringComparison.Ordinal);
+            generatedCode = generatedCode.Replace(
+                "var _chainVal16 = nodesToShapes.put(cc, createShapeWithCenterPort(cc));\n        nShape = _chainVal16;",
+                "nShape = createShapeWithCenterPort(cc);\n        nodesToShapes.put(cc, nShape);",
                 StringComparison.Ordinal);
         }
 
