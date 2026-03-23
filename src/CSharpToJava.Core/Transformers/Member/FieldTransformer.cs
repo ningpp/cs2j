@@ -46,8 +46,11 @@ public class FieldTransformer : IMemberTransformer
         // Handle const/readonly modifiers
         if (fieldDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.ConstKeyword)))
             modifiers |= JavaModifiers.Static | JavaModifiers.Final;
-        // readonly → final only when every variable has an initializer (avoids Java compile errors for uninitialized final fields)
+        // static readonly → static final (safe: only static constructors can reassign, which we don't generate)
+        // Instance readonly fields are NOT marked final here — C# constructors can reassign them,
+        // which would break Java's final semantics. StructTransformer handles struct readonly fields separately.
         if (fieldDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.ReadOnlyKeyword))
+            && fieldDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword))
             && fieldDecl.Declaration.Variables.All(v => v.Initializer != null))
             modifiers |= JavaModifiers.Final;
         if (fieldDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.FixedKeyword)))

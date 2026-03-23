@@ -340,14 +340,14 @@ public class ConversionContext
 
     /// <summary>
     /// Allocates a unique out-holder name for the given variable.
-    /// First allocation returns "_{varName}Holder"; subsequent returns "_{varName}Holder2", etc.
+    /// First allocation returns "_{varName}Holder1"; subsequent returns "_{varName}Holder2", etc.
     /// </summary>
     public string AllocateOutHolderName(string varName)
     {
         var key = $"_{varName}Holder";
-        var count = _outHolderAllocCounts.GetValueOrDefault(key, 0);
-        _outHolderAllocCounts[key] = count + 1;
-        return count == 0 ? key : $"{key}{count}";
+        var count = _outHolderAllocCounts.GetValueOrDefault(key, 0) + 1;
+        _outHolderAllocCounts[key] = count;
+        return $"{key}{count}";
     }
 
     /// <summary>

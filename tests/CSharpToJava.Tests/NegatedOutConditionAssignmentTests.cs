@@ -23,8 +23,8 @@ public class NegatedOutConditionAssignmentTests
         var result = pipeline.Convert(new ConversionRequest { SourceCode = code });
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics.Select(d => d.Message)));
-        var condPos = result.GeneratedCode.IndexOf("!tryGet(_vHolder");
-        var assignPos = result.GeneratedCode.IndexOf("v = _vHolder", StringComparison.Ordinal);
+        var condPos = result.GeneratedCode.IndexOf("!tryGet(_vHolder1");
+        var assignPos = result.GeneratedCode.IndexOf("v = _vHolder1", StringComparison.Ordinal);
         var ifPos = result.GeneratedCode.IndexOf("if (_ifCond", StringComparison.Ordinal);
         Assert.True(condPos >= 0, "expected lowered negated condition temp assignment");
         Assert.True(assignPos >= 0 && ifPos >= 0 && assignPos < ifPos,

@@ -293,9 +293,9 @@ public class RefParameterTests
         Assert.Contains("return d2.value", result.GeneratedCode);
 
         // OutMethod3 — wraps local double d3, splits return
-        Assert.Contains("DoubleHolder _d3Holder = new DoubleHolder()", result.GeneratedCode);
-        Assert.Contains("outMethod2(_d3Holder)", result.GeneratedCode);
-        Assert.Contains("d3 = _d3Holder.value", result.GeneratedCode);
+        Assert.Contains("DoubleHolder _d3Holder1 = new DoubleHolder()", result.GeneratedCode);
+        Assert.Contains("outMethod2(_d3Holder1)", result.GeneratedCode);
+        Assert.Contains("d3 = _d3Holder1.value", result.GeneratedCode);
         Assert.Contains("return _ret", result.GeneratedCode);
     }
 

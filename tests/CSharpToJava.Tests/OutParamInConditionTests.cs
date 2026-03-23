@@ -38,17 +38,17 @@ public class OutParamInConditionTests
         var java = Convert(csharp);
 
         // Holder declared BEFORE the if
-        Assert.Matches(@"IntHolder\s+_nHolder\s*=\s*new\s+IntHolder\(\)", java);
+        Assert.Matches(@"IntHolder\s+_nHolder1\s*=\s*new\s+IntHolder\(\)", java);
 
         // if uses the holder variable
-        Assert.Contains("if (tryParse(s, _nHolder))", java);
+        Assert.Contains("if (tryParse(s, _nHolder1))", java);
 
         // Value read-back is the FIRST statement inside the then-body, before Console.out
-        var holderDecl = java.IndexOf("IntHolder _nHolder");
+        var holderDecl = java.IndexOf("IntHolder _nHolder1");
         var ifStatement = java.IndexOf("if (tryParse(");
-        var readBack = java.IndexOf("int n = _nHolder.value");
+        var readBack = java.IndexOf("int n = _nHolder1.value");
 
-        Assert.True(holderDecl < ifStatement, "_nHolder declaration must come before the if statement");
+        Assert.True(holderDecl < ifStatement, "_nHolder1 declaration must come before the if statement");
         Assert.True(ifStatement < readBack, "read-back must be inside the then-body (after the if line)");
         Assert.DoesNotContain("/* out */", java);
     }
@@ -69,14 +69,14 @@ public class OutParamInConditionTests
 
         var java = Convert(csharp);
 
-        var p0HolderPos = java.IndexOf("DoubleHolder _p0Holder");
-        var p1HolderPos = java.IndexOf("DoubleHolder _p1Holder");
+        var p0HolderPos = java.IndexOf("DoubleHolder _p0Holder1");
+        var p1HolderPos = java.IndexOf("DoubleHolder _p1Holder1");
         var ifPos = java.IndexOf("if (cross(");
 
-        Assert.True(p0HolderPos >= 0, "_p0Holder declaration missing");
-        Assert.True(p1HolderPos >= 0, "_p1Holder declaration missing");
-        Assert.True(p0HolderPos < ifPos, "_p0Holder must be before the if");
-        Assert.True(p1HolderPos < ifPos, "_p1Holder must be before the if");
+        Assert.True(p0HolderPos >= 0, "_p0Holder1 declaration missing");
+        Assert.True(p1HolderPos >= 0, "_p1Holder1 declaration missing");
+        Assert.True(p0HolderPos < ifPos, "_p0Holder1 must be before the if");
+        Assert.True(p1HolderPos < ifPos, "_p1Holder1 must be before the if");
     }
 
     [Fact]
@@ -96,7 +96,7 @@ public class OutParamInConditionTests
         var java = Convert(csharp);
 
         // Read-back must appear before the use of val inside the body
-        var readBack = java.IndexOf("int val = _valHolder.value");
+        var readBack = java.IndexOf("int val = _valHolder1.value");
         var use = java.IndexOf("System.out.println(val)");
 
         Assert.True(readBack >= 0, "read-back statement missing");
@@ -125,10 +125,10 @@ public class OutParamInConditionTests
         var java = Convert(csharp);
 
         // Holder declaration before if
-        Assert.Matches(@"IntHolder\s+_nHolder\s*=", java);
+        Assert.Matches(@"IntHolder\s+_nHolder1\s*=", java);
         // else block must not contain the holder declaration
         var elsePos = java.IndexOf("} else {");
-        var holderInElse = java.IndexOf("IntHolder _nHolder", elsePos);
+        var holderInElse = java.IndexOf("IntHolder _nHolder1", elsePos);
         Assert.True(holderInElse < 0, "Holder must NOT be declared inside the else branch");
     }
 
@@ -150,13 +150,13 @@ public class OutParamInConditionTests
 
         var java = Convert(csharp);
 
-        var holderPos = java.IndexOf("IntHolder _bHolder");
+        var holderPos = java.IndexOf("IntHolder _bHolder1");
         var whilePos = java.IndexOf("while (readNext(");
 
-        Assert.True(holderPos >= 0, "_bHolder declaration missing");
-        Assert.True(holderPos < whilePos, "_bHolder must be declared before the while loop");
+        Assert.True(holderPos >= 0, "_bHolder1 declaration missing");
+        Assert.True(holderPos < whilePos, "_bHolder1 must be declared before the while loop");
         // Read-back inside loop body
-        Assert.Contains("int b = _bHolder.value", java);
+        Assert.Contains("int b = _bHolder1.value", java);
     }
 
     // ─── for condition ───────────────────────────────────────────────────────
@@ -177,11 +177,11 @@ public class OutParamInConditionTests
 
         var java = Convert(csharp);
 
-        var holderPos = java.IndexOf("IntHolder _valHolder");
+        var holderPos = java.IndexOf("IntHolder _valHolder1");
         var forPos = java.IndexOf("for (");
 
-        Assert.True(holderPos >= 0, "_valHolder declaration missing");
-        Assert.True(holderPos < forPos, "_valHolder must be declared before the for loop");
+        Assert.True(holderPos >= 0, "_valHolder1 declaration missing");
+        Assert.True(holderPos < forPos, "_valHolder1 must be declared before the for loop");
     }
 
     // ─── nested out params in if ──────────────────────────────────────────────
@@ -205,16 +205,16 @@ public class OutParamInConditionTests
 
         var java = Convert(csharp);
 
-        Assert.Contains("IntHolder _aHolder", java);
-        Assert.Contains("IntHolder _bHolder", java);
+        Assert.Contains("IntHolder _aHolder1", java);
+        Assert.Contains("IntHolder _bHolder1", java);
 
-        var aHolderPos  = java.IndexOf("IntHolder _aHolder");
+        var aHolderPos  = java.IndexOf("IntHolder _aHolder1");
         var outerIfPos  = java.IndexOf("if (tryA(");
-        var bHolderPos  = java.IndexOf("IntHolder _bHolder");
+        var bHolderPos  = java.IndexOf("IntHolder _bHolder1");
         var innerIfPos  = java.IndexOf("if (tryB(");
 
-        Assert.True(aHolderPos < outerIfPos, "_aHolder must be before outer if");
-        Assert.True(bHolderPos < innerIfPos, "_bHolder must be before inner if");
+        Assert.True(aHolderPos < outerIfPos, "_aHolder1 must be before outer if");
+        Assert.True(bHolderPos < innerIfPos, "_bHolder1 must be before inner if");
     }
 
     [Fact]
@@ -236,8 +236,8 @@ public class OutParamInConditionTests
         var java = Convert(csharp);
 
         var declPos = java.IndexOf("boolean ret = tryGet(");
-        var uReadBackPos = java.IndexOf("u = _uHolder.value");
-        var vReadBackPos = java.IndexOf("v = _vHolder.value");
+        var uReadBackPos = java.IndexOf("u = _uHolder1.value");
+        var vReadBackPos = java.IndexOf("v = _vHolder1.value");
         var ifPos = java.IndexOf("if (ret && u > 0 && v > 0)");
 
         Assert.True(declPos >= 0, "ret assignment missing");

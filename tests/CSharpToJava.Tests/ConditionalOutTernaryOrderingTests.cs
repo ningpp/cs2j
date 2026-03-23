@@ -22,8 +22,8 @@ public class ConditionalOutTernaryOrderingTests
         var result = pipeline.Convert(new ConversionRequest { SourceCode = code });
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics.Select(d => d.Message)));
-        Assert.Contains("_aHolder", result.GeneratedCode);
-        Assert.Contains("_bHolder", result.GeneratedCode);
+        Assert.Contains("_aHolder1", result.GeneratedCode);
+        Assert.Contains("_bHolder1", result.GeneratedCode);
         Assert.DoesNotContain("(a + b)", result.GeneratedCode);
     }
 

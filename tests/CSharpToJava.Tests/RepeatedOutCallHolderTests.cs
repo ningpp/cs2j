@@ -46,7 +46,7 @@ public class RepeatedOutCallHolderTests
         var result = Convert(code);
         Assert.True(result.Success,
             $"Conversion failed:\n{string.Join("\n", result.Diagnostics.Select(d => d.Message))}");
-        Assert.Contains("_vHolder", result.GeneratedCode);
         Assert.Contains("_vHolder1", result.GeneratedCode);
+        Assert.Contains("_vHolder2", result.GeneratedCode);
     }
 }
