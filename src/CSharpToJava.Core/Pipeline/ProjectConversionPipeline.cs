@@ -1406,17 +1406,9 @@ public class ProjectConversionPipeline
 
             if (r.FileName != null && r.FileName.Contains("CurveTest", StringComparison.Ordinal))
             {
-                if (!code.Contains("import org.junit.jupiter.api.Disabled;", StringComparison.Ordinal))
-                {
-                    code = code.Replace(
-                        "import org.junit.jupiter.api.Test;",
-                        "import org.junit.jupiter.api.Test;\nimport org.junit.jupiter.api.Disabled;",
-                        StringComparison.Ordinal);
-                }
-
                 code = code.Replace(
-                    "public class CurveTest",
                     "@Disabled(\"Converted CurveTest fails under Java translation\")\npublic class CurveTest",
+                    "public class CurveTest",
                     StringComparison.Ordinal);
             }
 
