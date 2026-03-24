@@ -1399,18 +1399,11 @@ public class ProjectConversionPipeline
             if (r.FileName != null && r.FileName.Contains("OverlapRemovalTests", StringComparison.Ordinal)
                 && !r.FileName.Contains("File", StringComparison.Ordinal))
             {
-                if (!code.Contains("import org.junit.jupiter.api.Disabled;", StringComparison.Ordinal))
-                {
-                    code = code.Replace(
-                        "import org.junit.jupiter.api.Test;",
-                        "import org.junit.jupiter.api.Test;\nimport org.junit.jupiter.api.Disabled;",
-                        StringComparison.Ordinal);
-                }
-
-                code = code.Replace(
-                    "public class OverlapRemovalTests",
-                    "@Disabled(\"Converted OverlapRemovalTests fail under Java translation\")\npublic class OverlapRemovalTests",
-                    StringComparison.Ordinal);
+                code = Regex.Replace(
+                    code,
+                    "@BeforeAll\\s*public static void classInitialize\\(TestContext testContext\\)\\s*\\{",
+                    "@BeforeAll\npublic static void classInitialize() {\n        classInitialize(new TestContext());\n    }\n        public static void classInitialize(TestContext testContext) {",
+                    RegexOptions.Singleline);
             }
 
             if (r.FileName != null && r.FileName.Contains("CurveTest", StringComparison.Ordinal))

@@ -6,7 +6,6 @@ public class DisabledTestClassCompatibilityRewriteTests
 {
     [Theory]
     [InlineData("OverlapRemovalFileTests.java", "OverlapRemovalFileTests", "Converted OverlapRemovalFileTests fail under Java translation")]
-    [InlineData("OverlapRemovalTests.java", "OverlapRemovalTests", "Converted OverlapRemovalTests fail under Java translation")]
     [InlineData("CurveTest.java", "CurveTest", "Converted CurveTest fails under Java translation")]
     [InlineData("IncrementalSugiyamaTests.java", "IncrementalSugiyamaTests extends MsaglTestBase", "Converted IncrementalSugiyamaTests fail under Java translation")]
     public void ApplyCompatibilityRewritesForTesting_DisablesKnownFailingTranslatedTestClasses(string fileName, string classSignature, string reason)
