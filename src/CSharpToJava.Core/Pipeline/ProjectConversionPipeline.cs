@@ -1390,6 +1390,11 @@ public class ProjectConversionPipeline
             if (r.FileName != null && r.FileName.Contains("OverlapRemovalTests", StringComparison.Ordinal)
                 && !r.FileName.Contains("File", StringComparison.Ordinal))
             {
+                code = code.Replace(
+                    "@Disabled(\"Converted OverlapRemovalTests fail under Java translation\")\npublic class OverlapRemovalTests",
+                    "public class OverlapRemovalTests",
+                    StringComparison.Ordinal);
+
                 code = Regex.Replace(
                     code,
                     "@BeforeAll\\s*public static void classInitialize\\(TestContext testContext\\)\\s*\\{",
