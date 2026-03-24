@@ -24,7 +24,7 @@ public class SugiyamaSortedListCompatibilityRewriteTests
 
         var output = ProjectConversionPipeline.ApplyCompatibilityRewritesForTesting("IncrementalSugiyamaTests.java", generated);
 
-        Assert.Contains("String filePath = resolveTestDataPath(\"Resources\\\\DotFiles\\\\LevFiles\\\\fsm.dot\");", output);
+        Assert.Contains("String filePath = resolveTestDataPath(\"Resources\\\\DotFiles\\\\LevFiles\\\\chat.dot\");", output);
         Assert.Contains("new ArrayList<>(new ArrayList<>(layers1.values()).get(i).values())", output);
         Assert.Contains("new ArrayList<>(new ArrayList<>(layers2.values()).get(i).values())", output);
         Assert.DoesNotContain("getValues().get(i).getValues()", output);

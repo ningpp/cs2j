@@ -1125,6 +1125,12 @@ public class ProjectConversionPipeline
                 code = code.Replace("public static Graph parse(String file, IntHolder line, IntHolder col, ObjectHolder<String> msg) {\n        try (InputStream reader = new FileInputStream(file)) {\n        return Parser.parse(reader, line, col, msg);\n        }\n    }", "public static Graph parse(String file, IntHolder line, IntHolder col, ObjectHolder<String> msg) {\n        try (InputStream reader = new FileInputStream(file)) {\n        return Parser.parse(reader, line, col, msg);\n        } catch (Exception e) {\n        msg.value = e.getMessage();\n        return null;\n        }\n    }", StringComparison.Ordinal);
                 // Fallback for unindented multi-line input
                 code = code.Replace("public static Graph parse(String file, IntHolder line, IntHolder col, ObjectHolder<String> msg) {\ntry (InputStream reader = new FileInputStream(file)) {\nreturn Parser.parse(reader, line, col, msg);\n}\n}", "public static Graph parse(String file, IntHolder line, IntHolder col, ObjectHolder<String> msg) {\ntry (InputStream reader = new FileInputStream(file)) {\nreturn Parser.parse(reader, line, col, msg);\n} catch (Exception e) {\nmsg.value = e.getMessage();\nreturn null;\n}\n}", StringComparison.Ordinal);
+                code = code.Replace("this.initSpecialTokens(Tokens.error.ordinal(), Tokens.EOF.ordinal());", "this.initSpecialTokens(Tokens.error.getValue(), Tokens.EOF.getValue());", StringComparison.Ordinal);
+                code = Regex.Replace(
+                    code,
+                    @"if \(!\(\(Tokens\.values\(\)\[\(int\)\(terminal\)\]\)\.toString\(\)\.equals\(String\.valueOf\(terminal\)\)\)\) \{\s*return \(Tokens\.values\(\)\[\(int\)\(terminal\)\]\)\.toString\(\);\s*\} else \{\s*return charToString\(\(char\)\(terminal\)\);\s*\}",
+                    "var tokenName = Arrays.stream(Tokens.values()).filter(token -> token.getValue() == terminal).map(Enum::toString).findFirst();\n        if (tokenName.isPresent() && !tokenName.get().equals(String.valueOf(terminal))) {\n        return tokenName.get();\n        } else {\n        return charToString((char)(terminal));\n        }",
+                    RegexOptions.Singleline);
             }
 
             if (r.FileName != null && r.FileName.Contains("Scanner", StringComparison.Ordinal))
@@ -1132,7 +1138,13 @@ public class ProjectConversionPipeline
                 code = Regex.Replace(
                     code,
                     @"private static int getMaxParseToken\(\)\s*\{\s*Field f = Tokens\.class\.getField\(\""maxParseToken\""\);\s*return \(\(Field\.valueEquals\(f, null\) \? Integer\.MAX_VALUE : \(int\)\(f\.getValue\(null\)\)\)\);\s*\}",
-                    "private static int getMaxParseToken() {\n        return Arrays.stream(Tokens.values()).mapToInt(Tokens::getValue).max().orElse(ScanBuff.EndOfFile);\n    }");
+                    "private static int getMaxParseToken() {\n        return Arrays.stream(Tokens.values()).mapToInt(Tokens::getValue).max().orElse(ScanBuff.EndOfFile) + 1;\n    }");
+                code = code.Replace("public Scanner(InputStream file) {\n        setSource(file); // no unicode option\n    }", "public Scanner(InputStream file) {\n        this.yylval = new ValueType();\n        setSource(file); // no unicode option\n    }", StringComparison.Ordinal);
+                code = code.Replace("public Scanner() {\n    }", "public Scanner() {\n        this.yylval = new ValueType();\n    }", StringComparison.Ordinal);
+                code = code.Replace("return Tokens.EOF.ordinal();", "return Tokens.EOF.getValue();", StringComparison.Ordinal);
+                code = code.Replace("return mkId(getYytext()).ordinal();", "return mkId(getYytext()).getValue();", StringComparison.Ordinal);
+                code = code.Replace("return Tokens.ARROW.ordinal();", "return Tokens.ARROW.getValue();", StringComparison.Ordinal);
+                code = code.Replace("return Tokens.ID.ordinal();", "return Tokens.ID.getValue();", StringComparison.Ordinal);
                 code = Regex.Replace(code, @"return ([^\r\n]+);\s*\r?\n\s*break;", "return $1;");
             }
 
@@ -1330,29 +1342,10 @@ public class ProjectConversionPipeline
             if (r.FileName != null && (r.FileName.Contains("IncrementalSugiyamaTests", StringComparison.Ordinal)
                 || r.FileName.Contains("SugiyamaValidation", StringComparison.Ordinal)))
             {
-                if (r.FileName.Contains("IncrementalSugiyamaTests", StringComparison.Ordinal))
-                {
-                    if (!code.Contains("import org.junit.jupiter.api.Disabled;", StringComparison.Ordinal))
-                    {
-                        code = code.Replace(
-                            "import org.junit.jupiter.api.Test;",
-                            "import org.junit.jupiter.api.Test;\nimport org.junit.jupiter.api.Disabled;",
-                            StringComparison.Ordinal);
-                    }
-
-                    if (!code.Contains("@Disabled(\"Converted IncrementalSugiyamaTests fail under Java translation\")", StringComparison.Ordinal))
-                    {
-                        code = code.Replace(
-                            "public class IncrementalSugiyamaTests extends MsaglTestBase {",
-                            "@Disabled(\"Converted IncrementalSugiyamaTests fail under Java translation\")\npublic class IncrementalSugiyamaTests extends MsaglTestBase {",
-                            StringComparison.Ordinal);
-                    }
-                }
-
                 code = Regex.Replace(
                     code,
                     @"String\s+filePath\s*=\s*.*?TestRunDirectory,\s*""Out(?:\\\\|\\)Dots""\).*?;",
-                    "String filePath = resolveTestDataPath(\"Resources\\\\DotFiles\\\\LevFiles\\\\fsm.dot\");",
+                    "String filePath = resolveTestDataPath(\"Resources\\\\DotFiles\\\\LevFiles\\\\chat.dot\");",
                     RegexOptions.Singleline);
                 code = code.Replace("layers1.getValues().get(i).getValues()", "new ArrayList<>(new ArrayList<>(layers1.values()).get(i).values())", StringComparison.Ordinal);
                 code = code.Replace("layers2.getValues().get(i).getValues()", "new ArrayList<>(new ArrayList<>(layers2.values()).get(i).values())", StringComparison.Ordinal);
@@ -1390,7 +1383,7 @@ public class ProjectConversionPipeline
                 code = Regex.Replace(
                     code,
                     "var pathAndFileSpec = java\\.nio\\.file\\.Paths\\.get\\(getTestContext\\(\\)\\.DeploymentDirectory, \\\"Constraints(?:\\\\\\\\|\\\\)OverlapRemoval(?:\\\\\\\\|\\\\)Data\\\"\\)\\.toString\\(\\);",
-                    "var pathAndFileSpec = java.nio.file.Paths.get(getTestContext().DeploymentDirectory, \"Constraints\\OverlapRemoval\\Data\", fileName).toString();",
+                    "var pathAndFileSpec = java.nio.file.Paths.get(getTestContext().DeploymentDirectory, \"Constraints\\\\OverlapRemoval\\\\Data\", fileName).toString();",
                     RegexOptions.Singleline);
             }
 

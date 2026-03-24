@@ -28,7 +28,8 @@ public class OverlapRemovalFileTestsCompatibilityRewriteTests
 
         var output = ProjectConversionPipeline.ApplyCompatibilityRewritesForTesting("OverlapRemovalFileTests.java", generated).Replace("\r\n", "\n");
 
-        Assert.Contains("java.nio.file.Paths.get(getTestContext().DeploymentDirectory, \"Constraints\\OverlapRemoval\\Data\", fileName).toString()", output);
+        Assert.Contains("java.nio.file.Paths.get(getTestContext().DeploymentDirectory, \"Constraints\\\\OverlapRemoval\\\\Data\", fileName).toString()", output);
+        Assert.DoesNotContain("\"Constraints\\OverlapRemoval\\Data\", fileName", output);
         Assert.DoesNotContain("@Disabled(\"Converted OverlapRemovalFileTests fail under Java translation\")", output);
     }
 }
