@@ -737,6 +737,21 @@ class Program
                     "new Microsoft.Msagl.Core.DataStructures.GenericBinaryHeapPriorityQueue<Integer>()",
                     StringComparison.Ordinal);
             }
+
+            generatedCode = Regex.Replace(
+                generatedCode,
+                @"var (_chainVal\d+) = cache\.put\(element, new GenericHeapElement<T>\(i, priority, element\)\);\s*A\[i\] = \1;",
+                "var heapElement = new GenericHeapElement<T>(i, priority, element);\n        cache.put(element, heapElement);\n        A[i] = heapElement;",
+                RegexOptions.Singleline);
+        }
+
+        if (string.Equals(fileNameOnly, "RectangularClusterBoundary.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "RectangularClusterBoundary.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = generatedCode.Replace(
+                "public Rectangle rectangle;",
+                "public Rectangle rectangle = new Rectangle();",
+                StringComparison.Ordinal);
         }
 
         if (string.Equals(fileNameOnly, "IncrementalSugiyamaTests.cs", StringComparison.OrdinalIgnoreCase)

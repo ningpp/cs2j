@@ -1298,21 +1298,14 @@ public class ProjectConversionPipeline
 
             if (r.FileName != null && r.FileName.Contains("EdgeConstraintTests", StringComparison.Ordinal))
             {
-                if (!code.Contains("import org.junit.jupiter.api.Disabled;", StringComparison.Ordinal))
-                {
-                    code = code.Replace(
-                        "import org.junit.jupiter.api.Test;",
-                        "import org.junit.jupiter.api.Test;\nimport org.junit.jupiter.api.Disabled;",
-                        StringComparison.Ordinal);
-                }
-
-                if (!code.Contains("@Disabled(\"Converted EdgeConstraintTests fail under Java translation\")", StringComparison.Ordinal))
-                {
-                    code = code.Replace(
-                        "public class EdgeConstraintTests",
-                        "@Disabled(\"Converted EdgeConstraintTests fail under Java translation\")\npublic class EdgeConstraintTests",
-                        StringComparison.Ordinal);
-                }
+                code = code.Replace(
+                    "Assertions.assertTrue(edge.getTarget().getCenter().Y > edge.getSource().getCenter().Y, String.format(\"Edge from source {0} to target {1} does not follow downward rule\", edge.getSource().getUserData(), edge.getTarget().getUserData()));",
+                    "Assertions.assertTrue(edge.getTarget().getCenter().Y > edge.getSource().getCenter().Y, String.format(\"Edge from source %s to target %s does not follow downward rule\", edge.getSource().getUserData(), edge.getTarget().getUserData()));",
+                    StringComparison.Ordinal);
+                code = code.Replace(
+                    "Assertions.assertTrue(edge.getTarget().getCenter().Y - edge.getSource().getCenter().Y + ApproximateComparer.DistanceEpsilon >= minSeparation, String.format(\"Edge from source {0} to target {1} does not follow valid downward separation distance\", edge.getSource().getUserData(), edge.getTarget().getUserData()));",
+                    "Assertions.assertTrue(edge.getTarget().getCenter().Y - edge.getSource().getCenter().Y + ApproximateComparer.DistanceEpsilon >= minSeparation, String.format(\"Edge from source %s to target %s does not follow valid downward separation distance\", edge.getSource().getUserData(), edge.getTarget().getUserData()));",
+                    StringComparison.Ordinal);
             }
 
             if (r.FileName != null && r.FileName.Contains("GenericBinaryHeapPriorityQueue", StringComparison.Ordinal)
@@ -1323,6 +1316,23 @@ public class ProjectConversionPipeline
                     "new Microsoft.Msagl.Core.DataStructures.GenericBinaryHeapPriorityQueue<Integer>()",
                     StringComparison.Ordinal);
             }
+
+            if (r.FileName != null && r.FileName.Contains("GenericBinaryHeapPriorityQueue", StringComparison.Ordinal))
+            {
+                code = Regex.Replace(
+                    code,
+                    @"var (_chainVal\d+) = cache\.put\(element, new GenericHeapElement<T>\(i, priority, element\)\);\s*A\[i\] = \1;",
+                    "var heapElement = new GenericHeapElement<T>(i, priority, element);\n        cache.put(element, heapElement);\n        A[i] = heapElement;",
+                    RegexOptions.Singleline);
+            }
+
+                    if (r.FileName != null && r.FileName.Contains("RectangularClusterBoundary", StringComparison.Ordinal))
+                    {
+                    code = code.Replace(
+                        "public Rectangle rectangle;",
+                        "public Rectangle rectangle = new Rectangle();",
+                        StringComparison.Ordinal);
+                    }
 
             if (r.FileName != null && (r.FileName.Contains("IncrementalSugiyamaTests", StringComparison.Ordinal)
                 || r.FileName.Contains("SugiyamaValidation", StringComparison.Ordinal)))
