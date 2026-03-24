@@ -1382,18 +1382,16 @@ public class ProjectConversionPipeline
 
             if (r.FileName != null && r.FileName.Contains("OverlapRemovalFileTests", StringComparison.Ordinal))
             {
-                if (!code.Contains("import org.junit.jupiter.api.Disabled;", StringComparison.Ordinal))
-                {
-                    code = code.Replace(
-                        "import org.junit.jupiter.api.Test;",
-                        "import org.junit.jupiter.api.Test;\nimport org.junit.jupiter.api.Disabled;",
-                        StringComparison.Ordinal);
-                }
-
                 code = code.Replace(
-                    "public class OverlapRemovalFileTests",
                     "@Disabled(\"Converted OverlapRemovalFileTests fail under Java translation\")\npublic class OverlapRemovalFileTests",
+                    "public class OverlapRemovalFileTests",
                     StringComparison.Ordinal);
+
+                code = Regex.Replace(
+                    code,
+                    "var pathAndFileSpec = java\\.nio\\.file\\.Paths\\.get\\(getTestContext\\(\\)\\.DeploymentDirectory, \\\"Constraints(?:\\\\\\\\|\\\\)OverlapRemoval(?:\\\\\\\\|\\\\)Data\\\"\\)\\.toString\\(\\);",
+                    "var pathAndFileSpec = java.nio.file.Paths.get(getTestContext().DeploymentDirectory, \"Constraints\\OverlapRemoval\\Data\", fileName).toString();",
+                    RegexOptions.Singleline);
             }
 
             if (r.FileName != null && r.FileName.Contains("OverlapRemovalTests", StringComparison.Ordinal)
