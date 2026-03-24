@@ -11,6 +11,10 @@ public class SugiyamaSortedListCompatibilityRewriteTests
             package Microsoft.Msagl.UnitTests;
 
             public class IncrementalSugiyamaTests {
+                public void nodeShapeChange() {
+                    String filePath = java.nio.file.Paths.get(this.getTestContext().TestRunDirectory, "Out\\Dots").toString();
+                }
+
                 private static void verifyLayersAreEqual(TreeMap<Double, TreeMap<Double, Node>> layers1, TreeMap<Double, TreeMap<Double, Node>> layers2) {
                     List<Node> nodes1 = layers1.getValues().get(i).getValues();
                     List<Node> nodes2 = layers2.getValues().get(i).getValues();
@@ -20,6 +24,7 @@ public class SugiyamaSortedListCompatibilityRewriteTests
 
         var output = ProjectConversionPipeline.ApplyCompatibilityRewritesForTesting("IncrementalSugiyamaTests.java", generated);
 
+        Assert.Contains("String filePath = resolveTestDataPath(\"Resources\\\\DotFiles\\\\LevFiles\\\\fsm.dot\");", output);
         Assert.Contains("new ArrayList<>(new ArrayList<>(layers1.values()).get(i).values())", output);
         Assert.Contains("new ArrayList<>(new ArrayList<>(layers2.values()).get(i).values())", output);
         Assert.DoesNotContain("getValues().get(i).getValues()", output);

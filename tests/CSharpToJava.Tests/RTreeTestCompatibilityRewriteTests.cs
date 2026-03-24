@@ -28,4 +28,25 @@ public class RTreeTestCompatibilityRewriteTests
         Assert.Contains("Assertions.assertTrue(rect.intersects(r), String.format(\"rect doesn't intersect query: rect=%s, query=%s\", r, rect));", output);
         Assert.DoesNotContain("seed={0}", output);
     }
+
+    [Fact]
+    public void ApplyCompatibilityRewritesForTesting_RTreeTest_RewritesActualGeneratedCloneVariant()
+    {
+        const string generated = """
+            package Microsoft.Msagl.UnitTests;
+
+            public class RTreeTest {
+                public void test() {
+                    Assertions.assertTrue(rect.intersects(r.clone()), "rect doesn't intersect query: seed={0}, rect={1}, query={2}", seed, r, rect);
+                    Assertions.assertTrue(rect.intersects(r.clone()), "rect doesn't intersect query: rect={1}, query={2}", r, rect);
+                }
+            }
+            """;
+
+        var output = ProjectConversionPipeline.ApplyCompatibilityRewritesForTesting("RTreeTest.java", generated);
+
+        Assert.Contains("Assertions.assertTrue(rect.intersects(r.clone()), String.format(\"rect doesn't intersect query: seed=%s, rect=%s, query=%s\", seed, r, rect));", output);
+        Assert.Contains("Assertions.assertTrue(rect.intersects(r.clone()), String.format(\"rect doesn't intersect query: rect=%s, query=%s\", r, rect));", output);
+        Assert.DoesNotContain("rect={1}", output);
+    }
 }

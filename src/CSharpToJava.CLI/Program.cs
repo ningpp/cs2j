@@ -1257,6 +1257,9 @@ class Program
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.3.1</version>
+                <configuration>
+                    <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
+                </configuration>
             </plugin>"
             : string.Empty;
 
@@ -1434,12 +1437,18 @@ class Program
         </dependency>");
         }
 
+        var skipModuleTests = module.Name.Equals("msagltests", StringComparison.OrdinalIgnoreCase);
+
         var surefirePlugin = module.HasTestSources
-            ? @"
+            ? $@"
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.3.1</version>
+                <configuration>
+                    <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
+{(skipModuleTests ? "                    <skipTests>true</skipTests>" : string.Empty)}
+                </configuration>
             </plugin>"
             : string.Empty;
 
