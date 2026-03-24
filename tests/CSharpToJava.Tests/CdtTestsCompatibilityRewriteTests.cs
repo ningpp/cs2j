@@ -5,10 +5,12 @@ namespace CSharpToJava.Tests;
 public class CdtTestsCompatibilityRewriteTests
 {
     [Fact]
-    public void ApplyCompatibilityRewritesForTesting_CdtTests_RewritesRawSymmetricTupleArrayMaterialization()
+    public void ApplyCompatibilityRewritesForTesting_CdtTests_RewritesRawSymmetricTupleArrayMaterializationWithoutDisablingClass()
     {
         const string generated = """
             package Microsoft.Msagl.UnitTests.DelaunayTriangulation;
+
+            import org.junit.jupiter.api.Disabled;
 
             public class CdtTests {
                 public void smallTriangulation() {
@@ -19,14 +21,19 @@ public class CdtTestsCompatibilityRewriteTests
                     var cut = new SymmetricTuple[] { new SymmetricTuple<Point>(new Point(80, 80), new Point(90, 75)) };
                     var cdt = new Cdt(Arrays.asList(corners), Arrays.asList(holes), new ArrayList<>(Arrays.stream(cut).collect(java.util.stream.Collectors.toList())));
                 }
+
+                @Disabled
+                public void flatLine() {
+                }
             }
             """;
 
         var output = ProjectConversionPipeline.ApplyCompatibilityRewritesForTesting("CdtTests.java", generated);
 
-        Assert.Contains("@Disabled(\"Converted CdtTests fail under Java translation\")", output);
         Assert.Contains("new ArrayList<SymmetricTuple<Point>>(Arrays.asList(new SymmetricTuple<Point>(new Point(109, 202), new Point(506, 135)), new SymmetricTuple<Point>(new Point(139, 96), new Point(452, 96))))", output);
         Assert.Contains("new ArrayList(Arrays.asList(cut))", output);
+        Assert.Contains("@Disabled", output);
+        Assert.DoesNotContain("@Disabled(\"Converted CdtTests fail under Java translation\")", output);
         Assert.DoesNotContain("new ArrayList<>(Arrays.stream(new SymmetricTuple[]", output);
         Assert.DoesNotContain("new SymmetricTuple<Point>[]", output);
     }

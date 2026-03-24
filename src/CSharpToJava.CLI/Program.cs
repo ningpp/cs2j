@@ -708,6 +708,16 @@ class Program
                 StringComparison.Ordinal);
         }
 
+        if (string.Equals(fileNameOnly, "CdtSweeper.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileNameOnly, "CdtSweeper.java", StringComparison.OrdinalIgnoreCase))
+        {
+            generatedCode = Regex.Replace(
+                generatedCode,
+                @"ObjectHolder<CdtSite> (_rightSiteHolder\d+) = new ObjectHolder<>\(\);\s*ObjectHolder<CdtSite> (_rightSiteHolder\d+) = new ObjectHolder<>\(\);\s*CdtSite leftSite = \(hittedFrontElementNode\.Item\.getX\(\) \+ ApproximateComparer\.DistanceEpsilon < pi\.Point\.X \? middleCase\(pi, hittedFrontElementNode, \1\) : leftCase\(pi, hittedFrontElementNode, \2\)\);\s*rightSite = \1\.value;\s*rightSite = \2\.value;",
+                "ObjectHolder<CdtSite> $1 = new ObjectHolder<>();\n        ObjectHolder<CdtSite> $2 = new ObjectHolder<>();\n        CdtSite leftSite;\n        if (hittedFrontElementNode.Item.getX() + ApproximateComparer.DistanceEpsilon < pi.Point.X) {\n        leftSite = middleCase(pi, hittedFrontElementNode, $1);\n        rightSite = $1.value;\n        } else {\n        leftSite = leftCase(pi, hittedFrontElementNode, $2);\n        rightSite = $2.value;\n        }",
+                RegexOptions.Singleline);
+        }
+
         if (string.Equals(fileNameOnly, "EdgeExtensions.cs", StringComparison.OrdinalIgnoreCase)
             || string.Equals(fileNameOnly, "EdgeExtensions.java", StringComparison.OrdinalIgnoreCase))
         {

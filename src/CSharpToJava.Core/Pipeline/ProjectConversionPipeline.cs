@@ -1253,22 +1253,6 @@ public class ProjectConversionPipeline
 
             if (r.FileName != null && r.FileName.Contains("CdtTests", StringComparison.Ordinal))
             {
-                if (!code.Contains("import org.junit.jupiter.api.Disabled;", StringComparison.Ordinal))
-                {
-                    code = code.Replace(
-                        "import org.junit.jupiter.api.Test;",
-                        "import org.junit.jupiter.api.Test;\nimport org.junit.jupiter.api.Disabled;",
-                        StringComparison.Ordinal);
-                }
-
-                if (!code.Contains("@Disabled(\"Converted CdtTests fail under Java translation\")", StringComparison.Ordinal))
-                {
-                    code = code.Replace(
-                        "public class CdtTests {",
-                        "@Disabled(\"Converted CdtTests fail under Java translation\")\npublic class CdtTests {",
-                        StringComparison.Ordinal);
-                }
-
                 code = code.Replace(
                     "new ArrayList<>(Arrays.stream(new SymmetricTuple[] { new SymmetricTuple<Point>(new Point(109, 202), new Point(506, 135)), new SymmetricTuple<Point>(new Point(139, 96), new Point(452, 96)) }).collect(java.util.stream.Collectors.toList()))",
                     "new ArrayList<SymmetricTuple<Point>>(Arrays.asList(new SymmetricTuple<Point>(new Point(109, 202), new Point(506, 135)), new SymmetricTuple<Point>(new Point(139, 96), new Point(452, 96))))",
@@ -1277,6 +1261,15 @@ public class ProjectConversionPipeline
                     "new ArrayList<>(Arrays.stream(cut).collect(java.util.stream.Collectors.toList()))",
                     "new ArrayList(Arrays.asList(cut))",
                     StringComparison.Ordinal);
+            }
+
+            if (r.FileName != null && r.FileName.Contains("CdtSweeper", StringComparison.Ordinal))
+            {
+                code = Regex.Replace(
+                    code,
+                    @"ObjectHolder<CdtSite> (_rightSiteHolder\d+) = new ObjectHolder<>\(\);\s*ObjectHolder<CdtSite> (_rightSiteHolder\d+) = new ObjectHolder<>\(\);\s*CdtSite leftSite = \(hittedFrontElementNode\.Item\.getX\(\) \+ ApproximateComparer\.DistanceEpsilon < pi\.Point\.X \? middleCase\(pi, hittedFrontElementNode, \1\) : leftCase\(pi, hittedFrontElementNode, \2\)\);\s*rightSite = \1\.value;\s*rightSite = \2\.value;",
+                    "ObjectHolder<CdtSite> $1 = new ObjectHolder<>();\n        ObjectHolder<CdtSite> $2 = new ObjectHolder<>();\n        CdtSite leftSite;\n        if (hittedFrontElementNode.Item.getX() + ApproximateComparer.DistanceEpsilon < pi.Point.X) {\n        leftSite = middleCase(pi, hittedFrontElementNode, $1);\n        rightSite = $1.value;\n        } else {\n        leftSite = leftCase(pi, hittedFrontElementNode, $2);\n        rightSite = $2.value;\n        }",
+                    RegexOptions.Singleline);
             }
 
             if (r.FileName != null && r.FileName.Contains("EdgeExtensions", StringComparison.Ordinal))
