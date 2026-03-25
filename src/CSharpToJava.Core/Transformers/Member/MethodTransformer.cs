@@ -269,6 +269,9 @@ public class MethodTransformer : IMemberTransformer
         {
             javaMethod.Annotations.Add(new JavaAnnotation("Test"));
             context.AddImport("org.junit.jupiter.api.Test");
+            // Add a timeout to prevent tests from hanging indefinitely
+            javaMethod.Annotations.Add(new JavaAnnotation("Timeout(120)"));
+            context.AddImport("org.junit.jupiter.api.Timeout");
         }
 
         if (attributeNames.Contains("DataTestMethod"))

@@ -44,7 +44,7 @@ public class QueryExpressionTransformer : IExpressionTransformer
         var rangeVar = ConversionContext.EscapeJavaKeyword(fromClause.Identifier.Text);
         var source = facade.Transform(fromClause.Expression, context);
         var fromClauseType = context.SemanticModel?.GetTypeInfo(fromClause.Expression).Type;
-        sb.Append(ExpressionTransformerHelpers.BuildStreamExpression(source, fromClauseType, context));
+        sb.Append(ExpressionTransformerHelpers.BuildStreamExpression(source, fromClauseType, context, receiverSyntaxNode: fromClause.Expression));
 
         // intermediate clauses — use index loop for look-ahead on join…into
         var clauseList = node.Body.Clauses.ToList();

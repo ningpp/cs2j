@@ -7,6 +7,7 @@ using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers;
 using CSharpToJava.Core.Transformers.Expression;
+using CSharpToJava.Core.Transformers.Expression.Utilities;
 
 namespace CSharpToJava.Core.Transformers.Statement;
 
@@ -346,6 +347,11 @@ public class StatementTransformer : IStatementTransformer
             var exprType = context.SemanticModel.GetTypeInfo(stmt.Expression).Type;
             if (exprType is IArrayTypeSymbol { Rank: 1 } arrayType)
             {
+                // Type parameter arrays are already List<T> in Java, no wrapping needed
+                bool isAlreadyList = arrayType.ElementType.TypeKind == TypeKind.TypeParameter
+                    || ExpressionTransformerHelpers.IsExpressionFromTypeParameterArrayReturn(stmt.Expression, context, requireActualTypeParam: true);
+                if (!isAlreadyList)
+                {
                 // Check if the enclosing method's return type is IList<T>, ICollection<T>, or IEnumerable<T>
                 var enclosingMethod = stmt.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
                 ITypeSymbol? enclosingRetSym = null;
@@ -368,6 +374,7 @@ public class StatementTransformer : IStatementTransformer
                 {
                     expr = $"Arrays.asList({expr})";
                     context.AddImport("java.util.Arrays");
+                }
                 }
             }
 
@@ -632,11 +639,10 @@ public class StatementTransformer : IStatementTransformer
 
         // Fix: out/ref parameters in the condition (e.g. if (TryParse(s, out var n))) emit
         // Holder declarations as pre-statements and value read-backs as post-statements.
-        // Pre-statements must appear BEFORE the if; post-statements must be injected at the
-        // START of the then-body (where the out variable first becomes visible).
+        // Both must appear BEFORE the if — the out values must be available regardless
+        // of whether the condition is true or false (C# guarantees out params are set).
         string condPreamble = "";
         string condPostBeforeIf = "";
-        string condPostInjection = "";
         string effectiveCondition = condition;
         if (context.HasPendingPreStatements)
         {
@@ -646,17 +652,13 @@ public class StatementTransformer : IStatementTransformer
         if (context.HasPendingPostStatements)
         {
             var post = context.DrainPostStatements();
-            bool isNegatedCondition = stmt.Condition is PrefixUnaryExpressionSyntax p
-                && p.OperatorToken.IsKind(SyntaxKind.ExclamationToken);
-            if (isNegatedCondition)
-            {
-                var condTemp = context.GenerateSyntheticName("_ifCond");
-                condPostBeforeIf = $"var {condTemp} = {condition};\n"
-                    + string.Join("\n", post.Select(s => s.TrimEnd(';') + ";")) + "\n";
-                effectiveCondition = condTemp;
-            }
-            else
-                condPostInjection = string.Join("\n        ", post.Select(s => s.TrimEnd(';') + ";")) + "\n        ";
+            // Always extract the condition to a temp variable and place out-param
+            // read-backs BEFORE the if — the out values must be available regardless
+            // of whether the condition is true or false.
+            var condTemp = context.GenerateSyntheticName("_ifCond");
+            condPostBeforeIf = $"var {condTemp} = {condition};\n"
+                + string.Join("\n", post.Select(s => s.TrimEnd(';') + ";")) + "\n";
+            effectiveCondition = condTemp;
         }
 
         var stmtTransformer = new StatementTransformer();
@@ -665,12 +667,12 @@ public class StatementTransformer : IStatementTransformer
         if (stmt.Statement is BlockSyntax block)
         {
             var bodyStr = TransformBlock(block, context);
-            thenBlock = $"{{\n        {condPostInjection}{bodyStr}\n    }}";
+            thenBlock = $"{{\n        {bodyStr}\n    }}";
         }
         else
         {
             var bodyStr = stmtTransformer.Transform(stmt.Statement, context).ToString("");
-            thenBlock = $"{{\n        {condPostInjection}{bodyStr}\n    }}";
+            thenBlock = $"{{\n        {bodyStr}\n    }}";
         }
 
         var result = new System.Text.StringBuilder();
@@ -1504,12 +1506,12 @@ public class StatementTransformer : IStatementTransformer
                         // Skip if already converted by TransformLinqToArray (contains mapToDouble/mapToInt etc.)
                         && !initExpr.Contains(".mapToDouble(") && !initExpr.Contains(".mapToInt(") && !initExpr.Contains(".mapToLong("))
                     {
-                        context.AddImport("java.util.Arrays");
+                        // The method's T[] return is mapped to List<T> in Java; use .stream() instead of Arrays.stream()
                         initExpr = javaType switch
                         {
-                            "int[]" => $"Arrays.stream({initExpr}).mapToInt(Integer::intValue).toArray()",
-                            "long[]" => $"Arrays.stream({initExpr}).mapToLong(Long::longValue).toArray()",
-                            "double[]" => $"Arrays.stream({initExpr}).mapToDouble(Double::doubleValue).toArray()",
+                            "int[]" => $"{initExpr}.stream().mapToInt(Integer::intValue).toArray()",
+                            "long[]" => $"{initExpr}.stream().mapToLong(Long::longValue).toArray()",
+                            "double[]" => $"{initExpr}.stream().mapToDouble(Double::doubleValue).toArray()",
                             _ => initExpr
                         };
                     }
@@ -1533,7 +1535,12 @@ public class StatementTransformer : IStatementTransformer
                     var initTypeInfo = context.SemanticModel.GetTypeInfo(v.Initializer.Value);
                     if (initTypeInfo.Type is IArrayTypeSymbol arrayType)
                     {
-                        initExpr = ObjectCreationTransformer.WrapArrayForCollectionArg(initExpr, arrayType, context);
+                        // Type parameter arrays are already List<T> in Java; skip wrapping
+                        bool isAlreadyListInit = arrayType.Rank == 1
+                            && (arrayType.ElementType.TypeKind == TypeKind.TypeParameter
+                                || ExpressionTransformerHelpers.IsExpressionFromTypeParameterArrayReturn(v.Initializer.Value, context, requireActualTypeParam: true));
+                        if (!isAlreadyListInit)
+                            initExpr = ObjectCreationTransformer.WrapArrayForCollectionArg(initExpr, arrayType, context);
                     }
                 }
 
@@ -1558,6 +1565,7 @@ public class StatementTransformer : IStatementTransformer
                     bool semanticTypeIsEnumerableLike = localSym?.Type is INamedTypeSymbol localNamed
                         && localNamed.Name is "IEnumerable" or "IOrderedEnumerable" or "ICollection" or "IList";
                     bool looksLikeStreamExpr = !initExpr.Contains(".collect(Collectors.toList())")
+                        && !initExpr.Contains(".collect(java.util.stream.Collectors.toList())")
                         && !initExpr.Contains(".collect(Collectors.toCollection(ArrayList::new))")
                         && !initExpr.TrimEnd().EndsWith(".toArray()")
                         && !System.Text.RegularExpressions.Regex.IsMatch(initExpr.TrimEnd(), @"\.toArray\([^)]*\)$")

@@ -121,9 +121,9 @@
                          },
                          {
                              "csharp":  "System.Collections.Generic.Dictionary`2",
-                             "java":  "HashMap",
+                             "java":  "LinkedHashMap",
                              "imports":  [
-                                             "java.util.HashMap"
+                                             "java.util.LinkedHashMap"
                                          ]
                          },
                          {
@@ -338,9 +338,9 @@
                          },
                          {
                              "csharp":  "Dictionary",
-                             "java":  "HashMap",
+                             "java":  "LinkedHashMap",
                              "imports":  [
-                                             "java.util.HashMap"
+                                             "java.util.LinkedHashMap"
                                          ]
                          },
                          {

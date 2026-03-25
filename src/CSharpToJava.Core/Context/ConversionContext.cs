@@ -548,6 +548,13 @@ public class ConversionContext
         // 处理数组类型
         if (typeSymbol is IArrayTypeSymbol arrayType)
         {
+            // Type parameter arrays (T[]) cannot be created at runtime in Java due to type erasure.
+            // Convert single-dimension T[] to List<T> for safe runtime behavior.
+            if (arrayType.Rank == 1 && arrayType.ElementType.TypeKind == TypeKind.TypeParameter)
+            {
+                AddImport("java.util.List");
+                return $"List<{MapType(arrayType.ElementType)}>";
+            }
             var elementType = MapType(arrayType.ElementType);
             // C# int[,] (rank 2) → Java int[][] (two levels of brackets)
             var brackets = string.Concat(Enumerable.Repeat("[]", arrayType.Rank));

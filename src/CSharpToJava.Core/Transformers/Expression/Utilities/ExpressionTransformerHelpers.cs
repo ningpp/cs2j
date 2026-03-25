@@ -293,10 +293,25 @@ public static class ExpressionTransformerHelpers
         ITypeSymbol? receiverType,
         ConversionContext context,
         bool boxPrimitiveArrayElements = false,
-        bool preserveGroupingValueStream = false)
+        bool preserveGroupingValueStream = false,
+        ExpressionSyntax? receiverSyntaxNode = null)
     {
         if (receiverType is IArrayTypeSymbol arrayType)
         {
+            // Type parameter arrays (T[]) are mapped to List<T> in Java; use .stream()
+            if (arrayType.Rank == 1 && arrayType.ElementType.TypeKind == TypeKind.TypeParameter)
+            {
+                return $"{receiverExpr}.stream()";
+            }
+
+            // Check if this array comes from a method/property whose ORIGINAL definition
+            // returned T[] (type parameter array). Such methods return List<T> in Java.
+            if (arrayType.Rank == 1 && receiverSyntaxNode != null
+                && IsExpressionFromTypeParameterArrayReturn(receiverSyntaxNode, context))
+            {
+                return $"{receiverExpr}.stream()";
+            }
+
             context.AddImport("java.util.Arrays");
             return boxPrimitiveArrayElements && arrayType.ElementType.IsValueType
                 ? $"Arrays.stream({receiverExpr}).boxed()"
@@ -346,5 +361,161 @@ public static class ExpressionTransformerHelpers
         // avoid requiring a concrete .stream() method on custom collection implementations.
         context.AddImport("java.util.stream.StreamSupport");
         return $"StreamSupport.stream({receiverExpr}.spliterator(), false)";
+    }
+
+    /// <summary>
+    /// Checks whether the given expression resolves to a method or property whose original
+    /// (unsubstituted) return type is T[] where T is a type parameter. Such methods/properties
+    /// are converted to return List&lt;T&gt; in Java, so callers must use .stream() instead of Arrays.stream().
+    /// </summary>
+    /// <param name="requireActualTypeParam">When true, also checks that the actual (instantiated) return type
+    /// has a non-primitive element (reference types are converted to List&lt;T&gt;, but primitive arrays like
+    /// int[] stay as-is). Use true for element access/length/assignment to avoid false positives on
+    /// primitive arrays. Use false for stream expressions where the Java method returns List&lt;T&gt;
+    /// regardless of the call-site instantiation.</param>
+    public static bool IsExpressionFromTypeParameterArrayReturn(ExpressionSyntax expr, ConversionContext context, bool requireActualTypeParam = false)
+    {
+        if (context.SemanticModel == null)
+            return false;
+
+        // Unwrap invocations: expr could be a method call like getAllIntersecting(rect)
+        var symbolInfo = context.SemanticModel.GetSymbolInfo(expr);
+        var symbol = symbolInfo.Symbol;
+
+        if (symbol is IMethodSymbol method)
+        {
+            if (IsMethodReturningConvertedTypeParamArray(method, requireActualTypeParam))
+                return true;
+        }
+
+        if (symbol is IPropertySymbol prop)
+        {
+            if (IsPropertyReturningConvertedTypeParamArray(prop, requireActualTypeParam))
+                return true;
+        }
+
+        // For local variables, trace back to the initializer expression
+        if (symbol is ILocalSymbol local)
+        {
+            // If the local's own type has a type-parameter element, it IS a type-param array
+            // (e.g. TEdge[] inside BasicGraphOnEdges<TEdge> → List<TEdge> in Java)
+            if (local.Type is IArrayTypeSymbol localArr
+                && localArr.Rank == 1
+                && localArr.ElementType.TypeKind == TypeKind.TypeParameter)
+            {
+                return true;
+            }
+
+            var declRef = local.DeclaringSyntaxReferences.FirstOrDefault();
+            if (declRef?.GetSyntax() is VariableDeclaratorSyntax declarator)
+            {
+                // If the declaration uses an explicit concrete array type (e.g. Point[] vts = ...),
+                // the converter materializes it as an actual Java array (adds .toArray()),
+                // so later usage should treat it as an array, not a List.
+                if (declarator.Parent is VariableDeclarationSyntax varDecl
+                    && varDecl.Type is ArrayTypeSyntax
+                    && local.Type is IArrayTypeSymbol explicitArr
+                    && explicitArr.ElementType.TypeKind != TypeKind.TypeParameter)
+                {
+                    return false;
+                }
+
+                // For 'var' declarations or type-parameter arrays, trace to initializer
+                if (declarator.Initializer?.Value != null)
+                {
+                    return IsExpressionFromTypeParameterArrayReturn(declarator.Initializer.Value, context, requireActualTypeParam);
+                }
+            }
+        }
+
+        // For member access expressions like tree.getAllIntersecting, check the name part
+        if (expr is MemberAccessExpressionSyntax memberAccess)
+            return IsExpressionFromTypeParameterArrayReturn(memberAccess.Name, context, requireActualTypeParam);
+
+        // For invocation expressions, check the method being called
+        if (expr is InvocationExpressionSyntax invocation)
+        {
+            var invSymbol = context.SemanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+            if (invSymbol != null && IsMethodReturningConvertedTypeParamArray(invSymbol, requireActualTypeParam))
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Checks if a method's original return type is T[] (type parameter array) and the method
+    /// is from a converted (source) type, not a framework type.
+    /// </summary>
+    private static bool IsMethodReturningConvertedTypeParamArray(IMethodSymbol method, bool requireActualTypeParam)
+    {
+        var origReturn = method.OriginalDefinition?.ReturnType;
+        if (origReturn is not IArrayTypeSymbol origArray
+            || origArray.Rank != 1
+            || origArray.ElementType.TypeKind != TypeKind.TypeParameter)
+            return false;
+
+        // Framework methods (System.*) are NOT converted — they return real T[] arrays
+        var ns = method.ContainingType?.ContainingNamespace?.ToDisplayString();
+        if (ns != null && (ns.StartsWith("System", StringComparison.Ordinal) || ns == "System"))
+            return false;
+
+        if (!requireActualTypeParam)
+            return true;
+
+        // For requireActualTypeParam: check the actual return type.
+        // Primitive element types (int, long, etc.) stay as real Java arrays.
+        // Reference types and type parameters are converted to List<T>.
+        var actualReturn = method.ReturnType;
+        if (actualReturn is IArrayTypeSymbol actualArr)
+        {
+            if (IsJavaPrimitiveType(actualArr.ElementType))
+                return false;
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Checks if a property's original type is T[] (type parameter array) and the property
+    /// is from a converted (source) type, not a framework type.
+    /// </summary>
+    private static bool IsPropertyReturningConvertedTypeParamArray(IPropertySymbol prop, bool requireActualTypeParam)
+    {
+        var origReturn = prop.OriginalDefinition?.Type;
+        if (origReturn is not IArrayTypeSymbol origArray
+            || origArray.Rank != 1
+            || origArray.ElementType.TypeKind != TypeKind.TypeParameter)
+            return false;
+
+        var ns = prop.ContainingType?.ContainingNamespace?.ToDisplayString();
+        if (ns != null && (ns.StartsWith("System", StringComparison.Ordinal) || ns == "System"))
+            return false;
+
+        if (!requireActualTypeParam)
+            return true;
+
+        var actualType = prop.Type;
+        if (actualType is IArrayTypeSymbol actualArr)
+        {
+            if (IsJavaPrimitiveType(actualArr.ElementType))
+                return false;
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Returns true if the given C# type maps to a Java primitive type.
+    /// Such types cannot be used as generic type arguments (no List&lt;int&gt; in Java).
+    /// </summary>
+    private static bool IsJavaPrimitiveType(ITypeSymbol type)
+    {
+        return type.SpecialType is
+            SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Int16 or
+            SpecialType.System_UInt32 or SpecialType.System_UInt64 or SpecialType.System_UInt16 or
+            SpecialType.System_Double or SpecialType.System_Single or
+            SpecialType.System_Boolean or SpecialType.System_Byte or SpecialType.System_SByte or
+            SpecialType.System_Char;
     }
 }

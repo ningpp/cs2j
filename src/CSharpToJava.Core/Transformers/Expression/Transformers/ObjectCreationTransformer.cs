@@ -655,15 +655,42 @@ public class ObjectCreationTransformer : IExpressionTransformer
             rawElementType = elementType.Substring(0, genericArgStart);
 
         // Fix: Java doesn't allow creating arrays of type parameters (e.g., new T[n]).
-        // Use (T[]) new Object[n] with an unchecked cast instead.
+        // For single-dimension T[] arrays, use ArrayList<T> since T[] is mapped to List<T>.
+        // For multi-dimension/jagged arrays, fall back to (T[][]) new Object[n][] cast.
         bool isTypeParameterArray = elemSemType != null && elemSemType.TypeKind == TypeKind.TypeParameter;
         string? constrainedArrayElementType = elemSemType is ITypeParameterSymbol typeParameterSymbol
             ? GetConstrainedArrayElementType(typeParameterSymbol, context)
             : null;
 
+        // Single-dimension type parameter arrays → ArrayList<T>
+        if (isTypeParameterArray && sizes.Count == 1 && node.Initializer == null)
+        {
+            context.AddImport("java.util.ArrayList");
+            var sizeExpr = sizes[0];
+            if (string.IsNullOrEmpty(sizeExpr) || sizeExpr == "0")
+            {
+                return $"new ArrayList<{elementType}>()";
+            }
+            else
+            {
+                context.AddImport("java.util.Collections");
+                return $"new ArrayList<{elementType}>(Collections.nCopies({sizeExpr}, null))";
+            }
+        }
+
         var result = new StringBuilder();
         if (isTypeParameterArray)
         {
+            // For 2D jagged type parameter arrays (e.g. new T[n][]),
+            // the inner T[] is mapped to List<T>, so the result should be List<T>[].
+            // Generate: (List<elementType>[]) new List[n]
+            if (sizes.Count == 2 && !string.IsNullOrEmpty(sizes[0]) && string.IsNullOrEmpty(sizes[1]))
+            {
+                context.AddImport("java.util.List");
+                result.Append($"(List<{elementType}>[]) new List[{sizes[0]}]");
+                return result.ToString();
+            }
+
             // For type parameter arrays, use (T[][]...) new Object[...] with full rank.
             result.Append('(');
             result.Append(elementType);

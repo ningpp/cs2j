@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Transformers.Expression.Utilities;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
@@ -41,6 +42,10 @@ public class ElementAccessTransformer : IExpressionTransformer
         var typeInfo = context.SemanticModel?.GetTypeInfo(node.Expression);
         var exprType = typeInfo?.Type;
         bool isArray = exprType is IArrayTypeSymbol;
+        // Type parameter arrays (T[]) are mapped to List<T> in Java, so treat them as lists
+        bool isTypeParamArray = exprType is IArrayTypeSymbol ats && ats.Rank == 1
+            && (ats.ElementType.TypeKind == TypeKind.TypeParameter
+                || ExpressionTransformerHelpers.IsExpressionFromTypeParameterArrayReturn(node.Expression, context, requireActualTypeParam: true));
         bool isString = exprType?.SpecialType == SpecialType.System_String;
         bool isList = false;
         bool isMap = false;
@@ -68,7 +73,12 @@ public class ElementAccessTransformer : IExpressionTransformer
             {
                 var lo = range.LeftOperand != null ? facade.Transform(range.LeftOperand, context) : "0";
                 var hi = range.RightOperand != null ? facade.Transform(range.RightOperand, context)
-                    : isArray ? $"{expr}.length" : $"{expr}.size()";
+                    : (isArray && !isTypeParamArray) ? $"{expr}.length" : $"{expr}.size()";
+                if (isTypeParamArray)
+                {
+                    context.AddImport("java.util.ArrayList");
+                    return $"new ArrayList<>({expr}.subList({lo}, {hi}))";
+                }
                 context.AddImport("java.util.Arrays");
                 return $"Arrays.copyOfRange({expr}, {lo}, {hi})";
             }
@@ -77,15 +87,18 @@ public class ElementAccessTransformer : IExpressionTransformer
             {
                 // C# ^n (index from end)
                 var operand = facade.Transform(fromEnd.Operand, context);
-                if (isArray)
+                if (isArray && !isTypeParamArray)
                     return $"{expr}[{expr}.length - {operand}]";
+                if (isTypeParamArray)
+                    return $"{expr}.get({expr}.size() - {operand})";
                 if (isString)
                     return $"{expr}.charAt({expr}.length() - {operand})";
                 return $"{expr}.get({expr}.size() - {operand})";
             }
 
             var idx = facade.Transform(arg, context);
-            if (isArray) return $"{expr}[{idx}]";
+            if (isArray && !isTypeParamArray) return $"{expr}[{idx}]";
+            if (isTypeParamArray) return $"{expr}.get({idx})";
             if (isString) return $"{expr}.charAt({idx})";
             if (isMap) return $"{expr}.get({idx})";
             if (isList) return $"{expr}.get({idx})";
@@ -98,7 +111,7 @@ public class ElementAccessTransformer : IExpressionTransformer
 
         // Multi-argument (e.g., 2D arrays or custom 2D indexers)
         var argList = node.ArgumentList.Arguments.Select(a => facade.Transform(a.Expression, context)).ToList();
-        if (isArray)
+        if (isArray && !isTypeParamArray)
             return string.Concat(argList.Select(a => $"[{a}]").Prepend(expr));
         else
             return $"{expr}.get({string.Join(", ", argList)})";

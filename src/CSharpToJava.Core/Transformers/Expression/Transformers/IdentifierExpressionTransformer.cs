@@ -470,7 +470,26 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
                 if (mappedMethod.Contains('.'))
                     return mappedMethod;
                 if (prop.ContainingType.SpecialType == SpecialType.System_Array)
+                {
+                    // Type parameter arrays are mapped to List<T> in Java; use .size() instead of .length
+                    var receiverType = context.SemanticModel?.GetTypeInfo(node.Expression).Type;
+                    if (receiverType is IArrayTypeSymbol recvArray && recvArray.Rank == 1)
+                    {
+                        if (recvArray.ElementType.TypeKind == TypeKind.TypeParameter)
+                            return $"{target}.size()";
+                        if (ExpressionTransformerHelpers.IsExpressionFromTypeParameterArrayReturn(node.Expression, context, requireActualTypeParam: true))
+                            return $"{target}.size()";
+                    }
+                    // Fallback: GetTypeInfo may fail when GetSymbolInfo still resolves the local
+                    if (receiverType == null)
+                    {
+                        var sym = context.SemanticModel?.GetSymbolInfo(node.Expression).Symbol;
+                        if (sym is ILocalSymbol localSym && localSym.Type is IArrayTypeSymbol localArr
+                            && localArr.Rank == 1 && localArr.ElementType.TypeKind == TypeKind.TypeParameter)
+                            return $"{target}.size()";
+                    }
                     return $"{target}.{mappedMethod}";
+                }
                 return $"{target}.{mappedMethod}()";
             }
 

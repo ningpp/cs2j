@@ -70,3 +70,5 @@ nunit-*.xml
 
 .automation-logs/
 _out/
+*.log
+*.txt

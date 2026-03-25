@@ -1288,6 +1288,8 @@ class Program
                 <version>3.3.1</version>
                 <configuration>
                     <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
+                    <forkedProcessTimeoutInSeconds>600</forkedProcessTimeoutInSeconds>
+                    <forkedProcessExitTimeoutInSeconds>300</forkedProcessExitTimeoutInSeconds>
                 </configuration>
             </plugin>"
             : string.Empty;
@@ -1477,6 +1479,7 @@ class Program
                 <configuration>
                     <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
                     <enableAssertions>false</enableAssertions>
+                    <forkedProcessTimeoutInSeconds>600</forkedProcessTimeoutInSeconds>
                     <forkedProcessExitTimeoutInSeconds>300</forkedProcessExitTimeoutInSeconds>
 {(skipModuleTests ? "                    <skipTests>true</skipTests>" : string.Empty)}
                 </configuration>

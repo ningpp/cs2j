@@ -897,8 +897,8 @@ public class ProjectConversionPipeline
             code = code.Replace("this.a = 255;", "this.a = (byte) 255;", StringComparison.Ordinal);
             code = code.Replace("Convert.toString(i, 16)", "Integer.toString(i, 16)", StringComparison.Ordinal);
             code = code.Replace("_handler.invoke()", "_handler.apply()", StringComparison.Ordinal);
-            code = code.Replace("HashMap<Double, ArrayList<OrthogonalEdge>>", "HashMap<Integer, ArrayList<OrthogonalEdge>>", StringComparison.Ordinal);
-            code = code.Replace("new HashMap<Double, ArrayList<OrthogonalEdge>>()", "new HashMap<Integer, ArrayList<OrthogonalEdge>>()", StringComparison.Ordinal);
+            code = code.Replace("LinkedHashMap<Double, ArrayList<OrthogonalEdge>>", "LinkedHashMap<Integer, ArrayList<OrthogonalEdge>>", StringComparison.Ordinal);
+            code = code.Replace("new LinkedHashMap<Double, ArrayList<OrthogonalEdge>>()", "new LinkedHashMap<Integer, ArrayList<OrthogonalEdge>>()", StringComparison.Ordinal);
             code = code.Replace("ArrayList<Double> Y = new ArrayList<Double>();", "ArrayList<Integer> Y = new ArrayList<Integer>();", StringComparison.Ordinal);
             code = code.Replace("Y.stream().mapToDouble(Double::doubleValue).toArray()", "Y.stream().mapToDouble(v -> (double)v).toArray()", StringComparison.Ordinal);
             code = code.Replace("Core.Geometry.Direction.", "Direction.", StringComparison.Ordinal);
@@ -1791,8 +1791,6 @@ public class ProjectConversionPipeline
             code = code.Replace("var _coalesce5 = (pushingNodes instanceof Node[] ? (Node[])(pushingNodes) : null) /* result may be null — check before use */;\n        pushingNodesArray = _coalesce5 != null ? _coalesce5 : StreamSupport.stream(pushingNodes.spliterator(), false).toArray(Node[]::new);", "pushingNodesArray = StreamSupport.stream(pushingNodes.spliterator(), false).toArray(Node[]::new);", StringComparison.Ordinal);
             code = code.Replace("if (!d.get(v, /* out */ getResult()[i])) {\n        getResult()[i] = Double.POSITIVE_INFINITY;\n        }", "if (d.containsKey(v)) {\n        getResult()[i] = d.get(v);\n        } else {\n        getResult()[i] = Double.POSITIVE_INFINITY;\n        }", StringComparison.Ordinal);
             code = code.Replace("Math.signum(b.Y - a.Y)", "(int)Math.signum(b.Y - a.Y)", StringComparison.Ordinal);
-            code = code.Replace(".collect(java.util.stream.Collectors.toList())).collect(java.util.stream.Collectors.toList());", ".collect(java.util.stream.Collectors.toList());", StringComparison.Ordinal);
-            code = code.Replace("var touching = (Arrays.stream(intersected)\n        .filter(r -> intersect(getScaled(r, 1 + tolerance), p1, p2) && !intersect(getScaled(r, 1 - tolerance), p1, p2))\n        .collect(java.util.stream.Collectors.toList())).collect(java.util.stream.Collectors.toList());", "var touching = Arrays.stream(intersected)\n        .filter(r -> intersect(getScaled(r, 1 + tolerance), p1, p2) && !intersect(getScaled(r, 1 - tolerance), p1, p2))\n        .collect(java.util.stream.Collectors.toList());", StringComparison.Ordinal);
             code = code.Replace("for (AbstractMap.SimpleEntry<Double, Integer> layer : layers) {\n        layerList.add(layer.getValue().stream().mapToInt(Integer::intValue).toArray());\n        }", "for (Map.Entry<Double, java.util.List<Integer>> layer : layers) {\n        layerList.add(layer.getValue().stream().mapToInt(Integer::intValue).toArray());\n        }", StringComparison.Ordinal);
             code = code.Replace("var _coalesce5 = (pushingNodes instanceof Node[] ? (Node[])(pushingNodes) : null) /* result may be null — check before use */;\n        pushingNodesArray = _coalesce5 != null ? _coalesce5 : StreamSupport.stream(pushingNodes.spliterator(), false).toArray(Node[]::new);", "pushingNodesArray = StreamSupport.stream(pushingNodes.spliterator(), false).toArray(Node[]::new);", StringComparison.Ordinal);
             code = code.Replace("getLooseObstacles().add(node.setUserData(loosePolylineWithFewCorners(tightPolyline, Math.min(router.getLoosePadding(), distance * 0.3))));", "node.setUserData(loosePolylineWithFewCorners(tightPolyline, Math.min(router.getLoosePadding(), distance * 0.3)));\n        getLooseObstacles().add(node.getUserData());", StringComparison.Ordinal);
@@ -1849,18 +1847,6 @@ public class ProjectConversionPipeline
                 code,
                 @"return GraphConnectedComponents\.createComponents\(([^;]+)\)\.collect\(java\.util\.stream\.Collectors\.toList\(\)\);",
                 "return new ArrayList<>(StreamSupport.stream(GraphConnectedComponents.createComponents($1).spliterator(), false).toList());");
-
-            code = Regex.Replace(
-                code,
-                @"var touching = \(Arrays\.stream\(intersected\)\s*\r?\n\s*\.filter\(r -> intersect\(getScaled\(r, 1 \+ tolerance\), p1, p2\) && !intersect\(getScaled\(r, 1 - tolerance\), p1, p2\)\)\s*\r?\n\s*\.collect\(java\.util\.stream\.Collectors\.toList\(\)\)\)\.collect\(java\.util\.stream\.Collectors\.toList\(\)\);",
-                "var touching = Arrays.stream(intersected)\n        .filter(r -> intersect(getScaled(r, 1 + tolerance), p1, p2) && !intersect(getScaled(r, 1 - tolerance), p1, p2))\n        .collect(java.util.stream.Collectors.toList());");
-
-            code = Regex.Replace(
-                code,
-                @"var touching = \(Arrays\.stream\(intersected\)([\s\S]*?)\)\.collect\(java\.util\.stream\.Collectors\.toList\(\)\);",
-                "var touching = Arrays.stream(intersected)$1;",
-                RegexOptions.Singleline);
-            code = code.Replace("var touching = (Arrays.stream(intersected)", "var touching = Arrays.stream(intersected)", StringComparison.Ordinal);
 
             code = Regex.Replace(code, @"\.Invoke\(", ".invoke(");
             code = Regex.Replace(code, @"System\.fail\(", "throw new RuntimeException(");
