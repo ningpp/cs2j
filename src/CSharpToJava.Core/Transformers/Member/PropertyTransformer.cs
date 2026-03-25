@@ -139,7 +139,9 @@ public class PropertyTransformer : IMemberTransformer
                 }
                 else
                 {
+                    context.SuppressReturnClone = true;
                     getter.Body = statementTransformer.TransformBlock(getAccessor.Body, context);
+                    context.SuppressReturnClone = false;
                 }
                 getter.IsBodyExpression = false;
             }
@@ -178,7 +180,9 @@ public class PropertyTransformer : IMemberTransformer
                 Parameters = { new JavaParameter(propType, "value") },
                 Body = setAccessor?.ExpressionBody != null
                     ? Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(setAccessor.ExpressionBody.Expression, context)
-                    : (isStatic ? $"{fieldName} = value;" : $"this.{fieldName} = value;"),
+                    : (StructCloneHelper.IsUserDefinedStruct(typeInfo?.Type)
+                        ? (isStatic ? $"{fieldName} = value.clone();" : $"this.{fieldName} = value.clone();")
+                        : (isStatic ? $"{fieldName} = value;" : $"this.{fieldName} = value;")),
                 IsBodyExpression = setAccessor?.ExpressionBody != null
             };
 

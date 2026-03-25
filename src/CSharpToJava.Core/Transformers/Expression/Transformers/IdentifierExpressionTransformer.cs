@@ -110,8 +110,10 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
         // .value so that member accesses like p.X or p.X = 1 become p.value.X / p.value.setX(1).
         // Direct assignment (p = value → p.value = value) is handled separately by AssignmentTransformer
         // with an early return that never reaches this path.
+        // Exception: read-only ref struct parameters are generated without ObjectHolder — use as-is.
         if (context.SemanticModel?.GetSymbolInfo(node).Symbol is IParameterSymbol outParam
-            && (outParam.RefKind == RefKind.Out || outParam.RefKind == RefKind.Ref))
+            && (outParam.RefKind == RefKind.Out || outParam.RefKind == RefKind.Ref)
+            && !context.IsReadOnlyRefStructParam(outParam.Name))
         {
             return $"{ConversionContext.EscapeJavaKeyword(outParam.Name)}.value";
         }

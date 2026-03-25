@@ -2169,7 +2169,7 @@ public class ProjectConversionPipeline
                 // the same "multiply" name, producing infinite recursion. Replace with the
                 // actual matrix multiplication implementations.
                 code = code.Replace(
-                    "public static Point multiply(PlaneTransformation transformation, Point point) {\n        return multiply(transformation, point.clone());\n    }",
+                    "public static Point multiply(PlaneTransformation transformation, Point point) {\n        return multiply(transformation, point);\n    }",
                     "public static Point multiply(PlaneTransformation transformation, Point point) {\n        if (transformation != null)\n            return new Point(transformation.get(0, 0) * point.X + transformation.get(0, 1) * point.Y + transformation.get(0, 2), transformation.get(1, 0) * point.X + transformation.get(1, 1) * point.Y + transformation.get(1, 2));\n        return new Point();\n    }",
                     StringComparison.Ordinal);
                 code = code.Replace(

@@ -123,7 +123,7 @@ public class StructTransformer : ITypeTransformer
             javaClass.ImplementedTypes.Add("Cloneable");
 
         // Fix 1: Emit a clone() method to approximate C# value-type copy semantics.
-        AddCloneMethod(javaClass, isReadOnly);
+        AddCloneMethod(javaClass, isReadOnly, structDecl, context);
 
         // Fix 6: If an equals() method was generated but hashCode() is absent, emit a hashCode().
         AddHashCodeIfMissing(javaClass, context);
@@ -169,7 +169,8 @@ public class StructTransformer : ITypeTransformer
     /// For readonly structs (all instance fields are final), only returns new StructName()
     /// because final fields cannot be reassigned after construction.
     /// </summary>
-    private static void AddCloneMethod(JavaClassDeclaration javaClass, bool isReadOnly)
+    private static void AddCloneMethod(JavaClassDeclaration javaClass, bool isReadOnly,
+        StructDeclarationSyntax structDecl, ConversionContext context)
     {
         // Skip if the C# struct already defined a Clone() method (mapped to clone()).
         if (javaClass.Methods.Any(m => m.Name == "clone"))
@@ -180,6 +181,10 @@ public class StructTransformer : ITypeTransformer
             .ToList();
         bool hasFinalInstanceField = instanceFields.Any(f => (f.Modifiers & JavaModifiers.Final) != 0);
 
+        // Build a set of field names whose C# type is a user-defined struct.
+        // These fields need .clone() in the copy to preserve value semantics (deep copy).
+        var structFieldNames = BuildStructFieldNames(structDecl, context);
+
         string cloneBody;
         if (instanceFields.Count == 0)
         {
@@ -188,7 +193,7 @@ public class StructTransformer : ITypeTransformer
         else if (isReadOnly)
         {
             // readonly struct: all instance fields are final and cannot be assigned after construction.
-            if (TryBuildCtorCopy(javaClass, instanceFields, out var ctorCopyExpr))
+            if (TryBuildCtorCopy(javaClass, instanceFields, structFieldNames, out var ctorCopyExpr))
             {
                 cloneBody = $"return {ctorCopyExpr};";
             }
@@ -202,7 +207,7 @@ public class StructTransformer : ITypeTransformer
         {
             // Some structs can have readonly fields even without the readonly struct modifier.
             // Avoid illegal writes to final fields in clone().
-            if (TryBuildCtorCopy(javaClass, instanceFields, out var ctorCopyExpr))
+            if (TryBuildCtorCopy(javaClass, instanceFields, structFieldNames, out var ctorCopyExpr))
             {
                 cloneBody = $"return {ctorCopyExpr};";
             }
@@ -214,7 +219,7 @@ public class StructTransformer : ITypeTransformer
                 {
                     if ((field.Modifiers & JavaModifiers.Final) == 0)
                     {
-                        sb.AppendLine($"copy.{field.Name} = this.{field.Name};");
+                        sb.AppendLine(BuildFieldCopyLine(field, structFieldNames));
                     }
                 }
                 sb.Append("return copy;");
@@ -227,7 +232,7 @@ public class StructTransformer : ITypeTransformer
             sb.AppendLine($"{javaClass.Name} copy = new {javaClass.Name}();");
             foreach (var field in instanceFields)
             {
-                sb.AppendLine($"copy.{field.Name} = this.{field.Name};");
+                sb.AppendLine(BuildFieldCopyLine(field, structFieldNames));
             }
             sb.Append("return copy;");
             cloneBody = sb.ToString();
@@ -248,9 +253,64 @@ public class StructTransformer : ITypeTransformer
         javaClass.Methods.Add(cloneMethod);
     }
 
+    /// <summary>
+    /// Builds a line for field copy in clone(). Generates .clone() for struct-typed fields.
+    /// </summary>
+    private static string BuildFieldCopyLine(JavaFieldDeclaration field, HashSet<string> structFieldNames)
+    {
+        if (structFieldNames.Contains(field.Name))
+            return $"copy.{field.Name} = this.{field.Name} != null ? this.{field.Name}.clone() : null;";
+        return $"copy.{field.Name} = this.{field.Name};";
+    }
+
+    /// <summary>
+    /// Builds a set of Java field names whose corresponding C# type is a user-defined struct.
+    /// Checks both explicit fields and auto-property backing fields.
+    /// </summary>
+    private static HashSet<string> BuildStructFieldNames(StructDeclarationSyntax structDecl, ConversionContext context)
+    {
+        var result = new HashSet<string>();
+        if (context.SemanticModel == null)
+            return result;
+
+        foreach (var member in structDecl.Members)
+        {
+            if (member is FieldDeclarationSyntax fieldDecl)
+            {
+                var fieldType = context.SemanticModel.GetTypeInfo(fieldDecl.Declaration.Type).Type;
+                if (StructCloneHelper.IsUserDefinedStruct(fieldType))
+                {
+                    foreach (var variable in fieldDecl.Declaration.Variables)
+                        result.Add(ConversionContext.EscapeJavaKeyword(variable.Identifier.Text));
+                }
+            }
+            else if (member is PropertyDeclarationSyntax propDecl)
+            {
+                // Auto-properties generate backing fields with camelCase names
+                var propSymbol = context.SemanticModel.GetDeclaredSymbol(propDecl);
+                if (propSymbol != null && StructCloneHelper.IsUserDefinedStruct(propSymbol.Type))
+                {
+                    var propName = ConversionContext.EscapeJavaKeyword(propDecl.Identifier.Text);
+                    var fieldName = ConversionContext.EscapeJavaKeyword(ToCamelCase(propName));
+                    result.Add(fieldName);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private static string ToCamelCase(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+            return name;
+        return char.ToLowerInvariant(name[0]) + name.Substring(1);
+    }
+
     private static bool TryBuildCtorCopy(
         JavaClassDeclaration javaClass,
         IReadOnlyList<JavaFieldDeclaration> instanceFields,
+        HashSet<string> structFieldNames,
         out string ctorCopyExpression)
     {
         foreach (var ctor in javaClass.Constructors)
@@ -286,7 +346,11 @@ public class StructTransformer : ITypeTransformer
             string typeName = javaClass.TypeParameters.Count > 0
                 ? $"{javaClass.Name}<{string.Join(", ", javaClass.TypeParameters.Select(tp => tp.Name))}>"
                 : javaClass.Name;
-            ctorCopyExpression = $"new {typeName}({string.Join(", ", instanceFields.Select(f => $"this.{f.Name}"))})";
+            var args = instanceFields.Select(f =>
+                structFieldNames.Contains(f.Name)
+                    ? $"this.{f.Name} != null ? this.{f.Name}.clone() : null"
+                    : $"this.{f.Name}");
+            ctorCopyExpression = $"new {typeName}({string.Join(", ", args)})";
             return true;
         }
 

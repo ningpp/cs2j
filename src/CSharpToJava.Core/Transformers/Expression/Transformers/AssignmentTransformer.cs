@@ -286,10 +286,12 @@ public class AssignmentTransformer : IExpressionTransformer
         }
 
         // Detect assignment to an out/ref parameter inside a method body → paramName.value = rhs
+        // Exception: read-only ref struct parameters are generated without ObjectHolder.
         if (op == "=" && leftNode is IdentifierNameSyntax outParamIdent)
         {
             if (context.SemanticModel?.GetSymbolInfo(leftNode).Symbol is IParameterSymbol param
-                && (param.RefKind == RefKind.Out || param.RefKind == RefKind.Ref))
+                && (param.RefKind == RefKind.Out || param.RefKind == RefKind.Ref)
+                && !context.IsReadOnlyRefStructParam(param.Name))
             {
                 var right = facade.Transform(rightNode, context);
                 return $"{ConversionContext.EscapeJavaKeyword(param.Name)}.value = {right}";

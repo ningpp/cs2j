@@ -426,7 +426,8 @@ public class StatementTransformer : IStatementTransformer
 
         // Struct value copy: when returning a user-defined struct expression that is not a temporary,
         // clone it to preserve C# value-copy semantics (C# return always copies structs).
-        if (stmt.Expression != null && context.SemanticModel != null)
+        // Skip inside property getters where the consumption site handles cloning.
+        if (stmt.Expression != null && context.SemanticModel != null && !context.SuppressReturnClone)
         {
             var retExprTypeForClone = context.SemanticModel.GetTypeInfo(stmt.Expression).Type;
             expr = StructCloneHelper.CloneStructValueIfNeeded(stmt.Expression, expr, retExprTypeForClone, context);

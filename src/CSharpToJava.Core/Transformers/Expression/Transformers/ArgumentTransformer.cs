@@ -238,6 +238,14 @@ public class ArgumentTransformer
 
         if (refKind == SyntaxKind.RefKeyword)
         {
+            // Optimization: if the called method's ref parameter is effectively read-only for a struct type,
+            // skip ObjectHolder wrapping — Java passes the class instance by reference, so field reads/writes
+            // are visible to both caller and callee without a holder object.
+            if (parameterSymbol != null && StructCloneHelper.IsRefParamEffectivelyReadOnly(parameterSymbol))
+            {
+                return transformer.Transform(arg.Expression, context);
+            }
+
             // Bug 1: if the argument is already a ref/out parameter (e.g. forwarding ref d2 to another ref method),
             // the IdentifierExpressionTransformer would emit "d2.value" — but we must pass the holder itself.
             if (arg.Expression is IdentifierNameSyntax refIdent)
@@ -545,8 +553,10 @@ public class ArgumentTransformer
         var argType = context.SemanticModel.GetTypeInfo(arg.Expression).Type;
         if (!RequiresStructClone(argType, paramType))
             return transformedExpr;
-
-        if (LooksLikeCloneableTemporary(arg.Expression))
+        // Skip clone for read-only value parameters (method never modifies the struct)
+        if (StructCloneHelper.IsValueParamEffectivelyReadOnly(targetParam, context.ProjectCompilation))
+            return transformedExpr;
+        if (LooksLikeCloneableTemporary(arg.Expression, context.SemanticModel))
             return transformedExpr;
 
         return BuildCloneInvocation(arg.Expression, transformedExpr);
@@ -555,7 +565,7 @@ public class ArgumentTransformer
     private static bool RequiresStructClone(ITypeSymbol? argType, ITypeSymbol paramType)
         => StructCloneHelper.IsUserDefinedStruct(argType) && StructCloneHelper.IsUserDefinedStruct(paramType);
 
-    private static bool LooksLikeCloneableTemporary(ExpressionSyntax expression)
+    private static bool LooksLikeCloneableTemporary(ExpressionSyntax expression, SemanticModel? model)
         => StructCloneHelper.IsCloneableTemporary(expression)
             || expression is ElementAccessExpressionSyntax;  // keep backward compat for args
 

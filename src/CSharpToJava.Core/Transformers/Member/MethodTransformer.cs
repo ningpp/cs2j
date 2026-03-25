@@ -486,6 +486,14 @@ public class MethodTransformer : IMemberTransformer
             {
                 case SyntaxKind.RefKeyword:
                 case SyntaxKind.OutKeyword:
+                    // For ref parameters of struct types that are never reassigned,
+                    // skip ObjectHolder — Java already passes the class by reference.
+                    if (modifier.IsKind(SyntaxKind.RefKeyword)
+                        && context.IsReadOnlyRefStructParam(param.Identifier.Text))
+                    {
+                        // Keep the plain parameter type (no Holder wrapping)
+                        break;
+                    }
                     // Convert ref/out to Holder pattern
                     javaParam = new JavaParameter(GetHolderType(javaType), paramName);
                     // Add import for the holder type if needed (Holder classes are in the project package)

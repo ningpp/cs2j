@@ -235,6 +235,7 @@ public class StructCloneSemanticTests
 
         var result = Convert(code);
         Assert.True(result.Success, string.Join("\n", result.Diagnostics.Select(d => d.Message)));
-        Assert.Contains("consume(value.clone())", result.GeneratedCode);
+        // Read-only value parameters: the method never modifies the struct, so no clone needed at call site
+        Assert.Contains("consume(value)", result.GeneratedCode);
     }
 }

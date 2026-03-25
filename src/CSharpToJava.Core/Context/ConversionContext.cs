@@ -146,6 +146,12 @@ public class ConversionContext
     public bool IsInYieldMethod { get; set; }
 
     /// <summary>
+    /// When true, suppresses .clone() on return statements (used inside property getters
+    /// where the consumption site handles cloning instead).
+    /// </summary>
+    public bool SuppressReturnClone { get; set; }
+
+    /// <summary>
     /// Whether the current type being converted is an interface body.
     /// </summary>
     public bool IsInInterfaceBody => CurrentType is Java.JavaInterfaceDeclaration;
@@ -339,6 +345,22 @@ public class ConversionContext
     private readonly Dictionary<string, int> _outHolderAllocCounts = new(StringComparer.Ordinal);
 
     /// <summary>
+    /// Names of <c>ref</c> parameters in the current method that are "effectively read-only"
+    /// (the method body never reassigns the parameter variable nor forwards it via ref/out).
+    /// For struct-to-class conversions, these parameters are generated as plain Java parameters
+    /// instead of ObjectHolder, eliminating heap allocations on the hot path.
+    /// Populated on <see cref="EnterMethod"/> and cleared on the next entry.
+    /// </summary>
+    private readonly HashSet<string> _readOnlyRefStructParams = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Returns true when the parameter with the given name was determined to be a
+    /// read-only ref struct parameter (no ObjectHolder needed) in the current method.
+    /// </summary>
+    public bool IsReadOnlyRefStructParam(string paramName)
+        => _readOnlyRefStructParams.Contains(paramName);
+
+    /// <summary>
     /// Allocates a unique out-holder name for the given variable.
     /// First allocation returns "_{varName}Holder1"; subsequent returns "_{varName}Holder2", etc.
     /// </summary>
@@ -429,6 +451,16 @@ public class ConversionContext
         // Clear ref holder tracking to avoid cross-method contamination
         _activeRefHolders.Clear();
         _refHolderAllocCounts.Clear();
+        // Detect read-only ref struct parameters (no ObjectHolder needed)
+        _readOnlyRefStructParams.Clear();
+        if (method != null)
+        {
+            foreach (var param in method.Parameters)
+            {
+                if (StructCloneHelper.IsRefParamEffectivelyReadOnly(param))
+                    _readOnlyRefStructParams.Add(param.Name);
+            }
+        }
     }
 
     /// <summary>
