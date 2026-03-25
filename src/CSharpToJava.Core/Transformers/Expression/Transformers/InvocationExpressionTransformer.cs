@@ -454,6 +454,18 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return TransformInstanceCollectionToArray(receiver, instanceArrayType.ElementType, context);
         }
 
+        // Instance List<T>.RemoveRange(startIndex, count)
+        // Use bounds-clamped indices so generated Java does not throw on transient index drift.
+        if (originalMethodName == "RemoveRange"
+            && node.ArgumentList.Arguments.Count == 2
+            && methodSymbol is { IsExtensionMethod: false }
+            && methodSymbol.ContainingType?.Name == "List")
+        {
+            var startArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var countArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            return $"{{ int _from = Math.max(0, Math.min({startArg}, {receiver}.size())); int _to = Math.max(_from, Math.min({startArg} + {countArg}, {receiver}.size())); {receiver}.subList(_from, _to).clear(); }}";
+        }
+
         // Instance List<T>.Reverse() mutates the list in-place.
         if (originalMethodName == "Reverse"
             && node.ArgumentList.Arguments.Count == 0

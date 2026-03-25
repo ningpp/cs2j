@@ -2084,16 +2084,7 @@
                                "method":  "InsertRange",
                                "javaMethod":  "addAll"
                            },
-                           {
-                               "type":  "System.Collections.Generic.List",
-                               "method":  "RemoveRange",
-                               "javaMethod":  "subList"
-                           },
-                           {
-                               "type":  "System.Collections.Generic.IList",
-                               "method":  "RemoveRange",
-                               "javaMethod":  "subList"
-                           },
+
                            {
                                "type":  "System.Collections.Generic.List",
                                "method":  "Clear",

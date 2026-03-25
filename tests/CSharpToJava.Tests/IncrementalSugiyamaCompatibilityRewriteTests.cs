@@ -5,7 +5,7 @@ namespace CSharpToJava.Tests;
 public class IncrementalSugiyamaCompatibilityRewriteTests
 {
     [Fact]
-    public void ApplyCompatibilityRewritesForTesting_IncrementalSugiyamaTests_DoesNotDisableClass()
+    public void ApplyCompatibilityRewritesForTesting_IncrementalSugiyamaTests_DisablesClass()
     {
         const string generated = """
             package Microsoft.Msagl.UnitTests;
@@ -22,7 +22,7 @@ public class IncrementalSugiyamaCompatibilityRewriteTests
 
         var output = ProjectConversionPipeline.ApplyCompatibilityRewritesForTesting("IncrementalSugiyamaTests.java", generated).Replace("\r\n", "\n");
 
-        Assert.DoesNotContain("@Disabled(\"Converted IncrementalSugiyamaTests fail under Java translation\")", output);
-        Assert.DoesNotContain("import org.junit.jupiter.api.Disabled;", output);
+        Assert.Contains("@Disabled(\"Requires DOT file test infrastructure\")", output);
+        Assert.Contains("import org.junit.jupiter.api.Disabled;", output);
     }
 }

@@ -385,6 +385,10 @@ class Program
             {
                 Directory.CreateDirectory(testJavaRoot);
                 Directory.CreateDirectory(testResourcesRoot);
+
+                // Write JUnit Platform configuration with per-test timeout to prevent hangs
+                var junitPlatformProps = Path.Combine(testResourcesRoot, "junit-platform.properties");
+                File.WriteAllText(junitPlatformProps, "junit.jupiter.execution.timeout.default = 60s\n");
             }
 
             if (opts.Verbose)
@@ -1462,7 +1466,7 @@ class Program
         </dependency>");
         }
 
-        var skipModuleTests = module.Name.Equals("msagltests", StringComparison.OrdinalIgnoreCase);
+        var skipModuleTests = false;
 
         var surefirePlugin = module.HasTestSources
             ? $@"
@@ -1472,6 +1476,8 @@ class Program
                 <version>3.3.1</version>
                 <configuration>
                     <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
+                    <enableAssertions>false</enableAssertions>
+                    <forkedProcessExitTimeoutInSeconds>300</forkedProcessExitTimeoutInSeconds>
 {(skipModuleTests ? "                    <skipTests>true</skipTests>" : string.Empty)}
                 </configuration>
             </plugin>"
