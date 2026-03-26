@@ -3656,6 +3656,28 @@ public class StringHelper {{
     public static int compare(String s1, String s2, int comparison) {{
         return compare(s1, s2, comparison == 1 || comparison == 3 || comparison == 5);
     }}
+    /** Mirrors C# String.Equals(a, b) */
+    public static boolean equals(String s1, String s2) {{
+        if (s1 == null || s2 == null) {{
+            return s1 == s2;
+        }}
+        return s1.equals(s2);
+    }}
+    /** Mirrors C# String.Equals(a, b, StringComparison) via ignoreCase semantics. */
+    public static boolean equals(String s1, String s2, boolean ignoreCase) {{
+        if (s1 == null || s2 == null) {{
+            return s1 == s2;
+        }}
+        return ignoreCase ? s1.equalsIgnoreCase(s2) : s1.equals(s2);
+    }}
+    /** Mirrors C# String.Equals(a, b, bool ignoreCase, CultureInfo culture) */
+    public static boolean equals(String s1, String s2, boolean ignoreCase, Object culture) {{
+        return equals(s1, s2, ignoreCase);
+    }}
+    /** Mirrors C# String.Equals(a, b, StringComparison) */
+    public static boolean equals(String s1, String s2, int comparison) {{
+        return equals(s1, s2, comparison == 1 || comparison == 3 || comparison == 5);
+    }}
     /** Mirrors C# String.StartsWith(value, StringComparison) */
     public static boolean startsWith(String s, String prefix, boolean ignoreCase) {{
         if (s == null || prefix == null) {{
@@ -3667,6 +3689,75 @@ public class StringHelper {{
         return ignoreCase
             ? s.regionMatches(true, 0, prefix, 0, prefix.length())
             : s.startsWith(prefix);
+    }}
+    /** Mirrors C# String.StartsWith(value, StringComparison) */
+    public static boolean startsWith(String s, String prefix, int comparison) {{
+        return startsWith(s, prefix, comparison == 1 || comparison == 3 || comparison == 5);
+    }}
+    /** Mirrors C# String.EndsWith(value, StringComparison) */
+    public static boolean endsWith(String s, String suffix, boolean ignoreCase) {{
+        if (s == null || suffix == null) {{
+            return s == suffix;
+        }}
+        if (suffix.length() > s.length()) {{
+            return false;
+        }}
+        if (ignoreCase) {{
+            return s.regionMatches(true, s.length() - suffix.length(), suffix, 0, suffix.length());
+        }}
+        return s.endsWith(suffix);
+    }}
+    /** Mirrors C# String.EndsWith(value, StringComparison) */
+    public static boolean endsWith(String s, String suffix, int comparison) {{
+        return endsWith(s, suffix, comparison == 1 || comparison == 3 || comparison == 5);
+    }}
+    /** Mirrors C# String.Contains(value, StringComparison) */
+    public static boolean contains(String s, String value, boolean ignoreCase) {{
+        return indexOf(s, value, ignoreCase) >= 0;
+    }}
+    /** Mirrors C# String.Contains(value, StringComparison) */
+    public static boolean contains(String s, String value, int comparison) {{
+        return contains(s, value, comparison == 1 || comparison == 3 || comparison == 5);
+    }}
+    /** Mirrors C# String.IndexOf(value, StringComparison) */
+    public static int indexOf(String s, String value, boolean ignoreCase) {{
+        return ignoreCase
+            ? s.toLowerCase(Locale.ROOT).indexOf(value.toLowerCase(Locale.ROOT))
+            : s.indexOf(value);
+    }}
+    /** Mirrors C# String.IndexOf(value, startIndex, StringComparison) */
+    public static int indexOf(String s, String value, int startIndex, boolean ignoreCase) {{
+        return ignoreCase
+            ? s.toLowerCase(Locale.ROOT).indexOf(value.toLowerCase(Locale.ROOT), startIndex)
+            : s.indexOf(value, startIndex);
+    }}
+    /** Mirrors C# String.IndexOf(value, StringComparison) */
+    public static int indexOf(String s, String value, int comparison) {{
+        return indexOf(s, value, comparison == 1 || comparison == 3 || comparison == 5);
+    }}
+    /** Mirrors C# String.IndexOf(value, startIndex, StringComparison) */
+    public static int indexOf(String s, String value, int startIndex, int comparison) {{
+        return indexOf(s, value, startIndex, comparison == 1 || comparison == 3 || comparison == 5);
+    }}
+    /** Mirrors C# String.LastIndexOf(value, StringComparison) */
+    public static int lastIndexOf(String s, String value, boolean ignoreCase) {{
+        return ignoreCase
+            ? s.toLowerCase(Locale.ROOT).lastIndexOf(value.toLowerCase(Locale.ROOT))
+            : s.lastIndexOf(value);
+    }}
+    /** Mirrors C# String.LastIndexOf(value, startIndex, StringComparison) */
+    public static int lastIndexOf(String s, String value, int startIndex, boolean ignoreCase) {{
+        return ignoreCase
+            ? s.toLowerCase(Locale.ROOT).lastIndexOf(value.toLowerCase(Locale.ROOT), startIndex)
+            : s.lastIndexOf(value, startIndex);
+    }}
+    /** Mirrors C# String.LastIndexOf(value, StringComparison) */
+    public static int lastIndexOf(String s, String value, int comparison) {{
+        return lastIndexOf(s, value, comparison == 1 || comparison == 3 || comparison == 5);
+    }}
+    /** Mirrors C# String.LastIndexOf(value, startIndex, StringComparison) */
+    public static int lastIndexOf(String s, String value, int startIndex, int comparison) {{
+        return lastIndexOf(s, value, startIndex, comparison == 1 || comparison == 3 || comparison == 5);
     }}
 
     private static void appendConcatValue(StringBuilder builder, Object value) {{

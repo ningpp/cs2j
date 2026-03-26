@@ -67,10 +67,10 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return $"({leftArg} == {rightArg})";
         }
 
-            // Equals(a, b) -> java.util.Objects.equals(a, b)
+            // Null-safe static equality helpers should preserve C# semantics in Java.
             if (node.Expression is IdentifierNameSyntax { Identifier.Text: "Equals" }
                 && node.ArgumentList.Arguments.Count == 2
-                && IsStaticSystemObjectEquals(context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol))
+                && IsStaticNullSafeEqualsMethod(context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol))
             {
                 var leftArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
                 var rightArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
@@ -311,11 +311,107 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         }
 
         if (originalMethodName == "Equals" && node.ArgumentList.Arguments.Count == 2
-            && IsStaticSystemObjectEquals(context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol))
+            && IsStaticNullSafeEqualsMethod(context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol))
         {
             var leftArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var rightArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
             return $"java.util.Objects.equals({leftArg}, {rightArg})";
+        }
+
+        if (IsSystemStringMethod(earlyMethodSymbol, memberAccess.Expression))
+        {
+            if (originalMethodName == "Equals"
+                && node.ArgumentList.Arguments.Count == 3
+                && TryGetStringComparisonIgnoreCase(node.ArgumentList.Arguments[2].Expression, context.SemanticModel, out var staticEqualsIgnoreCase))
+            {
+                var leftArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var rightArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                return $"StringHelper.equals({leftArg}, {rightArg}, {ToJavaBooleanLiteral(staticEqualsIgnoreCase)})";
+            }
+
+            if (originalMethodName == "Compare"
+                && node.ArgumentList.Arguments.Count == 3
+                && TryGetStringComparisonIgnoreCase(node.ArgumentList.Arguments[2].Expression, context.SemanticModel, out var compareIgnoreCase))
+            {
+                var leftArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var rightArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                return $"StringHelper.compare({leftArg}, {rightArg}, {ToJavaBooleanLiteral(compareIgnoreCase)})";
+            }
+        }
+
+        var stringEqualsReceiverType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+        if (originalMethodName == "Equals"
+            && node.ArgumentList.Arguments.Count == 1
+            && IsSystemStringType(stringEqualsReceiverType))
+        {
+            var arg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            return $"java.util.Objects.equals({receiver}, {arg})";
+        }
+
+        if (IsSystemStringType(stringEqualsReceiverType)
+            && originalMethodName == "Equals"
+            && node.ArgumentList.Arguments.Count == 2
+            && TryGetStringComparisonIgnoreCase(node.ArgumentList.Arguments[1].Expression, context.SemanticModel, out var instanceEqualsIgnoreCase))
+        {
+            var arg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            return $"StringHelper.equals({receiver}, {arg}, {ToJavaBooleanLiteral(instanceEqualsIgnoreCase)})";
+        }
+
+        if (IsSystemStringType(stringEqualsReceiverType)
+            && originalMethodName is "StartsWith" or "EndsWith"
+            && node.ArgumentList.Arguments.Count == 2
+            && TryGetStringComparisonIgnoreCase(node.ArgumentList.Arguments[1].Expression, context.SemanticModel, out var prefixIgnoreCase))
+        {
+            var arg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var helperMethod = originalMethodName == "StartsWith" ? "startsWith" : "endsWith";
+            return $"StringHelper.{helperMethod}({receiver}, {arg}, {ToJavaBooleanLiteral(prefixIgnoreCase)})";
+        }
+
+        if (IsSystemStringType(stringEqualsReceiverType)
+            && originalMethodName == "Contains"
+            && node.ArgumentList.Arguments.Count == 2
+            && TryGetStringComparisonIgnoreCase(node.ArgumentList.Arguments[1].Expression, context.SemanticModel, out var containsIgnoreCase))
+        {
+            var valueArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            return $"StringHelper.contains({receiver}, {valueArg}, {ToJavaBooleanLiteral(containsIgnoreCase)})";
+        }
+
+        if (IsSystemStringType(stringEqualsReceiverType)
+            && originalMethodName == "IndexOf"
+            && node.ArgumentList.Arguments.Count == 2
+            && TryGetStringComparisonIgnoreCase(node.ArgumentList.Arguments[1].Expression, context.SemanticModel, out var indexOfIgnoreCase))
+        {
+            var valueArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            return $"StringHelper.indexOf({receiver}, {valueArg}, {ToJavaBooleanLiteral(indexOfIgnoreCase)})";
+        }
+
+        if (IsSystemStringType(stringEqualsReceiverType)
+            && originalMethodName == "IndexOf"
+            && node.ArgumentList.Arguments.Count == 3
+            && TryGetStringComparisonIgnoreCase(node.ArgumentList.Arguments[2].Expression, context.SemanticModel, out var indexOfWithStartIgnoreCase))
+        {
+            var valueArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var startIndexArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            return $"StringHelper.indexOf({receiver}, {valueArg}, {startIndexArg}, {ToJavaBooleanLiteral(indexOfWithStartIgnoreCase)})";
+        }
+
+        if (IsSystemStringType(stringEqualsReceiverType)
+            && originalMethodName == "LastIndexOf"
+            && node.ArgumentList.Arguments.Count == 2
+            && TryGetStringComparisonIgnoreCase(node.ArgumentList.Arguments[1].Expression, context.SemanticModel, out var lastIndexOfIgnoreCase))
+        {
+            var valueArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            return $"StringHelper.lastIndexOf({receiver}, {valueArg}, {ToJavaBooleanLiteral(lastIndexOfIgnoreCase)})";
+        }
+
+        if (IsSystemStringType(stringEqualsReceiverType)
+            && originalMethodName == "LastIndexOf"
+            && node.ArgumentList.Arguments.Count == 3
+            && TryGetStringComparisonIgnoreCase(node.ArgumentList.Arguments[2].Expression, context.SemanticModel, out var lastIndexOfWithStartIgnoreCase))
+        {
+            var valueArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var startIndexArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            return $"StringHelper.lastIndexOf({receiver}, {valueArg}, {startIndexArg}, {ToJavaBooleanLiteral(lastIndexOfWithStartIgnoreCase)})";
         }
 
         // System.Tuple.Create(...) mapping.
@@ -3162,11 +3258,54 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         return t.AllInterfaces.Any(IsEnumerator);
     }
 
-    private static bool IsStaticSystemObjectEquals(IMethodSymbol? methodSymbol)
+    private static bool IsStaticNullSafeEqualsMethod(IMethodSymbol? methodSymbol)
     {
         if (methodSymbol is null || !methodSymbol.IsStatic || methodSymbol.Name != "Equals" || methodSymbol.Parameters.Length != 2)
             return false;
 
-        return methodSymbol.ContainingType?.SpecialType == SpecialType.System_Object;
+        var containingType = methodSymbol.ContainingType;
+        return containingType?.SpecialType is SpecialType.System_Object or SpecialType.System_String;
     }
+
+    private static bool IsSystemStringType(ITypeSymbol? typeSymbol)
+    {
+        return typeSymbol?.SpecialType == SpecialType.System_String;
+    }
+
+    private static bool IsSystemStringMethod(IMethodSymbol? methodSymbol, ExpressionSyntax receiverExpression)
+    {
+        if (methodSymbol?.ContainingType?.SpecialType == SpecialType.System_String)
+            return true;
+
+        var receiverText = receiverExpression.ToString();
+        return receiverText is "String" or "System.String";
+    }
+
+    private static bool TryGetStringComparisonIgnoreCase(ExpressionSyntax expression, SemanticModel? semanticModel, out bool ignoreCase)
+    {
+        if (semanticModel?.GetConstantValue(expression) is { HasValue: true, Value: int comparisonValue })
+        {
+            ignoreCase = comparisonValue is 1 or 3 or 5;
+            return true;
+        }
+
+        if (semanticModel?.GetSymbolInfo(expression).Symbol is IFieldSymbol fieldSymbol
+            && fieldSymbol.ContainingType?.ToDisplayString() == "System.StringComparison")
+        {
+            ignoreCase = fieldSymbol.Name.EndsWith("IgnoreCase", StringComparison.Ordinal);
+            return true;
+        }
+
+        var text = expression.ToString();
+        if (text.Contains("StringComparison.", StringComparison.Ordinal))
+        {
+            ignoreCase = text.EndsWith("IgnoreCase", StringComparison.Ordinal);
+            return true;
+        }
+
+        ignoreCase = false;
+        return false;
+    }
+
+    private static string ToJavaBooleanLiteral(bool value) => value ? "true" : "false";
 }

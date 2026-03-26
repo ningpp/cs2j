@@ -123,7 +123,7 @@ public class BinaryExpressionTransformer : IExpressionTransformer
         var left = facade.Transform(node.Left, context);
         var right = facade.Transform(node.Right, context);
 
-        // String == / != must use .equals() in Java
+        // String == / != must preserve C#'s null-safe value semantics.
         if ((op == "==" || op == "!=") && context.SemanticModel != null)
         {
             bool leftIsString = IsStringType(node.Left, context.SemanticModel);
@@ -135,8 +135,8 @@ public class BinaryExpressionTransformer : IExpressionTransformer
                 bool rightIsNull = node.Right.IsKind(SyntaxKind.NullLiteralExpression);
                 if (!leftIsNull && !rightIsNull)
                 {
-                    string eq = $"{left}.equals({right})";
-                    return op == "!=" ? $"!({eq})" : eq;
+                    string eq = $"java.util.Objects.equals({left}, {right})";
+                    return op == "!=" ? $"!{eq}" : eq;
                 }
             }
         }

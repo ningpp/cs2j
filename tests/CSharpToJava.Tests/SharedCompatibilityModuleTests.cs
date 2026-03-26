@@ -16,6 +16,11 @@ public class SharedCompatibilityModuleTests
         Assert.Contains("boolean equals(T x, T y);", shim.GeneratedCode);
         Assert.Contains("int hashCode(T obj);", shim.GeneratedCode);
         Assert.Contains("public static String concat(Object... values)", stringHelper.GeneratedCode);
+        Assert.Contains("public static boolean equals(String s1, String s2, boolean ignoreCase)", stringHelper.GeneratedCode);
+        Assert.Contains("public static boolean endsWith(String s, String suffix, boolean ignoreCase)", stringHelper.GeneratedCode);
+        Assert.Contains("public static boolean contains(String s, String value, boolean ignoreCase)", stringHelper.GeneratedCode);
+        Assert.Contains("public static int indexOf(String s, String value, int startIndex, boolean ignoreCase)", stringHelper.GeneratedCode);
+        Assert.Contains("public static int lastIndexOf(String s, String value, int startIndex, boolean ignoreCase)", stringHelper.GeneratedCode);
         Assert.Contains("return \"\";", stringHelper.GeneratedCode);
     }
 
