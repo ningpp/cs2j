@@ -1205,6 +1205,55 @@ public class ConversionContext
     {
         return IsJavaKeyword(word) ? word + "Value" : word;
     }
+
+    /// <summary>
+    /// Checks whether a C# method has a type-erasure conflict with another overload in the
+    /// same type: same name, same erased parameter types, but different generic type parameter
+    /// counts.  Returns true for the overload with FEWER type parameters (the one that must
+    /// be renamed in Java so that both overloads survive).
+    /// </summary>
+    public static bool HasTypeErasureConflict(IMethodSymbol method)
+    {
+        if (method.ContainingType == null) return false;
+        foreach (var sibling in method.ContainingType.GetMembers().OfType<IMethodSymbol>())
+        {
+            if (SymbolEqualityComparer.Default.Equals(sibling, method)) continue;
+            if (sibling.Name != method.Name) continue;
+            if (sibling.Parameters.Length != method.Parameters.Length) continue;
+            if (sibling.TypeParameters.Length == method.TypeParameters.Length) continue;
+            if (HaveSameErasedParameters(method, sibling))
+            {
+                // The overload with fewer type parameters is the one that gets renamed.
+                return method.TypeParameters.Length < sibling.TypeParameters.Length;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Returns the renamed Java method name suffix for a type-erasure–conflicting overload.
+    /// E.g. a method with 2 type parameters becomes "methodName_2tp".
+    /// </summary>
+    public static string GetErasureRenamedSuffix(int typeParameterCount)
+        => $"_{typeParameterCount}tp";
+
+    private static bool HaveSameErasedParameters(IMethodSymbol a, IMethodSymbol b)
+    {
+        for (int i = 0; i < a.Parameters.Length; i++)
+        {
+            if (GetErasedTypeName(a.Parameters[i].Type) != GetErasedTypeName(b.Parameters[i].Type))
+                return false;
+        }
+        return true;
+    }
+
+    private static string GetErasedTypeName(ITypeSymbol type) => type switch
+    {
+        ITypeParameterSymbol => "System.Object",
+        IArrayTypeSymbol arr => GetErasedTypeName(arr.ElementType) + "[]",
+        INamedTypeSymbol named => named.OriginalDefinition.ContainingNamespace + "." + named.OriginalDefinition.Name,
+        _ => type.ToDisplayString()
+    };
 }
 
 /// <summary>

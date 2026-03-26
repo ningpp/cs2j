@@ -36,6 +36,14 @@ public class MethodTransformer : IMemberTransformer
             Modifiers = ConvertModifiers(methodDecl.Modifiers),
             ReturnType = GetReturnType(methodDecl, context)
         };
+
+        // Type-erasure conflict: if the C# method has an overload with different generic
+        // type parameter count but same erased parameter types, rename this overload so that
+        // both survive in Java (where type erasure would make them duplicates).
+        if (methodInfo != null && ConversionContext.HasTypeErasureConflict(methodInfo))
+        {
+            javaMethod.Name += ConversionContext.GetErasureRenamedSuffix(methodInfo.TypeParameters.Length);
+        }
         javaMethod.LeadingComment = context.GetDeclarationComments(methodDecl, methodInfo).ToCombinedComment();
         ApplyTestMethodAnnotations(methodDecl, javaMethod, context);
 
