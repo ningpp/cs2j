@@ -1215,6 +1215,10 @@ public class ConversionContext
     public static bool HasTypeErasureConflict(IMethodSymbol method)
     {
         if (method.ContainingType == null) return false;
+        // Only rename methods whose containing type is defined in source (user code).
+        // BCL / library types (e.g. System.String) are not converted, so their methods
+        // must keep their mapped names without an erasure suffix.
+        if (method.ContainingType.DeclaringSyntaxReferences.Length == 0) return false;
         foreach (var sibling in method.ContainingType.GetMembers().OfType<IMethodSymbol>())
         {
             if (SymbolEqualityComparer.Default.Equals(sibling, method)) continue;
