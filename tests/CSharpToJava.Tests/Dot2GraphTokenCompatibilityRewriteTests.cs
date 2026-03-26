@@ -11,12 +11,17 @@ public class Dot2GraphTokenCompatibilityRewriteTests
             package Dot2Graph;
 
             public class Parser {
+                protected void doAction(int action) {
+                    switch (action) {
+                    }
+                }
+
                 protected void initialize() {
                     this.initSpecialTokens(Tokens.error.ordinal(), Tokens.EOF.ordinal());
                 }
 
                 protected String terminalToString(int terminal) {
-                    if (!((Tokens.values()[(int)(terminal)]).toString().equals(String.valueOf(terminal)))) {
+                    if (!java.util.Objects.equals((Tokens.values()[(int)(terminal)]).toString(), String.valueOf(terminal))) {
                         return (Tokens.values()[(int)(terminal)]).toString();
                     } else {
                         return charToString((char)(terminal));
@@ -27,6 +32,8 @@ public class Dot2GraphTokenCompatibilityRewriteTests
 
         var output = ProjectConversionPipeline.ApplyCompatibilityRewritesForTesting("Parser.java", generated);
 
+        Assert.Contains("if (CurrentSemanticValue == null)", output);
+        Assert.Contains("CurrentSemanticValue = new ValueType();", output);
         Assert.Contains("this.initSpecialTokens(Tokens.error.getValue(), Tokens.EOF.getValue());", output);
         Assert.Contains("Arrays.stream(Tokens.values()).filter(token -> token.getValue() == terminal)", output);
         Assert.DoesNotContain("Tokens.values()[(int)(terminal)]", output);
@@ -80,5 +87,45 @@ public class Dot2GraphTokenCompatibilityRewriteTests
         Assert.Contains("return Tokens.ARROW.getValue();", output);
         Assert.Contains("return Tokens.ID.getValue();", output);
         Assert.DoesNotContain("ordinal()", output);
+    }
+
+    [Fact]
+    public void ApplyCompatibilityRewritesForTesting_Scanner_UsesUnsignedIndexForTransitionTable()
+    {
+        const string generated = """
+            package Dot2Graph;
+
+            public final class Scanner extends ScanBase {
+                static class Table {
+                    int min;
+                    int rng;
+                    int dflt;
+                    byte[] nxt;
+                }
+
+                int code;
+                int state;
+                static Table[] NxS;
+
+                int nextState() {
+                    int rslt;
+                    int idx = (byte)((code - NxS[state].min));
+                    if ((int)(idx) >= (int)(NxS[state].rng)) {
+                        rslt = NxS[state].dflt;
+                    } else {
+                        rslt = NxS[state].nxt[idx];
+                    }
+                    return rslt;
+                }
+            }
+            """;
+
+        var output = ProjectConversionPipeline.ApplyCompatibilityRewritesForTesting("Scanner.java", generated).Replace("\r\n", "\n");
+
+        Assert.Contains("int unsignedIdx = Byte.toUnsignedInt((byte)idx);", output);
+        Assert.Contains("if (unsignedIdx >= NxS[state].rng)", output);
+        Assert.Contains("rslt = NxS[state].nxt[unsignedIdx];", output);
+        Assert.DoesNotContain("NxS[state].nxt[idx];", output);
+        Assert.DoesNotContain("if ((int)(idx) >= (int)(NxS[state].rng))", output);
     }
 }

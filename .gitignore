@@ -72,3 +72,4 @@ nunit-*.xml
 _out/
 *.log
 *.txt
+*.vs/

@@ -29,6 +29,8 @@ public class SugiyamaLayoutTestsCompatibilityRewriteTests
         Assert.Contains("LevFiles", output);
         Assert.Contains("fsm.dot", output);
         Assert.Contains("findTestDataFiles(", output);
+        Assert.Contains("findTestDataFiles(\"DotFiles\\\\LevFiles\", \"*.dot\")", output);
         Assert.DoesNotContain("Files.getFiles(", output);
+        Assert.DoesNotContain("findTestDataFiles(java.nio.file.Paths.get(this.getTestContext().TestDir, \"Out\\Dots\").toString(), \"*.dot\")", output);
     }
 }

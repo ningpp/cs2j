@@ -431,6 +431,8 @@ public class ConnectionToGraphNullArgumentRewriteTests
         Assert.Contains("count = stream.read(b, 0, number);", output);
         Assert.Contains("} catch (IOException e) {", output);
         Assert.Contains("throw new RuntimeException(e);", output);
+        Assert.Contains("if (count < 0) {", output);
+        Assert.Contains("return 0;", output);
     }
 
     [Fact]

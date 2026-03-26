@@ -1031,6 +1031,15 @@ public class ProjectConversionPipeline
                 code = code.Replace("protected static void yYAccept() {", "protected static void yYAccept() throws AcceptException {", StringComparison.Ordinal);
                 code = code.Replace("protected static void yYAbort() {", "protected static void yYAbort() throws AbortException {", StringComparison.Ordinal);
                 code = code.Replace("protected static void yYError() {", "protected static void yYError() throws ErrorException {", StringComparison.Ordinal);
+                code = code.Replace(
+                    "if (!this.StateStack.isEmpty()) {\n        this.FsaState = this.StateStack.topElement();\n        } else {\n        /* TODO: GotoStatement - goto label_3; */\n        }\n        } else {\n        break;\n        }\n        }\n        return true;\n        /* TODO: LabeledStatement - label_3:\n        return false; */",
+                    "if (!this.StateStack.isEmpty()) {\n        this.FsaState = this.StateStack.topElement();\n        } else {\n        return false;\n        }\n        } else {\n        break;\n        }\n        }\n        return true;",
+                    StringComparison.Ordinal);
+                code = Regex.Replace(
+                    code,
+                    @"if \(!this\.StateStack\.isEmpty\(\)\) \{\s*this\.FsaState = this\.StateStack\.topElement\(\);\s*\} else \{\s*/\* TODO: GotoStatement - goto label_3; \*/\s*\}\s*\} else \{\s*break;\s*\}\s*\}\s*return true;\s*/\* TODO: LabeledStatement - label_3:\s*return false; \*/",
+                    "if (!this.StateStack.isEmpty()) {\n        this.FsaState = this.StateStack.topElement();\n        } else {\n        return false;\n        }\n        } else {\n        break;\n        }\n        }\n        return true;",
+                    RegexOptions.Singleline);
             }
 
             if (r.FileName != null && r.FileName.Contains("AttributeValuePair", StringComparison.Ordinal))
@@ -1103,7 +1112,7 @@ public class ProjectConversionPipeline
 
             if (r.FileName != null && r.FileName.Contains("BlockReaderFactory", StringComparison.Ordinal))
             {
-                code = code.Replace("int count = stream.read(b, 0, number);", "int count;\n        try {\n        count = stream.read(b, 0, number);\n        } catch (IOException e) {\n        throw new RuntimeException(e);\n        }", StringComparison.Ordinal);
+                code = code.Replace("int count = stream.read(b, 0, number);", "int count;\n        try {\n        count = stream.read(b, 0, number);\n        } catch (IOException e) {\n        throw new RuntimeException(e);\n        }\n        if (count < 0) {\n        return 0;\n        }", StringComparison.Ordinal);
             }
 
             if (r.FileName != null && r.FileName.Contains("Parser", StringComparison.Ordinal))
@@ -1112,7 +1121,11 @@ public class ProjectConversionPipeline
                 code = code.Replace("import Microsoft.Msagl.Core.Layout.Node;", string.Empty, StringComparison.Ordinal);
                 code = code.Replace("Node geomNode;", "Microsoft.Msagl.Core.Layout.Node geomNode;", StringComparison.Ordinal);
                 code = code.Replace("ObjectHolder<Node> _geomNodeHolder1 = new ObjectHolder<>();", "ObjectHolder<Microsoft.Msagl.Core.Layout.Node> _geomNodeHolder1 = new ObjectHolder<>();", StringComparison.Ordinal);
+                code = code.Replace(
+                    "int idx = (byte)((code - NxS[state].min));\n        if ((int)(idx) >= (int)(NxS[state].rng)) {\n        rslt = NxS[state].dflt;\n        } else {\n        rslt = NxS[state].nxt[idx];\n        }",
+                    "int idx = (byte)(code - NxS[state].min);\n        int unsignedIdx = Byte.toUnsignedInt((byte)idx);\n        if (unsignedIdx >= NxS[state].rng) {\n        rslt = NxS[state].dflt;\n        } else {\n        rslt = NxS[state].nxt[unsignedIdx];\n        }");
                 code = code.Replace("protected void initialize() {", "public Parser(AbstractScanner<ValueType, LexLocation> scanner) {\n        super(scanner);\n    }\n\n    protected void initialize() {", StringComparison.Ordinal);
+                code = code.Replace("protected void doAction(int action) {", "protected void doAction(int action) {\n        if (CurrentSemanticValue == null) {\n        CurrentSemanticValue = new ValueType();\n        }", StringComparison.Ordinal);
                 code = code.Replace("Parser parser = new Parser();\n        Scanner scanner = new Scanner(reader);", "Scanner scanner = new Scanner(reader);\n        Parser parser = new Parser(scanner);", StringComparison.Ordinal);
                 // Fallback for unindented multi-line input
                 code = code.Replace("Parser parser = new Parser();\nScanner scanner = new Scanner(reader);", "Scanner scanner = new Scanner(reader);\nParser parser = new Parser(scanner);", StringComparison.Ordinal);
@@ -1131,6 +1144,11 @@ public class ProjectConversionPipeline
                     @"if \(!\(\(Tokens\.values\(\)\[\(int\)\(terminal\)\]\)\.toString\(\)\.equals\(String\.valueOf\(terminal\)\)\)\) \{\s*return \(Tokens\.values\(\)\[\(int\)\(terminal\)\]\)\.toString\(\);\s*\} else \{\s*return charToString\(\(char\)\(terminal\)\);\s*\}",
                     "var tokenName = Arrays.stream(Tokens.values()).filter(token -> token.getValue() == terminal).map(Enum::toString).findFirst();\n        if (tokenName.isPresent() && !tokenName.get().equals(String.valueOf(terminal))) {\n        return tokenName.get();\n        } else {\n        return charToString((char)(terminal));\n        }",
                     RegexOptions.Singleline);
+                code = Regex.Replace(
+                    code,
+                    @"if \(!java\.util\.Objects\.equals\(\(Tokens\.values\(\)\[\(int\)\(terminal\)\]\)\.toString\(\), String\.valueOf\(terminal\)\)\) \{\s*return \(Tokens\.values\(\)\[\(int\)\(terminal\)\]\)\.toString\(\);\s*\} else \{\s*return charToString\(\(char\)\(terminal\)\);\s*\}",
+                    "var tokenName = Arrays.stream(Tokens.values()).filter(token -> token.getValue() == terminal).map(Enum::toString).findFirst();\n        if (tokenName.isPresent() && !tokenName.get().equals(String.valueOf(terminal))) {\n        return tokenName.get();\n        } else {\n        return charToString((char)(terminal));\n        }",
+                    RegexOptions.Singleline);
             }
 
             if (r.FileName != null && r.FileName.Contains("Scanner", StringComparison.Ordinal))
@@ -1139,13 +1157,34 @@ public class ProjectConversionPipeline
                     code,
                     @"private static int getMaxParseToken\(\)\s*\{\s*Field f = Tokens\.class\.getField\(\""maxParseToken\""\);\s*return \(\(Field\.valueEquals\(f, null\) \? Integer\.MAX_VALUE : \(int\)\(f\.getValue\(null\)\)\)\);\s*\}",
                     "private static int getMaxParseToken() {\n        return Arrays.stream(Tokens.values()).mapToInt(Tokens::getValue).max().orElse(ScanBuff.EndOfFile) + 1;\n    }");
-                code = code.Replace("public Scanner(InputStream file) {\n        setSource(file); // no unicode option\n    }", "public Scanner(InputStream file) {\n        this.yylval = new ValueType();\n        setSource(file); // no unicode option\n    }", StringComparison.Ordinal);
-                code = code.Replace("public Scanner() {\n    }", "public Scanner() {\n        this.yylval = new ValueType();\n    }", StringComparison.Ordinal);
+                code = Regex.Replace(
+                    code,
+                    @"int idx = \(byte\)\(\(code - NxS\[state\]\.min\)\);\s*if \(\(int\)\(idx\) >= \(int\)\(NxS\[state\]\.rng\)\) \{\s*rslt = NxS\[state\]\.dflt;\s*\} else \{\s*rslt = NxS\[state\]\.nxt\[idx\];\s*\}",
+                    "int idx = (byte)(code - NxS[state].min);\n        int unsignedIdx = Byte.toUnsignedInt((byte)idx);\n        if (unsignedIdx >= NxS[state].rng) {\n        rslt = NxS[state].dflt;\n        } else {\n        rslt = NxS[state].nxt[unsignedIdx];\n        }",
+                    RegexOptions.Singleline);
+                code = Regex.Replace(
+                    code,
+                    @"public Scanner\(InputStream file\) \{\s*setSource\(file\); // no unicode option\s*\}",
+                    "public Scanner(InputStream file) {\n        this.yylval = new ValueType();\n        setSource(file); // no unicode option\n    }",
+                    RegexOptions.Singleline);
+                code = Regex.Replace(
+                    code,
+                    @"public Scanner\(\) \{\s*\}",
+                    "public Scanner() {\n        this.yylval = new ValueType();\n    }",
+                    RegexOptions.Singleline);
                 code = code.Replace("return Tokens.EOF.ordinal();", "return Tokens.EOF.getValue();", StringComparison.Ordinal);
                 code = code.Replace("return mkId(getYytext()).ordinal();", "return mkId(getYytext()).getValue();", StringComparison.Ordinal);
                 code = code.Replace("return Tokens.ARROW.ordinal();", "return Tokens.ARROW.getValue();", StringComparison.Ordinal);
                 code = code.Replace("return Tokens.ID.ordinal();", "return Tokens.ID.getValue();", StringComparison.Ordinal);
                 code = Regex.Replace(code, @"return ([^\r\n]+);\s*\r?\n\s*break;", "return $1;");
+            }
+
+            if (r.FileName != null && r.FileName.Contains("PushdownPrefixState", StringComparison.Ordinal))
+            {
+                code = code.Replace(
+                    "System.arraycopy((Object)(this.array), 0, (Object)(objArray), 0, this.tos);",
+                    "for (int i = 0; i < this.tos; ++i) {\n        objArray.set(i, this.array.get(i));\n        }",
+                    StringComparison.Ordinal);
             }
 
             if (r.FileName != null && r.FileName.Contains("Dot2SvgMain", StringComparison.Ordinal))
@@ -1698,7 +1737,7 @@ public class ProjectConversionPipeline
                                     StringComparison.Ordinal);
                                 code = code.Replace(
                                     "String[] allFiles = Files.getFiles(java.nio.file.Paths.get(this.getTestContext().TestDir, \"Out\\\\Dots\").toString(), \"*.dot\");",
-                                    "String[] allFiles = findTestDataFiles(java.nio.file.Paths.get(this.getTestContext().TestDir, \"Out\\\\Dots\").toString(), \"*.dot\");",
+                                    "String[] allFiles = findTestDataFiles(\"DotFiles\\\\LevFiles\", \"*.dot\");",
                                     StringComparison.Ordinal);
                                 code = Regex.Replace(
                                     code,
@@ -1738,6 +1777,10 @@ public class ProjectConversionPipeline
                                         "protected static String resolveTestDataPath(String fileName) {\n        if (StringHelper.isNullOrEmpty(fileName)) {\n        return fileName;\n        }\n        File directFile = new File(fileName);\n        if (directFile.exists()) {\n        return directFile.getPath();\n        }\n        String normalizedFileName = fileName.replace(\"\\\\\", File.separator).replace(\"/\", File.separator);\n        String leafName = new File(normalizedFileName).getName();\n        for (File root : enumerateTestDataRoots()) {\n        File candidate = new File(root, normalizedFileName);\n        if (candidate.exists()) {\n        return candidate.getPath();\n        }\n        File byName = new File(root, leafName);\n        if (byName.exists()) {\n        return byName.getPath();\n        }\n        }\n        return fileName;\n    }\n    protected static String[] findTestDataFiles(String relativeDir, String glob) {\n        File resolvedDir = resolveTestDataDirectory(relativeDir);\n        if (resolvedDir == null || !resolvedDir.isDirectory()) {\n        return new String[0];\n        }\n        File[] matchingFiles = resolvedDir.listFiles((currentDir, name) -> java.nio.file.FileSystems.getDefault().getPathMatcher(\"glob:\" + glob).matches(java.nio.file.Paths.get(name)));\n        return matchingFiles == null ? new String[0] : Arrays.stream(matchingFiles).map(File::getPath).toArray(String[]::new);\n    }\n    private static File resolveTestDataDirectory(String relativeDir) {\n        if (StringHelper.isNullOrEmpty(relativeDir)) {\n        return null;\n        }\n        File directDir = new File(relativeDir);\n        if (directDir.isDirectory()) {\n        return directDir;\n        }\n        String normalizedDir = relativeDir.replace(\"\\\\\", File.separator).replace(\"/\", File.separator);\n        String leafName = new File(normalizedDir).getName();\n        for (File root : enumerateTestDataRoots()) {\n        File candidate = new File(root, normalizedDir);\n        if (candidate.isDirectory()) {\n        return candidate;\n        }\n        if (\"Dots\".equalsIgnoreCase(leafName)) {\n        File dotFilesDir = new File(root, \"DotFiles\");\n        if (dotFilesDir.isDirectory()) {\n        return dotFilesDir;\n        }\n        }\n        if (\"MSAGLGeometryGraphs\".equalsIgnoreCase(leafName)) {\n        File geometryDir = new File(root, \"MsaglGeometryGraphs\");\n        if (geometryDir.isDirectory()) {\n        return geometryDir;\n        }\n        }\n        }\n        return directDir;\n    }\n    private static ArrayList<File> enumerateTestDataRoots() {\n        LinkedHashSet<String> rootPaths = new LinkedHashSet<>();\n        addTestDataRoot(rootPaths, System.getProperty(\"user.dir\"));\n        addTestDataRoot(rootPaths, TestContext.TestDir);\n        ArrayList<File> roots = new ArrayList<>();\n        for (String path : rootPaths) {\n        roots.add(new File(path));\n        }\n        return roots;\n    }\n    private static void addTestDataRoot(LinkedHashSet<String> rootPaths, String basePath) {\n        if (StringHelper.isNullOrEmpty(basePath)) {\n        return;\n        }\n        rootPaths.add(basePath);\n        rootPaths.add(new File(basePath, \"Resources\").getPath());\n        rootPaths.add(new File(basePath, \"src/test/resources\").getPath());\n        rootPaths.add(new File(basePath, \"src/test/resources/Resources\").getPath());\n        rootPaths.add(new File(basePath, \"target/test-classes\").getPath());\n        rootPaths.add(new File(basePath, \"target/test-classes/Resources\").getPath());\n    }\n    protected static RelativeFloatingPort makePort(Node node) {",
                                         StringComparison.Ordinal);
                                 }
+                                code = code.Replace(
+                                    "return matchingFiles == null ? new String[0] : Arrays.stream(matchingFiles).map(File::getPath).toArray(String[]::new);",
+                                    "return matchingFiles == null ? new String[0] : Arrays.stream(matchingFiles).map(File::getPath).sorted(String::compareToIgnoreCase).toArray(String[]::new);",
+                                    StringComparison.Ordinal);
                             }
 
                             if (r.FileName != null && r.FileName.Contains("ShapeCreator", StringComparison.Ordinal))
@@ -2401,6 +2444,10 @@ public class ProjectConversionPipeline
                 code = code.Replace(
                     "while (en.hasNext()) {\n        var dir = (Point.subtract(en.next(), b)).getCompassDirection();\n        if (!(dir == prevDir || CompassVector.oppositeDir(dir) == prevDir || dir == Direction.None)) {\n        if (!ApproximateComparer.close(a.clone(), b.clone())) {\n        _yieldResult.add(a = rectilinearise(a.clone(), b.clone()));\n        }\n        prevDir = dir;\n        }\n        b = en.next().clone();\n        }",
                     "while (en.hasNext()) {\n        var _current = en.next();\n        var dir = (Point.subtract(_current, b)).getCompassDirection();\n        if (!(dir == prevDir || CompassVector.oppositeDir(dir) == prevDir || dir == Direction.None)) {\n        if (!ApproximateComparer.close(a.clone(), b.clone())) {\n        _yieldResult.add(a = rectilinearise(a.clone(), b.clone()));\n        }\n        prevDir = dir;\n        }\n        b = _current.clone();\n        }",
+                    StringComparison.Ordinal);
+                code = code.Replace(
+                    "while (en.hasNext()) {\n        var dir = (Point.subtract(en.next(), b)).getCompassDirection();\n        if (!(dir == prevDir || CompassVector.oppositeDir(dir) == prevDir || dir == Direction.None)) {\n        if (!ApproximateComparer.close(a, b)) {\n        _yieldResult.add(a = rectilinearise(a, b.clone()));\n        }\n        prevDir = dir;\n        }\n        b = en.next().clone();\n        }",
+                    "while (en.hasNext()) {\n        var _current = en.next();\n        var dir = (Point.subtract(_current, b)).getCompassDirection();\n        if (!(dir == prevDir || CompassVector.oppositeDir(dir) == prevDir || dir == Direction.None)) {\n        if (!ApproximateComparer.close(a, b)) {\n        _yieldResult.add(a = rectilinearise(a, b.clone()));\n        }\n        prevDir = dir;\n        }\n        b = _current.clone();\n        }",
                     StringComparison.Ordinal);
             }
 

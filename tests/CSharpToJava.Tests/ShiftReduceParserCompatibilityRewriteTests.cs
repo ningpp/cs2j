@@ -47,6 +47,25 @@ public class ShiftReduceParserCompatibilityRewriteTests
             protected static void yYError() {
             throw new ErrorException();
             }
+            private boolean findErrorRecoveryState() {
+            while (true) {
+            if (this.FsaState.ParserTable == null || !this.FsaState.ParserTable.containsKey(this.errorToken) || this.FsaState.ParserTable.get(this.errorToken) <= 0) {
+            this.StateStack.pop();
+            this.valueStack.pop();
+            this.getLocationStack().pop();
+            if (!this.StateStack.isEmpty()) {
+            this.FsaState = this.StateStack.topElement();
+            } else {
+            /* TODO: GotoStatement - goto label_3; */
+            }
+            } else {
+            break;
+            }
+            }
+            return true;
+            /* TODO: LabeledStatement - label_3:
+            return false; */
+            }
             """;
 
         var results = new List<ConversionResult>
@@ -99,5 +118,8 @@ public class ShiftReduceParserCompatibilityRewriteTests
         Assert.Contains("protected static void yYAccept() throws AcceptException {", output);
         Assert.Contains("protected static void yYAbort() throws AbortException {", output);
         Assert.Contains("protected static void yYError() throws ErrorException {", output);
+        Assert.Contains("return false;", output);
+        Assert.DoesNotContain("TODO: GotoStatement - goto label_3", output);
+        Assert.DoesNotContain("TODO: LabeledStatement - label_3", output);
     }
 }

@@ -974,7 +974,7 @@ class Program
                 StringComparison.Ordinal);
             generatedCode = generatedCode.Replace(
                 "String[] allFiles = Files.getFiles(java.nio.file.Paths.get(this.getTestContext().TestDir, \"Out\\\\Dots\").toString(), \"*.dot\");",
-                "String[] allFiles = findTestDataFiles(java.nio.file.Paths.get(this.getTestContext().TestDir, \"Out\\\\Dots\").toString(), \"*.dot\");",
+                "String[] allFiles = findTestDataFiles(\"DotFiles\\\\LevFiles\", \"*.dot\");",
                 StringComparison.Ordinal);
             generatedCode = Regex.Replace(
                 generatedCode,

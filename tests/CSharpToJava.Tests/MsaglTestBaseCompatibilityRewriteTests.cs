@@ -38,6 +38,7 @@ public class MsaglTestBaseCompatibilityRewriteTests
         Assert.Contains("String[] dotFiles = findTestDataFiles(geometryGraphFileName, \"*.dot\");", output);
         Assert.Contains("protected static String resolveTestDataPath(String fileName)", output);
         Assert.Contains("protected static String[] findTestDataFiles(String relativeDir, String glob)", output);
+        Assert.Contains("sorted(String::compareToIgnoreCase)", output);
         Assert.Contains("new File(basePath, \"src/test/resources/Resources\").getPath()", output);
     }
 }
