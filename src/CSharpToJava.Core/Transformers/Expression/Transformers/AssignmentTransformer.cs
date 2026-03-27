@@ -164,13 +164,8 @@ public class AssignmentTransformer : IExpressionTransformer
             var indexerSymbol = context.SemanticModel?.GetSymbolInfo(ela).Symbol as IPropertySymbol;
             var containerExprType = context.SemanticModel?.GetTypeInfo(ela.Expression).Type;
             bool isArrayElement = containerExprType is IArrayTypeSymbol;
-            // Type parameter arrays (T[]) are mapped to List<T> in Java; treat as indexer
-            bool isTypeParamArray = containerExprType is IArrayTypeSymbol ats
-                && ats.Rank == 1
-                && (ats.ElementType.TypeKind == TypeKind.TypeParameter
-                    || ExpressionTransformerHelpers.IsExpressionFromTypeParameterArrayReturn(ela.Expression, context, requireActualTypeParam: true));
-            bool isIndexerAssignment = (!isArrayElement || isTypeParamArray)
-                && (indexerSymbol?.IsIndexer == true || indexerSymbol == null || isTypeParamArray);
+            bool isIndexerAssignment = !isArrayElement
+                && (indexerSymbol?.IsIndexer == true || indexerSymbol == null);
 
             if (isIndexerAssignment)
             {
@@ -184,11 +179,7 @@ public class AssignmentTransformer : IExpressionTransformer
                     var containerType = (ITypeSymbol?)indexerSymbol?.ContainingType
                         ?? context.SemanticModel?.GetTypeInfo(ela.Expression).Type;
                     string method = "set"; // default for indexers
-                    if (isTypeParamArray)
-                    {
-                        method = "set"; // Type parameter arrays → List<T>.set(idx, value)
-                    }
-                    else if (containerType is INamedTypeSymbol namedContainer)
+                    if (containerType is INamedTypeSymbol namedContainer)
                     {
                         var fullName = namedContainer.OriginalDefinition.ToDisplayString();
                         bool isDictionaryContainer = IsDictionaryLikeContainer(namedContainer);

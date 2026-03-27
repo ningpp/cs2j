@@ -377,17 +377,10 @@ public class ArgumentTransformer
 
         // ── Case 1: Array argument → parameter expects IEnumerable/ICollection/IList ──
         // In Java, arrays don't implement Iterable or Collection, so we must wrap.
-        // Skip if the array is a type parameter array (already List<T> in Java).
+        // Wrap array arguments when the parameter expects IEnumerable/ICollection interface.
         if (argType is IArrayTypeSymbol argArrayType && paramType is INamedTypeSymbol paramNamed
             && IsEnumerableOrCollectionInterface(paramNamed))
         {
-            // Type parameter arrays are already List<T> in Java - no wrapping needed
-            if (argArrayType.Rank == 1 && argArrayType.ElementType.TypeKind == TypeKind.TypeParameter)
-                return transformedExpr;
-            if (argArrayType.Rank == 1
-                && ExpressionTransformerHelpers.IsExpressionFromTypeParameterArrayReturn(arg.Expression, context, requireActualTypeParam: true))
-                return transformedExpr;
-
             // Primitive arrays (int[], long[], double[]) need boxing for generics
             if (argArrayType.ElementType.IsValueType && IsPrimitiveSpecialType(argArrayType.ElementType.SpecialType))
             {
@@ -397,26 +390,6 @@ public class ArgumentTransformer
             }
 
             // Reference type arrays: Arrays.asList() works directly
-            context.AddImport("java.util.Arrays");
-            return $"Arrays.asList({transformedExpr})";
-        }
-
-        // ── Case 1b: Array argument → parameter type was originally T[] (type parameter array) ──
-        // Methods with T[] parameters are converted to List<T> in Java when T is a type parameter.
-        // Callers with concrete arrays (e.g., Polyline[]) need wrapping.
-        // Skip if the argument itself is a type parameter array (already List<T> in Java),
-        // or if the argument comes from a method/variable that originally returned T[].
-        if (argType is IArrayTypeSymbol argArrForListParam
-            && argArrForListParam.Rank == 1
-            && targetParam.OriginalDefinition?.Type is IArrayTypeSymbol origParamArr
-            && origParamArr.ElementType.TypeKind == TypeKind.TypeParameter)
-        {
-            // If the argument is itself a type parameter array, it's already List<T> in Java
-            if (argArrForListParam.ElementType.TypeKind == TypeKind.TypeParameter)
-                return transformedExpr;
-            // If the argument comes from a method/property returning T[] originally, it's already List<T>
-            if (ExpressionTransformerHelpers.IsExpressionFromTypeParameterArrayReturn(arg.Expression, context, requireActualTypeParam: true))
-                return transformedExpr;
             context.AddImport("java.util.Arrays");
             return $"Arrays.asList({transformedExpr})";
         }

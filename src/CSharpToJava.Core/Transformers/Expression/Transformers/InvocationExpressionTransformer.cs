@@ -555,7 +555,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         }
 
         // Instance List<T>.RemoveRange(startIndex, count)
-        // Use bounds-clamped indices so generated Java does not throw on transient index drift.
+        // C# RemoveRange(index, count) → Java subList(index, index + count).clear()
         if (originalMethodName == "RemoveRange"
             && node.ArgumentList.Arguments.Count == 2
             && methodSymbol is { IsExtensionMethod: false }
@@ -563,7 +563,9 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         {
             var startArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var countArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-            return $"{{ int _from = Math.max(0, Math.min({startArg}, {receiver}.size())); int _to = Math.max(_from, Math.min({startArg} + {countArg}, {receiver}.size())); {receiver}.subList(_from, _to).clear(); }}";
+            // Wrap complex expressions in parentheses for the addition
+            var countStr = countArg.Contains(' ') ? $"({countArg})" : countArg;
+            return $"{receiver}.subList({startArg}, {startArg} + {countStr}).clear()";
         }
 
         // Instance List<T>.Reverse() mutates the list in-place.
@@ -624,13 +626,6 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             var receiverType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
             if (receiverType is IArrayTypeSymbol anyArrayType)
             {
-                // Type parameter arrays are mapped to List<T>; use .isEmpty()
-                if (anyArrayType.Rank == 1 && anyArrayType.ElementType.TypeKind == TypeKind.TypeParameter)
-                    return $"!{receiver}.isEmpty()";
-                // Also check if this array comes from a method returning T[]
-                if (anyArrayType.Rank == 1
-                    && ExpressionTransformerHelpers.IsExpressionFromTypeParameterArrayReturn(memberAccess.Expression, context))
-                    return $"!{receiver}.isEmpty()";
                 context.AddImport("java.util.Arrays");
                 return $"Arrays.stream({receiver}).iterator().hasNext()";
             }
@@ -696,21 +691,6 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 var srcArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
                 var destArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
                 var lengthArg = facade.Transform(node.ArgumentList.Arguments[2].Expression, context);
-                // Check if source/dest are type parameter arrays (now List<T>)
-                var srcType3 = context.SemanticModel?.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type;
-                bool isSrcTypeParamArray3 = srcType3 is IArrayTypeSymbol arr3 && arr3.Rank == 1
-                    && (arr3.ElementType.TypeKind == TypeKind.TypeParameter
-                        || ExpressionTransformerHelpers.IsExpressionFromTypeParameterArrayReturn(node.ArgumentList.Arguments[0].Expression, context, requireActualTypeParam: true));
-                // Fallback: GetTypeInfo may fail when GetSymbolInfo still resolves the local
-                if (!isSrcTypeParamArray3 && context.SemanticModel != null)
-                {
-                    var srcSym3 = context.SemanticModel.GetSymbolInfo(node.ArgumentList.Arguments[0].Expression).Symbol;
-                    if (srcSym3 is ILocalSymbol ls3 && ls3.Type is IArrayTypeSymbol la3
-                        && la3.Rank == 1 && la3.ElementType.TypeKind == TypeKind.TypeParameter)
-                        isSrcTypeParamArray3 = true;
-                }
-                if (isSrcTypeParamArray3)
-                    return $"for (int _i = 0; _i < {lengthArg}; _i++) {{ {destArg}.set(_i, {srcArg}.get(_i)); }}";
                 return $"System.arraycopy({srcArg}, 0, {destArg}, 0, {lengthArg})";
             }
 
@@ -719,21 +699,6 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             var destArg5 = facade.Transform(node.ArgumentList.Arguments[2].Expression, context);
             var destIndexArg5 = facade.Transform(node.ArgumentList.Arguments[3].Expression, context);
             var lengthArg5 = facade.Transform(node.ArgumentList.Arguments[4].Expression, context);
-            // Check if source/dest are type parameter arrays (now List<T>)
-            var srcType5 = context.SemanticModel?.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type;
-            bool isSrcTypeParamArray5 = srcType5 is IArrayTypeSymbol arr5 && arr5.Rank == 1
-                && (arr5.ElementType.TypeKind == TypeKind.TypeParameter
-                    || ExpressionTransformerHelpers.IsExpressionFromTypeParameterArrayReturn(node.ArgumentList.Arguments[0].Expression, context, requireActualTypeParam: true));
-            // Fallback: GetTypeInfo may fail when GetSymbolInfo still resolves the local
-            if (!isSrcTypeParamArray5 && context.SemanticModel != null)
-            {
-                var srcSym5 = context.SemanticModel.GetSymbolInfo(node.ArgumentList.Arguments[0].Expression).Symbol;
-                if (srcSym5 is ILocalSymbol ls5 && ls5.Type is IArrayTypeSymbol la5
-                    && la5.Rank == 1 && la5.ElementType.TypeKind == TypeKind.TypeParameter)
-                    isSrcTypeParamArray5 = true;
-            }
-            if (isSrcTypeParamArray5)
-                return $"for (int _i = 0; _i < {lengthArg5}; _i++) {{ {destArg5}.set({destIndexArg5} + _i, {srcArg5}.get({srcIndexArg5} + _i)); }}";
             return $"System.arraycopy({srcArg5}, {srcIndexArg5}, {destArg5}, {destIndexArg5}, {lengthArg5})";
         }
 
@@ -906,12 +871,11 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             }
         }
 
-        // Fix: Math.Round(value, digits) → BigDecimal.valueOf(value).setScale(digits, RoundingMode.HALF_EVEN).doubleValue()
+        // Fix: Math.Round(value, digits) → BigDecimal.valueOf(value).setScale(digits, RoundingMode.HALF_UP).doubleValue()
         // Java's Math.round() only accepts exactly 1 argument; there is no two-argument overload.
         // Directly mapping C# Math.Round(x, n) → Math.round(x, n) causes a Java compile error:
         //   "no suitable method found for round(double,int)".
         // Use BigDecimal.setScale() which is the idiomatic Java equivalent.
-        // C# Math.Round defaults to MidpointRounding.ToEven (banker's rounding) → HALF_EVEN.
         //
         // Fix: Math.Round(value) (1-arg) → (double)Math.round(value)
         // Java Math.round(double) returns long, but C# Math.Round returns double.
@@ -927,12 +891,12 @@ public class InvocationExpressionTransformer : IExpressionTransformer
 
             if (argCount == 2)
             {
-                // Math.Round(value, digits) → BigDecimal.valueOf(value).setScale(digits, RoundingMode.HALF_EVEN).doubleValue()
+                // Math.Round(value, digits) → BigDecimal.valueOf(value).setScale(digits, RoundingMode.HALF_UP).doubleValue()
                 context.AddImport("java.math.BigDecimal");
                 context.AddImport("java.math.RoundingMode");
                 var valArg    = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
                 var digitsArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-                return $"BigDecimal.valueOf({valArg}).setScale({digitsArg}, RoundingMode.HALF_EVEN).doubleValue()";
+                return $"BigDecimal.valueOf({valArg}).setScale({digitsArg}, RoundingMode.HALF_UP).doubleValue()";
             }
 
             if (argCount == 1)
@@ -2817,9 +2781,8 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         if (elementType.TypeKind == TypeKind.TypeParameter)
         {
             // Java cannot create typed arrays for type parameters due to erasure;
-            // collect to List<T> instead.
-            context.AddImport("java.util.stream.Collectors");
-            return $"{receiver}.collect(Collectors.toList())";
+            // use lambda-based toArray with unchecked cast: toArray(size -> (T[]) new Object[size])
+            return $"{receiver}.toArray(size -> ({javaType}[]) new Object[size])";
         }
         if (!string.IsNullOrEmpty(javaType) && javaType != "Object")
         {
@@ -2845,9 +2808,9 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         if (elementType.TypeKind == TypeKind.TypeParameter)
         {
             // Java cannot create typed arrays for type parameters due to erasure;
-            // return a new ArrayList copy instead.
-            context.AddImport("java.util.ArrayList");
-            return $"new ArrayList<>({receiver})";
+            // use lambda-based toArray with unchecked cast
+            var javaTypeParam = context.MapType(elementType);
+            return $"{receiver}.stream().toArray(size -> ({javaTypeParam}[]) new Object[size])";
         }
         var javaType = context.MapType(elementType);
         if (!string.IsNullOrEmpty(javaType) && javaType != "Object")

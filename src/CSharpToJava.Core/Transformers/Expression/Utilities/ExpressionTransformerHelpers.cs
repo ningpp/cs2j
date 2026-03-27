@@ -298,20 +298,6 @@ public static class ExpressionTransformerHelpers
     {
         if (receiverType is IArrayTypeSymbol arrayType)
         {
-            // Type parameter arrays (T[]) are mapped to List<T> in Java; use .stream()
-            if (arrayType.Rank == 1 && arrayType.ElementType.TypeKind == TypeKind.TypeParameter)
-            {
-                return $"{receiverExpr}.stream()";
-            }
-
-            // Check if this array comes from a method/property whose ORIGINAL definition
-            // returned T[] (type parameter array). Such methods return List<T> in Java.
-            if (arrayType.Rank == 1 && receiverSyntaxNode != null
-                && IsExpressionFromTypeParameterArrayReturn(receiverSyntaxNode, context))
-            {
-                return $"{receiverExpr}.stream()";
-            }
-
             context.AddImport("java.util.Arrays");
             return boxPrimitiveArrayElements && arrayType.ElementType.IsValueType
                 ? $"Arrays.stream({receiverExpr}).boxed()"

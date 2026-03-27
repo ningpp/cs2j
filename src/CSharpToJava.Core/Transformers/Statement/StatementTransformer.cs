@@ -347,11 +347,6 @@ public class StatementTransformer : IStatementTransformer
             var exprType = context.SemanticModel.GetTypeInfo(stmt.Expression).Type;
             if (exprType is IArrayTypeSymbol { Rank: 1 } arrayType)
             {
-                // Type parameter arrays are already List<T> in Java, no wrapping needed
-                bool isAlreadyList = arrayType.ElementType.TypeKind == TypeKind.TypeParameter
-                    || ExpressionTransformerHelpers.IsExpressionFromTypeParameterArrayReturn(stmt.Expression, context, requireActualTypeParam: true);
-                if (!isAlreadyList)
-                {
                 // Check if the enclosing method's return type is IList<T>, ICollection<T>, or IEnumerable<T>
                 var enclosingMethod = stmt.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
                 ITypeSymbol? enclosingRetSym = null;
@@ -374,7 +369,6 @@ public class StatementTransformer : IStatementTransformer
                 {
                     expr = $"Arrays.asList({expr})";
                     context.AddImport("java.util.Arrays");
-                }
                 }
             }
 
@@ -643,7 +637,7 @@ public class StatementTransformer : IStatementTransformer
         // Both must appear BEFORE the if — the out values must be available regardless
         // of whether the condition is true or false (C# guarantees out params are set).
         string condPreamble = "";
-        string condPostBeforeIf = "";
+        string readBacks = "";
         string effectiveCondition = condition;
         if (context.HasPendingPreStatements)
         {
@@ -653,13 +647,32 @@ public class StatementTransformer : IStatementTransformer
         if (context.HasPendingPostStatements)
         {
             var post = context.DrainPostStatements();
-            // Always extract the condition to a temp variable and place out-param
-            // read-backs BEFORE the if — the out values must be available regardless
-            // of whether the condition is true or false.
-            var condTemp = context.GenerateSyntheticName("_ifCond");
-            condPostBeforeIf = $"var {condTemp} = {condition};\n"
-                + string.Join("\n", post.Select(s => s.TrimEnd(';') + ";")) + "\n";
-            effectiveCondition = condTemp;
+            // Split post-statements:
+            // - New variable declarations (e.g. "int n = _nHolder1.value") have a type before '='
+            //   → these are out-var read-backs, scoped to the then-body
+            // - Assignments to existing variables (e.g. "v = _vHolder1.value") have no type
+            //   → these must be available after the if, so extract condition to temp var
+            var bodyScoped = new List<string>();
+            var preIfScoped = new List<string>();
+            foreach (var s in post)
+            {
+                var eqIdx = s.IndexOf('=');
+                if (eqIdx > 0 && s.Substring(0, eqIdx).Trim().Contains(' '))
+                    bodyScoped.Add(s);
+                else
+                    preIfScoped.Add(s);
+            }
+            if (preIfScoped.Count > 0)
+            {
+                var condTemp = context.GenerateSyntheticName("_ifCond");
+                condPreamble += $"var {condTemp} = {condition};\n"
+                    + string.Join("\n", preIfScoped.Select(s => s.TrimEnd(';') + ";")) + "\n";
+                effectiveCondition = condTemp;
+            }
+            if (bodyScoped.Count > 0)
+            {
+                readBacks = string.Join("\n        ", bodyScoped.Select(s => s.TrimEnd(';') + ";")) + "\n        ";
+            }
         }
 
         var stmtTransformer = new StatementTransformer();
@@ -668,16 +681,16 @@ public class StatementTransformer : IStatementTransformer
         if (stmt.Statement is BlockSyntax block)
         {
             var bodyStr = TransformBlock(block, context);
-            thenBlock = $"{{\n        {bodyStr}\n    }}";
+            thenBlock = $"{{\n        {readBacks}{bodyStr}\n    }}";
         }
         else
         {
             var bodyStr = stmtTransformer.Transform(stmt.Statement, context).ToString("");
-            thenBlock = $"{{\n        {bodyStr}\n    }}";
+            thenBlock = $"{{\n        {readBacks}{bodyStr}\n    }}";
         }
 
         var result = new System.Text.StringBuilder();
-        result.Append($"{condPreamble}{condPostBeforeIf}if ({effectiveCondition}) {thenBlock}");
+        result.Append($"{condPreamble}if ({effectiveCondition}) {thenBlock}");
 
         if (stmt.Else != null)
         {
@@ -1536,12 +1549,7 @@ public class StatementTransformer : IStatementTransformer
                     var initTypeInfo = context.SemanticModel.GetTypeInfo(v.Initializer.Value);
                     if (initTypeInfo.Type is IArrayTypeSymbol arrayType)
                     {
-                        // Type parameter arrays are already List<T> in Java; skip wrapping
-                        bool isAlreadyListInit = arrayType.Rank == 1
-                            && (arrayType.ElementType.TypeKind == TypeKind.TypeParameter
-                                || ExpressionTransformerHelpers.IsExpressionFromTypeParameterArrayReturn(v.Initializer.Value, context, requireActualTypeParam: true));
-                        if (!isAlreadyListInit)
-                            initExpr = ObjectCreationTransformer.WrapArrayForCollectionArg(initExpr, arrayType, context);
+                        initExpr = ObjectCreationTransformer.WrapArrayForCollectionArg(initExpr, arrayType, context);
                     }
                 }
 

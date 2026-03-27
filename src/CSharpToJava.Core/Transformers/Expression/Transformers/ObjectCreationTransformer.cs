@@ -655,26 +655,24 @@ public class ObjectCreationTransformer : IExpressionTransformer
             rawElementType = elementType.Substring(0, genericArgStart);
 
         // Fix: Java doesn't allow creating arrays of type parameters (e.g., new T[n]).
-        // For single-dimension T[] arrays, use ArrayList<T> since T[] is mapped to List<T>.
-        // For multi-dimension/jagged arrays, fall back to (T[][]) new Object[n][] cast.
+        // Use (T[]) new Object[n] cast pattern for all type parameter array creation.
         bool isTypeParameterArray = elemSemType != null && elemSemType.TypeKind == TypeKind.TypeParameter;
         string? constrainedArrayElementType = elemSemType is ITypeParameterSymbol typeParameterSymbol
             ? GetConstrainedArrayElementType(typeParameterSymbol, context)
             : null;
 
-        // Single-dimension type parameter arrays → ArrayList<T>
+        // Single-dimension type parameter arrays → (T[]) new Object[n]
         if (isTypeParameterArray && sizes.Count == 1 && node.Initializer == null)
         {
-            context.AddImport("java.util.ArrayList");
             var sizeExpr = sizes[0];
+            var runtimeType = string.IsNullOrEmpty(constrainedArrayElementType) ? "Object" : constrainedArrayElementType;
             if (string.IsNullOrEmpty(sizeExpr) || sizeExpr == "0")
             {
-                return $"new ArrayList<{elementType}>()";
+                return $"({elementType}[]) new {runtimeType}[0]";
             }
             else
             {
-                context.AddImport("java.util.Collections");
-                return $"new ArrayList<{elementType}>(Collections.nCopies({sizeExpr}, null))";
+                return $"({elementType}[]) new {runtimeType}[{sizeExpr}]";
             }
         }
 
@@ -682,12 +680,11 @@ public class ObjectCreationTransformer : IExpressionTransformer
         if (isTypeParameterArray)
         {
             // For 2D jagged type parameter arrays (e.g. new T[n][]),
-            // the inner T[] is mapped to List<T>, so the result should be List<T>[].
-            // Generate: (List<elementType>[]) new List[n]
+            // use (T[][]) new Object[n][] with full rank brackets.
             if (sizes.Count == 2 && !string.IsNullOrEmpty(sizes[0]) && string.IsNullOrEmpty(sizes[1]))
             {
-                context.AddImport("java.util.List");
-                result.Append($"(List<{elementType}>[]) new List[{sizes[0]}]");
+                var runtimeType = string.IsNullOrEmpty(constrainedArrayElementType) ? "Object" : constrainedArrayElementType;
+                result.Append($"({elementType}[][]) new {runtimeType}[{sizes[0]}][]");
                 return result.ToString();
             }
 

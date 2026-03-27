@@ -105,8 +105,17 @@ public class ControlFlowTransformer : IExpressionTransformer
     private static string AdaptZeroArrayToEmptyIterable(string expr, ConversionContext context)
     {
         var t = expr.Trim();
+        // Match original zero-length array: new T[0]
         if (t.Contains("new ", StringComparison.Ordinal)
             && t.Contains("[0]", StringComparison.Ordinal))
+        {
+            context.AddImport("java.util.Collections");
+            return "Collections.emptyList()";
+        }
+
+        // Match already-converted empty ArrayList: new ArrayList<T>()
+        if (t.StartsWith("new ArrayList<", StringComparison.Ordinal)
+            && t.EndsWith(">()", StringComparison.Ordinal))
         {
             context.AddImport("java.util.Collections");
             return "Collections.emptyList()";
