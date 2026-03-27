@@ -1181,9 +1181,10 @@ public class ProjectConversionPipeline
 
             if (r.FileName != null && r.FileName.Contains("PushdownPrefixState", StringComparison.Ordinal))
             {
+                // Remove unnecessary (Object) casts from System.arraycopy call
                 code = code.Replace(
                     "System.arraycopy((Object)(this.array), 0, (Object)(objArray), 0, this.tos);",
-                    "for (int i = 0; i < this.tos; ++i) {\n        objArray.set(i, this.array.get(i));\n        }",
+                    "System.arraycopy(this.array, 0, objArray, 0, this.tos);",
                     StringComparison.Ordinal);
             }
 

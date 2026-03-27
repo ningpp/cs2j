@@ -806,18 +806,6 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             var copySourceType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
             if (copySourceType is IArrayTypeSymbol copyArr)
             {
-                // Type parameter arrays are mapped to List<T> in Java
-                if (copyArr.Rank == 1 && copyArr.ElementType.TypeKind == TypeKind.TypeParameter)
-                {
-                    return $"for (int _i = 0; _i < {receiver}.size(); _i++) {{ {destArrayArg}.set({destIndexArg} + _i, {receiver}.get(_i)); }}";
-                }
-                // Fallback: check via GetSymbolInfo for locals with type-parameter array type
-                var copySym = context.SemanticModel?.GetSymbolInfo(memberAccess.Expression).Symbol;
-                if (copySym is ILocalSymbol copyLocal && copyLocal.Type is IArrayTypeSymbol copyLocalArr
-                    && copyLocalArr.Rank == 1 && copyLocalArr.ElementType.TypeKind == TypeKind.TypeParameter)
-                {
-                    return $"for (int _i = 0; _i < {receiver}.size(); _i++) {{ {destArrayArg}.set({destIndexArg} + _i, {receiver}.get(_i)); }}";
-                }
                 return $"System.arraycopy({receiver}, 0, {destArrayArg}, {destIndexArg}, {receiver}.length)";
             }
             return $"System.arraycopy({receiver}.toArray(), 0, {destArrayArg}, {destIndexArg}, {receiver}.size())";

@@ -1520,12 +1520,13 @@ public class StatementTransformer : IStatementTransformer
                         // Skip if already converted by TransformLinqToArray (contains mapToDouble/mapToInt etc.)
                         && !initExpr.Contains(".mapToDouble(") && !initExpr.Contains(".mapToInt(") && !initExpr.Contains(".mapToLong("))
                     {
-                        // The method's T[] return is mapped to List<T> in Java; use .stream() instead of Arrays.stream()
+                        // The method returns T[] in Java (boxed array, e.g. Integer[]); use Arrays.stream() to unbox.
+                        context.AddImport("java.util.Arrays");
                         initExpr = javaType switch
                         {
-                            "int[]" => $"{initExpr}.stream().mapToInt(Integer::intValue).toArray()",
-                            "long[]" => $"{initExpr}.stream().mapToLong(Long::longValue).toArray()",
-                            "double[]" => $"{initExpr}.stream().mapToDouble(Double::doubleValue).toArray()",
+                            "int[]" => $"Arrays.stream({initExpr}).mapToInt(Integer::intValue).toArray()",
+                            "long[]" => $"Arrays.stream({initExpr}).mapToLong(Long::longValue).toArray()",
+                            "double[]" => $"Arrays.stream({initExpr}).mapToDouble(Double::doubleValue).toArray()",
                             _ => initExpr
                         };
                     }
