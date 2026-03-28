@@ -1367,21 +1367,6 @@ public class ProjectConversionPipeline
 
                 code = RewriteZipAnonymousRecordForeach(code);
 
-                if (!code.Contains("@Disabled(\"Converted ClusterTests hangs under Java translation\")", StringComparison.Ordinal))
-                {
-                    code = code.Replace(
-                        "public class ClusterTests",
-                        "@Disabled(\"Converted ClusterTests hangs under Java translation\")\npublic class ClusterTests",
-                        StringComparison.Ordinal);
-                }
-                if (code.Contains("nestedDeepTranslationTest", StringComparison.Ordinal)
-                    && !code.Contains("@Disabled(\"Converted ClusterTests.nestedDeepTranslationTest hangs under Java translation\")", StringComparison.Ordinal))
-                {
-                    code = code.Replace(
-                        "public void nestedDeepTranslationTest()",
-                        "@Disabled(\"Converted ClusterTests.nestedDeepTranslationTest hangs under Java translation\")\n    public void nestedDeepTranslationTest()",
-                        StringComparison.Ordinal);
-                }
             }
 
             if (r.FileName != null && r.FileName.Contains("ConvexHullTest", StringComparison.Ordinal))
@@ -1523,38 +1508,6 @@ public class ProjectConversionPipeline
                     StringComparison.Ordinal);
             }
 
-            if (r.FileName != null && r.FileName.Contains("OverlapRemovalFileTests", StringComparison.Ordinal))
-            {
-                // Disable OverlapRemovalFileTests – requires MSTest TestContext infrastructure not available in JUnit 5
-                if (!code.Contains("@Disabled", StringComparison.Ordinal))
-                {
-                    if (!code.Contains("import org.junit.jupiter.api.Disabled;", StringComparison.Ordinal))
-                    {
-                        code = code.Replace(
-                            "import org.junit.jupiter.api.Test;",
-                            "import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;",
-                            StringComparison.Ordinal);
-                    }
-                }
-
-                code = Regex.Replace(
-                    code,
-                    "var pathAndFileSpec = java\\.nio\\.file\\.Paths\\.get\\(getTestContext\\(\\)\\.DeploymentDirectory, \\\"Constraints(?:\\\\\\\\|\\\\)OverlapRemoval(?:\\\\\\\\|\\\\)Data\\\"\\)\\.toString\\(\\);",
-                    "var pathAndFileSpec = java.nio.file.Paths.get(getTestContext().DeploymentDirectory, \"Constraints\\\\OverlapRemoval\\\\Data\", fileName).toString();",
-                    RegexOptions.Singleline);
-            }
-
-            if (r.FileName != null && r.FileName.Contains("OverlapRemovalTests", StringComparison.Ordinal)
-                && !r.FileName.Contains("File", StringComparison.Ordinal))
-            {
-
-                code = Regex.Replace(
-                    code,
-                    "@BeforeAll\\s*public static void classInitialize\\(TestContext testContext\\)\\s*\\{",
-                    "@BeforeAll\npublic static void classInitialize() {\n        classInitialize(new TestContext());\n    }\n        public static void classInitialize(TestContext testContext) {",
-                    RegexOptions.Singleline);
-            }
-
             if (r.FileName != null && r.FileName.Contains("MsaglTestBase", StringComparison.Ordinal))
             {
                 // Fix: runningUnitTests defaults to false, causing dontShowTheDebugViewer() to return false
@@ -1566,79 +1519,6 @@ public class ProjectConversionPipeline
                 // Note: enumerateTestDataRoots and addTestDataRoot are injected in the later MsaglTestBase block
                 //       (around line 1860) — msagl.test.data.root support and MSAGLGeometryGraphs/DotFiles
                 //       subdirectory additions are embedded in the injection string itself.
-            }
-
-            if (r.FileName != null && r.FileName.Contains("IncrementalSugiyamaTests", StringComparison.Ordinal))
-            {
-                // Disable – depends on DOT file infrastructure not available in Java
-                if (!code.Contains("@Disabled", StringComparison.Ordinal))
-                {
-                    if (!code.Contains("import org.junit.jupiter.api.Disabled;", StringComparison.Ordinal))
-                    {
-                        code = code.Replace(
-                            "import org.junit.jupiter.api.Test;",
-                            "import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;",
-                            StringComparison.Ordinal);
-                    }
-                }
-            }
-
-            if (r.FileName != null && r.FileName.Contains("MinimumWidthHeightTests", StringComparison.Ordinal))
-            {
-                // Disable – depends on test output directory infrastructure not available in Java
-                if (!code.Contains("@Disabled", StringComparison.Ordinal))
-                {
-                    if (!code.Contains("import org.junit.jupiter.api.Disabled;", StringComparison.Ordinal))
-                    {
-                        code = code.Replace(
-                            "import org.junit.jupiter.api.Test;",
-                            "import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;",
-                            StringComparison.Ordinal);
-                    }
-                }
-            }
-
-            if (r.FileName != null && r.FileName.Contains("CurveTest", StringComparison.Ordinal))
-            {
-                code = code.Replace(
-                    "@Disabled(\"Converted CurveTest fails under Java translation\")\npublic class CurveTest",
-                    "public class CurveTest",
-                    StringComparison.Ordinal);
-            }
-
-            if (r.FileName != null && r.FileName.Contains("RandomBundlingTests", StringComparison.Ordinal))
-            {
-                // Disable – layout computation hangs under Java translation
-                if (!code.Contains("@Disabled", StringComparison.Ordinal))
-                {
-                    if (!code.Contains("import org.junit.jupiter.api.Disabled;", StringComparison.Ordinal))
-                    {
-                        code = code.Replace(
-                            "import org.junit.jupiter.api.Test;",
-                            "import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;",
-                            StringComparison.Ordinal);
-                    }
-                }
-            }
-
-            if (r.FileName != null && r.FileName.Contains("SplineRouterTests", StringComparison.Ordinal))
-            {
-                // Fix: routeEdges_CallsProgress uses captured lambda variable `_ratioComplete`
-                // The converter wraps the closure variable in a double[] but the assertion
-                // still uses the original `ratioComplete` (which never gets updated).
-                // The assertion must read _ratioComplete[0] instead.
-                code = code.Replace(
-                    "Assertions.assertEquals(1, ratioComplete, \"RouteEdges did not complete\");",
-                    "Assertions.assertEquals(1, _ratioComplete[0], \"RouteEdges did not complete\");",
-                    StringComparison.Ordinal);
-
-                // Fix: getGeomGraphFileName uses java.io.tmpdir as fallback when DeploymentDirectory is null
-                // (there's no VS deployment concept in JUnit). Use resolveTestDataPath instead so that
-                // the test data root configured via msagl.test.data.root is used.
-                code = Regex.Replace(
-                    code,
-                    @"String getGeomGraphFileName\(String graphName\) \{[^}]+\}",
-                    "String getGeomGraphFileName(String graphName) {\n        return resolveTestDataPath(graphName);\n    }");
             }
 
             // CollectionUtilities: add addToMapSet/addToMapHashSet overloads because the
@@ -2475,36 +2355,6 @@ public class ProjectConversionPipeline
                     @"Assertions\.assertTrue\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*>=\s*minSeparation\s*&&\s*\1\s*<=\s*maxSeparation\s*,",
                     "Assertions.assertTrue($1 + StickDelta >= minSeparation && $1 - StickDelta <= maxSeparation,",
                     RegexOptions.Singleline);
-            }
-
-            // Disable SugiyamaConstraintTests — constrained ordering hangs under Java translation
-            if (r.FileName != null && r.FileName.Contains("SugiyamaConstraintTests", StringComparison.Ordinal))
-            {
-                if (!code.Contains("@Disabled(\"Constrained ordering hangs under Java translation\")", StringComparison.Ordinal))
-                {
-                    if (!code.Contains("import org.junit.jupiter.api.Disabled;", StringComparison.Ordinal))
-                    {
-                        code = code.Replace(
-                            "import org.junit.jupiter.api.Test;",
-                            "import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;",
-                            StringComparison.Ordinal);
-                    }
-                }
-            }
-
-            // Disable SugiyamaEdgeLabelTests — requires DOT file infrastructure
-            if (r.FileName != null && r.FileName.Contains("SugiyamaEdgeLabelTests", StringComparison.Ordinal))
-            {
-                if (!code.Contains("@Disabled(\"Requires DOT file infrastructure\")", StringComparison.Ordinal))
-                {
-                    if (!code.Contains("import org.junit.jupiter.api.Disabled;", StringComparison.Ordinal))
-                    {
-                        code = code.Replace(
-                            "import org.junit.jupiter.api.Test;",
-                            "import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;",
-                            StringComparison.Ordinal);
-                    }
-                }
             }
 
             // Fix RectanglePacking.pack — C# MoveNext()/Current semantics vs Java iterator
