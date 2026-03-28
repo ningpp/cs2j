@@ -975,6 +975,26 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             }
         }
 
+        // System.Convert static methods → Java boxed-type equivalents (semantic-resolved path)
+        if (methodSymbol is { IsStatic: true }
+            && methodSymbol.ContainingType.ToDisplayString() == "System.Convert")
+        {
+            (receiver, methodName) = originalMethodName switch
+            {
+                "ToBoolean" => ("Boolean", "parseBoolean"),
+                "ToInt32"   => ("Integer", "parseInt"),
+                "ToInt64"   => ("Long", "parseLong"),
+                "ToDouble"  => ("Double", "parseDouble"),
+                "ToSingle"  => ("Float", "parseFloat"),
+                "ToInt16"   => ("Short", "parseShort"),
+                "ToByte"    => ("Byte", "parseByte"),
+                "ToString"  => node.ArgumentList.Arguments.Count >= 2
+                    ? ("Integer", "toString")
+                    : ("String", "valueOf"),
+                _ => (receiver, methodName)
+            };
+        }
+
         // Java cannot reference a static type receiver with a simple name when the current
         // class also has a member with the same name (e.g. field/property Point).
         // Apply this as a post-step for all static calls, even when receiver symbol lookup
@@ -1059,6 +1079,21 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 }
             }
 
+            // Console.Error.Write/WriteLine → System.err.print/println
+            // Console.Error is a TextWriter property; the format-arg wrapping at the
+            // println/print handler below covers multi-argument calls automatically.
+            if (methodName == originalMethodName
+                && syntacticReceiver is "Console.Error" or "System.Console.Error")
+            {
+                receiver = "System";
+                methodName = originalMethodName switch
+                {
+                    "Write" => "err.print",
+                    "WriteLine" => "err.println",
+                    _ => methodName
+                };
+            }
+
             if (methodName == originalMethodName && syntacticReceiver == "String")
             {
                 var stringMapped = context.TypeMappings.MapMethod("System.String", originalMethodName);
@@ -1082,6 +1117,27 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 }
             }
 
+            // System.Convert static methods → Java boxed-type parse/toString equivalents
+            if (methodName == originalMethodName
+                && syntacticReceiver is "Convert" or "System.Convert")
+            {
+                (receiver, methodName) = originalMethodName switch
+                {
+                    "ToBoolean" => ("Boolean", "parseBoolean"),
+                    "ToInt32"   => ("Integer", "parseInt"),
+                    "ToInt64"   => ("Long", "parseLong"),
+                    "ToDouble"  => ("Double", "parseDouble"),
+                    "ToSingle"  => ("Float", "parseFloat"),
+                    "ToInt16"   => ("Short", "parseShort"),
+                    "ToByte"    => ("Byte", "parseByte"),
+                    "ToChar"    => ("(char)", ""),        // handled as cast below
+                    "ToString"  => node.ArgumentList.Arguments.Count >= 2
+                        ? ("Integer", "toString")   // Convert.ToString(val, radix)
+                        : ("String", "valueOf"),     // Convert.ToString(val)
+                    _ => (receiver, methodName)
+                };
+            }
+
             // LINQ unresolved fallback: in large conversions Roslyn may fail to resolve
             // Enumerable.Where/Select, leaving raw method names that later map to invalid
             // List.filter/List.map. If receiver still has IEnumerable-like type info,
@@ -1093,21 +1149,39 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 var unresolvedLinqReceiverType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type;
                 if (ImplementsIEnumerable(unresolvedLinqReceiverType) || unresolvedLinqReceiverType is IArrayTypeSymbol)
                 {
-                    var unresolvedLinqReceiver = BuildStreamReceiverExpression(
-                        receiver,
-                        unresolvedLinqReceiverType,
-                        context,
-                        boxPrimitiveArrayElements: false,
-                        preserveGroupingValueStream: true,
-                        receiverSyntaxNode: memberAccess.Expression);
+                    // Skip .stream() injection if the receiver is already a stream pipeline
+                    // (e.g. chained unresolved LINQ: items.Where(...).Select(...))
+                    bool receiverAlreadyStream = IsReceiverLinqExtension(memberAccess.Expression, context)
+                        || ReceiverLooksLikeStream(receiver);
+
+                    var unresolvedLinqReceiver = receiverAlreadyStream
+                        ? receiver
+                        : BuildStreamReceiverExpression(
+                            receiver,
+                            unresolvedLinqReceiverType,
+                            context,
+                            boxPrimitiveArrayElements: false,
+                            preserveGroupingValueStream: true,
+                            receiverSyntaxNode: memberAccess.Expression);
 
                     var unresolvedArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                    if (originalMethodName == "Where")
+
+                    // Add .collect() terminal when this is the outermost expression in the chain
+                    // (not used as a receiver for another method call like .ToList() or .Select())
+                    bool needsTerminal = node.Parent is not MemberAccessExpressionSyntax;
+                    var terminal = "";
+                    if (needsTerminal)
                     {
-                        return $"{unresolvedLinqReceiver}.filter({unresolvedArg})";
+                        context.AddImport("java.util.stream.Collectors");
+                        terminal = ".collect(Collectors.toList())";
                     }
 
-                    return $"{unresolvedLinqReceiver}.map({unresolvedArg})";
+                    if (originalMethodName == "Where")
+                    {
+                        return $"{unresolvedLinqReceiver}.filter({unresolvedArg}){terminal}";
+                    }
+
+                    return $"{unresolvedLinqReceiver}.map({unresolvedArg}){terminal}";
                 }
             }
         }
@@ -2866,6 +2940,22 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         // AsQueryable/AsEnumerable are identity wrappers — don't count as LINQ so .stream() is still injected
         if (sym.Name is "AsQueryable" or "AsEnumerable") return false;
         return sym.ContainingType.ToDisplayString() is "System.Linq.Enumerable" or "System.Linq.Queryable";
+    }
+
+    /// <summary>
+    /// Heuristic: checks if a transformed receiver string already contains Java stream
+    /// pipeline operations, indicating it was already converted from a LINQ chain.
+    /// Used in the unresolved LINQ fallback to avoid injecting .stream() twice.
+    /// </summary>
+    private static bool ReceiverLooksLikeStream(string receiver)
+    {
+        return receiver.Contains(".filter(", StringComparison.Ordinal)
+            || receiver.Contains(".map(", StringComparison.Ordinal)
+            || receiver.Contains(".flatMap(", StringComparison.Ordinal)
+            || receiver.Contains(".sorted(", StringComparison.Ordinal)
+            || receiver.EndsWith(".stream()", StringComparison.Ordinal)
+            || receiver.Contains("Arrays.stream(", StringComparison.Ordinal)
+            || receiver.Contains("StreamSupport.stream(", StringComparison.Ordinal);
     }
 
     /// <summary>

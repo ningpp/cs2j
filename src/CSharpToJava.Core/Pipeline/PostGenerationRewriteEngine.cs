@@ -32,6 +32,12 @@ public static class PostGenerationRewriteEngine
                 code,
                 @"(?m)\bConsumer<(?<arg>[^>]+)>\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*\((?<sender>[^,\)]+),\s*(?<event>[^\)]+)\)\s*->",
                 "BiConsumer<Object, ${arg}> ${name} = (${sender}, ${event}) ->");
+
+            // Universal: StringBuilder.appendFormat() → sb.append(String.format())
+            code = Regex.Replace(code, @"(\w+)\.appendFormat\(([^;]+)\);", "$1.append(String.format($2));");
+            // Universal: strip IFormatProvider cast left over from C# String.Format(IFormatProvider, ...)
+            code = code.Replace("String.format((IFormatProvider)(java.util.Locale.ROOT), ", "String.format(", StringComparison.Ordinal);
+
             if (string.Equals(outputFileName, "BasicFileProcessor.java", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(outputFileName, "BasicFileProcessor.cs", StringComparison.OrdinalIgnoreCase))
             {
@@ -167,7 +173,7 @@ public static class PostGenerationRewriteEngine
             code = code.Replace("subgraphTempl.SubgraphIdList.addRange(listOfSubgraphs.split(' '));", "subgraphTempl.SubgraphIdList.addAll(Arrays.asList(listOfSubgraphs.split(\" \")));", StringComparison.Ordinal);
             code = code.Replace("Class t = Class.getClass(typeString);\n        DataContractSerializer dcs = new DataContractSerializer(t);\n        StringReader sr = new StringReader(serString);\n        XmlReader xr = XmlReader.create(sr);\n        return dcs.readObject(xr, true);", "return serString;", StringComparison.Ordinal);
             code = code.Replace("subgraphTempl.NodeIdList.addRange(listOfNodes.split(' '));", "subgraphTempl.NodeIdList.addAll(Arrays.asList(listOfNodes.split(\" \")));", StringComparison.Ordinal);
-            code = code.Replace("Convert.toBoolean(XmlReader.readElementContentAsString())", "Boolean.parseBoolean(XmlReader.readElementContentAsString())", StringComparison.Ordinal);
+            // Convert.ToBoolean now handled in InvocationExpressionTransformer
             code = code.Replace("getAssemblyQualifiedName()", "getName()", StringComparison.Ordinal);
             code = code.Replace("setEdgeEnumeration(StreamSupport.stream(graph.getEdges().spliterator(), false).map(e -> e.getGeometryEdge()));", "setEdgeEnumeration(StreamSupport.stream(graph.getEdges().spliterator(), false).map(e -> e.getGeometryEdge()).collect(java.util.stream.Collectors.toList()));", StringComparison.Ordinal);
             code = code.Replace(".where(it -> !endOfLines.contains(it))", ".stream().filter(it -> !endOfLines.contains(it)).collect(java.util.stream.Collectors.toList())", StringComparison.Ordinal);
@@ -175,7 +181,7 @@ public static class PostGenerationRewriteEngine
             code = code.Replace("Arrays.stream(initialLayering).map(i -> i + 1).max(java.util.Comparator.naturalOrder()).orElseThrow()", "Arrays.stream(initialLayering).map(i -> i + 1).max().orElseThrow()", StringComparison.Ordinal);
             code = code.Replace("StringHelper.compare(this.getAttr().getId(), n.getAttr().getId(), StringComparison.Ordinal)", "StringHelper.compare(this.getAttr().getId(), n.getAttr().getId(), false)", StringComparison.Ordinal);
             code = code.Replace("this.a = 255;", "this.a = (byte) 255;", StringComparison.Ordinal);
-            code = code.Replace("Convert.toString(i, 16)", "Integer.toString(i, 16)", StringComparison.Ordinal);
+            // Convert.ToString now handled in InvocationExpressionTransformer
             code = code.Replace("_handler.invoke()", "_handler.apply()", StringComparison.Ordinal);
             code = code.Replace("LinkedHashMap<Double, ArrayList<OrthogonalEdge>>", "LinkedHashMap<Integer, ArrayList<OrthogonalEdge>>", StringComparison.Ordinal);
             code = code.Replace("new LinkedHashMap<Double, ArrayList<OrthogonalEdge>>()", "new LinkedHashMap<Integer, ArrayList<OrthogonalEdge>>()", StringComparison.Ordinal);
@@ -290,12 +296,11 @@ public static class PostGenerationRewriteEngine
                 code = code.Replace("case '\\v':", "case '\\u000B':", StringComparison.Ordinal);
                 code = code.Replace("SerializationInfo", "Object", StringComparison.Ordinal);
                 code = code.Replace("StreamingContext", "Object", StringComparison.Ordinal);
-                code = Regex.Replace(code, @"(\w+)\.appendFormat\(([^;]+)\);", "$1.append(String.format($2));");
+                // appendFormat and IFormatProvider now handled by universal rules above
                 code = code.Replace("Console.Error.writeLine();", "System.err.println();", StringComparison.Ordinal);
                 code = code.Replace("Console.Error.writeLine(", "System.err.printf(", StringComparison.Ordinal);
                 code = code.Replace("Console.Error.write(", "System.err.printf(", StringComparison.Ordinal);
                 code = code.Replace("{0}", "%s", StringComparison.Ordinal);
-                code = code.Replace("String.format((IFormatProvider)(java.util.Locale.ROOT), ", "String.format(", StringComparison.Ordinal);
                 code = code.Replace("super(i, c);", "super();", StringComparison.Ordinal);
                 code = code.Replace("protected static void yYAccept() {", "protected static void yYAccept() throws AcceptException {", StringComparison.Ordinal);
                 code = code.Replace("protected static void yYAbort() {", "protected static void yYAbort() throws AbortException {", StringComparison.Ordinal);

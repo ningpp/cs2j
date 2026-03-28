@@ -883,58 +883,79 @@ JavaSyntaxNode (现有)
 
 ### 阶段 1：将通用补丁提升到 Transformer 层
 
-**状态：进行中** — 已消除 33 个补丁，PostGenerationRewriteEngine 从 1,867 行减至 1,810 行。
+**状态：进行中** — 已消除 35 个补丁 + 多项 Transformer 层增强，PostGenerationRewriteEngine 从 1,867 行变为 1,815 行。
 
 **已完成的变更**：
 
-1. **InvocationExpressionTransformer 增强**：
+1. **InvocationExpressionTransformer 增强**（Step 1.1 ~ 1.3）：
    - 添加 ToLower/ToUpper/ToLowerInvariant/ToUpperInvariant → toLowerCase/toUpperCase 到 well-known rename 表（3 处）
    - 添加 Float 到 TryParse switch（TryParse 现已覆盖 Double/Float/Single/Int32/Int64/Boolean）
    - 添加 IFormatProvider 首参数检测与剥离（`HasIFormatProviderFirstArg` 方法），覆盖 String.Format 和 ToString 调用
    - 添加全限定 Helper 方法安全网（methodName 含 `.` 时跳过 receiver 前缀），修复 `String.StringHelper.compare` 等 bug
    - 添加 `System.getenv` 到安全网模式列表
+   - **Step 1.2**: 添加 `IsNullOrWhiteSpace` → `StringHelper.isNullOrWhiteSpace()`、`String.Concat` → `StringHelper.concat()`
+   - **Step 1.2**: Parse 方法 IFormatProvider/NumberStyles 尾参数自动剥离（`maxArgCount` 机制）
+   - **Step 1.3**: LINQ 未解析回退路径添加 `.collect(Collectors.toList())` 终端操作
+   - **Step 1.3**: 防止链式未解析 LINQ 双重 `.stream()` 注入（`ReceiverLooksLikeStream` 检测）
+   - **Step 1.3**: `Console.Error.Write/WriteLine` → `System.err.print/println` 未解析回退支持
+   - **Step 1.3**: `System.Convert` 全系列方法映射（ToBoolean→parseBoolean, ToInt32→parseInt, ToString→valueOf 等）
 
-2. **AssignmentTransformer 优化**：
+2. **AssignmentTransformer 优化**（Step 1.1）：
    - `HoistChainedPropertyAssignment` 中 null 字面量跳过临时变量生成，消除 `var _chainValN = null` 模式
 
-3. **ObjectCreationTransformer 修复**：
+3. **ObjectCreationTransformer 修复**（Step 1.1 ~ 1.2）：
    - 修复 `new Exception()` 零参数路径绕过 RuntimeException 映射的 bug
+   - **Step 1.2**: 扩展 `ApplicationException` → `RuntimeException` 映射
 
-4. **MethodTransformer 增强**：
+4. **ArgumentTransformer 增强**（Step 1.2）：
+   - 添加 `maxArgCount` 参数用于 Parse 方法参数截断
+
+5. **MethodTransformer 增强**（Step 1.1）：
    - 添加 ToLower/ToUpper/ToLowerInvariant/ToUpperInvariant 到声明站点重命名表
 
-5. **TypeMappings.json 补充**：
+6. **TypeMappings.json 补充**（Step 1.1 ~ 1.2）：
    - 添加 `System.Environment.GetEnvironmentVariable` → `System.getenv` 方法映射
+   - **Step 1.2**: 添加 `System.ApplicationException` → `RuntimeException` 类型映射
+   - **Step 1.2**: 添加 `Exception.InnerException` → `getCause`、`Exception.StackTrace` → `getStackTrace` 方法映射
 
-**已消除的补丁类别**（33 个）：
+7. **PostGenerationRewriteEngine 规则提升**（Step 1.3）：
+   - `StringBuilder.appendFormat()` 正则提升为通用规则（从 ShiftReduceParser 专属移出）
+   - `IFormatProvider` 参数剥离提升为通用规则（从 ShiftReduceParser 专属移出）
 
-| 类别 | 消除数 | 方法 |
-|------|-------|------|
-| TryParse 重定向 | 8 | Transformer 已覆盖全部类型 |
-| camelCase 大小写转换 | 4 | well-known rename 表扩充 |
-| CultureInfo/IFormatProvider 参数 | 6 | Transformer 层参数检测与剥离 |
-| null 链式赋值临时变量 | 10 | AssignmentTransformer null 优化 |
-| String.Join 大小写 | 1 | TypeMappings + camelCase 覆盖 |
-| String.Empty 替换 | 1 | IdentifierExpressionTransformer 已处理 |
-| Exception → RuntimeException | 1 | ObjectCreationTransformer 零参修复 |
-| Helper 前缀冗余 | 1 | 全限定方法安全网 |
-| Environment 映射 | 1 | TypeMappings 新增方法映射 |
+**已消除的补丁**（35 个）：
+
+| 类别 | 消除数 | 步骤 | 方法 |
+|------|-------|------|------|
+| TryParse 重定向 | 8 | 1.1 | Transformer 已覆盖全部类型 |
+| camelCase 大小写转换 | 4 | 1.1 | well-known rename 表扩充 |
+| CultureInfo/IFormatProvider 参数 | 6 | 1.1 | Transformer 层参数检测与剥离 |
+| null 链式赋值临时变量 | 10 | 1.1 | AssignmentTransformer null 优化 |
+| String.Join 大小写 | 1 | 1.1 | TypeMappings + camelCase 覆盖 |
+| String.Empty 替换 | 1 | 1.1 | IdentifierExpressionTransformer 已处理 |
+| Exception → RuntimeException | 1 | 1.1 | ObjectCreationTransformer 零参修复 |
+| Helper 前缀冗余 | 1 | 1.1 | 全限定方法安全网 |
+| Environment 映射 | 1 | 1.1 | TypeMappings 新增方法映射 |
+| Convert.ToBoolean | 1 | 1.3 | InvocationExpressionTransformer Convert 映射 |
+| Convert.ToString | 1 | 1.3 | InvocationExpressionTransformer Convert 映射 |
 
 **量化进度**：
 
 | 指标 | 阶段 0 结果 | 当前值 | 阶段 1 目标 |
 |------|-----------|-------|-----------|
-| PostGenerationRewriteEngine 行数 | 1,867 | 1,810 | — |
-| code.Replace 补丁数 | 504 | 475 | ≤ 400 |
-| Regex.Replace 补丁数 | 16 | 15 | ≤ 10 |
+| PostGenerationRewriteEngine 行数 | 1,867 | 1,815 | — |
+| code.Replace 补丁数 | 504 | 473 | ≤ 400 |
+| Regex.Replace 补丁数 | 82 | 82 | — |
 | 测试通过/失败 | 461/15 | 461/15 | 461/15 |
+
+> **注**：Regex.Replace 实际数量为 82（之前文档误记为 16），原始目标"≤10"不适用。
+> 多数 Regex.Replace 为文件特定模式，Transformer 层无法覆盖。
 
 **剩余交付物**：
 
-- `LinqRewriter` 增强：Stream 终端操作 `.collect()` 自动添加
 - `DelegateTransformer` 增强：Consumer/BiConsumer 签名自动判断
 - Collectors import 问题修复（后处理阶段无法添加 import）
 - 更多文件特例补丁泛化
+- setter-as-expression 拆分（`return setX(expr)` → Phase 3 IR 层解决）
 
 ### 阶段 2：建立解决方案级工程模型
 
@@ -1012,7 +1033,7 @@ JavaSyntaxNode (现有)
 | 指标 | 当前基线 | 阶段 0 结果 | 阶段 1 进度 | 最终目标 |
 |------|---------|-----------|-----------|---------|
 | `ProjectConversionPipeline.cs` 行数 | 4,697 | 145 ✅ | 145 | ≤ 300 |
-| PostGenerationRewriteEngine 补丁数 | 520 | 520 | 490（-30） | ≤ 50 |
+| PostGenerationRewriteEngine 补丁数 | 586 | 586 | 555（-31 消除 +2 提升为通用） | ≤ 50 |
 | `ConversionContext.cs` 行数 | 1,149 | 1,149 | 1,149 | ≤ 300（拆分后） |
 | Java AST 行数 | 682 | 682 | 682 | ≥ 2,000 |
 | 回归测试通过/失败 | 461/15 | 461/15 | 461/15 | 全部通过 |
