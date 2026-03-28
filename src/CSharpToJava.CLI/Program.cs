@@ -1290,6 +1290,9 @@ class Program
                     <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
                     <forkedProcessTimeoutInSeconds>120</forkedProcessTimeoutInSeconds>
                     <forkedProcessExitTimeoutInSeconds>120</forkedProcessExitTimeoutInSeconds>
+                    <systemPropertyVariables>
+                        <msagl.test.data.root>${msagl.test.data.root}</msagl.test.data.root>
+                    </systemPropertyVariables>
                 </configuration>
             </plugin>"
             : string.Empty;
@@ -1481,6 +1484,9 @@ class Program
                     <enableAssertions>false</enableAssertions>
                     <forkedProcessTimeoutInSeconds>120</forkedProcessTimeoutInSeconds>
                     <forkedProcessExitTimeoutInSeconds>120</forkedProcessExitTimeoutInSeconds>
+                    <systemPropertyVariables>
+                        <msagl.test.data.root>${{msagl.test.data.root}}</msagl.test.data.root>
+                    </systemPropertyVariables>
 {(skipModuleTests ? "                    <skipTests>true</skipTests>" : string.Empty)}
                 </configuration>
             </plugin>"

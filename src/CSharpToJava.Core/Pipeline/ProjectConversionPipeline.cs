@@ -865,6 +865,68 @@ public class ProjectConversionPipeline
                     "try (TextReader reader = FileHelper.openText(fileName)) {\n        var first = (char)(reader.peek());\n        return first;\n        }",
                     "TextReader reader = null;\n        try {\n        reader = FileHelper.openText(fileName);\n        var first = (char)(reader.peek());\n        return first;\n        } finally {\n        if (reader != null) {\n        try {\n        reader.close();\n        } catch (Exception ignored) {\n        }\n        }\n        }",
                     StringComparison.Ordinal);
+
+                // Fix: firstCharacter does not handle UTF-8 BOM (U+FEFF = 0xFEFF)
+                // .msagl.geom files on Windows often start with UTF-8 BOM, causing firstCharacter
+                // to return 0xFEFF instead of '<', which makes createFromFile return null instead of the graph.
+                code = code.Replace(
+                    "        var first = (char)(reader.peek());\n        return first;",
+                    "        int first = reader.peek();\n        if (first == 0xFEFF) { reader.read(); first = reader.peek(); } // skip UTF-8 BOM\n        return (char) first;",
+                    StringComparison.Ordinal);
+
+                // Fix: readGraph() uses getXmlReader().Name (static field, always "")
+                // instead of XmlReader.getName() (dynamic method returning reader.getLocalName()).
+                // The static field Name = "" never gets updated, so the graph element check always fails.
+                code = code.Replace(
+                    "!java.util.Objects.equals(getXmlReader().Name.toLowerCase(), GeometryToken.Graph.toString().toLowerCase())",
+                    "!XmlReader.isStartElement(GeometryToken.Graph.toString())",
+                    StringComparison.Ordinal);
+
+                // Fix: ALL remaining getXmlReader().Name/NodeType/ReadState/Value/IsEmptyElement access
+                // STATIC fields (never updated). Replace with the proper method calls.
+                // This fixes the infinite loop in readGraph(): getElementTag() returned GeometryToken.Unknown
+                // because getName() always returned "", causing default: XmlReader.skip() endlessly.
+                code = code.Replace("getXmlReader().Name", "XmlReader.getName()", StringComparison.Ordinal);
+                code = code.Replace("getXmlReader().NodeType", "XmlReader.getNodeType()", StringComparison.Ordinal);
+                code = code.Replace("getXmlReader().ReadState", "XmlReader.getReadState()", StringComparison.Ordinal);
+                code = code.Replace("getXmlReader().IsEmptyElement", "XmlReader.getIsEmptyElement()", StringComparison.Ordinal);
+                code = code.Replace("getXmlReader().Value", "XmlReader.getValue()", StringComparison.Ordinal);
+
+                // Fix: EnumHelper.tryParse() ALWAYS returns false due to Java generics type erasure.
+                // The method cannot determine T at runtime. Fix getElementTag() and nameToToken()
+                // by replacing with direct case-insensitive enum loop.
+                // Applied AFTER the getName() fix, so the code already uses XmlReader.getName().
+                code = code.Replace(
+                    "        GeometryToken token;\n        if (XmlReader.getReadState() == ReadState.EndOfFile) {\n        return GeometryToken.Graph;\n        }\n        ObjectHolder<GeometryToken> _tokenHolder1 = new ObjectHolder<>();\n        var _ifCond12 = EnumHelper.tryParse(XmlReader.getName(), true, _tokenHolder1);\n        token = _tokenHolder1.value;\n        if (_ifCond12) {\n        return token;\n        }\n        return GeometryToken.Unknown;",
+                    "        if (XmlReader.getReadState() == ReadState.EndOfFile) {\n        return GeometryToken.Graph;\n        }\n        String _geName1 = XmlReader.getName();\n        for (GeometryToken _ge : GeometryToken.values()) { if (_ge.name().equalsIgnoreCase(_geName1)) { return _ge; } }\n        return GeometryToken.Unknown;",
+                    StringComparison.Ordinal);
+
+                code = code.Replace(
+                    "        GeometryToken token;\n        ObjectHolder<GeometryToken> _tokenHolder2 = new ObjectHolder<>();\n        var _ifCond22 = EnumHelper.tryParse(XmlReader.getName(), true, _tokenHolder2);\n        token = _tokenHolder2.value;\n        if (_ifCond22) {\n        return token;\n        }\n        error(\"cannot parse \" + XmlReader.getName());\n        return GeometryToken.Error;",
+                    "        String _geName2 = XmlReader.getName();\n        for (GeometryToken _ge2 : GeometryToken.values()) { if (_ge2.name().equalsIgnoreCase(_geName2)) { return _ge2; } }\n        error(\"cannot parse \" + _geName2);\n        return GeometryToken.Error;",
+                    StringComparison.Ordinal);
+
+                // Fix: readArrowheadAtSource/Target — converter hoists `parsePoint(str)` out of
+                // the C# ternary `str != null ? new Arrowhead{TipPosition=ParsePoint(str)} : null`,
+                // causing NPE when str is null. Guard with null check.
+                code = code.Replace(
+                    "var _obj46 = new Arrowhead();\n        _obj46.setTipPosition(parsePoint(str));",
+                    "var _obj46 = new Arrowhead();\n        if (str != null) _obj46.setTipPosition(parsePoint(str));",
+                    StringComparison.Ordinal);
+                code = code.Replace(
+                    "var _obj48 = new Arrowhead();\n        _obj48.setTipPosition(parsePoint(str));",
+                    "var _obj48 = new Arrowhead();\n        if (str != null) _obj48.setTipPosition(parsePoint(str));",
+                    StringComparison.Ordinal);
+            }
+
+            // Fix: GeometryGraphWriter.firstCharToLower() — C# Substring(1) wrongly converted
+            // to substring(1, length - 1) which drops the last character. "Id" → "i" instead of "id".
+            if (r.FileName != null && r.FileName.Contains("GeometryGraphWriter", StringComparison.Ordinal))
+            {
+                code = code.Replace(
+                    "attrString.substring(1, attrString.length() - 1)",
+                    "attrString.substring(1)",
+                    StringComparison.Ordinal);
             }
 
             code = code.Replace("Double.TryParse(", "MathHelper.tryParseDouble(", StringComparison.Ordinal);
@@ -1318,6 +1380,7 @@ public class ProjectConversionPipeline
                     "new ArrayList<>(Arrays.stream(cut).collect(java.util.stream.Collectors.toList()))",
                     "new ArrayList(Arrays.asList(cut))",
                     StringComparison.Ordinal);
+                // CdtTests.flatLine remains @Disabled: CDT collinear point handling throws InvalidOperationException in C# too (known C# bug)
             }
 
             if (r.FileName != null && r.FileName.Contains("CdtSweeper", StringComparison.Ordinal))
@@ -1382,6 +1445,16 @@ public class ProjectConversionPipeline
                         "public Rectangle rectangle;",
                         "public Rectangle rectangle = new Rectangle();",
                         StringComparison.Ordinal);
+                    }
+
+                    // Label.boundingBox: C# struct auto-initializes to default; Java needs explicit init
+                    if (r.FileName != null && r.FileName.Contains("Label", StringComparison.Ordinal)
+                        && r.FileName.EndsWith("Label.java", StringComparison.Ordinal))
+                    {
+                        code = code.Replace(
+                            "Rectangle boundingBox;",
+                            "Rectangle boundingBox = new Rectangle();",
+                            StringComparison.Ordinal);
                     }
 
             if (r.FileName != null && (r.FileName.Contains("IncrementalSugiyamaTests", StringComparison.Ordinal)
@@ -1489,6 +1562,9 @@ public class ProjectConversionPipeline
                     "private static boolean runningUnitTests;",
                     "private static boolean runningUnitTests = true;",
                     StringComparison.Ordinal);
+                // Note: enumerateTestDataRoots and addTestDataRoot are injected in the later MsaglTestBase block
+                //       (around line 1860) — msagl.test.data.root support and MSAGLGeometryGraphs/DotFiles
+                //       subdirectory additions are embedded in the injection string itself.
             }
 
             if (r.FileName != null && r.FileName.Contains("IncrementalSugiyamaTests", StringComparison.Ordinal))
@@ -1558,21 +1634,92 @@ public class ProjectConversionPipeline
 
             if (r.FileName != null && r.FileName.Contains("SplineRouterTests", StringComparison.Ordinal))
             {
-                // Disable – spline routing computation hangs under Java translation
-                if (!code.Contains("@Disabled(\"Spline routing computation hangs under Java translation\")", StringComparison.Ordinal))
-                {
-                    if (!code.Contains("import org.junit.jupiter.api.Disabled;", StringComparison.Ordinal))
-                    {
-                        code = code.Replace(
-                            "import org.junit.jupiter.api.Test;",
-                            "import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;",
-                            StringComparison.Ordinal);
-                    }
-                    code = code.Replace(
-                        "public class SplineRouterTests",
-                        "@Disabled(\"Spline routing computation hangs under Java translation\")\npublic class SplineRouterTests",
-                        StringComparison.Ordinal);
-                }
+                // SplineRouterTests class-level @Disabled removed — testing whether struct clone optimization resolved hangs
+                // bundlingBug1GeomGraph remains @Disabled via C# [Ignore] (needs geometry file, known issue)
+
+                // Fix: routeEdges_CallsProgress uses captured lambda variable `_ratioComplete`
+                // The converter wraps the closure variable in a double[] but the assertion
+                // still uses the original `ratioComplete` (which never gets updated).
+                // The assertion must read _ratioComplete[0] instead.
+                code = code.Replace(
+                    "Assertions.assertEquals(1, ratioComplete, \"RouteEdges did not complete\");",
+                    "Assertions.assertEquals(1, _ratioComplete[0], \"RouteEdges did not complete\");",
+                    StringComparison.Ordinal);
+
+                // Fix: getGeomGraphFileName uses java.io.tmpdir as fallback when DeploymentDirectory is null
+                // (there's no VS deployment concept in JUnit). Use resolveTestDataPath instead so that
+                // the test data root configured via msagl.test.data.root is used.
+                code = Regex.Replace(
+                    code,
+                    @"String getGeomGraphFileName\(String graphName\) \{[^}]+\}",
+                    "String getGeomGraphFileName(String graphName) {\n        return resolveTestDataPath(graphName);\n    }");
+            }
+
+            // CollectionUtilities: add addToMapSet/addToMapHashSet overloads because the
+            // generic addToMap always creates ArrayList<> due to Java type erasure, which
+            // causes ClassCastException when map values are MSAGL Set<T> or java.util.HashSet<T>
+            if (r.FileName != null && r.FileName.Contains("CollectionUtilities", StringComparison.Ordinal))
+            {
+                code = code.Replace(
+                    "        tc.add(value);\n    }\n        /**\n     * Remove value from dictionary",
+                    "        tc.add(value);\n    }\n    public static <TS, T> void addToMapSet(LinkedHashMap<T, Microsoft.Msagl.Core.DataStructures.Set<TS>> dictionary, T key, TS value) {\n        dictionary.computeIfAbsent(key, k -> new Microsoft.Msagl.Core.DataStructures.Set<>()).add(value);\n    }\n    public static <TS, T> void addToMapHashSet(LinkedHashMap<T, java.util.HashSet<TS>> dictionary, T key, TS value) {\n        dictionary.computeIfAbsent(key, k -> new java.util.HashSet<>()).add(value);\n    }\n        /**\n     * Remove value from dictionary",
+                    StringComparison.Ordinal);
+            }
+
+            // MetroGraphData: neighbors is LinkedHashMap<Station, Set<Station>> (MSAGL Set) — use addToMapSet
+            if (r.FileName != null && r.FileName.Contains("MetroGraphData", StringComparison.Ordinal))
+            {
+                code = code.Replace(
+                    "CollectionUtilities.addToMap(neighbors,",
+                    "CollectionUtilities.addToMapSet(neighbors,",
+                    StringComparison.Ordinal);
+            }
+
+            // BundleRouter: res is LinkedHashMap<CdtEdge, Set<EdgeGeometry>> (MSAGL Set) — use addToMapSet
+            if (r.FileName != null && r.FileName.Contains("BundleRouter", StringComparison.Ordinal)
+                && !r.FileName.Contains("Test", StringComparison.Ordinal))
+            {
+                code = code.Replace(
+                    "CollectionUtilities.addToMap(res,",
+                    "CollectionUtilities.addToMapSet(res,",
+                    StringComparison.Ordinal);
+            }
+
+            // FlipSwitcher: pathsThroughPoints is LinkedHashMap<Point, Set<Polyline>> (MSAGL Set) — use addToMapSet
+            if (r.FileName != null && r.FileName.Contains("FlipSwitcher", StringComparison.Ordinal))
+            {
+                code = code.Replace(
+                    "CollectionUtilities.addToMap(pathsThroughPoints,",
+                    "CollectionUtilities.addToMapSet(pathsThroughPoints,",
+                    StringComparison.Ordinal);
+            }
+
+            // SdShortestPath: crossedCdtEdges is LinkedHashMap<EdgeGeometry, Set<CdtEdge>> (MSAGL Set) — use addToMapSet
+            if (r.FileName != null && r.FileName.Contains("SdShortestPath", StringComparison.Ordinal))
+            {
+                code = code.Replace(
+                    "CollectionUtilities.addToMap(crossedCdtEdges,",
+                    "CollectionUtilities.addToMapSet(crossedCdtEdges,",
+                    StringComparison.Ordinal);
+            }
+
+            // NodePositionsAdjuster: segsToPolylines is LinkedHashMap<PointPair, Set<Metroline>> (MSAGL Set) — use addToMapSet
+            if (r.FileName != null && r.FileName.Contains("NodePositionsAdjuster", StringComparison.Ordinal))
+            {
+                code = code.Replace(
+                    "CollectionUtilities.addToMap(segsToPolylines,",
+                    "CollectionUtilities.addToMapSet(segsToPolylines,",
+                    StringComparison.Ordinal);
+            }
+
+            // LinearMetroMapOrdering: adjacent is LinkedHashMap<Integer, HashSet<MetroEdge>> (java.util.HashSet) — use addToMapHashSet
+            // Note: r (in radixSort) is LinkedHashMap<MetroEdge, ArrayList<PathOnEdge>> — keep original addToMap for that
+            if (r.FileName != null && r.FileName.Contains("LinearMetroMapOrdering", StringComparison.Ordinal))
+            {
+                code = code.Replace(
+                    "CollectionUtilities.addToMap(adjacent,",
+                    "CollectionUtilities.addToMapHashSet(adjacent,",
+                    StringComparison.Ordinal);
             }
 
                     if (r.FileName != null && r.FileName.Contains("NetworkSimplexTest", StringComparison.Ordinal))
@@ -1775,7 +1922,7 @@ public class ProjectConversionPipeline
                                 {
                                     code = code.Replace(
                                         "protected static RelativeFloatingPort makePort(Node node) {",
-                                        "protected static String resolveTestDataPath(String fileName) {\n        if (StringHelper.isNullOrEmpty(fileName)) {\n        return fileName;\n        }\n        File directFile = new File(fileName);\n        if (directFile.exists()) {\n        return directFile.getPath();\n        }\n        String normalizedFileName = fileName.replace(\"\\\\\", File.separator).replace(\"/\", File.separator);\n        String leafName = new File(normalizedFileName).getName();\n        for (File root : enumerateTestDataRoots()) {\n        File candidate = new File(root, normalizedFileName);\n        if (candidate.exists()) {\n        return candidate.getPath();\n        }\n        File byName = new File(root, leafName);\n        if (byName.exists()) {\n        return byName.getPath();\n        }\n        }\n        return fileName;\n    }\n    protected static String[] findTestDataFiles(String relativeDir, String glob) {\n        File resolvedDir = resolveTestDataDirectory(relativeDir);\n        if (resolvedDir == null || !resolvedDir.isDirectory()) {\n        return new String[0];\n        }\n        File[] matchingFiles = resolvedDir.listFiles((currentDir, name) -> java.nio.file.FileSystems.getDefault().getPathMatcher(\"glob:\" + glob).matches(java.nio.file.Paths.get(name)));\n        return matchingFiles == null ? new String[0] : Arrays.stream(matchingFiles).map(File::getPath).toArray(String[]::new);\n    }\n    private static File resolveTestDataDirectory(String relativeDir) {\n        if (StringHelper.isNullOrEmpty(relativeDir)) {\n        return null;\n        }\n        File directDir = new File(relativeDir);\n        if (directDir.isDirectory()) {\n        return directDir;\n        }\n        String normalizedDir = relativeDir.replace(\"\\\\\", File.separator).replace(\"/\", File.separator);\n        String leafName = new File(normalizedDir).getName();\n        for (File root : enumerateTestDataRoots()) {\n        File candidate = new File(root, normalizedDir);\n        if (candidate.isDirectory()) {\n        return candidate;\n        }\n        if (\"Dots\".equalsIgnoreCase(leafName)) {\n        File dotFilesDir = new File(root, \"DotFiles\");\n        if (dotFilesDir.isDirectory()) {\n        return dotFilesDir;\n        }\n        }\n        if (\"MSAGLGeometryGraphs\".equalsIgnoreCase(leafName)) {\n        File geometryDir = new File(root, \"MsaglGeometryGraphs\");\n        if (geometryDir.isDirectory()) {\n        return geometryDir;\n        }\n        }\n        }\n        return directDir;\n    }\n    private static ArrayList<File> enumerateTestDataRoots() {\n        LinkedHashSet<String> rootPaths = new LinkedHashSet<>();\n        addTestDataRoot(rootPaths, System.getProperty(\"user.dir\"));\n        addTestDataRoot(rootPaths, TestContext.TestDir);\n        ArrayList<File> roots = new ArrayList<>();\n        for (String path : rootPaths) {\n        roots.add(new File(path));\n        }\n        return roots;\n    }\n    private static void addTestDataRoot(LinkedHashSet<String> rootPaths, String basePath) {\n        if (StringHelper.isNullOrEmpty(basePath)) {\n        return;\n        }\n        rootPaths.add(basePath);\n        rootPaths.add(new File(basePath, \"Resources\").getPath());\n        rootPaths.add(new File(basePath, \"src/test/resources\").getPath());\n        rootPaths.add(new File(basePath, \"src/test/resources/Resources\").getPath());\n        rootPaths.add(new File(basePath, \"target/test-classes\").getPath());\n        rootPaths.add(new File(basePath, \"target/test-classes/Resources\").getPath());\n    }\n    protected static RelativeFloatingPort makePort(Node node) {",
+                                        "protected static String resolveTestDataPath(String fileName) {\n        if (StringHelper.isNullOrEmpty(fileName)) {\n        return fileName;\n        }\n        File directFile = new File(fileName);\n        if (directFile.exists()) {\n        return directFile.getPath();\n        }\n        String normalizedFileName = fileName.replace(\"\\\\\", File.separator).replace(\"/\", File.separator);\n        String leafName = new File(normalizedFileName).getName();\n        for (File root : enumerateTestDataRoots()) {\n        File candidate = new File(root, normalizedFileName);\n        if (candidate.exists()) {\n        return candidate.getPath();\n        }\n        File byName = new File(root, leafName);\n        if (byName.exists()) {\n        return byName.getPath();\n        }\n        }\n        return fileName;\n    }\n    protected static String[] findTestDataFiles(String relativeDir, String glob) {\n        File resolvedDir = resolveTestDataDirectory(relativeDir);\n        if (resolvedDir == null || !resolvedDir.isDirectory()) {\n        return new String[0];\n        }\n        File[] matchingFiles = resolvedDir.listFiles((currentDir, name) -> java.nio.file.FileSystems.getDefault().getPathMatcher(\"glob:\" + glob).matches(java.nio.file.Paths.get(name)));\n        return matchingFiles == null ? new String[0] : Arrays.stream(matchingFiles).map(File::getPath).toArray(String[]::new);\n    }\n    private static File resolveTestDataDirectory(String relativeDir) {\n        if (StringHelper.isNullOrEmpty(relativeDir)) {\n        return null;\n        }\n        File directDir = new File(relativeDir);\n        if (directDir.isDirectory()) {\n        return directDir;\n        }\n        String normalizedDir = relativeDir.replace(\"\\\\\", File.separator).replace(\"/\", File.separator);\n        String leafName = new File(normalizedDir).getName();\n        for (File root : enumerateTestDataRoots()) {\n        File candidate = new File(root, normalizedDir);\n        if (candidate.isDirectory()) {\n        return candidate;\n        }\n        if (\"Dots\".equalsIgnoreCase(leafName)) {\n        File dotFilesDir = new File(root, \"DotFiles\");\n        if (dotFilesDir.isDirectory()) {\n        return dotFilesDir;\n        }\n        }\n        if (\"MSAGLGeometryGraphs\".equalsIgnoreCase(leafName)) {\n        File geometryDir = new File(root, \"MsaglGeometryGraphs\");\n        if (geometryDir.isDirectory()) {\n        return geometryDir;\n        }\n        }\n        }\n        return directDir;\n    }\n    private static ArrayList<File> enumerateTestDataRoots() {\n        LinkedHashSet<String> rootPaths = new LinkedHashSet<>();\n        addTestDataRoot(rootPaths, System.getProperty(\"user.dir\"));\n        addTestDataRoot(rootPaths, TestContext.TestDir);\n        addTestDataRoot(rootPaths, System.getProperty(\"msagl.test.data.root\"));\n        ArrayList<File> roots = new ArrayList<>();\n        for (String path : rootPaths) {\n        roots.add(new File(path));\n        }\n        return roots;\n    }\n    private static void addTestDataRoot(LinkedHashSet<String> rootPaths, String basePath) {\n        if (StringHelper.isNullOrEmpty(basePath)) {\n        return;\n        }\n        rootPaths.add(basePath);\n        rootPaths.add(new File(basePath, \"Resources\").getPath());\n        rootPaths.add(new File(basePath, \"Resources/MSAGLGeometryGraphs\").getPath());\n        rootPaths.add(new File(basePath, \"Resources/DotFiles\").getPath());\n        rootPaths.add(new File(basePath, \"src/test/resources\").getPath());\n        rootPaths.add(new File(basePath, \"src/test/resources/Resources\").getPath());\n        rootPaths.add(new File(basePath, \"target/test-classes\").getPath());\n        rootPaths.add(new File(basePath, \"target/test-classes/Resources\").getPath());\n    }\n    protected static RelativeFloatingPort makePort(Node node) {",
                                         StringComparison.Ordinal);
                                 }
                                 code = code.Replace(
@@ -2382,27 +2529,8 @@ public class ProjectConversionPipeline
                 }
             }
 
-            // SugiyamaLayoutTests — disable randomDotFileTests (requires DOT file infrastructure)
-            if (r.FileName != null && r.FileName.Contains("SugiyamaLayoutTests", StringComparison.Ordinal))
-            {
-                if (!code.Contains("import org.junit.jupiter.api.Disabled;", StringComparison.Ordinal))
-                {
-                code = code.Replace(
-                    "import org.junit.jupiter.api.Test;",
-                    "import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;",
-                    StringComparison.Ordinal);
-                }
-                // Method has @Timeout(120) annotation between @Test and public void
-                code = code.Replace(
-                    "        @Test\n    @Timeout(120)\npublic void randomDotFileTests()",
-                    "        @Disabled(\"Requires DOT file infrastructure\")\n        @Test\n    @Timeout(120)\npublic void randomDotFileTests()",
-                    StringComparison.Ordinal);
-                // Fallback for plain @Test without @Timeout
-                code = code.Replace(
-                    "@Test\npublic void randomDotFileTests()",
-                    "@Disabled(\"Requires DOT file infrastructure\")\n@Test\npublic void randomDotFileTests()",
-                    StringComparison.Ordinal);
-            }
+            // SugiyamaLayoutTests — randomDotFileTests (DOT file infrastructure now set up via Resources junction)
+            // @Disabled no longer needed
 
             // Fix RectanglePacking.pack — C# MoveNext()/Current semantics vs Java iterator
             if (r.FileName != null && r.FileName.Contains("RectanglePacking", StringComparison.Ordinal)
@@ -3341,10 +3469,13 @@ public class XmlWriterSettings {{
 import java.io.InputStream;
 import java.io.Reader;
 import javax.xml.stream.*;
+import javax.xml.stream.util.StreamReaderDelegate;
 
 /** Replacement for System.Xml.XmlReader backed by StAX (generated by CSharpToJava converter). */
 public class XmlReader implements AutoCloseable {{
     protected static XMLStreamReader reader;
+    /** -1 = on element, 0+ = on attribute at given index (simulates MoveToFirstAttribute navigation) */
+    private static int attributeIndex = -1;
     // C#-style static property aliases frequently emitted by the converter.
     public static int NodeType = XmlNodeType.getNone();
     public static boolean IsEmptyElement = false;
@@ -3358,17 +3489,142 @@ public class XmlReader implements AutoCloseable {{
         XmlReader.reader = reader;
     }}
 
+    /** Whitespace-skipping StAX delegate with look-ahead empty-element detection.
+     *  Mimics C# XmlReaderSettings.IgnoreWhitespace = true and C# XmlReader.IsEmptyElement.
+     *  After returning a START_ELEMENT, peeks ahead: if the next meaningful event is END_ELEMENT,
+     *  the element is empty — the END is consumed internally and isEmptyElement is set to true.
+     *  Saved START_ELEMENT state (name, attributes) is returned via overridden accessors. */
+    private static final class WhitespaceFilteringReader extends StreamReaderDelegate {{
+        /** true if the current START_ELEMENT is an empty/self-closing element (its END_ELEMENT was consumed) */
+        boolean isEmptyElement = false;
+        // Saved START_ELEMENT state (because look-ahead moves the underlying reader)
+        private boolean hasSavedState = false;
+        private String savedLocalName;
+        private int savedAttrCount;
+        private String[] savedAttrNames;
+        private String[] savedAttrValues;
+        // Buffered next event (from look-ahead when element is NOT empty)
+        private boolean hasBuffered = false;
+        private int bufferedEventType;
+        WhitespaceFilteringReader(XMLStreamReader r) {{ super(r); }}
+        private boolean isSkippable(int ev) throws XMLStreamException {{
+            return (ev == XMLStreamConstants.CHARACTERS && super.isWhiteSpace())
+                || ev == XMLStreamConstants.SPACE
+                || ev == XMLStreamConstants.COMMENT;
+        }}
+        @Override
+        public int next() throws XMLStreamException {{
+            int ev;
+            if (hasBuffered) {{
+                ev = bufferedEventType;
+                hasBuffered = false;
+            }} else {{
+                do {{ ev = super.next(); }} while (isSkippable(ev));
+            }}
+            hasSavedState = false;
+            isEmptyElement = false;
+            if (ev == XMLStreamConstants.START_ELEMENT) {{
+                // Save state before look-ahead moves the underlying reader position
+                savedLocalName = super.getLocalName();
+                savedAttrCount = super.getAttributeCount();
+                savedAttrNames = new String[savedAttrCount];
+                savedAttrValues = new String[savedAttrCount];
+                for (int i = 0; i < savedAttrCount; i++) {{
+                    savedAttrNames[i] = super.getAttributeLocalName(i);
+                    savedAttrValues[i] = super.getAttributeValue(i);
+                }}
+                hasSavedState = true;
+                // Look ahead: is the next non-whitespace event END_ELEMENT?
+                int peek;
+                do {{ peek = super.next(); }} while (isSkippable(peek));
+                if (peek == XMLStreamConstants.END_ELEMENT) {{
+                    isEmptyElement = true; // END consumed; getIsEmptyElement() returns true
+                }} else {{
+                    hasBuffered = true;
+                    bufferedEventType = peek;
+                }}
+            }}
+            return ev;
+        }}
+        @Override public String getLocalName() {{
+            return hasSavedState ? savedLocalName : super.getLocalName();
+        }}
+        @Override public int getEventType() {{
+            return hasSavedState ? XMLStreamConstants.START_ELEMENT : super.getEventType();
+        }}
+        @Override public boolean isStartElement() {{
+            return hasSavedState || super.isStartElement();
+        }}
+        @Override public boolean isEndElement() {{
+            return !hasSavedState && super.isEndElement();
+        }}
+        @Override public int getAttributeCount() {{
+            return hasSavedState ? savedAttrCount : super.getAttributeCount();
+        }}
+        @Override public String getAttributeLocalName(int i) {{
+            return (hasSavedState && i >= 0 && i < savedAttrCount) ? savedAttrNames[i] : super.getAttributeLocalName(i);
+        }}
+        @Override public String getAttributeValue(int i) {{
+            return (hasSavedState && i >= 0 && i < savedAttrCount) ? savedAttrValues[i] : super.getAttributeValue(i);
+        }}
+        @Override public String getAttributeValue(String ns, String name) {{
+            if (hasSavedState) {{
+                for (int i = 0; i < savedAttrCount; i++) {{
+                    if (savedAttrNames[i].equals(name)) return savedAttrValues[i];
+                }}
+                return null;
+            }}
+            return super.getAttributeValue(ns, name);
+        }}
+        @Override public String getElementText() throws XMLStreamException {{
+            if (isEmptyElement) {{
+                hasSavedState = false;
+                isEmptyElement = false;
+                return """";
+            }}
+            StringBuilder sb = new StringBuilder();
+            if (hasBuffered) {{
+                if (bufferedEventType == XMLStreamConstants.CHARACTERS || bufferedEventType == XMLStreamConstants.CDATA) {{
+                    sb.append(super.getText());
+                }}
+                if (bufferedEventType == XMLStreamConstants.END_ELEMENT) {{
+                    hasBuffered = false;
+                    hasSavedState = false;
+                    return sb.toString();
+                }}
+                hasBuffered = false;
+                hasSavedState = false;
+            }} else {{
+                hasSavedState = false;
+            }}
+            while (super.hasNext()) {{
+                int ev = super.next();
+                if (ev == XMLStreamConstants.END_ELEMENT) return sb.toString();
+                if (ev == XMLStreamConstants.CHARACTERS || ev == XMLStreamConstants.CDATA) {{
+                    sb.append(super.getText());
+                }}
+            }}
+            throw new XMLStreamException(""Unexpected end of document in getElementText"");
+        }}
+    }}
+
     /** Factory — mirrors XmlReader.Create(source, settings) in C#. */
     public static XmlReader create(Object source, Object settings) {{
         try {{
+            boolean ignoreWs = (settings instanceof XmlReaderSettings) && ((XmlReaderSettings) settings).isIgnoreWhitespace();
             XMLInputFactory factory = XMLInputFactory.newInstance();
             factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);
             factory.setProperty(XMLInputFactory.SUPPORT_DTD, false);
             if (source instanceof InputStream) {{
-                return new XmlReader(factory.createXMLStreamReader((InputStream) source));
+                XMLStreamReader base = factory.createXMLStreamReader((InputStream) source);
+                return new XmlReader(ignoreWs ? new WhitespaceFilteringReader(base) : base);
             }} else if (source instanceof Reader) {{
-                return new XmlReader(factory.createXMLStreamReader((Reader) source));
+                XMLStreamReader base = factory.createXMLStreamReader((Reader) source);
+                return new XmlReader(ignoreWs ? new WhitespaceFilteringReader(base) : base);
             }} else if (source instanceof XmlReader) {{
+                if (ignoreWs && reader != null && !(reader instanceof WhitespaceFilteringReader)) {{
+                    reader = new WhitespaceFilteringReader(reader);
+                }}
                 return (XmlReader) source;
             }}
             throw new RuntimeException(""Unsupported XmlReader source: "" + (source == null ? ""null"" : source.getClass().getName()));
@@ -3383,28 +3639,41 @@ public class XmlReader implements AutoCloseable {{
     }}
 
     public static int getNodeType() {{
+        attributeIndex = -1;
         return reader != null ? reader.getEventType() : XmlNodeType.getNone();
     }}
 
     public static boolean isStartElement() {{
+        attributeIndex = -1;
         return reader != null && reader.isStartElement();
     }}
 
     public static boolean isStartElement(String name) {{
+        attributeIndex = -1;
         return reader != null && reader.isStartElement()
             && name.equalsIgnoreCase(reader.getLocalName());
     }}
 
-    /** StAX has no direct IsEmptyElement concept; returns false (safe default for compilation). */
-    public static boolean getIsEmptyElement() {{ return false; }}
+    /** Returns true if the current START_ELEMENT is a self-closing/empty element (e.g. &lt;foo/&gt;). */
+    public static boolean getIsEmptyElement() {{
+        return (reader instanceof WhitespaceFilteringReader) && ((WhitespaceFilteringReader) reader).isEmptyElement;
+    }}
 
     public static String getName() {{
-        try {{ return reader != null ? reader.getLocalName() : """"; }}
+        try {{
+            if (reader == null) return """";
+            if (attributeIndex >= 0) return reader.getAttributeLocalName(attributeIndex);
+            return reader.getLocalName();
+        }}
         catch (Exception e) {{ return """"; }}
     }}
 
     public static String getValue() {{
-        try {{ return reader != null ? reader.getText() : """"; }}
+        try {{
+            if (reader == null) return """";
+            if (attributeIndex >= 0) return reader.getAttributeValue(attributeIndex);
+            return reader.getText();
+        }}
         catch (Exception e) {{ return """"; }}
     }}
 
@@ -3415,6 +3684,7 @@ public class XmlReader implements AutoCloseable {{
     public static boolean read() {{
         try {{
             if (reader == null || !reader.hasNext()) return false;
+            attributeIndex = -1;
             reader.next();
             return true;
         }} catch (XMLStreamException e) {{ return false; }}
@@ -3422,7 +3692,14 @@ public class XmlReader implements AutoCloseable {{
 
     public static void readEndElement() {{
         try {{
+            attributeIndex = -1;
             if (reader == null) return;
+            // If on an empty element whose END was consumed by look-ahead, just advance.
+            if (reader.isStartElement() && reader instanceof WhitespaceFilteringReader
+                && ((WhitespaceFilteringReader) reader).isEmptyElement) {{
+                if (reader.hasNext()) reader.next();
+                return;
+            }}
             while (reader.hasNext() && !reader.isEndElement()) reader.next();
             if (reader.hasNext()) reader.next();
         }} catch (XMLStreamException e) {{ throw new RuntimeException(e); }}
@@ -3450,6 +3727,7 @@ public class XmlReader implements AutoCloseable {{
 
     public static void moveToContent() {{
         try {{
+            attributeIndex = -1;
             if (reader == null) return;
             while (reader.hasNext()) {{
                 int t = reader.getEventType();
@@ -3462,16 +3740,36 @@ public class XmlReader implements AutoCloseable {{
     }}
 
     public static boolean moveToFirstAttribute() {{
-        return reader != null && reader.getAttributeCount() > 0;
+        if (reader != null && reader.isStartElement() && reader.getAttributeCount() > 0) {{
+            attributeIndex = 0;
+            return true;
+        }}
+        return false;
     }}
 
     public static void skip() {{
         try {{
-            if (reader == null || !reader.isStartElement()) return;
+            attributeIndex = -1;
+            if (reader == null) return;
+            if (!reader.isStartElement()) {{
+                // In C#, XmlReader.Skip() on non-start-element acts like Read() (advances to next node).
+                if (reader.hasNext()) reader.next();
+                return;
+            }}
+            // If empty element, its END_ELEMENT was already consumed by look-ahead. Just advance.
+            if (reader instanceof WhitespaceFilteringReader && ((WhitespaceFilteringReader) reader).isEmptyElement) {{
+                if (reader.hasNext()) reader.next();
+                return;
+            }}
             int depth = 1;
             while (depth > 0 && reader.hasNext()) {{
                 reader.next();
-                if (reader.isStartElement()) depth++;
+                if (reader.isStartElement()) {{
+                    // If this child is an empty element, don't increment depth (its END was consumed)
+                    if (!(reader instanceof WhitespaceFilteringReader) || !((WhitespaceFilteringReader) reader).isEmptyElement) {{
+                        depth++;
+                    }}
+                }}
                 else if (reader.isEndElement()) depth--;
             }}
             if (reader.hasNext()) reader.next();
