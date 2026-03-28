@@ -2387,11 +2387,17 @@ public class ProjectConversionPipeline
             {
                 if (!code.Contains("import org.junit.jupiter.api.Disabled;", StringComparison.Ordinal))
                 {
-                    code = code.Replace(
-                        "import org.junit.jupiter.api.Test;",
-                        "import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;",
-                        StringComparison.Ordinal);
+                code = code.Replace(
+                    "import org.junit.jupiter.api.Test;",
+                    "import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;",
+                    StringComparison.Ordinal);
                 }
+                // Method has @Timeout(120) annotation between @Test and public void
+                code = code.Replace(
+                    "        @Test\n    @Timeout(120)\npublic void randomDotFileTests()",
+                    "        @Disabled(\"Requires DOT file infrastructure\")\n        @Test\n    @Timeout(120)\npublic void randomDotFileTests()",
+                    StringComparison.Ordinal);
+                // Fallback for plain @Test without @Timeout
                 code = code.Replace(
                     "@Test\npublic void randomDotFileTests()",
                     "@Disabled(\"Requires DOT file infrastructure\")\n@Test\npublic void randomDotFileTests()",
@@ -2442,6 +2448,15 @@ public class ProjectConversionPipeline
             if (r.FileName != null && r.FileName.EndsWith("Nudger.java", StringComparison.Ordinal)
                 && code.Contains("removeSwitchbacksAndMiddlePoints", StringComparison.Ordinal))
             {
+                // Fix 1: pre-loop guard — C# en.MoveNext() with discarded return is valid if ≥1+ element,
+                // but Java en.next() throws NoSuchElementException if list has < 2 elements.
+                // Replace the discarded en.hasNext() calls with proper guards.
+                code = code.Replace(
+                    "en.hasNext();\n        var a = en.next().clone();\n        _yieldResult.add(a);\n        en.hasNext();\n        var b = en.next().clone();",
+                    "if (!en.hasNext()) return _yieldResult;\n        var a = en.next().clone();\n        _yieldResult.add(a);\n        if (!en.hasNext()) return _yieldResult;\n        var b = en.next().clone();",
+                    StringComparison.Ordinal);
+
+                // Fix 2: while-loop body double-advance (en.next() called twice per iteration)
                 code = code.Replace(
                     "while (en.hasNext()) {\n        var dir = (Point.subtract(en.next(), b)).getCompassDirection();\n        if (!(dir == prevDir || CompassVector.oppositeDir(dir) == prevDir || dir == Direction.None)) {\n        if (!ApproximateComparer.close(a.clone(), b.clone())) {\n        _yieldResult.add(a = rectilinearise(a.clone(), b.clone()));\n        }\n        prevDir = dir;\n        }\n        b = en.next().clone();\n        }",
                     "while (en.hasNext()) {\n        var _current = en.next();\n        var dir = (Point.subtract(_current, b)).getCompassDirection();\n        if (!(dir == prevDir || CompassVector.oppositeDir(dir) == prevDir || dir == Direction.None)) {\n        if (!ApproximateComparer.close(a.clone(), b.clone())) {\n        _yieldResult.add(a = rectilinearise(a.clone(), b.clone()));\n        }\n        prevDir = dir;\n        }\n        b = _current.clone();\n        }",
@@ -2451,6 +2466,75 @@ public class ProjectConversionPipeline
                     "while (en.hasNext()) {\n        var _current = en.next();\n        var dir = (Point.subtract(_current, b)).getCompassDirection();\n        if (!(dir == prevDir || CompassVector.oppositeDir(dir) == prevDir || dir == Direction.None)) {\n        if (!ApproximateComparer.close(a, b)) {\n        _yieldResult.add(a = rectilinearise(a, b.clone()));\n        }\n        prevDir = dir;\n        }\n        b = _current.clone();\n        }",
                     StringComparison.Ordinal);
             }
+
+            // Fix RTree.getAllIntersecting — T[] return type causes ClassCastException at runtime due
+            // to Java type erasure: (T[]) new Object[n] creates Object[] which fails when cast to concrete array.
+            // Change to List<T> which avoids the array type parameter issue entirely.
+            if (r.FileName != null && r.FileName.EndsWith("RTree.java", StringComparison.Ordinal)
+                && code.Contains("getAllIntersecting", StringComparison.Ordinal))
+            {
+                code = code.Replace(
+                    "public T[] getAllIntersecting(IRectangle<P> queryRegion) {\n        return (_rootNode == null || getCount() == 0 ? (T[]) new Object[0] : StreamSupport.stream(_rootNode.getNodeItemsIntersectingRectangle(queryRegion).spliterator(), false).toArray(size -> (T[]) new Object[size]));\n    }",
+                    "public List<T> getAllIntersecting(IRectangle<P> queryRegion) {\n        if (_rootNode == null || getCount() == 0) return Collections.emptyList();\n        return StreamSupport.stream(_rootNode.getNodeItemsIntersectingRectangle(queryRegion).spliterator(), false).collect(Collectors.toList());\n    }",
+                    StringComparison.Ordinal);
+            }
+
+            // Fix OverlapRemovalFixedSegmentsMst — uses Arrays.stream(vOverlaps) where vOverlaps
+            // came from getAllIntersecting(). After getAllIntersecting returns List<T>, Arrays.stream
+            // no longer works; replace with List-native operations.
+            if (r.FileName != null && r.FileName.EndsWith("OverlapRemovalFixedSegmentsMst.java", StringComparison.Ordinal))
+            {
+                code = code.Replace(
+                    "(int)(long) Arrays.stream(vOverlaps).count() <= 1",
+                    "vOverlaps.size() <= 1",
+                    StringComparison.Ordinal);
+                code = code.Replace(
+                    "!Arrays.stream(vOverlaps).iterator().hasNext()",
+                    "vOverlaps.isEmpty()",
+                    StringComparison.Ordinal);
+            }
+
+            // Fix RectSegIntersection — uses Arrays.stream(intersected) where intersected came
+            // from getAllIntersecting(). Replace with List.stream().
+            if (r.FileName != null && r.FileName.EndsWith("RectSegIntersection.java", StringComparison.Ordinal))
+            {
+                code = code.Replace(
+                    "var touching = (Arrays.stream(intersected)",
+                    "var touching = (intersected.stream()",
+                    StringComparison.Ordinal);
+            }
+
+            // Fix LgInteractor — uses Arrays.stream(var) and Arrays.asList(var) where var came
+            // from getAllIntersecting(). Replace with List-native equivalents.
+            if (r.FileName != null && r.FileName.EndsWith("LgInteractor.java", StringComparison.Ordinal))
+            {
+                code = code.Replace(
+                    "Arrays.stream(overlappedSkipped).iterator().hasNext()",
+                    "!overlappedSkipped.isEmpty()",
+                    StringComparison.Ordinal);
+                code = code.Replace(
+                    "Arrays.asList(overlappedSkipped)",
+                    "overlappedSkipped",
+                    StringComparison.Ordinal);
+                code = code.Replace(
+                    "!Arrays.stream(intersected).iterator().hasNext()",
+                    "intersected.isEmpty()",
+                    StringComparison.Ordinal);
+            }
+
+            // Fix RouteSimplifier — uses Arrays.stream(nodes) where nodes came from getAllIntersecting().
+            if (r.FileName != null && r.FileName.EndsWith("RouteSimplifier.java", StringComparison.Ordinal))
+            {
+                code = code.Replace(
+                    "Arrays.stream(nodes).filter(",
+                    "nodes.stream().filter(",
+                    StringComparison.Ordinal);
+            }
+
+            // Global fix: replace Arrays.stream(EXPR.getAllIntersecting(ARGS)) with
+            // EXPR.getAllIntersecting(ARGS).stream() now that getAllIntersecting returns List<T>.
+            // This handles all direct call sites across all files.
+            code = FixArraysStreamGetAllIntersecting(code);
 
             r.GeneratedCode = code;
         }
@@ -2484,6 +2568,67 @@ public class ProjectConversionPipeline
         results.AddRange(GenerateRegexCompatibilityClasses(compatibilityPackage));
         results.AddRange(GenerateTraceCompatibilityClasses(compatibilityPackage));
         return results;
+    }
+
+    /// <summary>
+    /// Replaces <c>Arrays.stream(EXPR.getAllIntersecting(ARGS))</c> with
+    /// <c>EXPR.getAllIntersecting(ARGS).stream()</c> now that getAllIntersecting returns List&lt;T&gt;.
+    /// Uses balanced-parenthesis scanning to correctly handle nested calls inside ARGS.
+    /// </summary>
+    private static string FixArraysStreamGetAllIntersecting(string code)
+    {
+        const string prefix = "Arrays.stream(";
+        const string method = "getAllIntersecting(";
+        int prefixLen = prefix.Length;
+
+        var sb = new System.Text.StringBuilder(code.Length);
+        int pos = 0;
+
+        while (pos < code.Length)
+        {
+            int start = code.IndexOf(prefix, pos, StringComparison.Ordinal);
+            if (start < 0)
+            {
+                sb.Append(code, pos, code.Length - pos);
+                break;
+            }
+
+            int argStart = start + prefixLen;
+
+            // Find the matching closing ')' of Arrays.stream(...) using paren counting.
+            int depth = 1;
+            int i = argStart;
+            while (i < code.Length && depth > 0)
+            {
+                if (code[i] == '(') depth++;
+                else if (code[i] == ')') depth--;
+                i++;
+            }
+
+            // If we ended with depth==0, i-1 is the closing ')' of Arrays.stream.
+            // Check if getAllIntersecting appears in the stream argument.
+            if (depth == 0)
+            {
+                int argEnd = i - 1; // position of closing ')' of Arrays.stream
+                int argLen = argEnd - argStart;
+                int methIdx = code.IndexOf(method, argStart, argLen, StringComparison.Ordinal);
+                if (methIdx >= 0)
+                {
+                    // Replace: output everything before Arrays.stream, then inner expr + .stream()
+                    sb.Append(code, pos, start - pos);
+                    sb.Append(code, argStart, argLen); // inner expr (without outer parens)
+                    sb.Append(".stream()");
+                    pos = i; // skip past the closing ')'
+                    continue;
+                }
+            }
+
+            // No match inside — advance past the opening char to avoid infinite loop
+            sb.Append(code, pos, start - pos + 1);
+            pos = start + 1;
+        }
+
+        return sb.ToString();
     }
 
     /// <summary>
