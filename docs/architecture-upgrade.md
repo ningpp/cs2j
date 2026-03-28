@@ -932,7 +932,14 @@ JavaSyntaxNode (现有)
    - 覆盖 StartsWith/EndsWith/Equals/Contains/IndexOf/LastIndexOf 全部签名
    - 消除 5 个 Replace + 1 个 Regex.Replace StringComparison 泄漏补丁
 
-**已消除的补丁**（35 个）：
+10. **Debug.Fail/Assert 及杂项修复**（Step 1.6）：
+    - `InvocationExpressionTransformer`：Debug.Fail/Trace.Fail → `throw new RuntimeException(msg)`
+    - `InvocationExpressionTransformer`：Debug.Assert/Trace.Assert/Contract.Assert → Java `assert` 关键字
+    - `MapPrimitiveStaticMethodName`：默认分支应用 camelCase（修复 `Character.IsDigit` → `Character.isDigit`）
+    - `MethodTransformer`：clone() catch 块直接使用 `Exception` 替代 `CloneNotSupportedException`
+    - 消除 6 个 Replace + 1 个 Regex.Replace 补丁
+
+**已消除的补丁**（42 个）：
 
 | 类别 | 消除数 | 步骤 | 方法 |
 |------|-------|------|------|
@@ -950,14 +957,18 @@ JavaSyntaxNode (现有)
 | Nullable 装箱类型 | 41 | 1.4 | ConversionContext.MapTypeInternal nullable 路径装箱 |
 | StringComparison 参数泄漏 | 5 | 1.5 | InvocationExpressionTransformer 无语义模型回退 |
 | startsWith/Compare StringComparison (Regex) | 1 | 1.5 | InvocationExpressionTransformer 无语义模型回退 |
+| Debug.Fail → throw RuntimeException | 3 | 1.6 | InvocationExpressionTransformer Debug.Fail 处理 |
+| Character.IsDigit camelCase | 1 | 1.6 | MapPrimitiveStaticMethodName 默认 camelCase |
+| CloneNotSupportedException → Exception | 2 | 1.6 | MethodTransformer clone catch 块修复 |
+| Debug.Assert → assert 关键字 | 0 | 1.6 | InvocationExpressionTransformer（正确性修复，无补丁消除） |
 
 **量化进度**：
 
 | 指标 | 阶段 0 结果 | 当前值 | 阶段 1 目标 |
 |------|-----------|-------|-----------|
-| PostGenerationRewriteEngine 行数 | 1,867 | 1,599 | — |
-| code.Replace 补丁数 | 504 | 427 | ≤ 400 |
-| Regex.Replace 补丁数 | 82 | 81 | — |
+| PostGenerationRewriteEngine 行数 | 1,867 | 1,759 | — |
+| code.Replace 补丁数 | 504 | 421 | ≤ 400 |
+| Regex.Replace 补丁数 | 82 | 80 | — |
 | 测试通过/失败 | 461/15 | 461/15 | 461/15 |
 
 > **注**：Regex.Replace 实际数量为 82（之前文档误记为 16），原始目标"≤10"不适用。

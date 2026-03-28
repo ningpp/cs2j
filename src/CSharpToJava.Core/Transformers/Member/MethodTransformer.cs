@@ -174,7 +174,7 @@ public class MethodTransformer : IMemberTransformer
                 !methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.ExternKeyword)))
             {
                 string retType = javaMethod.ReturnType ?? "Object";
-                javaMethod.Body = $"try {{ return ({retType}) super.clone(); }} catch (CloneNotSupportedException __e) {{ throw new RuntimeException(__e); }}";
+                javaMethod.Body = $"try {{ return ({retType}) super.clone(); }} catch (Exception __e) {{ throw new RuntimeException(__e); }}";
                 javaMethod.Modifiers &= ~JavaModifiers.Abstract;
                 // Ensure Cloneable is added to the declaring class (done in ClassTransformer)
             }

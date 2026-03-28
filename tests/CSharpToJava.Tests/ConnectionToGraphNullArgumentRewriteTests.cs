@@ -510,7 +510,7 @@ public class ConnectionToGraphNullArgumentRewriteTests
             String command = option.toUpperInvariant();
             if (command.startsWith("CodePage:", StringComparison.OrdinalIgnoreCase)) {
             }
-            if (Character.IsDigit(command.charAt(0))) {
+            if (Character.isDigit(command.charAt(0))) {
             return Integer.parseInt(command, java.util.Locale.ROOT);
             }
             Charset enc = Charset.getEncoding(command);

@@ -246,8 +246,7 @@ public static class PostGenerationRewriteEngine
             code = code.Replace("int countForTile = tileTable.get(tuple)++ + 1;", "int countForTile = tileTable.get(tuple) + 1;\n        tileTable.put(tuple, countForTile);", StringComparison.Ordinal);
             code = code.Replace("if (LayoutAlgorithmSettings.getShowDebugCurves() != null) { LayoutAlgorithmSettings.getShowDebugCurves().Invoke(", "if (LayoutAlgorithmSettings.getShowDebugCurves() != null) { LayoutAlgorithmSettings.getShowDebugCurves().invoke(", StringComparison.Ordinal);
             code = code.Replace("getShowDebugCurves().invoke(", "getShowDebugCurves().apply(", StringComparison.Ordinal);
-            code = code.Replace("System.fail(\"wrong distance between two polygons\");", "throw new RuntimeException(\"wrong distance between two polygons\");", StringComparison.Ordinal);
-            code = code.Replace("System.fail(", "throw new RuntimeException(", StringComparison.Ordinal);
+            // Debug.Fail / Trace.Fail now handled in InvocationExpressionTransformer
             code = Regex.Replace(code, @"new Edge\(([^,\n]+),\s*([^,\n]+),\s*(ConnectionToGraph\.\w+)\);", "new Edge($1, $2, $3, null);");
             code = Regex.Replace(code, @"(?<!Collectors)\.toList\(\)", ".collect(java.util.stream.Collectors.toList())");
             code = code.Replace(".collect(java.util.stream.Collectors.collect(java.util.stream.Collectors.toList()))", ".collect(java.util.stream.Collectors.toList())", StringComparison.Ordinal);
@@ -970,7 +969,7 @@ public static class PostGenerationRewriteEngine
             {
                 code = code.Replace("String command = option.toUpperInvariant();", "String command = option.toUpperCase(java.util.Locale.ROOT);", StringComparison.Ordinal);
                 code = code.Replace("if (command.startsWith(\"CodePage:\", StringComparison.OrdinalIgnoreCase)) {", "if (command.startsWith(\"CODEPAGE:\")) {", StringComparison.Ordinal);
-                code = code.Replace("if (Character.IsDigit(command.charAt(0))) {", "if (Character.isDigit(command.charAt(0))) {", StringComparison.Ordinal);
+                // Character.IsDigit now handled by MapPrimitiveStaticMethodName camelCase default
                 code = code.Replace("return Integer.parseInt(command, java.util.Locale.ROOT);", "return Integer.parseInt(command);", StringComparison.Ordinal);
                 code = code.Replace("Charset enc = Charset.getEncoding(command);\n        return enc.getCodePage();", "Charset.forName(command);\n        return 0;", StringComparison.Ordinal);
                 // Fallback for unindented multi-line input
@@ -999,8 +998,7 @@ public static class PostGenerationRewriteEngine
             code = code.Replace("segmentString(segment, _previousInstructionRef2)", "segmentString(segment, new CharHolder(previousInstruction))", StringComparison.Ordinal);
             code = code.Replace("CharHolder _previousInstructionRef2 = new CharHolder(previousInstruction);", "CharHolder _previousInstructionRef2 = previousInstruction;", StringComparison.Ordinal);
             code = code.Replace("previousInstruction = _previousInstructionRef2.value;", "previousInstruction.value = _previousInstructionRef2.value;", StringComparison.Ordinal);
-            code = code.Replace("catch (CloneNotSupportedException e)", "catch (Exception e)", StringComparison.Ordinal);
-            code = code.Replace("catch (CloneNotSupportedException __e)", "catch (Exception __e)", StringComparison.Ordinal);
+            // CloneNotSupportedException → Exception now handled directly in MethodTransformer
             code = Regex.Replace(
                 code,
                 @"Arrays\.stream\(layer\)\s*\r?\n\s*\.filter\(v -> v < intGraph\.getNodeCount\(\)\)\s*\r?\n\s*\.flatMap\(v -> intGraph\.outEdges\(v\)\.stream\(\)\)",
@@ -1031,7 +1029,7 @@ public static class PostGenerationRewriteEngine
                 @"return GraphConnectedComponents\.createComponents\(([^;]+)\)\.collect\(java\.util\.stream\.Collectors\.toList\(\)\);",
                 "return new ArrayList<>(StreamSupport.stream(GraphConnectedComponents.createComponents($1).spliterator(), false).toList());");
 
-            code = Regex.Replace(code, @"System\.fail\(", "throw new RuntimeException(");
+            // Debug.Fail / Trace.Fail now handled in InvocationExpressionTransformer
 
             code = Regex.Replace(
                 code,

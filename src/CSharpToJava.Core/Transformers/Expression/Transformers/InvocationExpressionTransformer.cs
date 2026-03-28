@@ -255,6 +255,38 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return $"System.exit({exitCode})";
         }
 
+        // Debug.Fail / Trace.Fail → throw new RuntimeException
+        // C# Debug.Fail(msg) is a diagnostic assertion failure; Java has no direct equivalent.
+        if (originalMethodName == "Fail"
+            && (earlyMethodSymbol?.ContainingType.ToDisplayString() is "System.Diagnostics.Debug" or "System.Diagnostics.Trace"
+                || memberAccess.Expression.ToString() is "Debug" or "Trace"
+                    or "System.Diagnostics.Debug" or "System.Diagnostics.Trace"))
+        {
+            var failArgs = string.Join(", ", node.ArgumentList.Arguments.Select(a => facade.Transform(a.Expression, context)));
+            return string.IsNullOrEmpty(failArgs)
+                ? "throw new RuntimeException()"
+                : $"throw new RuntimeException({failArgs})";
+        }
+
+        // Debug.Assert / Trace.Assert → Java assert keyword
+        // C# Debug.Assert(condition) / Debug.Assert(condition, message)
+        if (originalMethodName == "Assert"
+            && (earlyMethodSymbol?.ContainingType.ToDisplayString() is "System.Diagnostics.Debug" or "System.Diagnostics.Trace"
+                    or "System.Diagnostics.Contracts.Contract"
+                || memberAccess.Expression.ToString() is "Debug" or "Trace" or "Contract"
+                    or "System.Diagnostics.Debug" or "System.Diagnostics.Trace"
+                    or "System.Diagnostics.Contracts.Contract")
+            && node.ArgumentList.Arguments.Count >= 1)
+        {
+            var condition = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            if (node.ArgumentList.Arguments.Count >= 2)
+            {
+                var message = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                return $"assert {condition} : {message}";
+            }
+            return $"assert {condition}";
+        }
+
         if (originalMethodName == "GetTempPath"
             && (earlyMethodSymbol?.ContainingType.ToDisplayString() == "System.IO.Path"
                 || memberAccess.Expression.ToString() is "Path" or "Paths" or "System.IO.Path"))
@@ -3268,6 +3300,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 "byte"   => "parseByte",
                 _        => "parse" + char.ToUpperInvariant(primitiveKeyword[0]) + primitiveKeyword[1..]
             },
+            _ when methodName.Length > 0 => char.ToLowerInvariant(methodName[0]) + methodName[1..],
             _ => methodName
         };
 
