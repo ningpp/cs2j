@@ -1216,6 +1216,29 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return $"({valueExpr} == null || {valueExpr}.isEmpty())";
         }
 
+        // Fallback: String.IsNullOrWhiteSpace(s) -> StringHelper.isNullOrWhiteSpace(s)
+        bool isStringIsNullOrWhiteSpace = originalMethodName == "IsNullOrWhiteSpace"
+            && node.ArgumentList.Arguments.Count - argStartIndex >= 1
+            && (methodSymbol?.ContainingType.ToDisplayString() is "string" or "System.String"
+                || memberAccess.Expression.ToString() is "String" or "string" or "System.String");
+        if (isStringIsNullOrWhiteSpace)
+        {
+            var valueExpr = facade.Transform(node.ArgumentList.Arguments[argStartIndex].Expression, context);
+            return $"StringHelper.isNullOrWhiteSpace({valueExpr})";
+        }
+
+        // Fallback: String.Concat(...) -> StringHelper.concat(...)
+        bool isStringConcat = originalMethodName == "Concat"
+            && node.ArgumentList.Arguments.Count - argStartIndex >= 1
+            && (methodSymbol?.ContainingType.ToDisplayString() is "string" or "System.String"
+                || memberAccess.Expression.ToString() is "String" or "string" or "System.String");
+        if (isStringConcat)
+        {
+            var concatArgs = ArgumentTransformer.TransformArgumentList(
+                node.ArgumentList, context, facade, argStartIndex, methodSymbol);
+            return $"StringHelper.concat({concatArgs})";
+        }
+
         // Fallback: unresolved numeric TryParse static calls.
         // Emit converter helper calls instead of invalid Double.TryParse/Integer.TryParse in Java.
         if (originalMethodName == "TryParse" && node.ArgumentList.Arguments.Count - argStartIndex >= 2)
@@ -2542,8 +2565,31 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             argStartIndex = node.ArgumentList.Arguments.Count; // skip all args
         }
 
-        var args = ArgumentTransformer.TransformArgumentList(
-            node.ArgumentList, context, facade, argStartIndex, methodSymbol);
+        // Strip trailing IFormatProvider/CultureInfo/NumberStyles arguments from Parse methods.
+        // Java's Integer.parseInt, Double.parseDouble, etc. do not accept locale/style parameters.
+        int parseStripCount = 0;
+        if (originalMethodName == "Parse"
+            && node.ArgumentList.Arguments.Count - argStartIndex >= 2)
+        {
+            int lastArgIdx = node.ArgumentList.Arguments.Count - 1;
+            if (HasIFormatProviderOrNumberStylesArg(node.ArgumentList.Arguments[lastArgIdx].Expression, context))
+            {
+                parseStripCount = 1;
+                // If second-to-last is also a NumberStyles/IFormatProvider, strip both
+                if (node.ArgumentList.Arguments.Count - argStartIndex >= 3
+                    && HasIFormatProviderOrNumberStylesArg(node.ArgumentList.Arguments[lastArgIdx - 1].Expression, context))
+                {
+                    parseStripCount = 2;
+                }
+            }
+        }
+
+        var args = parseStripCount > 0
+            ? ArgumentTransformer.TransformArgumentList(
+                node.ArgumentList, context, facade, argStartIndex, methodSymbol,
+                maxArgCount: node.ArgumentList.Arguments.Count - parseStripCount)
+            : ArgumentTransformer.TransformArgumentList(
+                node.ArgumentList, context, facade, argStartIndex, methodSymbol);
 
         if (methodName == "toList" && string.IsNullOrEmpty(args))
         {
@@ -2648,6 +2694,43 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         if (argText.StartsWith("CultureInfo.", System.StringComparison.Ordinal)
             || argText == "NumberFormatInfo.InvariantInfo"
             || argText.StartsWith("NumberFormatInfo.", System.StringComparison.Ordinal))
+            return true;
+
+        return false;
+    }
+
+    /// <summary>
+    /// Checks whether an expression is an IFormatProvider, CultureInfo, or NumberStyles argument
+    /// that should be stripped when converting Parse methods to Java equivalents.
+    /// </summary>
+    private static bool HasIFormatProviderOrNumberStylesArg(ExpressionSyntax expr, ConversionContext context)
+    {
+        // Semantic check
+        if (context.SemanticModel != null)
+        {
+            var typeInfo = context.SemanticModel.GetTypeInfo(expr);
+            var typeName = typeInfo.Type?.ToDisplayString();
+            if (typeName is "System.IFormatProvider" or "System.Globalization.CultureInfo"
+                or "System.Globalization.NumberFormatInfo" or "System.Globalization.NumberStyles")
+                return true;
+            if (typeInfo.Type != null)
+            {
+                foreach (var iface in typeInfo.Type.AllInterfaces)
+                {
+                    if (iface.ToDisplayString() == "System.IFormatProvider")
+                        return true;
+                }
+            }
+        }
+
+        // Syntactic fallback
+        var argText = expr.ToString();
+        if (argText.StartsWith("CultureInfo.", System.StringComparison.Ordinal)
+            || argText.StartsWith("NumberFormatInfo.", System.StringComparison.Ordinal)
+            || argText.StartsWith("NumberStyles.", System.StringComparison.Ordinal)
+            || argText.Contains("getUSCultureInfo()", System.StringComparison.Ordinal)
+            || argText == "NumberFormatInfo.InvariantInfo"
+            || argText.Contains("Locale.ROOT", System.StringComparison.Ordinal))
             return true;
 
         return false;

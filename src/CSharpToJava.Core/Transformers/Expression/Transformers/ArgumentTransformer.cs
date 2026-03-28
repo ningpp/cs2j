@@ -42,16 +42,19 @@ public class ArgumentTransformer
     /// Issue 5: index of the first argument to include. Pass 1 when in the static-extension-receiver
     /// call path to skip the receiver that has already been prepended to the argument list.
     /// </param>
-    public static string TransformArgumentList(ArgumentListSyntax? argumentList, ConversionContext context, IExpressionTransformer transformer, int argStartIndex = 0, IMethodSymbol? methodSymbol = null)
+    public static string TransformArgumentList(ArgumentListSyntax? argumentList, ConversionContext context, IExpressionTransformer transformer, int argStartIndex = 0, IMethodSymbol? methodSymbol = null, int maxArgCount = -1)
     {
         if (argumentList == null) return "";
 
         var args = argumentList.Arguments;
         if (args.Count <= argStartIndex) return "";
 
+        // When maxArgCount is specified, limit the arguments taken from the list
+        int effectiveEnd = maxArgCount >= 0 ? Math.Min(args.Count, maxArgCount) : args.Count;
+
         // Issue 5: slice from argStartIndex when in the static-extension-receiver path
-        IReadOnlyList<ArgumentSyntax> relevantArgs = argStartIndex > 0
-            ? args.Skip(argStartIndex).ToList()
+        IReadOnlyList<ArgumentSyntax> relevantArgs = (argStartIndex > 0 || effectiveEnd < args.Count)
+            ? args.Skip(argStartIndex).Take(effectiveEnd - argStartIndex).ToList()
             : args.ToList();
 
         var orderedArgs = ReorderNamedArguments(relevantArgs, argumentList, context);

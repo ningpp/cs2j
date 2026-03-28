@@ -792,6 +792,13 @@
                                          ]
                          },
                          {
+                             "csharp":  "System.ApplicationException",
+                             "java":  "RuntimeException",
+                             "imports":  [
+                                             "java.lang.RuntimeException"
+                                         ]
+                         },
+                         {
                              "csharp":  "System.TypeLoadException",
                              "java":  "ClassNotFoundException",
                              "imports":  [
@@ -3004,6 +3011,16 @@
                                "type":  "System.Random",
                                "method":  "NextBytes",
                                "javaMethod":  "nextBytes"
+                           },
+                           {
+                               "type":  "System.Exception",
+                               "method":  "InnerException",
+                               "javaMethod":  "getCause"
+                           },
+                           {
+                               "type":  "System.Exception",
+                               "method":  "StackTrace",
+                               "javaMethod":  "getStackTrace"
                            }
                        ],
     "namespaceMappings":  [

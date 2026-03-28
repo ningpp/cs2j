@@ -137,8 +137,8 @@ public class ObjectCreationTransformer : IExpressionTransformer
 
     private string TransformObjectCreationWithArgs(string typeName, ArgumentListSyntax? argumentList, ConversionContext context)
     {
-        // Exception → RuntimeException (unchecked in Java)
-        if (typeName == "Exception")
+        // Exception / ApplicationException → RuntimeException (unchecked in Java)
+        if (typeName is "Exception" or "ApplicationException")
         {
             if (argumentList == null || argumentList.Arguments.Count == 0)
                 return "new RuntimeException()";
