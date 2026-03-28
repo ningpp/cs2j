@@ -171,21 +171,18 @@ public class ConversionContext
     public HashSet<string> ImportedTypes { get; } = new();
 
     /// <summary>
-    /// Names of local variables whose initializer is a Java Stream expression.
-    /// Populated by TransformLocalDeclaration when a stream-typed initializer is detected.
-    /// Used by TransformForEachStatement to detect for-each over stream-typed variables.
-    /// Cleared on entering each method to prevent cross-method contamination.
+    /// Method-level mutable state (pre/post statements, ref holders, stream vars).
     /// </summary>
-    public HashSet<string> StreamLocalVariables { get; } = new();
+    public MethodConversionState MethodState { get; } = new();
 
-    /// <summary>
-    /// Maps LINQ query 'let' variable names to their inlined Java expressions.
-    /// Set by TransformQueryBodyRecursive when processing let clauses.
-    /// Used by TransformIdentifier to inline let variables, avoiding variable scoping issues
-    /// when multiple 'let' clauses are chained (e.g. let left = ...; where ...; let right = ...).
-    /// Cleared after the query expression is fully processed.
-    /// </summary>
-    public Dictionary<string, string> QueryLetAliases { get; set; } = new();
+    // ─── Facade properties delegating to MethodState for backward compatibility ───
+
+    public HashSet<string> StreamLocalVariables => MethodState.StreamLocalVariables;
+    public Dictionary<string, string> QueryLetAliases
+    {
+        get => MethodState.QueryLetAliases;
+        set => MethodState.QueryLetAliases = value;
+    }
 
     /// <summary>
     /// 类型符号到 Java 类型的缓存
@@ -280,118 +277,21 @@ public class ConversionContext
 
     public bool IsFlagsEnum(string enumName) => _flagsEnumNames.Contains(enumName);
 
-    /// <summary>
-    /// Pre-statements to emit before the current statement being transformed.
-    /// Used when an expression transformation must be split into multiple statements
-    /// (e.g., chain property assignment used as method argument: list.Add(obj.Prop = local = expr)
-    ///  → local = expr; obj.setProp(local); list.add(local))
-    /// </summary>
-    private readonly List<string> _pendingPreStatements = new();
+    // ─── Facade methods delegating to MethodState for backward compatibility ───
 
-    public void AddPreStatement(string statement)
-    {
-        _pendingPreStatements.Add(statement);
-    }
+    public void AddPreStatement(string statement) => MethodState.AddPreStatement(statement);
+    public IReadOnlyList<string> DrainPreStatements() => MethodState.DrainPreStatements();
+    public bool HasPendingPreStatements => MethodState.HasPendingPreStatements;
 
-    public IReadOnlyList<string> DrainPreStatements()
-    {
-        var result = _pendingPreStatements.ToList();
-        _pendingPreStatements.Clear();
-        return result;
-    }
+    public void AddPostStatement(string statement) => MethodState.AddPostStatement(statement);
+    public IReadOnlyList<string> DrainPostStatements() => MethodState.DrainPostStatements();
+    public bool HasPendingPostStatements => MethodState.HasPendingPostStatements;
 
-    public bool HasPendingPreStatements => _pendingPreStatements.Count > 0;
-
-    /// <summary>
-    /// Post-statements to emit after the current statement being transformed.
-    /// Used to read back out-parameter holder values into the original variables after a call.
-    /// </summary>
-    private readonly List<string> _pendingPostStatements = new();
-
-    public void AddPostStatement(string statement)
-    {
-        _pendingPostStatements.Add(statement);
-    }
-
-    public IReadOnlyList<string> DrainPostStatements()
-    {
-        var result = _pendingPostStatements.ToList();
-        _pendingPostStatements.Clear();
-        _activeRefHolders.Clear();  // holders' writebacks emitted; lifecycle complete
-        return result;
-    }
-
-    public bool HasPendingPostStatements => _pendingPostStatements.Count > 0;
-
-    /// <summary>
-    /// Maps local variable names to their current active ref-holder names.
-    /// An entry is alive while the holder's writeback is still pending in _pendingPostStatements.
-    /// Cleared when post-statements are drained (writebacks emitted) or when entering a new method.
-    /// </summary>
-    private readonly Dictionary<string, string> _activeRefHolders = new(StringComparer.Ordinal);
-
-    /// <summary>
-    /// Tracks how many ref holders have been allocated per variable name in the current method.
-    /// Used to generate unique names (_varRef, _varRef2, etc.) when a variable is passed as ref
-    /// in multiple independent groups of statements (i.e. after a previous holder's writeback was drained).
-    /// </summary>
-    private readonly Dictionary<string, int> _refHolderAllocCounts = new(StringComparer.Ordinal);
-
-    private readonly Dictionary<string, int> _outHolderAllocCounts = new(StringComparer.Ordinal);
-
-    /// <summary>
-    /// Names of <c>ref</c> parameters in the current method that are "effectively read-only"
-    /// (the method body never reassigns the parameter variable nor forwards it via ref/out).
-    /// For struct-to-class conversions, these parameters are generated as plain Java parameters
-    /// instead of ObjectHolder, eliminating heap allocations on the hot path.
-    /// Populated on <see cref="EnterMethod"/> and cleared on the next entry.
-    /// </summary>
-    private readonly HashSet<string> _readOnlyRefStructParams = new(StringComparer.Ordinal);
-
-    /// <summary>
-    /// Returns true when the parameter with the given name was determined to be a
-    /// read-only ref struct parameter (no ObjectHolder needed) in the current method.
-    /// </summary>
-    public bool IsReadOnlyRefStructParam(string paramName)
-        => _readOnlyRefStructParams.Contains(paramName);
-
-    /// <summary>
-    /// Allocates a unique out-holder name for the given variable.
-    /// First allocation returns "_{varName}Holder1"; subsequent returns "_{varName}Holder2", etc.
-    /// </summary>
-    public string AllocateOutHolderName(string varName)
-    {
-        var key = $"_{varName}Holder";
-        var count = _outHolderAllocCounts.GetValueOrDefault(key, 0) + 1;
-        _outHolderAllocCounts[key] = count;
-        return $"{key}{count}";
-    }
-
-    /// <summary>
-    /// Returns true and sets holderName if an active (not-yet-drained) ref holder exists for the given variable.
-    /// </summary>
-    public bool TryGetActiveRefHolder(string varName, out string holderName)
-    {
-        return _activeRefHolders.TryGetValue(varName, out holderName!);
-    }
-
-    public void SetActiveRefHolder(string varName, string holderName)
-    {
-        _activeRefHolders[varName] = holderName;
-    }
-
-    /// <summary>
-    /// Allocates a unique ref-holder name for the given variable and marks it active.
-    /// First allocation returns "_varRef"; subsequent (after a lifecycle drain) returns "_varRef2", "_varRef3", etc.
-    /// </summary>
-    public string AllocateRefHolderName(string varName)
-    {
-        var count = _refHolderAllocCounts.GetValueOrDefault(varName, 0);
-        _refHolderAllocCounts[varName] = count + 1;
-        var holderName = count == 0 ? $"_{varName}Ref" : $"_{varName}Ref{count + 1}";
-        _activeRefHolders[varName] = holderName;
-        return holderName;
-    }
+    public bool IsReadOnlyRefStructParam(string paramName) => MethodState.IsReadOnlyRefStructParam(paramName);
+    public string AllocateOutHolderName(string varName) => MethodState.AllocateOutHolderName(varName);
+    public bool TryGetActiveRefHolder(string varName, out string holderName) => MethodState.TryGetActiveRefHolder(varName, out holderName);
+    public void SetActiveRefHolder(string varName, string holderName) => MethodState.SetActiveRefHolder(varName, holderName);
+    public string AllocateRefHolderName(string varName) => MethodState.AllocateRefHolderName(varName);
 
     public ConversionContext(ConversionOptions options, TypeMapping.TypeMappingRegistry typeMappings)
     {
@@ -439,23 +339,11 @@ public class ConversionContext
     public void EnterMethod(IMethodSymbol? method)
     {
         _methodStack.Push(method);
-        // Clear stream variable tracking to avoid cross-method contamination
-        StreamLocalVariables.Clear();
-        // Clear LINQ let-alias mappings to avoid cross-method contamination
-        QueryLetAliases.Clear();
-        // Clear ref holder tracking to avoid cross-method contamination
-        _activeRefHolders.Clear();
-        _refHolderAllocCounts.Clear();
-        // Detect read-only ref struct parameters (no ObjectHolder needed)
-        _readOnlyRefStructParams.Clear();
-        if (method != null)
-        {
-            foreach (var param in method.Parameters)
-            {
-                if (StructCloneHelper.IsRefParamEffectivelyReadOnly(param))
-                    _readOnlyRefStructParams.Add(param.Name);
-            }
-        }
+
+        var readOnlyParams = method?.Parameters
+            .Where(p => StructCloneHelper.IsRefParamEffectivelyReadOnly(p))
+            .Select(p => p.Name);
+        MethodState.Reset(readOnlyParams);
     }
 
     /// <summary>
@@ -1061,138 +949,28 @@ public class ConversionContext
     }
 
     /// <summary>
-    /// C# using 别名信息
+    /// File-scoped using alias registry.
     /// </summary>
-    public class UsingAliasInfo
-    {
-        /// <summary>
-        /// 别名名称（如 P2）
-        /// </summary>
-        public string AliasName { get; set; } = string.Empty;
+    public UsingAliasRegistry AliasRegistry { get; } = new();
 
-        /// <summary>
-        /// 目标类型符号
-        /// </summary>
-        public ITypeSymbol? TargetType { get; set; }
+    // ─── Facade properties/methods delegating to AliasRegistry ───
 
-        /// <summary>
-        /// 别名在源代码中的位置（用于诊断）
-        /// </summary>
-        public Location? Location { get; set; }
+    public IReadOnlyDictionary<string, UsingAliasRegistry.UsingAliasInfo> UsingAliases => AliasRegistry.Aliases;
 
-        /// <summary>
-        /// 是否是泛型别名
-        /// </summary>
-        public bool IsGeneric => TargetType is INamedTypeSymbol named &&
-                                  named.TypeArguments.Length > 0;
-    }
-
-    /// <summary>
-    /// 文件级别名映射表
-    /// Key: 别名名称, Value: 别名信息
-    /// </summary>
-    private Dictionary<string, UsingAliasInfo> _usingAliases = new();
-
-    /// <summary>
-    /// 当前文件的别名集合（公开访问）
-    /// </summary>
-    public IReadOnlyDictionary<string, UsingAliasInfo> UsingAliases => _usingAliases;
-
-    /// <summary>
-    /// 注册 using 别名
-    /// </summary>
     public bool RegisterUsingAlias(string aliasName, ITypeSymbol targetType, Location? location)
     {
-        // 检测重复别名定义
-        if (_usingAliases.ContainsKey(aliasName))
-        {
-            Diagnostics.Error($"Duplicate alias '{aliasName}' in this file", location);
-            return false;
-        }
-
-        // 检查别名是否是 Java 关键字
-        if (IsJavaKeyword(aliasName))
-        {
-            Diagnostics.Error($"Alias '{aliasName}' is a Java keyword and cannot be used", location);
-            return false;
-        }
-
-        // 检查别名是否与类型系统中的类型冲突
-        foreach (var cachedType in TypeCache.Values)
-        {
-            if (cachedType == aliasName)
-            {
-                Diagnostics.Warning($"Alias '{aliasName}' conflicts with existing type", location);
-                break;
-            }
-        }
-
-        // 检查别名指向的简单名称与别名是否相同（无意义别名）
-        if (targetType.Name == aliasName)
-        {
-            Diagnostics.Warning($"Alias '{aliasName}' has the same name as the target type '{targetType.Name}'", location);
-        }
-
-        // 检查别名与当前命名空间类型的冲突
-        if (!string.IsNullOrEmpty(CurrentNamespace))
-        {
-            var currentNs = GlobalNamespace?.GetMembers(CurrentNamespace);
-            if (currentNs != null)
-            {
-                foreach (var member in currentNs)
-                {
-                    if (member is ITypeSymbol type && type.Name == aliasName)
-                    {
-                        Diagnostics.Warning($"Alias '{aliasName}' conflicts with type '{type.Name}' in current namespace", location);
-                        break;
-                    }
-                }
-            }
-        }
-
-        _usingAliases[aliasName] = new UsingAliasInfo
-        {
-            AliasName = aliasName,
-            TargetType = targetType,
-            Location = location
-        };
-
-        return true;
+        return AliasRegistry.Register(aliasName, targetType, location, Diagnostics, CurrentNamespace, GlobalNamespace, TypeCache);
     }
 
-    /// <summary>
-    /// 检查标识符是否是别名
-    /// </summary>
-    public bool IsAlias(string identifier)
-    {
-        return _usingAliases.ContainsKey(identifier);
-    }
+    public bool IsAlias(string identifier) => AliasRegistry.IsAlias(identifier);
+    public ITypeSymbol? ResolveAlias(string aliasName) => AliasRegistry.Resolve(aliasName);
+    public void ClearAliases() => AliasRegistry.Clear();
 
-    /// <summary>
-    /// 解析别名到实际类型
-    /// </summary>
-    public ITypeSymbol? ResolveAlias(string aliasName)
-    {
-        return _usingAliases.GetValueOrDefault(aliasName)?.TargetType;
-    }
-
-    /// <summary>
-    /// 清除当前文件的别名（处理新文件时调用）
-    /// </summary>
-    public void ClearAliases()
-    {
-        _usingAliases.Clear();
-    }
-
-    /// <summary>
-    /// 获取别名的 Java 类型表示
-    /// </summary>
     public string? MapAliasToJavaType(string aliasName)
     {
-        var alias = _usingAliases.GetValueOrDefault(aliasName);
-        if (alias?.TargetType == null) return null;
-
-        return MapType(alias.TargetType);
+        var targetType = AliasRegistry.Resolve(aliasName);
+        if (targetType == null) return null;
+        return MapType(targetType);
     }
 
     /// <summary>

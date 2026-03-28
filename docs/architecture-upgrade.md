@@ -973,6 +973,7 @@ JavaSyntaxNode (现有)
 
 > **注**：Regex.Replace 实际数量为 82（之前文档误记为 16），原始目标"≤10"不适用。
 > 多数 Regex.Replace 为文件特定模式，Transformer 层无法覆盖。
+> 已消除补丁总计 83 个 Replace + 2 个 Regex = 85 个（504→421 Replace, 82→80 Regex）。
 
 **剩余交付物**：
 
@@ -983,20 +984,20 @@ JavaSyntaxNode (现有)
 
 ### 阶段 2：建立解决方案级工程模型
 
+**状态：已完成** ✅
+
 **目标**：让转换输入与真实编译输入一致。
 
-**交付物**：
+**交付结果**：
 
-- `CSharpToJava.Workspace` 新模块
-- Solution/Project/TFM 数据模型
-- MSBuild 求值接入（`MSBuildWorkspace`）
-- 真实引用图与源码集合解析
-- `ProjectDiscovery` 降级为 fallback
-
-**完成标准**：
-
-- 复杂仓库不再依赖"额外语义目录拼接"
-- 条件编译、多 TFM 切片可正确处理
+- 新增 `CSharpToJava.Workspace` 模块，引入 `Microsoft.CodeAnalysis.Workspaces.MSBuild` 和 `Microsoft.Build.Locator`
+- `SolutionLoader`：支持 .sln / .csproj / 目录三种入口，MSBuildWorkspace 驱动，自动拓扑排序项目依赖
+- `WorkspaceProject`：封装 MSBuild 解析后的项目数据（CSharpCompilation / Documents / ProjectReferences / IsTestProject）
+- `ProjectConversionPipeline`：新增接受 `CSharpCompilation` 的重载，跳过手动编译步骤，直接使用 MSBuild 提供的完整语义模型
+- CLI：优先尝试 MSBuild 加载（`ConvertFromWorkspaceSingleModule` / `ConvertFromWorkspaceMultiModule`），失败时回退到 `ProjectDiscovery` 目录扫描
+- CLI `--source` 选项现在支持 `.sln` 文件
+- `ProjectDiscovery` 保留为 fallback（无 SDK 环境时使用）
+- 测试基线不变：461 通过 / 15 失败
 
 ### 阶段 3：拆分 ConversionContext 并扩展 Java IR
 
