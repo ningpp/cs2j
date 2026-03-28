@@ -214,4 +214,76 @@ public class DictionaryTryGetValueTests
         Assert.DoesNotContain("TODO: out var", converted.GeneratedCode);
         Assert.DoesNotContain("get(key,", converted.GeneratedCode);
     }
+
+    // ── Standalone TryGetValue with struct (value type) — getOrDefault fix ───
+
+    [Fact]
+    public void TryGetValue_Standalone_StructValueType_UsesGetOrDefault()
+    {
+        const string code = """
+            using System.Collections.Generic;
+            namespace ConsoleApp1
+            {
+                public class Program
+                {
+                    public struct Point
+                    {
+                        public Point(double x, double y) : this()
+                        {
+                            this.X = x;
+                            this.Y = y;
+                        }
+                        public double X { get; set; }
+                        public double Y { get; set; }
+                    }
+
+                    public static void Main(string[] args)
+                    {
+                        var layerMap = new Dictionary<int, Point>();
+                        for (int l = 0; l < 3; l++)
+                        {
+                            Point size;
+                            layerMap.TryGetValue(l, out size);
+                            layerMap[l] = new Point(3.14, size.X * size.Y);
+                        }
+                    }
+                }
+            }
+            """;
+
+        var result = Convert(code);
+
+        Assert.True(result.Success,
+            $"Conversion failed:\n{string.Join("\n", result.Diagnostics.Select(d => d.Message))}");
+        // Must use getOrDefault with new Program.Point() for struct value type
+        Assert.Contains("getOrDefault(l, new Program.Point())", result.GeneratedCode);
+        // Must NOT use bare .get() which returns null for missing keys
+        Assert.DoesNotContain("= layerMap.get(l);", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void TryGetValue_Standalone_ReferenceType_UsesGet()
+    {
+        const string code = """
+            using System.Collections.Generic;
+            class C
+            {
+                public void Test()
+                {
+                    var dict = new Dictionary<int, string>();
+                    string val;
+                    dict.TryGetValue(1, out val);
+                    System.Console.WriteLine(val);
+                }
+            }
+            """;
+
+        var result = Convert(code);
+
+        Assert.True(result.Success,
+            $"Conversion failed:\n{string.Join("\n", result.Diagnostics.Select(d => d.Message))}");
+        // Reference types should use plain .get() since null is the C# default anyway
+        Assert.Contains("dict.get(1)", result.GeneratedCode);
+        Assert.DoesNotContain("getOrDefault", result.GeneratedCode);
+    }
 }

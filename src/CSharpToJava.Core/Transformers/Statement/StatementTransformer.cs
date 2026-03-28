@@ -139,6 +139,8 @@ public class StatementTransformer : IStatementTransformer
         }
 
         // Special case: dict.TryGetValue(key, out var v) as a standalone statement → v = dict.get(key);
+        // For value types (structs/primitives), use getOrDefault to avoid NPE since C# TryGetValue
+        // default-initializes the out parameter when the key is not found.
         if (stmt.Expression is InvocationExpressionSyntax tvInvoc &&
             tvInvoc.Expression is MemberAccessExpressionSyntax tvMa &&
             tvMa.Name.Identifier.Text == "TryGetValue" &&
@@ -152,12 +154,25 @@ public class StatementTransformer : IStatementTransformer
                 var declType = context.SemanticModel?.GetTypeInfo(tvDecl2.Type);
                 var javaType = declType.HasValue && declType.Value.Type != null ? context.MapType(declType.Value.Type) : "var";
                 var varName = tvDecl2.Designation is SingleVariableDesignationSyntax sv ? sv.Identifier.Text : "_outVar";
-                return new JavaStatementNode($"{javaType} {varName} = {tvTarget}.get({tvKey});");
+                var defaultVal = GetValueTypeDefault(declType?.Type, javaType);
+                var getCall = defaultVal != null
+                    ? $"{tvTarget}.getOrDefault({tvKey}, {defaultVal})"
+                    : $"{tvTarget}.get({tvKey})";
+                return new JavaStatementNode($"{javaType} {varName} = {getCall};");
             }
             else
             {
                 var tvOut2 = exprTransformer.Transform(tvArg2.Expression, context);
-                return new JavaStatementNode($"{tvOut2} = {tvTarget}.get({tvKey});");
+                var outTypeInfo = context.SemanticModel?.GetTypeInfo(tvArg2.Expression);
+                string? defaultVal = null;
+                if (outTypeInfo?.Type is { IsValueType: true } outType)
+                {
+                    defaultVal = GetValueTypeDefault(outType, context.MapType(outType));
+                }
+                var getCall = defaultVal != null
+                    ? $"{tvTarget}.getOrDefault({tvKey}, {defaultVal})"
+                    : $"{tvTarget}.get({tvKey})";
+                return new JavaStatementNode($"{tvOut2} = {getCall};");
             }
         }
 
@@ -1700,6 +1715,29 @@ public class StatementTransformer : IStatementTransformer
         return bare is "List" or "Collection" or "ArrayList" or "HashSet" or "TreeSet"
             or "LinkedList" or "LinkedHashSet" or "ArrayDeque" or "Stack" or "Vector"
             or "Set" or "Deque" or "Queue";
+    }
+
+    /// <summary>
+    /// Returns a Java default-value expression for a C# value type, or null for reference types.
+    /// Used to generate getOrDefault() calls for TryGetValue on value-type dictionary values.
+    /// </summary>
+    private static string? GetValueTypeDefault(ITypeSymbol? typeSymbol, string javaTypeName)
+    {
+        if (typeSymbol == null || !typeSymbol.IsValueType)
+            return null;
+
+        return javaTypeName switch
+        {
+            "int" => "0",
+            "long" => "0L",
+            "short" => "(short)0",
+            "byte" => "(byte)0",
+            "float" => "0.0f",
+            "double" => "0.0",
+            "boolean" => "false",
+            "char" => "'\\0'",
+            _ => $"new {javaTypeName}()"
+        };
     }
 
     /// <summary>
