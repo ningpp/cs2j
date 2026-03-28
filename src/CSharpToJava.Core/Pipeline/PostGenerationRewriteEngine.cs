@@ -845,49 +845,8 @@ public static class PostGenerationRewriteEngine
 
                             if (r.FileName != null && r.FileName.Contains("RectilinearVerifier", StringComparison.Ordinal))
                             {
-                                code = code.Replace("private double overrideRouterPadding;", "private Double overrideRouterPadding;", StringComparison.Ordinal);
-                                code = code.Replace("private double overrideRouterEdgeSeparation;", "private Double overrideRouterEdgeSeparation;", StringComparison.Ordinal);
-                                code = code.Replace("private boolean overrideRouteToCenterOfObstacles;", "private Boolean overrideRouteToCenterOfObstacles;", StringComparison.Ordinal);
-                                code = code.Replace("private double overrideRouterArrowheadLength;", "private Double overrideRouterArrowheadLength;", StringComparison.Ordinal);
-                                code = code.Replace("private boolean overrideUseFreePortsForObstaclePorts;", "private Boolean overrideUseFreePortsForObstaclePorts;", StringComparison.Ordinal);
-                                code = code.Replace("private boolean overrideUseSparseVisibilityGraph;", "private Boolean overrideUseSparseVisibilityGraph;", StringComparison.Ordinal);
-                                code = code.Replace("private boolean overrideUseObstacleRectangles;", "private Boolean overrideUseObstacleRectangles;", StringComparison.Ordinal);
-                                code = code.Replace("private boolean overrideLimitPortVisibilitySpliceToEndpointBoundingBox;", "private Boolean overrideLimitPortVisibilitySpliceToEndpointBoundingBox;", StringComparison.Ordinal);
-                                code = code.Replace("private boolean overrideWantPaths;", "private Boolean overrideWantPaths;", StringComparison.Ordinal);
-                                code = code.Replace("private boolean overrideWantNudger;", "private Boolean overrideWantNudger;", StringComparison.Ordinal);
-                                code = code.Replace("private boolean overrideWantVerify;", "private Boolean overrideWantVerify;", StringComparison.Ordinal);
-                                code = code.Replace("private double overrideStraightTolerance;", "private Double overrideStraightTolerance;", StringComparison.Ordinal);
-                                code = code.Replace("private double overrideCornerTolerance;", "private Double overrideCornerTolerance;", StringComparison.Ordinal);
-                                code = code.Replace("private double overrideBendPenalty;", "private Double overrideBendPenalty;", StringComparison.Ordinal);
+                                // nullable value type → boxed type now handled by MapTypeInternal()
 
-                                code = code.Replace("protected double getOverrideRouterPadding() {", "protected Double getOverrideRouterPadding() {", StringComparison.Ordinal);
-                                code = code.Replace("protected void setOverrideRouterPadding(double value) {", "protected void setOverrideRouterPadding(Double value) {", StringComparison.Ordinal);
-                                code = code.Replace("protected double getOverrideRouterEdgeSeparation() {", "protected Double getOverrideRouterEdgeSeparation() {", StringComparison.Ordinal);
-                                code = code.Replace("protected void setOverrideRouterEdgeSeparation(double value) {", "protected void setOverrideRouterEdgeSeparation(Double value) {", StringComparison.Ordinal);
-                                code = code.Replace("protected boolean getOverrideRouteToCenterOfObstacles() {", "protected Boolean getOverrideRouteToCenterOfObstacles() {", StringComparison.Ordinal);
-                                code = code.Replace("protected void setOverrideRouteToCenterOfObstacles(boolean value) {", "protected void setOverrideRouteToCenterOfObstacles(Boolean value) {", StringComparison.Ordinal);
-                                code = code.Replace("protected double getOverrideRouterArrowheadLength() {", "protected Double getOverrideRouterArrowheadLength() {", StringComparison.Ordinal);
-                                code = code.Replace("protected void setOverrideRouterArrowheadLength(double value) {", "protected void setOverrideRouterArrowheadLength(Double value) {", StringComparison.Ordinal);
-                                code = code.Replace("protected boolean getOverrideUseFreePortsForObstaclePorts() {", "protected Boolean getOverrideUseFreePortsForObstaclePorts() {", StringComparison.Ordinal);
-                                code = code.Replace("protected void setOverrideUseFreePortsForObstaclePorts(boolean value) {", "protected void setOverrideUseFreePortsForObstaclePorts(Boolean value) {", StringComparison.Ordinal);
-                                code = code.Replace("protected boolean getOverrideUseSparseVisibilityGraph() {", "protected Boolean getOverrideUseSparseVisibilityGraph() {", StringComparison.Ordinal);
-                                code = code.Replace("protected void setOverrideUseSparseVisibilityGraph(boolean value) {", "protected void setOverrideUseSparseVisibilityGraph(Boolean value) {", StringComparison.Ordinal);
-                                code = code.Replace("protected boolean getOverrideUseObstacleRectangles() {", "protected Boolean getOverrideUseObstacleRectangles() {", StringComparison.Ordinal);
-                                code = code.Replace("protected void setOverrideUseObstacleRectangles(boolean value) {", "protected void setOverrideUseObstacleRectangles(Boolean value) {", StringComparison.Ordinal);
-                                code = code.Replace("protected boolean getOverrideLimitPortVisibilitySpliceToEndpointBoundingBox() {", "protected Boolean getOverrideLimitPortVisibilitySpliceToEndpointBoundingBox() {", StringComparison.Ordinal);
-                                code = code.Replace("protected void setOverrideLimitPortVisibilitySpliceToEndpointBoundingBox(boolean value) {", "protected void setOverrideLimitPortVisibilitySpliceToEndpointBoundingBox(Boolean value) {", StringComparison.Ordinal);
-                                code = code.Replace("protected boolean getOverrideWantPaths() {", "protected Boolean getOverrideWantPaths() {", StringComparison.Ordinal);
-                                code = code.Replace("protected void setOverrideWantPaths(boolean value) {", "protected void setOverrideWantPaths(Boolean value) {", StringComparison.Ordinal);
-                                code = code.Replace("protected boolean getOverrideWantNudger() {", "protected Boolean getOverrideWantNudger() {", StringComparison.Ordinal);
-                                code = code.Replace("protected void setOverrideWantNudger(boolean value) {", "protected void setOverrideWantNudger(Boolean value) {", StringComparison.Ordinal);
-                                code = code.Replace("protected boolean getOverrideWantVerify() {", "protected Boolean getOverrideWantVerify() {", StringComparison.Ordinal);
-                                code = code.Replace("protected void setOverrideWantVerify(boolean value) {", "protected void setOverrideWantVerify(Boolean value) {", StringComparison.Ordinal);
-                                code = code.Replace("protected double getOverrideStraightTolerance() {", "protected Double getOverrideStraightTolerance() {", StringComparison.Ordinal);
-                                code = code.Replace("protected void setOverrideStraightTolerance(double value) {", "protected void setOverrideStraightTolerance(Double value) {", StringComparison.Ordinal);
-                                code = code.Replace("protected double getOverrideCornerTolerance() {", "protected Double getOverrideCornerTolerance() {", StringComparison.Ordinal);
-                                code = code.Replace("protected void setOverrideCornerTolerance(double value) {", "protected void setOverrideCornerTolerance(Double value) {", StringComparison.Ordinal);
-                                code = code.Replace("protected double getOverrideBendPenalty() {", "protected Double getOverrideBendPenalty() {", StringComparison.Ordinal);
-                                code = code.Replace("protected void setOverrideBendPenalty(double value) {", "protected void setOverrideBendPenalty(Double value) {", StringComparison.Ordinal);
                                 code = code.Replace(
                                     "new Polyline(StreamSupport.stream(Enumerable.spliterator(), false).collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new), list -> { Collections.reverse(list); return list; })))",
                                     "new Polyline(StreamSupport.stream(java.util.Arrays.asList(points).spliterator(), false).collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new), list -> { Collections.reverse(list); return list; })))",

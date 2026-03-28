@@ -562,8 +562,19 @@ public class ConversionContext
                 return $"Optional<{javaType}>";
             }
 
-            // 默认：使用装箱类型
-            return javaType;
+            // 默认：使用装箱类型（nullable 值类型在 Java 中必须使用装箱类型）
+            return javaType switch
+            {
+                "int"     => "Integer",
+                "long"    => "Long",
+                "double"  => "Double",
+                "float"   => "Float",
+                "short"   => "Short",
+                "byte"    => "Byte",
+                "char"    => "Character",
+                "boolean" => "Boolean",
+                _ => javaType
+            };
         }
 
         // Anonymous types — try to match to a synthesized record if one was registered

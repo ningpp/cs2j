@@ -5,28 +5,30 @@ namespace CSharpToJava.Tests;
 public class RectilinearVerifierCompatibilityRewriteTests
 {
     [Fact]
-    public void ApplyCompatibilityRewritesForTesting_RectilinearVerifier_UsesWrapperTypesForNullableOverrides()
+    public void ApplyCompatibilityRewritesForTesting_RectilinearVerifier_PreservesWrapperTypesForNullableOverrides()
     {
+        // Transformer now produces boxed types directly via MapTypeInternal() for Nullable<T>,
+        // so the post-processor no longer needs to patch them. Verify they're preserved.
         const string generated = """
             package Microsoft.Msagl.UnitTests.Rectilinear;
 
             public class RectilinearVerifier {
-                private double overrideRouterPadding;
-                private boolean overrideWantVerify;
+                private Double overrideRouterPadding;
+                private Boolean overrideWantVerify;
 
-                protected double getOverrideRouterPadding() {
+                protected Double getOverrideRouterPadding() {
                     return overrideRouterPadding;
                 }
 
-                protected void setOverrideRouterPadding(double value) {
+                protected void setOverrideRouterPadding(Double value) {
                     this.overrideRouterPadding = value;
                 }
 
-                protected boolean getOverrideWantVerify() {
+                protected Boolean getOverrideWantVerify() {
                     return overrideWantVerify;
                 }
 
-                protected void setOverrideWantVerify(boolean value) {
+                protected void setOverrideWantVerify(Boolean value) {
                     this.overrideWantVerify = value;
                 }
 

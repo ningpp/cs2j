@@ -922,6 +922,10 @@ JavaSyntaxNode (现有)
    - `StringBuilder.appendFormat()` 正则提升为通用规则（从 ShiftReduceParser 专属移出）
    - `IFormatProvider` 参数剥离提升为通用规则（从 ShiftReduceParser 专属移出）
 
+8. **ConversionContext nullable 装箱修复**（Step 1.4）：
+   - `MapTypeInternal()` 对 `Nullable<T>` 返回装箱类型（int→Integer, double→Double 等）
+   - 消除 RectilinearVerifier 全部 41 个 nullable 字段/属性补丁
+
 **已消除的补丁**（35 个）：
 
 | 类别 | 消除数 | 步骤 | 方法 |
@@ -937,13 +941,14 @@ JavaSyntaxNode (现有)
 | Environment 映射 | 1 | 1.1 | TypeMappings 新增方法映射 |
 | Convert.ToBoolean | 1 | 1.3 | InvocationExpressionTransformer Convert 映射 |
 | Convert.ToString | 1 | 1.3 | InvocationExpressionTransformer Convert 映射 |
+| Nullable 装箱类型 | 41 | 1.4 | ConversionContext.MapTypeInternal nullable 路径装箱 |
 
 **量化进度**：
 
 | 指标 | 阶段 0 结果 | 当前值 | 阶段 1 目标 |
 |------|-----------|-------|-----------|
-| PostGenerationRewriteEngine 行数 | 1,867 | 1,815 | — |
-| code.Replace 补丁数 | 504 | 473 | ≤ 400 |
+| PostGenerationRewriteEngine 行数 | 1,867 | 1,612 | — |
+| code.Replace 补丁数 | 504 | 432 | ≤ 400 |
 | Regex.Replace 补丁数 | 82 | 82 | — |
 | 测试通过/失败 | 461/15 | 461/15 | 461/15 |
 
