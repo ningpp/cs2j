@@ -926,6 +926,12 @@ JavaSyntaxNode (现有)
    - `MapTypeInternal()` 对 `Nullable<T>` 返回装箱类型（int→Integer, double→Double 等）
    - 消除 RectilinearVerifier 全部 41 个 nullable 字段/属性补丁
 
+9. **StringComparison 无语义模型回退**（Step 1.5）：
+   - `IsSystemStringMethod` 补充 `"string"` 小写别名匹配
+   - 实例方法回退路径：当语义模型无法解析接收者类型时，检测最后参数包含 `StringComparison.` 并处理
+   - 覆盖 StartsWith/EndsWith/Equals/Contains/IndexOf/LastIndexOf 全部签名
+   - 消除 5 个 Replace + 1 个 Regex.Replace StringComparison 泄漏补丁
+
 **已消除的补丁**（35 个）：
 
 | 类别 | 消除数 | 步骤 | 方法 |
@@ -942,14 +948,16 @@ JavaSyntaxNode (现有)
 | Convert.ToBoolean | 1 | 1.3 | InvocationExpressionTransformer Convert 映射 |
 | Convert.ToString | 1 | 1.3 | InvocationExpressionTransformer Convert 映射 |
 | Nullable 装箱类型 | 41 | 1.4 | ConversionContext.MapTypeInternal nullable 路径装箱 |
+| StringComparison 参数泄漏 | 5 | 1.5 | InvocationExpressionTransformer 无语义模型回退 |
+| startsWith/Compare StringComparison (Regex) | 1 | 1.5 | InvocationExpressionTransformer 无语义模型回退 |
 
 **量化进度**：
 
 | 指标 | 阶段 0 结果 | 当前值 | 阶段 1 目标 |
 |------|-----------|-------|-----------|
-| PostGenerationRewriteEngine 行数 | 1,867 | 1,612 | — |
-| code.Replace 补丁数 | 504 | 432 | ≤ 400 |
-| Regex.Replace 补丁数 | 82 | 82 | — |
+| PostGenerationRewriteEngine 行数 | 1,867 | 1,599 | — |
+| code.Replace 补丁数 | 504 | 427 | ≤ 400 |
+| Regex.Replace 补丁数 | 82 | 81 | — |
 | 测试通过/失败 | 461/15 | 461/15 | 461/15 |
 
 > **注**：Regex.Replace 实际数量为 82（之前文档误记为 16），原始目标"≤10"不适用。

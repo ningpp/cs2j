@@ -7,22 +7,24 @@ public class TestFileReaderCompatibilityRewriteTests
     [Fact]
     public void ApplyCompatibilityRewritesForTesting_TestFileReader_RewritesStringComparisonAndUnsignedParsing()
     {
+        // StringComparison arguments are now handled by InvocationExpressionTransformer,
+        // so the post-processor input already has StringHelper calls.
         const string generated = """
             package Microsoft.Msagl.UnitTests.Constraints;
 
             public class TestFileReader {
                 void load(String currentLine, String strArg, String strFixedPos) {
-                    if (currentLine.startsWith("//", StringComparison.OrdinalIgnoreCase)) {
+                    if (StringHelper.startsWith(currentLine, "//", true)) {
                     }
                     int style = System.Globalization.NumberStyles.Integer;
-                    if (strArg.startsWith("0x", StringComparison.OrdinalIgnoreCase)) {
+                    if (StringHelper.startsWith(strArg, "0x", true)) {
                         strArg = strArg.substring(2);
                         style = System.Globalization.NumberStyles.HexNumber;
                     }
                     this.setSeed(Integer.parseInt(strArg, style));
-                    if (0 == String.Compare("NewHierarchy", currentLine, StringComparison.OrdinalIgnoreCase)) {
+                    if (0 == StringHelper.compare("NewHierarchy", currentLine, true)) {
                     }
-                    if (0 == String.Compare("Fixed", strFixedPos, StringComparison.OrdinalIgnoreCase)) {
+                    if (0 == StringHelper.compare("Fixed", strFixedPos, true)) {
                     }
                     var value = uint.parseUint("FF", 16);
                 }

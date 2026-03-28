@@ -418,6 +418,57 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return $"StringHelper.lastIndexOf({receiver}, {valueArg}, {startIndexArg}, {ToJavaBooleanLiteral(lastIndexOfWithStartIgnoreCase)})";
         }
 
+        // Fallback: when semantic model can't resolve receiver type but a StringComparison
+        // argument is present, handle common string instance methods to prevent
+        // StringComparison.XXX from leaking into generated Java code.
+        if (stringEqualsReceiverType == null
+            && originalMethodName is "StartsWith" or "EndsWith" or "Equals" or "Contains" or "IndexOf" or "LastIndexOf")
+        {
+            var lastArgIdx = node.ArgumentList.Arguments.Count - 1;
+            if (lastArgIdx >= 1
+                && TryGetStringComparisonIgnoreCase(node.ArgumentList.Arguments[lastArgIdx].Expression, context.SemanticModel, out var fallbackIgnoreCase))
+            {
+                if (originalMethodName is "StartsWith" or "EndsWith" && node.ArgumentList.Arguments.Count == 2)
+                {
+                    var arg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    var helperMethod = originalMethodName == "StartsWith" ? "startsWith" : "endsWith";
+                    return $"StringHelper.{helperMethod}({receiver}, {arg}, {ToJavaBooleanLiteral(fallbackIgnoreCase)})";
+                }
+                if (originalMethodName == "Equals" && node.ArgumentList.Arguments.Count == 2)
+                {
+                    var arg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    return $"StringHelper.equals({receiver}, {arg}, {ToJavaBooleanLiteral(fallbackIgnoreCase)})";
+                }
+                if (originalMethodName == "Contains" && node.ArgumentList.Arguments.Count == 2)
+                {
+                    var arg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    return $"StringHelper.contains({receiver}, {arg}, {ToJavaBooleanLiteral(fallbackIgnoreCase)})";
+                }
+                if (originalMethodName == "IndexOf" && node.ArgumentList.Arguments.Count == 2)
+                {
+                    var arg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    return $"StringHelper.indexOf({receiver}, {arg}, {ToJavaBooleanLiteral(fallbackIgnoreCase)})";
+                }
+                if (originalMethodName == "IndexOf" && node.ArgumentList.Arguments.Count == 3)
+                {
+                    var arg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    var startArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                    return $"StringHelper.indexOf({receiver}, {arg}, {startArg}, {ToJavaBooleanLiteral(fallbackIgnoreCase)})";
+                }
+                if (originalMethodName == "LastIndexOf" && node.ArgumentList.Arguments.Count == 2)
+                {
+                    var arg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    return $"StringHelper.lastIndexOf({receiver}, {arg}, {ToJavaBooleanLiteral(fallbackIgnoreCase)})";
+                }
+                if (originalMethodName == "LastIndexOf" && node.ArgumentList.Arguments.Count == 3)
+                {
+                    var arg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    var startArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                    return $"StringHelper.lastIndexOf({receiver}, {arg}, {startArg}, {ToJavaBooleanLiteral(fallbackIgnoreCase)})";
+                }
+            }
+        }
+
         // System.Tuple.Create(...) mapping.
         // Avoid emitting Tuple.create(...) which may bind to an unrelated user type named Tuple.
         if (originalMethodName == "Create" && node.ArgumentList.Arguments.Count >= 2)
@@ -3476,7 +3527,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return true;
 
         var receiverText = receiverExpression.ToString();
-        return receiverText is "String" or "System.String";
+        return receiverText is "String" or "System.String" or "string";
     }
 
     private static bool TryGetStringComparisonIgnoreCase(ExpressionSyntax expression, SemanticModel? semanticModel, out bool ignoreCase)

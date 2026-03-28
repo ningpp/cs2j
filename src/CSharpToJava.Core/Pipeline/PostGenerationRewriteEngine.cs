@@ -169,7 +169,7 @@ public static class PostGenerationRewriteEngine
                     StringComparison.Ordinal);
             }
 
-            code = code.Replace(".endsWith(FileExtension, StringComparison.OrdinalIgnoreCase)", ".toLowerCase().endsWith(FileExtension.toLowerCase())", StringComparison.Ordinal);
+            // StringComparison.OrdinalIgnoreCase now handled by InvocationExpressionTransformer fallback
             code = code.Replace("subgraphTempl.SubgraphIdList.addRange(listOfSubgraphs.split(' '));", "subgraphTempl.SubgraphIdList.addAll(Arrays.asList(listOfSubgraphs.split(\" \")));", StringComparison.Ordinal);
             code = code.Replace("Class t = Class.getClass(typeString);\n        DataContractSerializer dcs = new DataContractSerializer(t);\n        StringReader sr = new StringReader(serString);\n        XmlReader xr = XmlReader.create(sr);\n        return dcs.readObject(xr, true);", "return serString;", StringComparison.Ordinal);
             code = code.Replace("subgraphTempl.NodeIdList.addRange(listOfNodes.split(' '));", "subgraphTempl.NodeIdList.addAll(Arrays.asList(listOfNodes.split(\" \")));", StringComparison.Ordinal);
@@ -179,7 +179,6 @@ public static class PostGenerationRewriteEngine
             code = code.Replace(".where(it -> !endOfLines.contains(it))", ".stream().filter(it -> !endOfLines.contains(it)).collect(java.util.stream.Collectors.toList())", StringComparison.Ordinal);
             code = code.Replace("SvgGraphWriter.class.getAssembly().getName().getVersion()", "\"unknown\"", StringComparison.Ordinal);
             code = code.Replace("Arrays.stream(initialLayering).map(i -> i + 1).max(java.util.Comparator.naturalOrder()).orElseThrow()", "Arrays.stream(initialLayering).map(i -> i + 1).max().orElseThrow()", StringComparison.Ordinal);
-            code = code.Replace("StringHelper.compare(this.getAttr().getId(), n.getAttr().getId(), StringComparison.Ordinal)", "StringHelper.compare(this.getAttr().getId(), n.getAttr().getId(), false)", StringComparison.Ordinal);
             code = code.Replace("this.a = 255;", "this.a = (byte) 255;", StringComparison.Ordinal);
             // Convert.ToString now handled in InvocationExpressionTransformer
             code = code.Replace("_handler.invoke()", "_handler.apply()", StringComparison.Ordinal);
@@ -220,7 +219,6 @@ public static class PostGenerationRewriteEngine
             code = code.Replace(".collect(Collectors.toList())", ".collect(java.util.stream.Collectors.toList())", StringComparison.Ordinal);
             code = code.Replace(".collect(java.util.stream.Collectors.toList()).collect(java.util.stream.Collectors.toList())", ".collect(java.util.stream.Collectors.toList())", StringComparison.Ordinal);
             code = code.Replace("XmlTextReader.close();", "/* XmlTextReader close handled by owner */;", StringComparison.Ordinal);
-            code = code.Replace("endsWith(FileExtension, StringComparison.InvariantCultureIgnoreCase)", "toLowerCase().endsWith(FileExtension.toLowerCase())", StringComparison.Ordinal);
             code = code.Replace("try { InputStream stream = FileHelper.openRead(fileName);", "try (InputStream stream = FileHelper.openRead(fileName)) {", StringComparison.Ordinal);
             code = code.Replace("try { TextReader reader = FileHelper.openText(fileName);", "try (TextReader reader = FileHelper.openText(fileName)) {", StringComparison.Ordinal);
             code = Regex.Replace(code, @"try \(\s+([A-Za-z_][A-Za-z0-9_]*)\s*=", "try (var $1 =");
@@ -527,18 +525,7 @@ public static class PostGenerationRewriteEngine
                         "} catch (IOException e) {\n        throw new RuntimeException(e);\n        } finally {\n        if (sr != null) {\n        try {\n        sr.close();\n        } catch (IOException ignored) {\n        }\n        }\n        } // end using sr",
                         StringComparison.Ordinal);
                 }
-                code = Regex.Replace(
-                    code,
-                    @"(?<receiver>[A-Za-z_][A-Za-z0-9_\.()]*)\.startsWith\((?<prefix>[^,\n]+), StringComparison\.OrdinalIgnoreCase\)",
-                    "StringHelper.startsWith(${receiver}, ${prefix}, true)");
-                code = code.Replace(
-                    "String.Compare(\"NewHierarchy\", currentLine, StringComparison.OrdinalIgnoreCase)",
-                    "StringHelper.compare(\"NewHierarchy\", currentLine, true)",
-                    StringComparison.Ordinal);
-                code = code.Replace(
-                    "String.Compare(\"Fixed\", strFixedPos, StringComparison.OrdinalIgnoreCase)",
-                    "StringHelper.compare(\"Fixed\", strFixedPos, true)",
-                    StringComparison.Ordinal);
+                // StringComparison.OrdinalIgnoreCase in startsWith/Compare now handled by InvocationExpressionTransformer
                 code = code.Replace("int style = System.Globalization.NumberStyles.Integer;", "int radix = 10;", StringComparison.Ordinal);
                 code = code.Replace("style = System.Globalization.NumberStyles.HexNumber;", "radix = 16;", StringComparison.Ordinal);
                 code = code.Replace("this.setSeed(Integer.parseInt(strArg, style));", "this.setSeed(radix == 16 ? Integer.parseUnsignedInt(strArg, radix) : Integer.parseInt(strArg, radix));", StringComparison.Ordinal);
