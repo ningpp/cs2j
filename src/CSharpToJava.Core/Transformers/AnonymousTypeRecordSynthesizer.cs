@@ -43,7 +43,7 @@ public sealed class SynthesizedRecordInfo
 /// <summary>
 /// Synthesizes Java record declarations from C# anonymous object creation expressions.
 /// <para>
-/// When targeting Java 17+, anonymous types like <c>new { e.FirstName, e.LastName }</c> are
+/// When targeting Java 25, anonymous types like <c>new { e.FirstName, e.LastName }</c> are
 /// converted to local record classes instead of <c>Map&lt;String, Object&gt;</c>, preserving
 /// type safety and enabling accessor methods.
 /// </para>

@@ -1480,7 +1480,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 }
 
                 bool needsArrayListMaterialization = ShouldMaterializeArrayListForToList(node, context);
-                if (context.Options.TargetJavaVersion >= JavaVersion.Java21)
+                if (context.Options.TargetJavaVersion >= JavaVersion.Java25)
                 {
                     var toListExpr = $"{receiver}.toList()";
                     if (needsArrayListMaterialization)
@@ -1940,14 +1940,14 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 return $"{receiver}.limit({takeArg})";
             }
 
-            // SkipWhile → dropWhile(predicate) (Java 9+)
+            // SkipWhile → dropWhile(predicate) (Java 25)
             if (originalMethodName == "SkipWhile" && node.ArgumentList.Arguments.Count >= 1)
             {
                 var predArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
                 return $"{receiver}.dropWhile({predArg})";
             }
 
-            // TakeWhile → takeWhile(predicate) (Java 9+)
+            // TakeWhile → takeWhile(predicate) (Java 25)
             if (originalMethodName == "TakeWhile" && node.ArgumentList.Arguments.Count >= 1)
             {
                 var predArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);

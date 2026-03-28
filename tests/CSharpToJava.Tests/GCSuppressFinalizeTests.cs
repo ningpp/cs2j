@@ -36,7 +36,7 @@ public class GCSuppressFinalizeTests
         var result = pipeline.Convert(new ConversionRequest
         {
             SourceCode = code,
-            Options = new ConversionOptions { TargetJavaVersion = JavaVersion.Java17 }
+            Options = new ConversionOptions { TargetJavaVersion = JavaVersion.Java25 }
         });
         Assert.True(result.Success,
             $"Conversion failed:\n{string.Join("\n", result.Diagnostics.Select(d => d.Message))}");

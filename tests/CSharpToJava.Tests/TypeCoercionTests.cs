@@ -19,7 +19,7 @@ public class TypeCoercionTests
             SourceCode = code,
             Options = options ?? new ConversionOptions
             {
-                TargetJavaVersion = JavaVersion.Java17,
+                TargetJavaVersion = JavaVersion.Java25,
                 PreferStreamApi = true,
             }
         });

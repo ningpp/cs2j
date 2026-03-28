@@ -15,7 +15,7 @@ public class InstanceToArrayConversionTests
             SourceCode = csharpCode,
             Options = options ?? new ConversionOptions
             {
-                TargetJavaVersion = JavaVersion.Java21,
+                TargetJavaVersion = JavaVersion.Java25,
                 UseRecords = true,
                 PreferStreamApi = true,
             }

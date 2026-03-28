@@ -1567,8 +1567,8 @@ class ConvertOptions
     [Option('m', "mapping", Required = false, HelpText = "Path to type mapping configuration file")]
     public string? MappingConfig { get; set; }
 
-    [Option('j', "java-version", Default = "Java17", HelpText = "Target Java version (Java8, Java11, Java17, Java21)")]
-    public string JavaVersion { get; set; } = "Java17";
+    [Option('j', "java-version", Default = "Java25", HelpText = "Target Java version (Java25)")]
+    public string JavaVersion { get; set; } = "Java25";
 
     [Option("no-records", Default = false, HelpText = "Don't use Java records for C# records")]
     public bool NoRecords { get; set; }
@@ -1585,10 +1585,10 @@ class ConvertOptions
     [Option("no-linq-rewrite", Default = false, HelpText = "Don't pre-process LINQ to procedural code")]
     public bool NoLinqRewrite { get; set; }
 
-    [Option("prefer-stream-api", Default = false, SetName = "linq-strategy", HelpText = "Prefer Java Stream API for LINQ conversion (default for Java 9+)")]
+    [Option("prefer-stream-api", Default = false, SetName = "linq-strategy", HelpText = "Prefer Java Stream API for LINQ conversion (default for Java 25)")]
     public bool PreferStreamApiFlag { get; set; }
 
-    [Option("prefer-procedural", Default = false, SetName = "linq-strategy", HelpText = "Prefer procedural loops for LINQ conversion (default for Java 8)")]
+    [Option("prefer-procedural", Default = false, SetName = "linq-strategy", HelpText = "Prefer procedural loops for LINQ conversion")]
     public bool PreferProceduralFlag { get; set; }
 
     // 便捷属性
@@ -1612,7 +1612,7 @@ class ConvertProjectOptions
     [Option('m', "mapping", Required = false, HelpText = "Path to type mapping configuration file")]
     public string? MappingConfig { get; set; }
 
-    [Option('j', "java-version", Default = "Java25", HelpText = "Target Java version")]
+    [Option('j', "java-version", Default = "Java25", HelpText = "Target Java version (Java25)")]
     public string JavaVersion { get; set; } = "Java25";
 
     [Option('f', "force", Default = true, HelpText = "Overwrite existing files")]
@@ -1633,10 +1633,10 @@ class ConvertProjectOptions
     [Option("no-linq-rewrite", Default = false, HelpText = "Don't pre-process LINQ to procedural code")]
     public bool NoLinqRewrite { get; set; }
 
-    [Option("prefer-stream-api", Default = false, SetName = "linq-strategy", HelpText = "Prefer Java Stream API for LINQ conversion (default for Java 9+)")]
+    [Option("prefer-stream-api", Default = false, SetName = "linq-strategy", HelpText = "Prefer Java Stream API for LINQ conversion (default for Java 25)")]
     public bool PreferStreamApiFlag { get; set; }
 
-    [Option("prefer-procedural", Default = false, SetName = "linq-strategy", HelpText = "Prefer procedural loops for LINQ conversion (default for Java 8)")]
+    [Option("prefer-procedural", Default = false, SetName = "linq-strategy", HelpText = "Prefer procedural loops for LINQ conversion")]
     public bool PreferProceduralFlag { get; set; }
 
     [Option("generate-pom", Default = true, HelpText = "Generate Maven pom.xml file with standard project structure")]

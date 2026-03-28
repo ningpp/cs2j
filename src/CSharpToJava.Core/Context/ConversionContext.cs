@@ -17,7 +17,7 @@ public class ConversionOptions
     /// <summary>
     /// 目标 Java 版本
     /// </summary>
-    public JavaVersion TargetJavaVersion { get; set; } = JavaVersion.Java17;
+    public JavaVersion TargetJavaVersion { get; set; } = JavaVersion.Java25;
 
     /// <summary>
     /// 类型映射配置文件路径
@@ -51,16 +51,15 @@ public class ConversionOptions
 
     /// <summary>
     /// When true, LINQ chains are converted to Java Stream API calls (.stream().filter().map()...)
-    /// instead of procedural loops via LinqRewriter. Default: true for Java 9+, false for Java 8.
+    /// instead of procedural loops via LinqRewriter. Default: true for Java 25.
     /// When set explicitly, overrides the version-based default.
     /// </summary>
     public bool? PreferStreamApi { get; set; }
 
     /// <summary>
-    /// Resolved value: uses explicit setting if provided, otherwise defaults based on Java version.
-    /// Java 9+ defaults to Stream API; Java 8 defaults to procedural (LinqRewriter).
+    /// Resolved value: uses explicit setting if provided, otherwise defaults to Stream API for Java 25.
     /// </summary>
-    public bool EffectivePreferStreamApi => PreferStreamApi ?? (TargetJavaVersion >= JavaVersion.Java11);
+    public bool EffectivePreferStreamApi => PreferStreamApi ?? true;
 
     /// <summary>
     /// When enabled, extension methods on known types are promoted to instance methods on those types,
@@ -89,10 +88,6 @@ public class ConversionOptions
 /// </summary>
 public enum JavaVersion
 {
-    Java8 = 8,
-    Java11 = 11,
-    Java17 = 17,
-    Java21 = 21,
     Java25 = 25,
 }
 

@@ -32,7 +32,7 @@ dotnet run --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- analyze -s 
 - `-i, --input`: Input C# file path
 - `-o, --output`: Output Java file path (default: stdout)
 - `-m, --mapping`: Path to type mapping configuration file (default: ./config/TypeMappings.json)
-- `-j, --java-version`: Target Java version (Java8, Java11, Java17, Java21)
+- `-j, --java-version`: Target Java version (Java25)
 - `--no-records`: Don't use Java records for C# records
 - `--use-optional`: Use Optional for nullable types
 - `--no-javadoc`: Don't generate JavaDoc comments
@@ -144,4 +144,4 @@ Tests use XUnit with Coverlet for coverage. Currently minimal - add tests for ne
 
 ### Java Version Support
 
-Supports Java 8, 11, 17, and 21. Feature availability varies by version (e.g., records require Java 14+).
+Supports Java 25. All modern Java features are available including records, records require Java 14+.

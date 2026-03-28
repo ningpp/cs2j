@@ -31,7 +31,7 @@ public class ConnectionToGraphNullArgumentRewriteTests
             }
             """;
 
-        var pipeline = new ProjectConversionPipeline(new ConversionOptions { TargetJavaVersion = JavaVersion.Java17 });
+        var pipeline = new ProjectConversionPipeline(new ConversionOptions { TargetJavaVersion = JavaVersion.Java25 });
         var files = new[] { new SourceFile { FilePath = "GeometryGraphCreator.cs", Content = code } };
 
         var results = await pipeline.ConvertProjectAsync(files);
@@ -66,7 +66,7 @@ public class ConnectionToGraphNullArgumentRewriteTests
             }
             """;
 
-        var pipeline = new ProjectConversionPipeline(new ConversionOptions { TargetJavaVersion = JavaVersion.Java17 });
+        var pipeline = new ProjectConversionPipeline(new ConversionOptions { TargetJavaVersion = JavaVersion.Java25 });
         var files = new[] { new SourceFile { FilePath = "LayoutEditor.cs", Content = code } };
 
         var results = await pipeline.ConvertProjectAsync(files);
@@ -133,7 +133,7 @@ public class ConnectionToGraphNullArgumentRewriteTests
     {
         const string code = "namespace Demo { public class Placeholder { } }";
 
-        var pipeline = new ProjectConversionPipeline(new ConversionOptions { TargetJavaVersion = JavaVersion.Java17 });
+        var pipeline = new ProjectConversionPipeline(new ConversionOptions { TargetJavaVersion = JavaVersion.Java25 });
         var files = new[] { new SourceFile { FilePath = "Placeholder.cs", Content = code } };
 
         var results = await pipeline.ConvertProjectAsync(files);

@@ -484,7 +484,7 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
             {
                 // For anonymous types synthesized as Java records, use camelCase accessor (e.g. id() not getId())
                 if (prop.ContainingType.IsAnonymousType
-                    && context.Options.UseRecords && context.Options.TargetJavaVersion >= JavaVersion.Java17)
+                    && context.Options.UseRecords && context.Options.TargetJavaVersion >= JavaVersion.Java25)
                 {
                     var recordAccessor = char.ToLowerInvariant(prop.Name[0]) + prop.Name[1..];
                     return $"{target}.{recordAccessor}()";

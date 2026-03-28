@@ -4,7 +4,7 @@ using CSharpToJava.Core.Pipeline;
 namespace CSharpToJava.Tests;
 
 /// <summary>
-/// Tests for the Stream API primary path — when PreferStreamApi is true (default for Java 9+),
+/// Tests for the Stream API primary path — when PreferStreamApi is true (default for Java 25),
 /// LINQ method chains should be converted to Java Stream API calls instead of procedural loops.
 /// </summary>
 public class StreamApiPrimaryPathTests
@@ -17,7 +17,7 @@ public class StreamApiPrimaryPathTests
             SourceCode = csharpCode,
             Options = options ?? new ConversionOptions
             {
-                TargetJavaVersion = JavaVersion.Java21,
+                TargetJavaVersion = JavaVersion.Java25,
                 UseRecords = true,
                 PreferStreamApi = true,
             }
@@ -329,7 +329,7 @@ public class StreamApiPrimaryPathTests
             """;
         var java = ConvertAndGetCode(code, new ConversionOptions
         {
-            TargetJavaVersion = JavaVersion.Java8,
+            TargetJavaVersion = JavaVersion.Java25,
             PreferStreamApi = true,
         });
         Assert.Contains("Collectors.toList()", java);
@@ -374,7 +374,7 @@ public class StreamApiPrimaryPathTests
         Assert.Contains(".toList()", java);
     }
 
-    // ── Default behavior: Java 17+ uses Stream API by default ───────────────
+    // ── Default behavior: Java 25 uses Stream API by default ───────────────
 
     [Fact]
     public void DefaultOptions_Java17_UsesStreamApi()
@@ -390,8 +390,8 @@ public class StreamApiPrimaryPathTests
                 }
             }
             """;
-        // Use default options (Java 17, no explicit PreferStreamApi)
-        var result = Convert(code, new ConversionOptions { TargetJavaVersion = JavaVersion.Java17 });
+        // Use default options (Java 25, no explicit PreferStreamApi)
+        var result = Convert(code, new ConversionOptions { TargetJavaVersion = JavaVersion.Java25 });
         Assert.True(result.Success);
         Assert.Contains(".stream()", result.GeneratedCode);
         Assert.DoesNotContain("_ProceduralLinq", result.GeneratedCode);
@@ -411,8 +411,8 @@ public class StreamApiPrimaryPathTests
                 }
             }
             """;
-        // Java 8 default → procedural path
-        var result = Convert(code, new ConversionOptions { TargetJavaVersion = JavaVersion.Java8 });
+        // Java 25 default → procedural path
+        var result = Convert(code, new ConversionOptions { TargetJavaVersion = JavaVersion.Java25 });
         Assert.True(result.Success);
         Assert.DoesNotContain(".stream()", result.GeneratedCode);
     }
@@ -435,7 +435,7 @@ public class StreamApiPrimaryPathTests
             """;
         var java = ConvertAndGetCode(code, new ConversionOptions
         {
-            TargetJavaVersion = JavaVersion.Java21,
+            TargetJavaVersion = JavaVersion.Java25,
             PreferStreamApi = false,
         });
         // With PreferStreamApi=false, should use procedural LinqRewriter

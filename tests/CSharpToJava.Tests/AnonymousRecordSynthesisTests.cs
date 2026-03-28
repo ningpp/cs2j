@@ -16,7 +16,7 @@ public class AnonymousRecordSynthesisTests
             SourceCode = csharpCode,
             Options = options ?? new ConversionOptions
             {
-                TargetJavaVersion = JavaVersion.Java21,
+                TargetJavaVersion = JavaVersion.Java25,
                 UseRecords = true,
             }
         });
@@ -30,7 +30,7 @@ public class AnonymousRecordSynthesisTests
         return result.GeneratedCode;
     }
 
-    // ── Anonymous type → record synthesis (Java 17+) ─────────────────────
+    // ── Anonymous type → record synthesis (Java 25) ─────────────────────
 
     [Fact]
     public void AnonymousType_SynthesizesRecord_Java21()
@@ -53,7 +53,7 @@ public class AnonymousRecordSynthesisTests
         Assert.DoesNotContain("Map.of(", java);
     }
 
-    // ── Anonymous type falls back to Map for Java 8 ─────────────────────
+    // ── Anonymous type falls back to Map for Java 25 ─────────────────────
 
     [Fact]
     public void AnonymousType_FallsBackToMap_Java8()
@@ -71,10 +71,10 @@ public class AnonymousRecordSynthesisTests
             """;
         var java = ConvertAndGetCode(code, new ConversionOptions
         {
-            TargetJavaVersion = JavaVersion.Java8,
+            TargetJavaVersion = JavaVersion.Java25,
             UseRecords = false,
         });
-        // Should use Map.of() for Java 8
+        // Should use Map.of() for Java 25
         Assert.Contains("Map.of(", java);
         Assert.DoesNotContain("record ", java);
     }
@@ -140,7 +140,7 @@ public class AnonymousRecordSynthesisTests
         Assert.Equal(1, recordCount);
     }
 
-    // ── .toList() shorthand for Java 21+ ────────────────────────────────
+    // ── .toList() shorthand for Java 25 ────────────────────────────────
 
     [Fact]
     public void ToList_UsesToListShorthand_Java21()
@@ -158,7 +158,7 @@ public class AnonymousRecordSynthesisTests
             """;
         var java = ConvertAndGetCode(code, new ConversionOptions
         {
-            TargetJavaVersion = JavaVersion.Java21,
+            TargetJavaVersion = JavaVersion.Java25,
         });
         Assert.Contains(".toList()", java);
         Assert.DoesNotContain("Collectors.toList()", java);
@@ -180,7 +180,7 @@ public class AnonymousRecordSynthesisTests
             """;
         var java = ConvertAndGetCode(code, new ConversionOptions
         {
-            TargetJavaVersion = JavaVersion.Java8,
+            TargetJavaVersion = JavaVersion.Java25,
         });
         Assert.Contains("Collectors.toList()", java);
         // Should NOT use the shorthand .toList() directly on stream (only Collectors form)

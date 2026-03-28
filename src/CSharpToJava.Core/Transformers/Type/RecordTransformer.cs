@@ -30,7 +30,7 @@ public class RecordTransformer : ITypeTransformer
 
         // 如果目标 Java 版本支持 record (Java 14+)，使用 record
         var useRecord = context.Options.UseRecords &&
-                       context.Options.TargetJavaVersion >= JavaVersion.Java17;
+                       context.Options.TargetJavaVersion >= JavaVersion.Java25;
 
         if (useRecord)
         {

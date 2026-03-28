@@ -552,8 +552,8 @@ public class ObjectCreationTransformer : IExpressionTransformer
     {
         var facade = ExpressionTransformerFacade.Instance;
 
-        // When targeting Java 17+ with records enabled, synthesize a Java record instead of Map
-        if (context.Options.UseRecords && context.Options.TargetJavaVersion >= JavaVersion.Java17)
+        // When targeting Java 25 with records enabled, synthesize a Java record instead of Map
+        if (context.Options.UseRecords && context.Options.TargetJavaVersion >= JavaVersion.Java25)
         {
             var (record, ctorCall) = AnonymousTypeRecordSynthesizer.SynthesizeForAnonymousType(
                 node, context, expr => facade.Transform(expr, context));
@@ -799,7 +799,7 @@ public class ObjectCreationTransformer : IExpressionTransformer
         if (elementType == "Object"
             && node.Initializer?.Expressions.Count > 0
             && node.Initializer.Expressions.All(e => e is AnonymousObjectCreationExpressionSyntax)
-            && context.Options.UseRecords && context.Options.TargetJavaVersion >= JavaVersion.Java17)
+            && context.Options.UseRecords && context.Options.TargetJavaVersion >= JavaVersion.Java25)
         {
             var facade2 = ExpressionTransformerFacade.Instance;
             var firstAnon = (AnonymousObjectCreationExpressionSyntax)node.Initializer.Expressions[0];
@@ -941,7 +941,7 @@ public class ObjectCreationTransformer : IExpressionTransformer
 
         if (isSetLike)
         {
-            if (context.Options.TargetJavaVersion >= JavaVersion.Java11)
+            if (context.Options.TargetJavaVersion >= JavaVersion.Java25)
             {
                 context.AddImport("java.util.Set");
                 return $"new {typeName}(Set.of({itemsStr}))";

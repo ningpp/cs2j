@@ -15,7 +15,7 @@ public class MultiIndexerAssignmentTests
             SourceCode = csharpCode,
             Options = new ConversionOptions
             {
-                TargetJavaVersion = JavaVersion.Java21,
+                TargetJavaVersion = JavaVersion.Java25,
                 UseRecords = true,
                 PreferStreamApi = true,
             }

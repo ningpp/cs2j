@@ -12,7 +12,7 @@ namespace CSharpToJava.Tests;
 public class IteratorNextBridgeTests
 {
     private static ProjectConversionPipeline CreatePipeline() =>
-        new(new ConversionOptions { TargetJavaVersion = JavaVersion.Java17 });
+        new(new ConversionOptions { TargetJavaVersion = JavaVersion.Java25 });
 
     private static async Task<string> ConvertSingleAsync(string csCode, string? contentFilter = null)
     {
