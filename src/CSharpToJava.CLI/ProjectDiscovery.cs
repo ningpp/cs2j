@@ -168,6 +168,7 @@ internal static class ProjectDiscovery
     private static List<ResourceItem> GetCopyResources(XDocument projectDoc, string projectDir)
     {
         var resources = new List<ResourceItem>();
+        var addedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var item in projectDoc.Descendants().Where(e => e.Name.LocalName is "None" or "Content"))
         {
@@ -189,11 +190,38 @@ internal static class ProjectDiscovery
                 continue;
             }
 
+            addedPaths.Add(fullPath);
             resources.Add(new ResourceItem
             {
                 SourcePath = fullPath,
                 RelativePath = include.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar),
             });
+        }
+
+        // Also scan the Resources directory for non-code files that may not be
+        // listed in the csproj (e.g. .msagl.geom, .dot, .txt test data files).
+        var resourcesDir = Path.Combine(projectDir, "Resources");
+        if (Directory.Exists(resourcesDir))
+        {
+            foreach (var file in Directory.EnumerateFiles(resourcesDir, "*", SearchOption.AllDirectories))
+            {
+                var ext = Path.GetExtension(file).ToLowerInvariant();
+                if (ext is ".cs" or ".csproj" or ".sln" or ".slnx")
+                {
+                    continue;
+                }
+                if (addedPaths.Contains(file))
+                {
+                    continue;
+                }
+                var relativePath = Path.GetRelativePath(projectDir, file);
+                addedPaths.Add(file);
+                resources.Add(new ResourceItem
+                {
+                    SourcePath = file,
+                    RelativePath = relativePath,
+                });
+            }
         }
 
         return resources;
