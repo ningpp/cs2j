@@ -571,9 +571,28 @@ public class ConversionContext
             return javaType;
         }
 
-        // Anonymous types (e.g. new { x = 1, y = 2 }) have no Java equivalent — use Object
+        // Anonymous types — try to match to a synthesized record if one was registered
         if (typeSymbol is INamedTypeSymbol anonymousCheck && anonymousCheck.IsAnonymousType)
         {
+            var props = anonymousCheck.GetMembers().OfType<IPropertySymbol>().ToList();
+            if (props.Count > 0 && _synthesizedRecords.Count > 0)
+            {
+                var fieldParts = new List<string>();
+                foreach (var prop in props)
+                {
+                    var fieldName = EscapeJavaKeyword(prop.Name);
+                    fieldName = char.IsUpper(fieldName[0])
+                        ? char.ToLower(fieldName[0]) + fieldName.Substring(1)
+                        : fieldName;
+                    var propJavaType = prop.Type.IsAnonymousType ? "Object" : MapType(prop.Type);
+                    fieldParts.Add($"{fieldName}:{propJavaType}");
+                }
+                var key = string.Join(",", fieldParts);
+                if (TryGetSynthesizedRecord(key, out var record) && record != null)
+                {
+                    return record.RecordName;
+                }
+            }
             return "Object";
         }
 

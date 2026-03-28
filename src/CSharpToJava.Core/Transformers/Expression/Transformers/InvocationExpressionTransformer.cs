@@ -2250,7 +2250,8 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 var zipOther = facade.Transform(zipOtherArg0.Expression, context);
                 var zipOtherType = context.SemanticModel.GetTypeInfo(zipOtherArg0.Expression).Type;
                 string zipOtherListExpr;
-                if (zipOtherType is IArrayTypeSymbol zipArrType && zipArrType.ElementType.IsValueType)
+                if (zipOtherType is IArrayTypeSymbol zipArrType2 && zipArrType2.ElementType.IsValueType
+                    && context.MapType(zipArrType2.ElementType) is "int" or "long" or "double")
                     zipOtherListExpr = $"java.util.Arrays.stream({zipOther}).boxed().collect(java.util.stream.Collectors.toList())";
                 else if (zipOtherType is IArrayTypeSymbol)
                     zipOtherListExpr = $"java.util.Arrays.stream({zipOther}).collect(java.util.stream.Collectors.toList())";
