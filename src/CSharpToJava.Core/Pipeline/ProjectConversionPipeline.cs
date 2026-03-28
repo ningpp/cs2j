@@ -1343,29 +1343,6 @@ public class ProjectConversionPipeline
                         StringComparison.Ordinal);
                 }
 
-                if (!code.Contains("@Disabled(\"Converted ClusterTests hangs under Java translation\")", StringComparison.Ordinal))
-                {
-                    code = code.Replace(
-                        "public class ClusterTests extends MsaglTestBase {",
-                        "@Disabled(\"Converted ClusterTests hangs under Java translation\")\npublic class ClusterTests extends MsaglTestBase {",
-                        StringComparison.Ordinal);
-                    code = code.Replace(
-                        "public class ClusterTests {",
-                        "@Disabled(\"Converted ClusterTests hangs under Java translation\")\npublic class ClusterTests {",
-                        StringComparison.Ordinal);
-                }
-
-                code = Regex.Replace(
-                    code,
-                    @"@Test\s*public void nestedDeepTranslationTest\(\)\s*\{",
-                    "@Disabled(\"Converted ClusterTests.nestedDeepTranslationTest hangs under Java translation\")\n        @Test\npublic void nestedDeepTranslationTest() {",
-                    RegexOptions.Singleline);
-
-                code = Regex.Replace(
-                    code,
-                    @"for\s*\(\s*(?:Object|AnonymousRecord1)\s+b\s*:\s*.*?translatedStuff.*?AnonymousRecord1.*?Assertions\.assertTrue\(ApproximateComparer\.close\(b\.t\(\)\.getBoundingBox\(\)(?:\.clone\(\))?,\s*Rectangle\.translate\(b\.o\(\)(?:\.clone\(\))?,\s*delta(?:\.clone\(\))?\)\),\s*""object was not translated: ""\s*\+\s*b\.t\(\)\);\s*\}",
-                    "var translatedList = StreamSupport.stream(translatedStuff.spliterator(), false).collect(java.util.stream.Collectors.toList());\n        for (int i = 0; i < Math.min(translatedList.size(), bounds.length); i++) {\n        var translated = translatedList.get(i);\n        var original = bounds[i];\n        Assertions.assertTrue(ApproximateComparer.close(translated.getBoundingBox(), Rectangle.translate(original, delta)), \"object was not translated: \" + translated);\n        }",
-                    RegexOptions.Singleline);
             }
 
             if (r.FileName != null && r.FileName.Contains("ConvexHullTest", StringComparison.Ordinal))
@@ -1386,7 +1363,6 @@ public class ProjectConversionPipeline
                     "new ArrayList<>(Arrays.stream(cut).collect(java.util.stream.Collectors.toList()))",
                     "new ArrayList(Arrays.asList(cut))",
                     StringComparison.Ordinal);
-                // CdtTests.flatLine remains @Disabled: CDT collinear point handling throws InvalidOperationException in C# too (known C# bug)
             }
 
             if (r.FileName != null && r.FileName.Contains("CdtSweeper", StringComparison.Ordinal))
@@ -1487,14 +1463,6 @@ public class ProjectConversionPipeline
 
             if (r.FileName != null && r.FileName.Contains("InitialLayoutTests", StringComparison.Ordinal))
             {
-                // Disable InitialLayoutTests – several tests trigger infinite layout computation under Java
-                if (!code.Contains("@Disabled(\"Converted InitialLayoutTests hangs under Java translation\")", StringComparison.Ordinal))
-                {
-                    code = code.Replace(
-                        "public class InitialLayoutTests",
-                        "@Disabled(\"Converted InitialLayoutTests hangs under Java translation\")\npublic class InitialLayoutTests",
-                        StringComparison.Ordinal);
-                }
 
                 code = code.Replace(
                     "new HashSet<>(innerCluster.getNodes())",
@@ -1528,15 +1496,7 @@ public class ProjectConversionPipeline
                             "import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;",
                             StringComparison.Ordinal);
                     }
-                    code = code.Replace(
-                        "public class OverlapRemovalFileTests",
-                        "@Disabled(\"Requires MSTest TestContext infrastructure\")\npublic class OverlapRemovalFileTests",
-                        StringComparison.Ordinal);
                 }
-                code = code.Replace(
-                    "@Disabled(\"Converted OverlapRemovalFileTests fail under Java translation\")\npublic class OverlapRemovalFileTests",
-                    "@Disabled(\"Requires MSTest TestContext infrastructure\")\npublic class OverlapRemovalFileTests",
-                    StringComparison.Ordinal);
 
                 code = Regex.Replace(
                     code,
@@ -1548,10 +1508,6 @@ public class ProjectConversionPipeline
             if (r.FileName != null && r.FileName.Contains("OverlapRemovalTests", StringComparison.Ordinal)
                 && !r.FileName.Contains("File", StringComparison.Ordinal))
             {
-                code = code.Replace(
-                    "@Disabled(\"Converted OverlapRemovalTests fail under Java translation\")\npublic class OverlapRemovalTests",
-                    "public class OverlapRemovalTests",
-                    StringComparison.Ordinal);
 
                 code = Regex.Replace(
                     code,
@@ -1585,10 +1541,6 @@ public class ProjectConversionPipeline
                             "import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;",
                             StringComparison.Ordinal);
                     }
-                    code = code.Replace(
-                        "public class IncrementalSugiyamaTests",
-                        "@Disabled(\"Requires DOT file test infrastructure\")\npublic class IncrementalSugiyamaTests",
-                        StringComparison.Ordinal);
                 }
             }
 
@@ -1604,10 +1556,6 @@ public class ProjectConversionPipeline
                             "import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;",
                             StringComparison.Ordinal);
                     }
-                    code = code.Replace(
-                        "public class MinimumWidthHeightTests",
-                        "@Disabled(\"Requires test output directory infrastructure\")\npublic class MinimumWidthHeightTests",
-                        StringComparison.Ordinal);
                 }
             }
 
@@ -1631,18 +1579,11 @@ public class ProjectConversionPipeline
                             "import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;",
                             StringComparison.Ordinal);
                     }
-                    code = code.Replace(
-                        "public class RandomBundlingTests",
-                        "@Disabled(\"Layout computation hangs under Java translation\")\npublic class RandomBundlingTests",
-                        StringComparison.Ordinal);
                 }
             }
 
             if (r.FileName != null && r.FileName.Contains("SplineRouterTests", StringComparison.Ordinal))
             {
-                // SplineRouterTests class-level @Disabled removed — testing whether struct clone optimization resolved hangs
-                // bundlingBug1GeomGraph remains @Disabled via C# [Ignore] (needs geometry file, known issue)
-
                 // Fix: routeEdges_CallsProgress uses captured lambda variable `_ratioComplete`
                 // The converter wraps the closure variable in a double[] but the assertion
                 // still uses the original `ratioComplete` (which never gets updated).
@@ -2509,10 +2450,6 @@ public class ProjectConversionPipeline
                             "import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;",
                             StringComparison.Ordinal);
                     }
-                    code = code.Replace(
-                        "public class SugiyamaConstraintTests",
-                        "@Disabled(\"Constrained ordering hangs under Java translation\")\npublic class SugiyamaConstraintTests",
-                        StringComparison.Ordinal);
                 }
             }
 
@@ -2528,15 +2465,8 @@ public class ProjectConversionPipeline
                             "import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;",
                             StringComparison.Ordinal);
                     }
-                    code = code.Replace(
-                        "public class SugiyamaEdgeLabelTests",
-                        "@Disabled(\"Requires DOT file infrastructure\")\npublic class SugiyamaEdgeLabelTests",
-                        StringComparison.Ordinal);
                 }
             }
-
-            // SugiyamaLayoutTests — randomDotFileTests (DOT file infrastructure now set up via Resources junction)
-            // @Disabled no longer needed
 
             // Fix RectanglePacking.pack — C# MoveNext()/Current semantics vs Java iterator
             if (r.FileName != null && r.FileName.Contains("RectanglePacking", StringComparison.Ordinal)
