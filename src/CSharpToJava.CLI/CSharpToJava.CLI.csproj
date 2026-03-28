@@ -5,6 +5,7 @@
     <ProjectReference Include="..\CSharpToJava.TypeMapping\CSharpToJava.TypeMapping.csproj" />
     <ProjectReference Include="..\CSharpToJava.LINQ\CSharpToJava.LINQ.csproj" />
     <ProjectReference Include="..\CSharpToJava.Async\CSharpToJava.Async.csproj" />
+    <ProjectReference Include="..\CSharpToJava.Workspace\CSharpToJava.Workspace.csproj" />
   </ItemGroup>
 
   <ItemGroup>

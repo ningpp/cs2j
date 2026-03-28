@@ -113,6 +113,68 @@ public class ProjectConversionPipeline
         }
     }
 
+    /// <summary>
+    /// Converts a project using a pre-built CSharpCompilation (e.g. from MSBuildWorkspace).
+    /// Skips the manual compilation step — the provided compilation already has full references.
+    /// </summary>
+    public async Task<List<ConversionResult>> ConvertProjectAsync(
+        CSharpCompilation compilation,
+        ISet<string>? emitFilePaths = null)
+    {
+        var context = new ConversionContext(_options, _typeMappings);
+        context.ProjectCompilation = compilation;
+        var results = new List<ConversionResult>();
+
+        try
+        {
+            var partialMerger = new PartialTypeMerger(context.Diagnostics);
+            var mergedTypes = partialMerger.FindAndGroupTypes(compilation);
+
+            foreach (var typeGroup in mergedTypes)
+            {
+                if (emitFilePaths != null && emitFilePaths.Count > 0)
+                {
+                    var candidatePaths = new List<string>();
+                    foreach (var syntaxNode in typeGroup.SyntaxNodes)
+                    {
+                        var path = syntaxNode.SyntaxTree.FilePath;
+                        if (!string.IsNullOrWhiteSpace(path))
+                            candidatePaths.Add(path);
+                    }
+                    foreach (var syntaxRef in typeGroup.TypeSymbol.DeclaringSyntaxReferences)
+                    {
+                        var path = syntaxRef.SyntaxTree.FilePath;
+                        if (!string.IsNullOrWhiteSpace(path))
+                            candidatePaths.Add(path);
+                    }
+                    if (!candidatePaths.Any(path => emitFilePaths.Contains(Path.GetFullPath(path))))
+                        continue;
+                }
+
+                var result = TypeGroupResolver.ConvertTypeGroup(typeGroup, compilation, context);
+                if (result != null)
+                    results.Add(result);
+            }
+
+            if (_options.EmitCompatibilityHelpers)
+            {
+                var basePackage = CompatibilityClassGenerator.DetermineBasePackage(results);
+                var includeTestContext = CompatibilityClassGenerator.RequiresTestContext(results);
+                results.AddRange(CompatibilityClassGenerator.GenerateCompatibilitySupport(basePackage, includeTestContext));
+            }
+
+            CrossPackageImportResolver.AddCrossPackageImports(results, _options.SharedCompatibilityPackage);
+            PostGenerationRewriteEngine.ApplyCompatibilityRewrites(results);
+
+            return results;
+        }
+        catch (Exception ex)
+        {
+            context.Diagnostics.Error($"Project conversion failed: {ex.Message}");
+            return results;
+        }
+    }
+
     // Forwarding method for backward compatibility (tests use reflection to access this)
     private static void ApplyCompatibilityRewrites(List<ConversionResult> results)
         => PostGenerationRewriteEngine.ApplyCompatibilityRewrites(results);

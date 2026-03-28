@@ -2,6 +2,7 @@ using CommandLine;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline;
 using CSharpToJava.TypeMapping;
+using CSharpToJava.Workspace;
 using System.Text.RegularExpressions;
 
 namespace CSharpToJava.CLI;
@@ -10,6 +11,9 @@ class Program
 {
     static async Task<int> Main(string[] args)
     {
+        // Register MSBuild locator early, before any Roslyn workspace APIs.
+        SolutionLoader.EnsureMSBuildRegistered();
+
         return await Parser.Default.ParseArguments<ConvertOptions, ConvertProjectOptions, AnalyzeOptions>(args)
             .MapResult(
                 (ConvertOptions opts) => ConvertFile(opts),
@@ -95,7 +99,8 @@ class Program
         {
             var hasDirectorySource = Directory.Exists(opts.Source);
             var hasProjectSource = File.Exists(opts.Source)
-                && Path.GetExtension(opts.Source).Equals(".csproj", StringComparison.OrdinalIgnoreCase);
+                && (Path.GetExtension(opts.Source).Equals(".csproj", StringComparison.OrdinalIgnoreCase)
+                    || Path.GetExtension(opts.Source).Equals(".sln", StringComparison.OrdinalIgnoreCase));
             if (!hasDirectorySource && !hasProjectSource)
             {
                 Console.Error.WriteLine($"Error: Source not found: {opts.Source}");
@@ -126,6 +131,38 @@ class Program
                 PreferStreamApi = opts.PreferStreamApi
             };
 
+            // Try MSBuild-based loading first for full semantic resolution.
+            IReadOnlyList<WorkspaceProject>? workspaceProjects = null;
+            try
+            {
+                using var loader = new SolutionLoader();
+                var progress = opts.Verbose ? new Progress<string>(msg => Console.WriteLine(msg)) : null;
+                workspaceProjects = await loader.TryOpenAsync(opts.Source, progress);
+            }
+            catch (Exception ex)
+            {
+                if (opts.Verbose)
+                {
+                    Console.WriteLine($"MSBuild loading failed, falling back to directory scan: {ex.Message}");
+                }
+            }
+
+            if (workspaceProjects != null && workspaceProjects.Count > 0)
+            {
+                if (opts.Verbose)
+                {
+                    Console.WriteLine($"MSBuild resolved {workspaceProjects.Count} project(s)");
+                }
+
+                if (opts.Mode.Equals("multi-module", StringComparison.OrdinalIgnoreCase))
+                {
+                    return await ConvertFromWorkspaceMultiModule(opts, options, workspaceProjects);
+                }
+
+                return await ConvertFromWorkspaceSingleModule(opts, options, workspaceProjects);
+            }
+
+            // Fall back to manual project discovery (no MSBuild SDK available).
             if (ProjectDiscovery.TryResolveProjectEntry(opts.Source, out var entryProject))
             {
                 return await ConvertFromProjectGraph(opts, options, entryProject);
@@ -323,6 +360,262 @@ class Program
 
         Console.WriteLine();
         Console.WriteLine($"Conversion complete: {successCount} succeeded, {failureCount} failed, {copiedResourceCount} resources copied");
+
+        return failureCount > 0 ? 1 : 0;
+    }
+
+    private static async Task<int> ConvertFromWorkspaceSingleModule(
+        ConvertProjectOptions opts,
+        ConversionOptions options,
+        IReadOnlyList<WorkspaceProject> projects)
+    {
+        var mainJavaRoot = opts.GeneratePom
+            ? Path.Combine(opts.Destination, "src", "main", "java")
+            : opts.Destination;
+        var testJavaRoot = opts.GeneratePom
+            ? Path.Combine(opts.Destination, "src", "test", "java")
+            : Path.Combine(opts.Destination, "test");
+        var mainResourcesRoot = opts.GeneratePom
+            ? Path.Combine(opts.Destination, "src", "main", "resources")
+            : Path.Combine(opts.Destination, "resources");
+        var testResourcesRoot = opts.GeneratePom
+            ? Path.Combine(opts.Destination, "src", "test", "resources")
+            : Path.Combine(opts.Destination, "test-resources");
+
+        if (opts.Force)
+        {
+            DeleteIfExists(mainJavaRoot);
+            DeleteIfExists(testJavaRoot);
+            DeleteIfExists(mainResourcesRoot);
+            DeleteIfExists(testResourcesRoot);
+        }
+
+        Directory.CreateDirectory(mainJavaRoot);
+        Directory.CreateDirectory(mainResourcesRoot);
+        if (opts.IncludeTests)
+        {
+            Directory.CreateDirectory(testJavaRoot);
+            Directory.CreateDirectory(testResourcesRoot);
+        }
+
+        int successCount = 0;
+        int failureCount = 0;
+
+        foreach (var project in projects)
+        {
+            if (!opts.IncludeTests && project.IsTestProject)
+            {
+                continue;
+            }
+
+            var isTest = project.IsTestProject;
+            if (opts.Verbose)
+            {
+                Console.WriteLine($"Converting project [{(isTest ? "Test" : "Main")}]: {project.Name}");
+            }
+
+            var targetJavaRoot = isTest ? testJavaRoot : mainJavaRoot;
+
+            var emitFilePaths = new HashSet<string>(
+                project.Documents
+                    .Where(d => d.FilePath != null)
+                    .Select(d => Path.GetFullPath(d.FilePath!)),
+                StringComparer.OrdinalIgnoreCase);
+
+            var pipeline = new ProjectConversionPipeline(options);
+            var results = await pipeline.ConvertProjectAsync(project.Compilation, emitFilePaths);
+
+            foreach (var result in results)
+            {
+                if (result.FileName == null) continue;
+
+                if (TryWriteConvertedFile(result, project.Directory, targetJavaRoot, out var outputPath))
+                {
+                    successCount++;
+                    if (opts.Verbose)
+                    {
+                        Console.WriteLine($"Converted: {result.FileName} -> {outputPath}");
+                    }
+                }
+                else
+                {
+                    failureCount++;
+                    Console.Error.WriteLine($"Failed: {result.FileName}");
+                    foreach (var diag in result.Diagnostics)
+                    {
+                        Console.Error.WriteLine($"  [{diag.Severity}] {FormatDiagnostic(diag)}");
+                    }
+                }
+            }
+        }
+
+        if (opts.GeneratePom)
+        {
+            var artifactId = new DirectoryInfo(opts.Destination).Name;
+            var pomContent = GenerateMavenPom(artifactId, opts.MavenGroupId, opts.MavenVersion, opts.JavaVersion, includeTests: opts.IncludeTests);
+            var pomPath = Path.Combine(opts.Destination, "pom.xml");
+            await File.WriteAllTextAsync(pomPath, pomContent, new System.Text.UTF8Encoding(false));
+            Console.WriteLine($"Generated Maven pom.xml: {pomPath}");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine($"Conversion complete (MSBuild): {successCount} succeeded, {failureCount} failed");
+
+        return failureCount > 0 ? 1 : 0;
+    }
+
+    private static async Task<int> ConvertFromWorkspaceMultiModule(
+        ConvertProjectOptions opts,
+        ConversionOptions options,
+        IReadOnlyList<WorkspaceProject> projects)
+    {
+        // Build module plan from workspace projects.
+        var mainProjects = projects.Where(p => !p.IsTestProject).ToList();
+        var testProjects = projects.Where(p => p.IsTestProject).ToList();
+
+        var sharedCompatibilityPackage = BuildSharedCompatibilityPackage(opts.MavenGroupId);
+        var existingNames = projects.Select(p => p.Name);
+        var sharedCompatibilityModuleName = MakeUniqueModuleName("csharptojava-compat", existingNames);
+
+        options.EmitCompatibilityHelpers = false;
+        options.SharedCompatibilityPackage = sharedCompatibilityPackage;
+
+        if (opts.Force && Directory.Exists(opts.Destination))
+        {
+            Directory.Delete(opts.Destination, recursive: true);
+            Directory.CreateDirectory(opts.Destination);
+        }
+
+        int successCount = 0;
+        int failureCount = 0;
+        var moduleNames = new List<string> { sharedCompatibilityModuleName };
+
+        // Emit compatibility module first.
+        var compatModuleRoot = Path.Combine(opts.Destination, sharedCompatibilityModuleName);
+        var compatJavaRoot = Path.Combine(compatModuleRoot, "src", "main", "java");
+        Directory.CreateDirectory(compatJavaRoot);
+
+        foreach (var result in ProjectConversionPipeline.GenerateCompatibilitySupport(sharedCompatibilityPackage, opts.IncludeTests))
+        {
+            if (TryWriteConvertedFile(result, opts.Source, compatJavaRoot, out var outputPath))
+            {
+                successCount++;
+                if (opts.Verbose) Console.WriteLine($"Converted: {result.FileName} -> {outputPath}");
+            }
+            else
+            {
+                failureCount++;
+                Console.Error.WriteLine($"Failed: {result.FileName}");
+            }
+        }
+
+        if (opts.GeneratePom)
+        {
+            var compatPom = GenerateChildModulePom(
+                new PlannedModule { Name = sharedCompatibilityModuleName, IsTestOnly = false },
+                opts.MavenGroupId, opts.MavenVersion, opts.JavaVersion,
+                new DirectoryInfo(opts.Destination).Name);
+            await File.WriteAllTextAsync(
+                Path.Combine(compatModuleRoot, "pom.xml"), compatPom,
+                new System.Text.UTF8Encoding(false));
+        }
+
+        // Convert each workspace project as its own module.
+        foreach (var project in projects)
+        {
+            if (!opts.IncludeTests && project.IsTestProject) continue;
+
+            var moduleName = project.Name;
+            moduleNames.Add(moduleName);
+            var moduleRoot = Path.Combine(opts.Destination, moduleName);
+
+            var isTest = project.IsTestProject;
+            var javaRoot = isTest
+                ? Path.Combine(moduleRoot, "src", "test", "java")
+                : Path.Combine(moduleRoot, "src", "main", "java");
+            var resourcesRoot = isTest
+                ? Path.Combine(moduleRoot, "src", "test", "resources")
+                : Path.Combine(moduleRoot, "src", "main", "resources");
+
+            Directory.CreateDirectory(javaRoot);
+            Directory.CreateDirectory(resourcesRoot);
+
+            if (opts.Verbose)
+            {
+                Console.WriteLine($"Converting module [{(isTest ? "Test" : "Main")}]: {moduleName}");
+            }
+
+            var emitFilePaths = new HashSet<string>(
+                project.Documents
+                    .Where(d => d.FilePath != null)
+                    .Select(d => Path.GetFullPath(d.FilePath!)),
+                StringComparer.OrdinalIgnoreCase);
+
+            var pipeline = new ProjectConversionPipeline(options);
+            var results = await pipeline.ConvertProjectAsync(project.Compilation, emitFilePaths);
+
+            foreach (var result in results)
+            {
+                if (result.FileName == null) continue;
+                if (TryWriteConvertedFile(result, project.Directory, javaRoot, out var outputPath))
+                {
+                    successCount++;
+                    if (opts.Verbose) Console.WriteLine($"Converted: {result.FileName} -> {outputPath}");
+                }
+                else
+                {
+                    failureCount++;
+                    Console.Error.WriteLine($"Failed: {result.FileName}");
+                    foreach (var diag in result.Diagnostics)
+                    {
+                        Console.Error.WriteLine($"  [{diag.Severity}] {FormatDiagnostic(diag)}");
+                    }
+                }
+            }
+
+            if (opts.GeneratePom)
+            {
+                var depNames = new List<string> { sharedCompatibilityModuleName };
+                foreach (var refPath in project.ProjectReferences)
+                {
+                    var refProject = projects.FirstOrDefault(p =>
+                        string.Equals(p.FilePath, refPath, StringComparison.OrdinalIgnoreCase));
+                    if (refProject != null)
+                    {
+                        depNames.Add(refProject.Name);
+                    }
+                }
+
+                var planned = new PlannedModule
+                {
+                    Name = moduleName,
+                    IsTestOnly = isTest,
+                };
+                foreach (var dep in depNames) planned.CompileDependencies.Add(dep);
+
+                var modulePom = GenerateChildModulePom(
+                    planned, opts.MavenGroupId, opts.MavenVersion, opts.JavaVersion,
+                    new DirectoryInfo(opts.Destination).Name);
+                await File.WriteAllTextAsync(
+                    Path.Combine(moduleRoot, "pom.xml"), modulePom,
+                    new System.Text.UTF8Encoding(false));
+            }
+        }
+
+        if (opts.GeneratePom)
+        {
+            var parentArtifactId = new DirectoryInfo(opts.Destination).Name;
+            var parentPom = GenerateParentPom(
+                parentArtifactId, opts.MavenGroupId, opts.MavenVersion, opts.JavaVersion,
+                moduleNames);
+            await File.WriteAllTextAsync(
+                Path.Combine(opts.Destination, "pom.xml"), parentPom,
+                new System.Text.UTF8Encoding(false));
+            Console.WriteLine($"Generated parent Maven pom.xml");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine($"Conversion complete (MSBuild): {successCount} succeeded, {failureCount} failed, modules={moduleNames.Count}");
 
         return failureCount > 0 ? 1 : 0;
     }
@@ -1603,7 +1896,7 @@ class ConvertOptions
 [Verb("convert-project", HelpText = "Convert a C# project to Java")]
 class ConvertProjectOptions
 {
-    [Option('s', "source", Required = true, HelpText = "Source directory path or .csproj path")]
+    [Option('s', "source", Required = true, HelpText = "Source directory, .csproj, or .sln path")]
     public string Source { get; set; } = string.Empty;
 
     [Option('d', "destination", Required = true, HelpText = "Destination directory path")]
