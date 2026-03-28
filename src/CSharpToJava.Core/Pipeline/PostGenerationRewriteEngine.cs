@@ -19,10 +19,8 @@ public static class PostGenerationRewriteEngine
 
             var code = r.GeneratedCode.Replace("\r\n", "\n");
             var outputFileName = Path.GetFileName(r.FileName);
-            code = code.Replace("String.Empty", "\"\"", StringComparison.Ordinal);
 
-            code = code.Replace(".toLower()", ".toLowerCase()", StringComparison.Ordinal);
-            code = code.Replace(".toUpper()", ".toUpperCase()", StringComparison.Ordinal);
+            // ToLower/ToUpper now handled in InvocationExpressionTransformer well-known renames
 
             code = code.Replace("System.String.IsNullOrEmpty(", "StringHelper.isNullOrEmpty(", StringComparison.Ordinal);
             code = code.Replace("String.IsNullOrEmpty(", "StringHelper.isNullOrEmpty(", StringComparison.Ordinal);
@@ -165,32 +163,16 @@ public static class PostGenerationRewriteEngine
                     StringComparison.Ordinal);
             }
 
-            code = code.Replace("Double.TryParse(", "MathHelper.tryParseDouble(", StringComparison.Ordinal);
-            code = code.Replace("Float.TryParse(", "MathHelper.tryParseFloat(", StringComparison.Ordinal);
-            code = code.Replace("Single.TryParse(", "MathHelper.tryParseFloat(", StringComparison.Ordinal);
-            code = code.Replace("Integer.TryParse(", "MathHelper.tryParseInt(", StringComparison.Ordinal);
-            code = code.Replace("Int32.TryParse(", "MathHelper.tryParseInt(", StringComparison.Ordinal);
-            code = code.Replace("Long.TryParse(", "MathHelper.tryParseLong(", StringComparison.Ordinal);
-            code = code.Replace("Int64.TryParse(", "MathHelper.tryParseLong(", StringComparison.Ordinal);
-            code = code.Replace("Boolean.TryParse(", "MathHelper.tryParseBool(", StringComparison.Ordinal);
-
-            code = code.Replace("String.Join(", "String.join(", StringComparison.Ordinal);
-            code = code.Replace("String.format(CultureInfo.getCurrentCulture(), ", "String.format(", StringComparison.Ordinal);
-            code = code.Replace("String.format(CultureInfo.getInvariantCulture(), ", "String.format(", StringComparison.Ordinal);
-            code = code.Replace("String.format(CultureInfo.getCurrentUICulture(), ", "String.format(", StringComparison.Ordinal);
             code = code.Replace(".endsWith(FileExtension, StringComparison.OrdinalIgnoreCase)", ".toLowerCase().endsWith(FileExtension.toLowerCase())", StringComparison.Ordinal);
             code = code.Replace("subgraphTempl.SubgraphIdList.addRange(listOfSubgraphs.split(' '));", "subgraphTempl.SubgraphIdList.addAll(Arrays.asList(listOfSubgraphs.split(\" \")));", StringComparison.Ordinal);
             code = code.Replace("Class t = Class.getClass(typeString);\n        DataContractSerializer dcs = new DataContractSerializer(t);\n        StringReader sr = new StringReader(serString);\n        XmlReader xr = XmlReader.create(sr);\n        return dcs.readObject(xr, true);", "return serString;", StringComparison.Ordinal);
             code = code.Replace("subgraphTempl.NodeIdList.addRange(listOfNodes.split(' '));", "subgraphTempl.NodeIdList.addAll(Arrays.asList(listOfNodes.split(\" \")));", StringComparison.Ordinal);
             code = code.Replace("Convert.toBoolean(XmlReader.readElementContentAsString())", "Boolean.parseBoolean(XmlReader.readElementContentAsString())", StringComparison.Ordinal);
-            code = code.Replace("new StringWriter(java.util.Locale.ROOT)", "new StringWriter()", StringComparison.Ordinal);
             code = code.Replace("getAssemblyQualifiedName()", "getName()", StringComparison.Ordinal);
             code = code.Replace("setEdgeEnumeration(StreamSupport.stream(graph.getEdges().spliterator(), false).map(e -> e.getGeometryEdge()));", "setEdgeEnumeration(StreamSupport.stream(graph.getEdges().spliterator(), false).map(e -> e.getGeometryEdge()).collect(java.util.stream.Collectors.toList()));", StringComparison.Ordinal);
             code = code.Replace(".where(it -> !endOfLines.contains(it))", ".stream().filter(it -> !endOfLines.contains(it)).collect(java.util.stream.Collectors.toList())", StringComparison.Ordinal);
             code = code.Replace("SvgGraphWriter.class.getAssembly().getName().getVersion()", "\"unknown\"", StringComparison.Ordinal);
             code = code.Replace("Arrays.stream(initialLayering).map(i -> i + 1).max(java.util.Comparator.naturalOrder()).orElseThrow()", "Arrays.stream(initialLayering).map(i -> i + 1).max().orElseThrow()", StringComparison.Ordinal);
-            code = code.Replace("Environment.getEnvironmentVariable(", "System.getenv(", StringComparison.Ordinal);
-            code = code.Replace("String.StringHelper.compare(", "StringHelper.compare(", StringComparison.Ordinal);
             code = code.Replace("StringHelper.compare(this.getAttr().getId(), n.getAttr().getId(), StringComparison.Ordinal)", "StringHelper.compare(this.getAttr().getId(), n.getAttr().getId(), false)", StringComparison.Ordinal);
             code = code.Replace("this.a = 255;", "this.a = (byte) 255;", StringComparison.Ordinal);
             code = code.Replace("Convert.toString(i, 16)", "Integer.toString(i, 16)", StringComparison.Ordinal);
@@ -220,8 +202,6 @@ public static class PostGenerationRewriteEngine
             code = code.Replace("public void write(String fileName) {", "public void write(String fileName) throws Exception {", StringComparison.Ordinal);
             code = code.Replace("public static Graph read(String fileName) {", "public static Graph read(String fileName) throws Exception {", StringComparison.Ordinal);
             code = code.Replace("sw.close();", "/* StringWriter close not required */", StringComparison.Ordinal);
-            code = code.Replace("var _chainVal25 = null;\n        e.setSourcePort(_chainVal25);\n        originalEdge.getEdgeGeometry().setSourcePort(_chainVal25);", "e.setSourcePort(null);\n        originalEdge.getEdgeGeometry().setSourcePort(null);", StringComparison.Ordinal);
-            code = code.Replace("var _chainVal26 = null;\n        e.setTargetPort(_chainVal26);\n        originalEdge.getEdgeGeometry().setTargetPort(_chainVal26);", "e.setTargetPort(null);\n        originalEdge.getEdgeGeometry().setTargetPort(null);", StringComparison.Ordinal);
             code = code.Replace("return GraphConnectedComponents.createComponents(Arrays.asList(originalToCopyNodeMap.values().stream().toArray(Node[]::new)), copiedEdges, nodeSeparation).collect(java.util.stream.Collectors.toList());", "return new ArrayList<>(StreamSupport.stream(GraphConnectedComponents.createComponents(Arrays.asList(originalToCopyNodeMap.values().stream().toArray(Node[]::new)), copiedEdges, nodeSeparation).spliterator(), false).toList());", StringComparison.Ordinal);
             code = code.Replace(
                 "var newEdge = Edges.stream().allMatch(x -> (v1 != x.A || v2 != x.B) && (v1 != x.B || v2 != x.A));",
@@ -233,7 +213,6 @@ public static class PostGenerationRewriteEngine
                 StringComparison.Ordinal);
             code = code.Replace(".collect(Collectors.toList())", ".collect(java.util.stream.Collectors.toList())", StringComparison.Ordinal);
             code = code.Replace(".collect(java.util.stream.Collectors.toList()).collect(java.util.stream.Collectors.toList())", ".collect(java.util.stream.Collectors.toList())", StringComparison.Ordinal);
-            code = code.Replace(".toString(java.util.Locale.ROOT)", ".toString()", StringComparison.Ordinal);
             code = code.Replace("XmlTextReader.close();", "/* XmlTextReader close handled by owner */;", StringComparison.Ordinal);
             code = code.Replace("endsWith(FileExtension, StringComparison.InvariantCultureIgnoreCase)", "toLowerCase().endsWith(FileExtension.toLowerCase())", StringComparison.Ordinal);
             code = code.Replace("try { InputStream stream = FileHelper.openRead(fileName);", "try (InputStream stream = FileHelper.openRead(fileName)) {", StringComparison.Ordinal);
@@ -246,7 +225,6 @@ public static class PostGenerationRewriteEngine
             code = code.Replace("static char firstCharacter(String fileName) {", "static char firstCharacter(String fileName) throws Exception {", StringComparison.Ordinal);
             code = code.Replace("public static void write(GeometryGraph graph, String fileName) {", "public static void write(GeometryGraph graph, String fileName) throws Exception {", StringComparison.Ordinal);
             code = code.Replace("public static void write(GeometryGraph graph, LayoutAlgorithmSettings settings, String fileName) {", "public static void write(GeometryGraph graph, LayoutAlgorithmSettings settings, String fileName) throws Exception {", StringComparison.Ordinal);
-            code = code.Replace("throw new Exception();", "throw new RuntimeException();", StringComparison.Ordinal);
             code = code.Replace(
                 "LayeredLayoutEngine.calculateAnchorSizes(database, /* out */ database.anchors, ProperLayeredGraph, originalGraph, intGraph, settings);",
                 "ObjectHolder<Anchor[]> _anchorsHolder1 = new ObjectHolder<>();\n        LayeredLayoutEngine.calculateAnchorSizes(database, _anchorsHolder1, ProperLayeredGraph, originalGraph, intGraph, settings);\n        database.anchors = _anchorsHolder1.value;",
@@ -263,7 +241,6 @@ public static class PostGenerationRewriteEngine
             code = code.Replace("} else { settings.setMinConstraintLevel(2); }", "} else { addedNodes = new HashSet<Node>(); settings.setMinConstraintLevel(2); }", StringComparison.Ordinal);
             code = code.Replace("int countForTile = tileTable.get(tuple)++ + 1;", "int countForTile = tileTable.get(tuple) + 1;\n        tileTable.put(tuple, countForTile);", StringComparison.Ordinal);
             code = code.Replace("if (LayoutAlgorithmSettings.getShowDebugCurves() != null) { LayoutAlgorithmSettings.getShowDebugCurves().Invoke(", "if (LayoutAlgorithmSettings.getShowDebugCurves() != null) { LayoutAlgorithmSettings.getShowDebugCurves().invoke(", StringComparison.Ordinal);
-            code = code.Replace(".Invoke(", ".invoke(", StringComparison.Ordinal);
             code = code.Replace("getShowDebugCurves().invoke(", "getShowDebugCurves().apply(", StringComparison.Ordinal);
             code = code.Replace("System.fail(\"wrong distance between two polygons\");", "throw new RuntimeException(\"wrong distance between two polygons\");", StringComparison.Ordinal);
             code = code.Replace("System.fail(", "throw new RuntimeException(", StringComparison.Ordinal);
@@ -283,12 +260,6 @@ public static class PostGenerationRewriteEngine
             code = code.Replace("Arrays.stream(layerList.get(i + 1)).map(j -> nodes.get(j).getBoundingBox().getLeft()).min(java.util.Comparator.naturalOrder()).orElseThrow()", "Arrays.stream(layerList.get(i + 1)).mapToDouble(j -> nodes.get(j).getBoundingBox().getLeft()).min().orElseThrow()", StringComparison.Ordinal);
             code = code.Replace("assignmentBounds(i, /* out */ a[i], /* out */ b[i]);", "DoubleHolder _aHolder = new DoubleHolder();\n        DoubleHolder _bHolder = new DoubleHolder();\n        assignmentBounds(i, _aHolder, _bHolder);\n        a[i] = _aHolder.value;\n        b[i] = _bHolder.value;", StringComparison.Ordinal);
             code = code.Replace(".filter(v -> v < getIntGraph().getNodeCount())\n        .flatMap(v -> getIntGraph().outEdges(v).stream())", ".filter(v -> v < getIntGraph().getNodeCount())\n        .boxed()\n        .flatMap(v -> getIntGraph().outEdges(v).stream())", StringComparison.Ordinal);
-            code = code.Replace("var _chainVal10 = null;\n        setTargetTightPolyline(_chainVal10);\n        setSourceTightPolyline(_chainVal10);", "setTargetTightPolyline(null);\n        setSourceTightPolyline(null);", StringComparison.Ordinal);
-            code = code.Replace("var _chainVal11 = null;\n        setTargetPort(_chainVal11);\n        setSourcePort(_chainVal11);", "setTargetPort(null);\n        setSourcePort(null);", StringComparison.Ordinal);
-            code = code.Replace("var _chainVal12 = null;\n        setSourceTightPolyline(_chainVal12);\n        setSourceLoosePolyline(_chainVal12);", "setSourceTightPolyline(null);\n        setSourceLoosePolyline(null);", StringComparison.Ordinal);
-            code = code.Replace("var _chainVal13 = null;\n        setTargetLoosePolyline(_chainVal13);\n        targetTightPolyline = _chainVal13;", "setTargetLoosePolyline(null);\n        targetTightPolyline = null;", StringComparison.Ordinal);
-            code = code.Replace("var _chainVal3 = null;\n        setTargetOfInsertedEdge(_chainVal3);\n        setSourceOfInsertedEdge(_chainVal3);", "setTargetOfInsertedEdge(null);\n        setSourceOfInsertedEdge(null);", StringComparison.Ordinal);
-            code = code.Replace("var _chainVal4 = null;\n        setTargetPort(_chainVal4);\n        setSourcePort(_chainVal4);", "setTargetPort(null);\n        setSourcePort(null);", StringComparison.Ordinal);
             code = code.Replace("viewer.drawRubberEdge(setEdgeGeometry(calculateEdgeInteractivelyToLocation(point)));", "setEdgeGeometry(calculateEdgeInteractivelyToLocation(point));\n        viewer.drawRubberEdge(getEdgeGeometry());", StringComparison.Ordinal);
             code = code.Replace("viewer.drawRubberEdge(setEdgeGeometry(calculateEdgeInteractivelyToLocation(point.clone())));", "setEdgeGeometry(calculateEdgeInteractivelyToLocation(point.clone()));\n        viewer.drawRubberEdge(getEdgeGeometry());", StringComparison.Ordinal);
             code = code.Replace("viewer.drawRubberEdge(setEdgeGeometry(calculateEdgeInteractively(targetPortParameter, portLoosePolyline)));", "setEdgeGeometry(calculateEdgeInteractively(targetPortParameter, portLoosePolyline));\n        viewer.drawRubberEdge(getEdgeGeometry());", StringComparison.Ordinal);
@@ -1106,20 +1077,9 @@ public static class PostGenerationRewriteEngine
 
             code = Regex.Replace(
                 code,
-                @"var _chainVal25 = null;\s*e\.setSourcePort\(_chainVal25\);\s*originalEdge\.getEdgeGeometry\(\)\.setSourcePort\(_chainVal25\);",
-                "e.setSourcePort(null);\n        originalEdge.getEdgeGeometry().setSourcePort(null);");
-
-            code = Regex.Replace(
-                code,
-                @"var _chainVal26 = null;\s*e\.setTargetPort\(_chainVal26\);\s*originalEdge\.getEdgeGeometry\(\)\.setTargetPort\(_chainVal26\);",
-                "e.setTargetPort(null);\n        originalEdge.getEdgeGeometry().setTargetPort(null);");
-
-            code = Regex.Replace(
-                code,
                 @"return GraphConnectedComponents\.createComponents\(([^;]+)\)\.collect\(java\.util\.stream\.Collectors\.toList\(\)\);",
                 "return new ArrayList<>(StreamSupport.stream(GraphConnectedComponents.createComponents($1).spliterator(), false).toList());");
 
-            code = Regex.Replace(code, @"\.Invoke\(", ".invoke(");
             code = Regex.Replace(code, @"System\.fail\(", "throw new RuntimeException(");
 
             code = Regex.Replace(
@@ -1140,23 +1100,6 @@ public static class PostGenerationRewriteEngine
                 code,
                 @"\.filter\(v -> v < getIntGraph\(\)\.getNodeCount\(\)\)\s*\r?\n\s*\.flatMap\(v -> getIntGraph\(\)\.outEdges\(v\)\.stream\(\)\)",
                 ".filter(v -> v < getIntGraph().getNodeCount())\n        .boxed()\n        .flatMap(v -> getIntGraph().outEdges(v).stream())");
-
-            code = Regex.Replace(
-                code,
-                @"var _chainVal10 = null;\s*setTargetTightPolyline\(_chainVal10\);\s*setSourceTightPolyline\(_chainVal10\);",
-                "setTargetTightPolyline(null);\n        setSourceTightPolyline(null);");
-            code = Regex.Replace(
-                code,
-                @"var _chainVal11 = null;\s*setTargetPort\(_chainVal11\);\s*setSourcePort\(_chainVal11\);",
-                "setTargetPort(null);\n        setSourcePort(null);");
-            code = Regex.Replace(
-                code,
-                @"var _chainVal12 = null;\s*setSourceTightPolyline\(_chainVal12\);\s*setSourceLoosePolyline\(_chainVal12\);",
-                "setSourceTightPolyline(null);\n        setSourceLoosePolyline(null);");
-            code = Regex.Replace(
-                code,
-                @"var _chainVal13 = null;\s*setTargetLoosePolyline\(_chainVal13\);\s*targetTightPolyline = _chainVal13;",
-                "setTargetLoosePolyline(null);\n        targetTightPolyline = null;");
 
             code = Regex.Replace(
                 code,

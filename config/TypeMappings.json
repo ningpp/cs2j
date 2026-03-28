@@ -2901,6 +2901,11 @@
                                "javaMethod":  "System.lineSeparator()"
                            },
                            {
+                               "type":  "System.Environment",
+                               "method":  "GetEnvironmentVariable",
+                               "javaMethod":  "System.getenv"
+                           },
+                           {
                                "type":  "System.Collections.Queue",
                                "method":  "Enqueue",
                                "javaMethod":  "add"

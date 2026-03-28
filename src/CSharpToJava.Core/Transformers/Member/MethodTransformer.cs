@@ -387,6 +387,8 @@ public class MethodTransformer : IMemberTransformer
         if (name == "GetEnumerator") return "iterator";
         if (name == "GetType") return "getClass";
         if (name == "Dispose") return "close";  // IDisposable.Dispose() → AutoCloseable.close()
+        if (name == "ToLower" || name == "ToLowerInvariant") return "toLowerCase";
+        if (name == "ToUpper" || name == "ToUpperInvariant") return "toUpperCase";
 
         var camelName = name.Length > 0 ? char.ToLower(name[0]) + name.Substring(1) : name;
         // Escape Java keywords (e.g. Assert → assert → assertValue)

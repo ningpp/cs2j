@@ -137,17 +137,20 @@ public class ObjectCreationTransformer : IExpressionTransformer
 
     private string TransformObjectCreationWithArgs(string typeName, ArgumentListSyntax? argumentList, ConversionContext context)
     {
-        if (argumentList == null || argumentList.Arguments.Count == 0)
-            return $"new {typeName}()";
-
+        // Exception → RuntimeException (unchecked in Java)
         if (typeName == "Exception")
         {
+            if (argumentList == null || argumentList.Arguments.Count == 0)
+                return "new RuntimeException()";
             var exArgs = ArgumentTransformer.TransformArgumentList(
                 argumentList, context, ExpressionTransformerFacade.Instance);
             return string.IsNullOrWhiteSpace(exArgs)
                 ? "new RuntimeException()"
                 : $"new RuntimeException({exArgs})";
         }
+
+        if (argumentList == null || argumentList.Arguments.Count == 0)
+            return $"new {typeName}()";
 
         // Resolve constructor/delegate symbol early so delegate construction can be handled
         // as a functional value assignment instead of Java object instantiation.

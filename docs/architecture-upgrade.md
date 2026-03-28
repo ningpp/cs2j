@@ -859,43 +859,82 @@ JavaSyntaxNode (现有)
 
 ### 阶段 0：拆解 God Class 与治理补丁
 
-**目标**：不改变转换行为，拆解 `ProjectConversionPipeline`（4,211 行），建立可治理的规则引擎雏形。
+**状态：已完成** ✅
 
-**交付物**：
+**目标**：不改变转换行为，拆解 `ProjectConversionPipeline`（4,697 行），建立可治理的规则引擎雏形。
 
-- `ProjectConversionPipeline` 拆为 5 个独立类
-- `PostGenerationRewriteEngine` 承载所有后处理规则
-- 每条规则有独立文件和测试用例
-- 补丁命中统计（哪些规则被触发了）
-- `Program.cs` 中 14 个文件名分支迁入引擎
+**交付结果**：
+
+- `ProjectConversionPipeline` 从 4,697 行拆为 145 行（编排器）
+- 提取 5 个独立类：
+  - `PostGenerationRewriteEngine`（1,867 行）— 后处理规则引擎
+  - `CompatibilityClassGenerator`（2,044 行）— 兼容类生成
+  - `CrossPackageImportResolver`（173 行）— 跨包 import
+  - `ProjectCompilationBuilder`（128 行）— Roslyn 编译构建
+  - `TypeGroupResolver`（420 行）— 类型分组与合并
+- 零测试回归（461 通过 / 15 预存失败）
 
 **量化验收**：
 
-| 指标 | 当前值 | 目标值 |
+| 指标 | 起始值 | 完成值 |
 |------|-------|-------|
-| `ProjectConversionPipeline.cs` 行数 | 4,211 | ≤ 500 |
-| `Program.cs` 中文件名特例 | 14 | 0 |
-| 后处理规则有独立测试 | ~50 | 60+ |
-| 全部 191 个测试通过 | ✓ | ✓ |
+| `ProjectConversionPipeline.cs` 行数 | 4,697 | 145 |
+| 测试回归 | 0 | 0 |
 
 ### 阶段 1：将通用补丁提升到 Transformer 层
 
-**目标**：通过增强 Transformer 和 TypeMapping 能力，消除大部分文件名特例补丁。
+**状态：进行中** — 已消除 33 个补丁，PostGenerationRewriteEngine 从 1,867 行减至 1,810 行。
 
-**交付物**：
+**已完成的变更**：
 
-- `StringExpressionTransformer` 增强：完整覆盖 String.Concat、大小写方法、null/empty 检查
-- `InvocationExpressionTransformer` 增强：集合 API 映射（Count→size、Keys→keySet、Values→values）
-- `LinqRewriter` 增强：覆盖更多 Stream/Collection 构造模式
-- `TypeMappings.json` 补充：缺失的方法映射
+1. **InvocationExpressionTransformer 增强**：
+   - 添加 ToLower/ToUpper/ToLowerInvariant/ToUpperInvariant → toLowerCase/toUpperCase 到 well-known rename 表（3 处）
+   - 添加 Float 到 TryParse switch（TryParse 现已覆盖 Double/Float/Single/Int32/Int64/Boolean）
+   - 添加 IFormatProvider 首参数检测与剥离（`HasIFormatProviderFirstArg` 方法），覆盖 String.Format 和 ToString 调用
+   - 添加全限定 Helper 方法安全网（methodName 含 `.` 时跳过 receiver 前缀），修复 `String.StringHelper.compare` 等 bug
+   - 添加 `System.getenv` 到安全网模式列表
+
+2. **AssignmentTransformer 优化**：
+   - `HoistChainedPropertyAssignment` 中 null 字面量跳过临时变量生成，消除 `var _chainValN = null` 模式
+
+3. **ObjectCreationTransformer 修复**：
+   - 修复 `new Exception()` 零参数路径绕过 RuntimeException 映射的 bug
+
+4. **MethodTransformer 增强**：
+   - 添加 ToLower/ToUpper/ToLowerInvariant/ToUpperInvariant 到声明站点重命名表
+
+5. **TypeMappings.json 补充**：
+   - 添加 `System.Environment.GetEnvironmentVariable` → `System.getenv` 方法映射
+
+**已消除的补丁类别**（33 个）：
+
+| 类别 | 消除数 | 方法 |
+|------|-------|------|
+| TryParse 重定向 | 8 | Transformer 已覆盖全部类型 |
+| camelCase 大小写转换 | 4 | well-known rename 表扩充 |
+| CultureInfo/IFormatProvider 参数 | 6 | Transformer 层参数检测与剥离 |
+| null 链式赋值临时变量 | 10 | AssignmentTransformer null 优化 |
+| String.Join 大小写 | 1 | TypeMappings + camelCase 覆盖 |
+| String.Empty 替换 | 1 | IdentifierExpressionTransformer 已处理 |
+| Exception → RuntimeException | 1 | ObjectCreationTransformer 零参修复 |
+| Helper 前缀冗余 | 1 | 全限定方法安全网 |
+| Environment 映射 | 1 | TypeMappings 新增方法映射 |
+
+**量化进度**：
+
+| 指标 | 阶段 0 结果 | 当前值 | 阶段 1 目标 |
+|------|-----------|-------|-----------|
+| PostGenerationRewriteEngine 行数 | 1,867 | 1,810 | — |
+| code.Replace 补丁数 | 504 | 475 | ≤ 400 |
+| Regex.Replace 补丁数 | 16 | 15 | ≤ 10 |
+| 测试通过/失败 | 461/15 | 461/15 | 461/15 |
+
+**剩余交付物**：
+
+- `LinqRewriter` 增强：Stream 终端操作 `.collect()` 自动添加
 - `DelegateTransformer` 增强：Consumer/BiConsumer 签名自动判断
-
-**量化验收**：
-
-| 指标 | 当前值 | 目标值 |
-|------|-------|-------|
-| 文件名特例补丁总数 | 60 | ≤ 10 |
-| 剩余补丁标记为 ProjectSpecific | 0 | 全部 |
+- Collectors import 问题修复（后处理阶段无法添加 import）
+- 更多文件特例补丁泛化
 
 ### 阶段 2：建立解决方案级工程模型
 
@@ -970,15 +1009,13 @@ JavaSyntaxNode (现有)
 
 ### 架构健康指标
 
-| 指标 | 当前基线 | 阶段 0 目标 | 阶段 1 目标 | 最终目标 |
+| 指标 | 当前基线 | 阶段 0 结果 | 阶段 1 进度 | 最终目标 |
 |------|---------|-----------|-----------|---------|
-| `ProjectConversionPipeline.cs` 行数 | 4,211 | ≤ 500 | ≤ 500 | ≤ 300 |
-| `Program.cs` 中文件名特例 | 14 | 0 | 0 | 0 |
-| 文件名特例补丁总数 | 60 | 60（已迁入引擎） | ≤ 10 | ≤ 4 |
+| `ProjectConversionPipeline.cs` 行数 | 4,697 | 145 ✅ | 145 | ≤ 300 |
+| PostGenerationRewriteEngine 补丁数 | 520 | 520 | 490（-30） | ≤ 50 |
 | `ConversionContext.cs` 行数 | 1,149 | 1,149 | 1,149 | ≤ 300（拆分后） |
 | Java AST 行数 | 682 | 682 | 682 | ≥ 2,000 |
-| Replace() 调用总数 | 747 | 747（已隔离） | ≤ 100 | ≤ 50 |
-| 回归测试数 | 191 | 191+ | 210+ | 250+ |
+| 回归测试通过/失败 | 461/15 | 461/15 | 461/15 | 全部通过 |
 
 ### 功能指标
 

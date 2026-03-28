@@ -203,6 +203,10 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             "GetEnumerator" => "iterator",
             "GetType"       => "getClass",
             "Dispose"       => "close",
+            "ToLower"       => "toLowerCase",
+            "ToUpper"       => "toUpperCase",
+            "ToLowerInvariant" => "toLowerCase",
+            "ToUpperInvariant" => "toUpperCase",
             _ when methodName.Length > 0
                 => char.ToLowerInvariant(methodName[0]) + methodName[1..],
             _ => methodName
@@ -491,7 +495,8 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         {
             if (primTypeSyntax.Keyword.Text == "string" && originalMethodName == "Format")
             {
-                var formatArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                int fmtStart = HasIFormatProviderFirstArg(node, context) ? 1 : 0;
+                var formatArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, fmtStart);
                 return $"String.format({formatArgs})";
             }
 
@@ -541,7 +546,8 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             && (methodSymbol?.ContainingType.ToDisplayString() == "System.String"
                 || memberAccess.Expression.ToString() is "String" or "System.String"))
         {
-            var fmtArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: methodSymbol);
+            int fmtStart = HasIFormatProviderFirstArg(node, context) ? 1 : 0;
+            var fmtArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, fmtStart, methodSymbol);
             return $"String.format({fmtArgs})";
         }
 
@@ -1178,6 +1184,10 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 "GetEnumerator" => "iterator",
                 "GetType"       => "getClass",
                 "Dispose"       => "close",
+                "ToLower"       => "toLowerCase",
+                "ToUpper"       => "toUpperCase",
+                "ToLowerInvariant" => "toLowerCase",
+                "ToUpperInvariant" => "toUpperCase",
                 _ when methodName.Length > 0
                     => char.ToLowerInvariant(methodName[0]) + methodName[1..],
                 _ => methodName
@@ -1214,7 +1224,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             string? helper = receiverText switch
             {
                 "Double" or "double" or "System.Double" => "MathHelper.tryParseDouble",
-                "Single" or "float" or "System.Single" => "MathHelper.tryParseFloat",
+                "Single" or "float" or "Float" or "System.Single" => "MathHelper.tryParseFloat",
                 "Int32" or "int" or "Integer" or "System.Int32" => "MathHelper.tryParseInt",
                 "Int64" or "long" or "Long" or "System.Int64" => "MathHelper.tryParseLong",
                 "Boolean" or "bool" or "System.Boolean" => "MathHelper.tryParseBool",
@@ -2523,6 +2533,15 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             }
         }
 
+        // Strip IFormatProvider/CultureInfo arguments from ToString() calls.
+        // Java's toString() does not accept locale parameters.
+        if (originalMethodName == "ToString"
+            && node.ArgumentList.Arguments.Count - argStartIndex == 1
+            && HasIFormatProviderFirstArg(node, context))
+        {
+            argStartIndex = node.ArgumentList.Arguments.Count; // skip all args
+        }
+
         var args = ArgumentTransformer.TransformArgumentList(
             node.ArgumentList, context, facade, argStartIndex, methodSymbol);
 
@@ -2546,6 +2565,19 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                     preserveGroupingValueStream: true);
                 return $"{fallbackStreamReceiver}.{methodName}({args})";
             }
+        }
+
+        // Safety net: when a method mapping returns a fully-qualified helper call
+        // (e.g. "StringHelper.compare", "System.getenv"), emit it standalone without the
+        // receiver prefix. The primary check at the StringHelper/MathHelper/EnumHelper guard
+        // above should have caught most cases, but syntactic fallback paths may bypass it.
+        // Do NOT match patterns like "out.println" which are partial receiver chains.
+        if (methodName.StartsWith("MathHelper.", StringComparison.Ordinal)
+            || methodName.StartsWith("EnumHelper.", StringComparison.Ordinal)
+            || methodName.StartsWith("StringHelper.", StringComparison.Ordinal)
+            || methodName.StartsWith("System.getenv", StringComparison.Ordinal))
+        {
+            return $"{methodName}({args})";
         }
 
         return $"{receiver}.{methodName}({args})";
@@ -2578,6 +2610,47 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             }
         }
         return string.Join(", ", parts);
+    }
+
+    /// <summary>
+    /// Checks whether the first argument of an invocation is an IFormatProvider/CultureInfo
+    /// that should be stripped when converting to Java (Java's String.format and ToString
+    /// do not accept IFormatProvider).
+    /// </summary>
+    private static bool HasIFormatProviderFirstArg(InvocationExpressionSyntax node, ConversionContext context)
+    {
+        if (node.ArgumentList.Arguments.Count == 0)
+            return false;
+
+        var firstArg = node.ArgumentList.Arguments[0].Expression;
+
+        // Semantic check: resolve the parameter type
+        if (context.SemanticModel != null)
+        {
+            var typeInfo = context.SemanticModel.GetTypeInfo(firstArg);
+            var typeName = typeInfo.Type?.ToDisplayString();
+            if (typeName is "System.IFormatProvider" or "System.Globalization.CultureInfo"
+                or "System.Globalization.NumberFormatInfo")
+                return true;
+            // Also check interfaces
+            if (typeInfo.Type != null)
+            {
+                foreach (var iface in typeInfo.Type.AllInterfaces)
+                {
+                    if (iface.ToDisplayString() == "System.IFormatProvider")
+                        return true;
+                }
+            }
+        }
+
+        // Syntactic fallback: check for common CultureInfo patterns
+        var argText = firstArg.ToString();
+        if (argText.StartsWith("CultureInfo.", System.StringComparison.Ordinal)
+            || argText == "NumberFormatInfo.InvariantInfo"
+            || argText.StartsWith("NumberFormatInfo.", System.StringComparison.Ordinal))
+            return true;
+
+        return false;
     }
 
     private static bool TryTransformSplitWithRemoveEmptyEntries(

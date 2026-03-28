@@ -502,6 +502,9 @@ public class AssignmentTransformer : IExpressionTransformer
         // Base case: any other expression (getter call, literal, local variable, non-property assignment)
         // — transform it and capture to a temp so callers can reference the value without re-evaluating.
         var tmpVal = facade.Transform(expr, context);
+        // Optimization: null literal doesn't need a temp variable — use it inline.
+        if (tmpVal == "null")
+            return "null";
         var tmp = context.GenerateSyntheticName("_chainVal");
         context.AddPreStatement($"var {tmp} = {tmpVal}");
         return tmp;
