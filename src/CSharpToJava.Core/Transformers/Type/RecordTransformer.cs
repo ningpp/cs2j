@@ -252,7 +252,7 @@ public class RecordTransformer : ITypeTransformer
                 bool isArray = f.Type.EndsWith("[]");
                 return isArray
                     ? $"java.util.Arrays.equals(this.{f.Name}, other.{f.Name})"
-                    : $"java.util.Objects.equals(this.{f.Name}, other.{f.Name})";
+                    : $"Objects.equals(this.{f.Name}, other.{f.Name})";
             }));
             equalsBody = $"if (this == o) return true;\n" +
                          $"if (!(o instanceof {className})) return false;\n" +
@@ -273,11 +273,11 @@ public class RecordTransformer : ITypeTransformer
         bool hasArrayFields = fields.Any(f => f.Type.EndsWith("[]"));
         if (fieldNames.Count == 0)
         {
-            hashCodeBody = $"return java.util.Objects.hash();";
+            hashCodeBody = $"return Objects.hash();";
         }
         else if (!hasArrayFields)
         {
-            hashCodeBody = $"return java.util.Objects.hash({string.Join(", ", fieldNames)});";
+            hashCodeBody = $"return Objects.hash({string.Join(", ", fieldNames)});";
         }
         else
         {
@@ -288,7 +288,7 @@ public class RecordTransformer : ITypeTransformer
                 if (f.Type.EndsWith("[]"))
                     sb.Append($"result = 31 * result + java.util.Arrays.hashCode({f.Name});\n");
                 else
-                    sb.Append($"result = 31 * result + java.util.Objects.hashCode({f.Name});\n");
+                    sb.Append($"result = 31 * result + Objects.hashCode({f.Name});\n");
             }
             sb.Append("return result;");
             hashCodeBody = sb.ToString();

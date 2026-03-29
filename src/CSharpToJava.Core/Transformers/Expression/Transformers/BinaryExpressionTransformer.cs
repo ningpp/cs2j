@@ -135,7 +135,7 @@ public class BinaryExpressionTransformer : IExpressionTransformer
                 bool rightIsNull = node.Right.IsKind(SyntaxKind.NullLiteralExpression);
                 if (!leftIsNull && !rightIsNull)
                 {
-                    string eq = $"java.util.Objects.equals({left}, {right})";
+                    string eq = $"Objects.equals({left}, {right})";
                     return op == "!=" ? $"!{eq}" : eq;
                 }
             }

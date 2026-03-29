@@ -100,7 +100,7 @@ public class QueryExpressionTransformer : IExpressionTransformer
                     var joinLeftExpr = facade.Transform(join.LeftExpression, context);
                     var joinRightExpr = facade.Transform(join.RightExpression, context);
                     sb.Append($"\n    .flatMap({rangeVar} -> {ExpressionTransformerHelpers.BuildStreamExpression(joinInExpr, joinInType, context)}" +
-                              $"\n        .filter({joinVar} -> java.util.Objects.equals({joinLeftExpr}, {joinRightExpr})))");
+                              $"\n        .filter({joinVar} -> Objects.equals({joinLeftExpr}, {joinRightExpr})))");
                     rangeVar = joinVar;
                     break;
 
@@ -147,7 +147,7 @@ public class QueryExpressionTransformer : IExpressionTransformer
                     var jiInSrcType = context.SemanticModel?.GetTypeInfo(joinInto.InExpression).Type;
                     sb.Append($"\n    .flatMap({capturedOuter} -> {{");
                     sb.Append($"\n        var {intoId} = {ExpressionTransformerHelpers.BuildStreamExpression(jiInSrc, jiInSrcType, context)}");
-                    sb.Append($"\n            .filter({jiVar} -> java.util.Objects.equals({jiLeft}, {jiRight}))");
+                    sb.Append($"\n            .filter({jiVar} -> Objects.equals({jiLeft}, {jiRight}))");
                     sb.Append($"\n            .collect(Collectors.toList());");
                     sb.Append($"\n        var _{intoId} = {intoId}.isEmpty() ? java.util.Collections.singletonList((Object)null) : {intoId};");
                     if (!string.IsNullOrEmpty(terminalMapExpr))

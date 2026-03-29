@@ -26,7 +26,7 @@ public class StringEqualityConversionTests
         var result = Convert(code);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics.Select(d => d.Message)));
-        Assert.Contains("return java.util.Objects.equals(x, y);", result.GeneratedCode);
+        Assert.Contains("return Objects.equals(x, y);", result.GeneratedCode);
         Assert.DoesNotContain("x.equals(y)", result.GeneratedCode);
     }
 
@@ -46,7 +46,7 @@ public class StringEqualityConversionTests
         var result = Convert(code);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics.Select(d => d.Message)));
-        Assert.Contains("return !java.util.Objects.equals(x, y);", result.GeneratedCode);
+        Assert.Contains("return !Objects.equals(x, y);", result.GeneratedCode);
     }
 
     [Fact]
@@ -70,8 +70,8 @@ public class StringEqualityConversionTests
         var result = Convert(code);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics.Select(d => d.Message)));
-        Assert.Contains("return java.util.Objects.equals(x, \"a\");", result.GeneratedCode);
-        Assert.Contains("return java.util.Objects.equals(\"a\", x);", result.GeneratedCode);
+        Assert.Contains("return Objects.equals(x, \"a\");", result.GeneratedCode);
+        Assert.Contains("return Objects.equals(\"a\", x);", result.GeneratedCode);
     }
 
     [Fact]
@@ -90,7 +90,7 @@ public class StringEqualityConversionTests
         var result = Convert(code);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics.Select(d => d.Message)));
-        Assert.Contains("return java.util.Objects.equals(x, y);", result.GeneratedCode);
+        Assert.Contains("return Objects.equals(x, y);", result.GeneratedCode);
         Assert.DoesNotContain("x.equals(y)", result.GeneratedCode);
     }
 
@@ -112,7 +112,7 @@ public class StringEqualityConversionTests
         var result = Convert(code);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics.Select(d => d.Message)));
-        Assert.Contains("return java.util.Objects.equals(x, y);", result.GeneratedCode);
+        Assert.Contains("return Objects.equals(x, y);", result.GeneratedCode);
     }
 
     [Fact]

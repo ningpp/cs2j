@@ -209,7 +209,7 @@ public class ControlFlowTransformer : IExpressionTransformer
             ConstantPatternSyntax cp when cp.Expression.IsKind(SyntaxKind.NullLiteralExpression)
                 => $"({expr} == null)",
             ConstantPatternSyntax cp
-                => $"java.util.Objects.equals({expr}, {facade.Transform(cp.Expression, context)})",
+                => $"Objects.equals({expr}, {facade.Transform(cp.Expression, context)})",
             DeclarationPatternSyntax dp
                 => BuildDeclarationPatternCondition(expr, dp, context),
             TypePatternSyntax tp

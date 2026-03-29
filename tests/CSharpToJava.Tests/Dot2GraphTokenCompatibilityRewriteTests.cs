@@ -21,7 +21,7 @@ public class Dot2GraphTokenCompatibilityRewriteTests
                 }
 
                 protected String terminalToString(int terminal) {
-                    if (!java.util.Objects.equals((Tokens.values()[(int)(terminal)]).toString(), String.valueOf(terminal))) {
+                    if (!Objects.equals((Tokens.values()[(int)(terminal)]).toString(), String.valueOf(terminal))) {
                         return (Tokens.values()[(int)(terminal)]).toString();
                     } else {
                         return charToString((char)(terminal));

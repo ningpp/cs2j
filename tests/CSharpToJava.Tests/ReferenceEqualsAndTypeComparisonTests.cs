@@ -55,7 +55,7 @@ public class ReferenceEqualsAndTypeComparisonTests
 
         Assert.True(result.Success,
             $"Conversion failed:\n{string.Join("\n", result.Diagnostics.Select(d => d.Message))}");
-        Assert.Contains("java.util.Objects.equals(a, b)", result.GeneratedCode);
-        Assert.DoesNotContain("equals(a, b)", result.GeneratedCode.Replace("java.util.Objects.equals(a, b)", string.Empty));
+        Assert.Contains("Objects.equals(a, b)", result.GeneratedCode);
+        Assert.DoesNotContain("equals(a, b)", result.GeneratedCode.Replace("Objects.equals(a, b)", string.Empty));
     }
 }

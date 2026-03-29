@@ -105,7 +105,7 @@ public static class PostGenerationRewriteEngine
                 // instead of XmlReader.getName() (dynamic method returning reader.getLocalName()).
                 // The static field Name = "" never gets updated, so the graph element check always fails.
                 code = code.Replace(
-                    "!java.util.Objects.equals(getXmlReader().Name.toLowerCase(), GeometryToken.Graph.toString().toLowerCase())",
+                    "!Objects.equals(getXmlReader().Name.toLowerCase(), GeometryToken.Graph.toString().toLowerCase())",
                     "!XmlReader.isStartElement(GeometryToken.Graph.toString())",
                     StringComparison.Ordinal);
 
@@ -407,7 +407,7 @@ public static class PostGenerationRewriteEngine
                     RegexOptions.Singleline);
                 code = Regex.Replace(
                     code,
-                    @"if \(!java\.util\.Objects\.equals\(\(Tokens\.values\(\)\[\(int\)\(terminal\)\]\)\.toString\(\), String\.valueOf\(terminal\)\)\) \{\s*return \(Tokens\.values\(\)\[\(int\)\(terminal\)\]\)\.toString\(\);\s*\} else \{\s*return charToString\(\(char\)\(terminal\)\);\s*\}",
+                    @"if \(!(?:java\.util\.)?Objects\.equals\(\(Tokens\.values\(\)\[\(int\)\(terminal\)\]\)\.toString\(\), String\.valueOf\(terminal\)\)\) \{\s*return \(Tokens\.values\(\)\[\(int\)\(terminal\)\]\)\.toString\(\);\s*\} else \{\s*return charToString\(\(char\)\(terminal\)\);\s*\}",
                     "var tokenName = Arrays.stream(Tokens.values()).filter(token -> token.getValue() == terminal).map(Enum::toString).findFirst();\n        if (tokenName.isPresent() && !tokenName.get().equals(String.valueOf(terminal))) {\n        return tokenName.get();\n        } else {\n        return charToString((char)(terminal));\n        }",
                     RegexOptions.Singleline);
             }
@@ -1021,7 +1021,7 @@ public static class PostGenerationRewriteEngine
                                     code = code.Replace("var exceptionToUse = ex.getInnerException() != null ? ex.getInnerException() : ex;", "var exceptionToUse = ex.getCause() != null ? ex.getCause() : ex;", StringComparison.Ordinal);
                                     code = code.Replace("Debugger.breakValue();", "return;", StringComparison.Ordinal);
                                     code = code.Replace("catch (UnitTestAssertException ex)", "catch (AssertionError ex)", StringComparison.Ordinal);
-                                    code = code.Replace("Assertions.assertEquals(expected, actual, ignoreCase, culture, message);", "Assertions.assertTrue(ignoreCase ? java.util.Objects.equals(expected == null ? null : expected.toLowerCase(java.util.Locale.ROOT), actual == null ? null : actual.toLowerCase(java.util.Locale.ROOT)) : java.util.Objects.equals(expected, actual), message);", StringComparison.Ordinal);
+                                    code = code.Replace("Assertions.assertEquals(expected, actual, ignoreCase, culture, message);", "Assertions.assertTrue(ignoreCase ? Objects.equals(expected == null ? null : expected.toLowerCase(java.util.Locale.ROOT), actual == null ? null : actual.toLowerCase(java.util.Locale.ROOT)) : Objects.equals(expected, actual), message);", StringComparison.Ordinal);
                                     }
 
                     if (r.FileName != null && r.FileName.Contains("ResultVerifierBase", StringComparison.Ordinal))

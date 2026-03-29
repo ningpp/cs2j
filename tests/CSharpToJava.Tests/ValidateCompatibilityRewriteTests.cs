@@ -52,7 +52,7 @@ public class ValidateCompatibilityRewriteTests
         var output = ProjectConversionPipeline.ApplyCompatibilityRewritesForTesting("Validate.java", generated);
 
         Assert.Contains("catch (AssertionError ex)", output);
-        Assert.Contains("Assertions.assertTrue(ignoreCase ? java.util.Objects.equals(expected == null ? null : expected.toLowerCase(java.util.Locale.ROOT), actual == null ? null : actual.toLowerCase(java.util.Locale.ROOT)) : java.util.Objects.equals(expected, actual), message);", output);
+        Assert.Contains("Assertions.assertTrue(ignoreCase ? Objects.equals(expected == null ? null : expected.toLowerCase(java.util.Locale.ROOT), actual == null ? null : actual.toLowerCase(java.util.Locale.ROOT)) : Objects.equals(expected, actual), message);", output);
         Assert.DoesNotContain("UnitTestAssertException", output);
         Assert.DoesNotContain("Assertions.assertEquals(expected, actual, ignoreCase, culture, message);", output);
     }

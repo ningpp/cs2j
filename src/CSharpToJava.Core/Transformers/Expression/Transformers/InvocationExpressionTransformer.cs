@@ -74,7 +74,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             {
                 var leftArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
                 var rightArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-                return $"java.util.Objects.equals({leftArg}, {rightArg})";
+                return $"Objects.equals({leftArg}, {rightArg})";
             }
 
         // Issue 1 & 5: member-access invocations need method-name mapping and
@@ -353,7 +353,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         {
             var leftArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var rightArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-            return $"java.util.Objects.equals({leftArg}, {rightArg})";
+            return $"Objects.equals({leftArg}, {rightArg})";
         }
 
         if (IsSystemStringMethod(earlyMethodSymbol, memberAccess.Expression))
@@ -383,7 +383,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             && IsSystemStringType(stringEqualsReceiverType))
         {
             var arg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-            return $"java.util.Objects.equals({receiver}, {arg})";
+            return $"Objects.equals({receiver}, {arg})";
         }
 
         if (IsSystemStringType(stringEqualsReceiverType)
@@ -1918,7 +1918,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 {
                     return $"{receiver}.collect(Collectors.toSet()).contains({valArg})";
                 }
-                return $"{receiver}.anyMatch(_item -> java.util.Objects.equals(_item, {valArg}))";
+                return $"{receiver}.anyMatch(_item -> Objects.equals(_item, {valArg}))";
             }
 
             // Concat → Stream.concat(stream, other)
@@ -2737,7 +2737,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 else
                     jMapBody = jResBody;
                 return $"{receiver}.flatMap({jOuterP} -> {jInnerStream}"
-                     + $".filter({jInnerP} -> java.util.Objects.equals({jOuterKey}, {jInnerKey}))"
+                     + $".filter({jInnerP} -> Objects.equals({jOuterKey}, {jInnerKey}))"
                      + $".map({jInnerP} -> {jMapBody}))";
             }
 
@@ -2754,7 +2754,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 TryGetTwoParamLambda(node.ArgumentList.Arguments[3].Expression, context, facade, out var gjResP0, out var gjResP1, out var gjResBody);
                 // Resolve result body outer param name vs actual outer param
                 string prebind = gjResP0 != gjOuterP ? $"var {gjResP0} = {gjOuterP}; " : "";
-                string gjGroupExpr = $"{gjInnerStream}.filter({gjInnerP} -> java.util.Objects.equals({gjOuterKey}, {gjInnerKey})).collect(Collectors.toList())";
+                string gjGroupExpr = $"{gjInnerStream}.filter({gjInnerP} -> Objects.equals({gjOuterKey}, {gjInnerKey})).collect(Collectors.toList())";
                 return $"{receiver}.map({gjOuterP} -> {{ {prebind}var {gjResP1} = {gjGroupExpr}; return {gjResBody}; }})";
             }
 
