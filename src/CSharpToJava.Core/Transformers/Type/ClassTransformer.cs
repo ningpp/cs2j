@@ -790,7 +790,9 @@ public class ClassTransformer : ITypeTransformer
         if (addMethod != null)
         {
             addMethod.ReturnType = "boolean";
-            addMethod.Body = (addMethod.Body ?? "").TrimEnd() + "\nreturn true;";
+            var trimmedBody = (addMethod.Body ?? "").TrimEnd();
+            if (!EndsWithTerminalStatement(trimmedBody))
+                addMethod.Body = trimmedBody + "\nreturn true;";
         }
 
         // Java Collection uses Object parameter for contains/remove after erasure.
@@ -891,7 +893,7 @@ public class ClassTransformer : ITypeTransformer
         if (addMethod != null)
         {
             addMethod.ReturnType = "boolean";
-            if (addMethod.Body != null)
+            if (addMethod.Body != null && !EndsWithTerminalStatement(addMethod.Body.TrimEnd()))
                 addMethod.Body = addMethod.Body.TrimEnd() + "\nreturn true;";
         }
 
@@ -903,7 +905,7 @@ public class ClassTransformer : ITypeTransformer
         {
             string indexParam = setMethod.Parameters[0].Name ?? "index";
             setMethod.ReturnType = elemType;
-            if (setMethod.Body != null)
+            if (setMethod.Body != null && !EndsWithTerminalStatement(setMethod.Body.TrimEnd()))
                 setMethod.Body = $"{elemType} _setOldValue_ = this.get({indexParam});\n" + setMethod.Body.TrimEnd() + $"\nreturn _setOldValue_;";
         }
 
@@ -1179,5 +1181,14 @@ public class ClassTransformer : ITypeTransformer
                 }
                 break;
         }
+    }
+
+    /// <summary>
+    /// 检查方法体字符串是否以终止语句（throw/return）结尾，避免追加不可达代码。
+    /// </summary>
+    private static bool EndsWithTerminalStatement(string body)
+    {
+        var lastLine = body.Split('\n').LastOrDefault()?.Trim();
+        return lastLine != null && (lastLine.StartsWith("throw ") || lastLine.StartsWith("return "));
     }
 }
