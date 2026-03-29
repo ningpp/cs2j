@@ -28,8 +28,10 @@ public class StringConcatConversionTests
     }
 
     [Fact]
-    public void CompatibilityRewrites_RewritesResidualStaticStringConcatCalls()
+    public void CompatibilityRewrites_NoLongerRewritesResidualStringConcat_HandledByTransformer()
     {
+        // String.Concat rewriting is now handled at the transformer level (InvocationExpressionTransformer).
+        // The post-processor no longer touches String.Concat; verify it passes through unchanged.
         const string generated = """
             package Demo;
 
@@ -42,7 +44,6 @@ public class StringConcatConversionTests
 
         var output = ProjectConversionPipeline.ApplyCompatibilityRewritesForTesting("C.java", generated);
 
-        Assert.Contains("StringHelper.concat(values)", output);
-        Assert.DoesNotContain("String.Concat(values)", output);
+        Assert.Contains("String.Concat(values)", output);
     }
 }

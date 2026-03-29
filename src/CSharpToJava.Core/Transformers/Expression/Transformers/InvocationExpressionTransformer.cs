@@ -1330,6 +1330,18 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return "/* GC operation not needed in Java */";
         }
 
+        // StringBuilder.AppendFormat(fmt, args) → sb.append(String.format(fmt, args))
+        // Java's StringBuilder has no appendFormat(); use append(String.format()) instead.
+        if (originalMethodName == "AppendFormat"
+            && (methodSymbol?.ContainingType.ToDisplayString() is "System.Text.StringBuilder"
+                || memberAccess.Expression.ToString() is "StringBuilder" or "System.Text.StringBuilder"))
+        {
+            int appendFmtStart = isExtensionInStaticPath ? 1 : 0;
+            var fmtArgs = ArgumentTransformer.TransformArgumentList(
+                node.ArgumentList, context, facade, appendFmtStart, methodSymbol);
+            return $"{receiver}.append(String.format({fmtArgs}))";
+        }
+
         // Apply the same camelCase conversion at call sites that MethodTransformer applies at
         // declaration sites.  Only runs when no explicit TypeMappings override was found so that
         // hand-crafted renames (e.g. Add → add) are never double-processed.

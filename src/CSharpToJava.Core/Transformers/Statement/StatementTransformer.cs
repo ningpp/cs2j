@@ -1465,6 +1465,19 @@ public class StatementTransformer : IStatementTransformer
             }
         }
 
+        // Consumer<T> → BiConsumer<Object, T> when the initializer is a 2-parameter lambda.
+        // C# EventHandler<T>(object sender, T e) maps to Consumer<T> by default, but Java's
+        // Consumer accepts only 1 arg; detect 2-param lambdas and upgrade to BiConsumer.
+        if (javaType.StartsWith("Consumer<", StringComparison.Ordinal)
+            && stmt.Declaration.Variables.Count == 1
+            && stmt.Declaration.Variables[0].Initializer?.Value is ParenthesizedLambdaExpressionSyntax biLambda
+            && biLambda.ParameterList.Parameters.Count == 2)
+        {
+            var innerType = javaType.Substring("Consumer<".Length, javaType.Length - "Consumer<".Length - 1);
+            javaType = $"BiConsumer<Object, {innerType}>";
+            context.AddImport("java.util.function.BiConsumer");
+        }
+
         var exprTransformer = ExpressionTransformerFacade.Instance;
 
         // Special case: var x = target.Property = value

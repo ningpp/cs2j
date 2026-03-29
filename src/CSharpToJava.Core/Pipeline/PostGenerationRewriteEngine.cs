@@ -20,23 +20,10 @@ public static class PostGenerationRewriteEngine
             var code = r.GeneratedCode.Replace("\r\n", "\n");
             var outputFileName = Path.GetFileName(r.FileName);
 
-            // ToLower/ToUpper now handled in InvocationExpressionTransformer well-known renames
-
-            code = code.Replace("System.String.IsNullOrEmpty(", "StringHelper.isNullOrEmpty(", StringComparison.Ordinal);
-            code = code.Replace("String.IsNullOrEmpty(", "StringHelper.isNullOrEmpty(", StringComparison.Ordinal);
-            code = code.Replace("System.String.IsNullOrWhiteSpace(", "StringHelper.isNullOrWhiteSpace(", StringComparison.Ordinal);
-            code = code.Replace("String.IsNullOrWhiteSpace(", "StringHelper.isNullOrWhiteSpace(", StringComparison.Ordinal);
-            code = code.Replace("System.String.Concat(", "StringHelper.concat(", StringComparison.Ordinal);
-            code = code.Replace("String.Concat(", "StringHelper.concat(", StringComparison.Ordinal);
-            code = Regex.Replace(
-                code,
-                @"(?m)\bConsumer<(?<arg>[^>]+)>\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*\((?<sender>[^,\)]+),\s*(?<event>[^\)]+)\)\s*->",
-                "BiConsumer<Object, ${arg}> ${name} = (${sender}, ${event}) ->");
-
-            // Universal: StringBuilder.appendFormat() → sb.append(String.format())
-            code = Regex.Replace(code, @"(\w+)\.appendFormat\(([^;]+)\);", "$1.append(String.format($2));");
-            // Universal: strip IFormatProvider cast left over from C# String.Format(IFormatProvider, ...)
-            code = code.Replace("String.format((IFormatProvider)(java.util.Locale.ROOT), ", "String.format(", StringComparison.Ordinal);
+            // String.IsNullOrEmpty/IsNullOrWhiteSpace/Concat → now handled in InvocationExpressionTransformer
+            // Consumer→BiConsumer → now handled in StatementTransformer (local declaration lambda param count detection)
+            // StringBuilder.appendFormat() → now handled in InvocationExpressionTransformer
+            // IFormatProvider cast → now handled in InvocationExpressionTransformer
 
             if (string.Equals(outputFileName, "BasicFileProcessor.java", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(outputFileName, "BasicFileProcessor.cs", StringComparison.OrdinalIgnoreCase))
@@ -293,7 +280,9 @@ public static class PostGenerationRewriteEngine
                 code = code.Replace("case '\\v':", "case '\\u000B':", StringComparison.Ordinal);
                 code = code.Replace("SerializationInfo", "Object", StringComparison.Ordinal);
                 code = code.Replace("StreamingContext", "Object", StringComparison.Ordinal);
-                // appendFormat and IFormatProvider now handled by universal rules above
+                // appendFormat → append(String.format(...)) and IFormatProvider cast stripping
+                code = Regex.Replace(code, @"(\w+)\.appendFormat\(([^;]+)\);", "$1.append(String.format($2));");
+                code = code.Replace("String.format((IFormatProvider)(java.util.Locale.ROOT), ", "String.format(", StringComparison.Ordinal);
                 code = code.Replace("Console.Error.writeLine();", "System.err.println();", StringComparison.Ordinal);
                 code = code.Replace("Console.Error.writeLine(", "System.err.printf(", StringComparison.Ordinal);
                 code = code.Replace("Console.Error.write(", "System.err.printf(", StringComparison.Ordinal);
