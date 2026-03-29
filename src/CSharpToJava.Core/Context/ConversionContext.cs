@@ -9,88 +9,6 @@ using CSharpToJava.Core.Transformers;
 namespace CSharpToJava.Core.Context;
 
 /// <summary>
-/// 转换选项
-/// </summary>
-public class ConversionOptions
-{
-    /// <summary>
-    /// 目标 Java 版本
-    /// </summary>
-    public JavaVersion TargetJavaVersion { get; set; } = JavaVersion.Java25;
-
-    /// <summary>
-    /// 类型映射配置文件路径
-    /// </summary>
-    public string? TypeMappingConfigPath { get; set; }
-
-    /// <summary>
-    /// 是否生成 JavaDoc 注释
-    /// </summary>
-    public bool GenerateJavaDoc { get; set; } = true;
-
-    /// <summary>
-    /// 是否使用 Java Record（对于 C# record）
-    /// </summary>
-    public bool UseRecords { get; set; } = true;
-
-    /// <summary>
-    /// 是否使用 Optional 替代 nullable
-    /// </summary>
-    public bool UseOptionalForNullable { get; set; } = false;
-
-    /// <summary>
-    /// 命名空间到包的映射规则
-    /// </summary>
-    public Dictionary<string, string> NamespaceMappings { get; set; } = new();
-
-    /// <summary>
-    /// 是否启用 LINQ 预处理（将 LINQ 转换为过程化代码）
-    /// </summary>
-    public bool EnableLinqRewrite { get; set; } = true;
-
-    /// <summary>
-    /// When true, LINQ chains are converted to Java Stream API calls (.stream().filter().map()...)
-    /// instead of procedural loops via LinqRewriter. Default: true for Java 25.
-    /// When set explicitly, overrides the version-based default.
-    /// </summary>
-    public bool? PreferStreamApi { get; set; }
-
-    /// <summary>
-    /// Resolved value: uses explicit setting if provided, otherwise defaults to Stream API for Java 25.
-    /// </summary>
-    public bool EffectivePreferStreamApi => PreferStreamApi ?? true;
-
-    /// <summary>
-    /// When enabled, extension methods on known types are promoted to instance methods on those types,
-    /// and the receiver ('this') parameter is stripped from the Java method signature.
-    /// </summary>
-    public bool RewriteExtensionMethods { get; set; } = false;
-
-    /// <summary>
-    /// When false, project conversion skips emitting generated compatibility helper classes
-    /// such as ObjectHolder, StringHelper, and XML/JSON shims into the current output.
-    /// This is used by multi-module conversion when those helpers are centralized in a
-    /// shared compatibility module.
-    /// </summary>
-    public bool EmitCompatibilityHelpers { get; set; } = true;
-
-    /// <summary>
-    /// Optional shared compatibility package that should be imported into all generated files.
-    /// Used together with EmitCompatibilityHelpers=false when helper classes live in a
-    /// dedicated shared module.
-    /// </summary>
-    public string? SharedCompatibilityPackage { get; set; }
-}
-
-/// <summary>
-/// Java 版本枚举
-/// </summary>
-public enum JavaVersion
-{
-    Java25 = 25,
-}
-
-/// <summary>
 /// 转换上下文 - 存储转换过程中的状态信息
 /// </summary>
 public class ConversionContext
@@ -194,57 +112,19 @@ public class ConversionContext
     public Dictionary<ITypeSymbol, string> TypeCache => TypeMapper.TypeCache;
 
     /// <summary>
-    /// Synthesized Java record definitions generated from C# anonymous types.
-    /// Key is the structural key (ordered "name:type" pairs), value is the record info.
+    /// Synthesized Java record store (delegates to SynthesizedRecordStore).
     /// </summary>
-    private readonly Dictionary<string, SynthesizedRecordInfo> _synthesizedRecords = new(StringComparer.Ordinal);
+    private readonly SynthesizedRecordStore _synthesizedRecordStore = new();
 
-    /// <summary>
-    /// Names already used by synthesized records, to avoid conflicts.
-    /// </summary>
-    private readonly HashSet<string> _synthesizedRecordNames = new(StringComparer.Ordinal);
+    public IReadOnlyCollection<SynthesizedRecordInfo> SynthesizedRecords => _synthesizedRecordStore.Records;
 
-    /// <summary>
-    /// All synthesized records registered during conversion.
-    /// </summary>
-    public IReadOnlyCollection<SynthesizedRecordInfo> SynthesizedRecords => _synthesizedRecords.Values;
-
-    /// <summary>
-    /// Try to find an existing synthesized record with the given structural key.
-    /// </summary>
     public bool TryGetSynthesizedRecord(string structuralKey, out SynthesizedRecordInfo? record)
-    {
-        return _synthesizedRecords.TryGetValue(structuralKey, out record);
-    }
+        => _synthesizedRecordStore.TryGet(structuralKey, out record);
 
-    /// <summary>
-    /// Register a new synthesized record. If the name conflicts with an existing record,
-    /// a numeric suffix is appended.
-    /// </summary>
     public void RegisterSynthesizedRecord(SynthesizedRecordInfo record)
-    {
-        // Ensure unique name
-        var name = record.RecordName;
-        if (_synthesizedRecordNames.Contains(name))
-        {
-            int suffix = 2;
-            while (_synthesizedRecordNames.Contains(name + suffix))
-                suffix++;
-            name = name + suffix;
-            record = new SynthesizedRecordInfo(name, record.Fields, record.StructuralKey);
-        }
-        _synthesizedRecordNames.Add(name);
-        _synthesizedRecords[record.StructuralKey] = record;
-    }
+        => _synthesizedRecordStore.Register(record);
 
-    /// <summary>
-    /// Clear synthesized records (per-file reset).
-    /// </summary>
-    public void ClearSynthesizedRecords()
-    {
-        _synthesizedRecords.Clear();
-        _synthesizedRecordNames.Clear();
-    }
+    public void ClearSynthesizedRecords() => _synthesizedRecordStore.Clear();
 
     /// <summary>
     /// 需要合成的唯一名称计数器
@@ -523,101 +403,6 @@ public class ConversionContext
 
     public static bool IsJavaKeyword(string word) => JavaNaming.IsJavaKeyword(word);
     public static string EscapeJavaKeyword(string word) => JavaNaming.EscapeJavaKeyword(word);
-
-    /// <summary>
-    /// Checks whether a C# method has a type-erasure conflict with another overload in the
-    /// same type: same name, same erased parameter types, but different generic type parameter
-    /// counts.  Returns true for the overload with FEWER type parameters (the one that must
-    /// be renamed in Java so that both overloads survive).
-    /// </summary>
-    public static bool HasTypeErasureConflict(IMethodSymbol method)
-    {
-        if (method.ContainingType == null) return false;
-        // Only rename methods whose containing type is defined in source (user code).
-        // BCL / library types (e.g. System.String) are not converted, so their methods
-        // must keep their mapped names without an erasure suffix.
-        if (method.ContainingType.DeclaringSyntaxReferences.Length == 0) return false;
-        foreach (var sibling in method.ContainingType.GetMembers().OfType<IMethodSymbol>())
-        {
-            if (SymbolEqualityComparer.Default.Equals(sibling, method)) continue;
-            if (sibling.Name != method.Name) continue;
-            if (sibling.Parameters.Length != method.Parameters.Length) continue;
-            if (sibling.TypeParameters.Length == method.TypeParameters.Length) continue;
-            if (HaveSameErasedParameters(method, sibling))
-            {
-                // The overload with fewer type parameters is the one that gets renamed.
-                return method.TypeParameters.Length < sibling.TypeParameters.Length;
-            }
-        }
-        return false;
-    }
-
-    /// <summary>
-    /// Returns the renamed Java method name suffix for a type-erasure–conflicting overload.
-    /// E.g. a method with 2 type parameters becomes "methodName_2tp".
-    /// </summary>
-    public static string GetErasureRenamedSuffix(int typeParameterCount)
-        => $"_{typeParameterCount}tp";
-
-    private static bool HaveSameErasedParameters(IMethodSymbol a, IMethodSymbol b)
-    {
-        for (int i = 0; i < a.Parameters.Length; i++)
-        {
-            if (GetErasedTypeName(a.Parameters[i].Type) != GetErasedTypeName(b.Parameters[i].Type))
-                return false;
-        }
-        return true;
-    }
-
-    private static string GetErasedTypeName(ITypeSymbol type) => type switch
-    {
-        ITypeParameterSymbol => "System.Object",
-        IArrayTypeSymbol arr => GetErasedTypeName(arr.ElementType) + "[]",
-        INamedTypeSymbol named => named.OriginalDefinition.ContainingNamespace + "." + named.OriginalDefinition.Name,
-        _ => type.ToDisplayString()
-    };
-}
-
-/// <summary>
-/// 诊断收集器
-/// </summary>
-public class DiagnosticCollector
-{
-    private readonly List<DiagnosticMessage> _messages = new();
-
-    public IReadOnlyList<DiagnosticMessage> Messages => _messages;
-
-    public void Error(string message, Location? location = null)
-    {
-        _messages.Add(new DiagnosticMessage(DiagnosticSeverity.Error, message, location));
-    }
-
-    public void Warning(string message, Location? location = null)
-    {
-        _messages.Add(new DiagnosticMessage(DiagnosticSeverity.Warning, message, location));
-    }
-
-    public void Info(string message, Location? location = null)
-    {
-        _messages.Add(new DiagnosticMessage(DiagnosticSeverity.Info, message, location));
-    }
-}
-
-/// <summary>
-/// 诊断消息
-/// </summary>
-public record DiagnosticMessage(
-    DiagnosticSeverity Severity,
-    string Message,
-    Location? Location
-);
-
-/// <summary>
-/// 诊断严重程度
-/// </summary>
-public enum DiagnosticSeverity
-{
-    Info,
-    Warning,
-    Error,
+    public static bool HasTypeErasureConflict(IMethodSymbol method) => JavaNaming.HasTypeErasureConflict(method);
+    public static string GetErasureRenamedSuffix(int typeParameterCount) => JavaNaming.GetErasureRenamedSuffix(typeParameterCount);
 }
