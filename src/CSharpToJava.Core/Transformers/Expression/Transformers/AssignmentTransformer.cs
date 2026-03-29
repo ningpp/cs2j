@@ -141,7 +141,7 @@ public class AssignmentTransformer : IExpressionTransformer
                         right = ObjectCreationTransformer.WrapArrayForCollectionArg(right, arrayType, context);
                     }
 
-                    right = ApplyIntegralNarrowingIfNeeded(rightNode, right, propType, context);
+                    right = ExpressionTransformerHelpers.AdaptExpressionToTargetType(rightNode, right, propType, context);
                 }
 
                 // Avoid recursion when an explicit SetX(...) method assigns to property X.
@@ -172,6 +172,8 @@ public class AssignmentTransformer : IExpressionTransformer
                 var target = facade.Transform(ela.Expression, context);
                 var argList = ela.ArgumentList.Arguments;
                 var right = facade.Transform(rightNode, context);
+                ITypeSymbol? keyType = indexerSymbol?.Parameters.FirstOrDefault()?.Type;
+                ITypeSymbol? valueType = indexerSymbol?.Type;
 
                 if (argList.Count == 1)
                 {
@@ -190,6 +192,16 @@ public class AssignmentTransformer : IExpressionTransformer
                             or "System.Collections.Immutable.ImmutableArray<T>";
                         if (isDictionaryContainer) method = "put";
                         else if (isListContainer) method = "set";
+
+                        if (namedContainer.TypeArguments.Length >= 2 && isDictionaryContainer)
+                        {
+                            keyType ??= namedContainer.TypeArguments[0];
+                            valueType ??= namedContainer.TypeArguments[1];
+                        }
+                        else if (namedContainer.TypeArguments.Length >= 1 && isListContainer)
+                        {
+                            valueType ??= namedContainer.TypeArguments[0];
+                        }
                     }
                     else if (indexerSymbol == null)
                     {
@@ -198,11 +210,27 @@ public class AssignmentTransformer : IExpressionTransformer
                         method = "put";
                     }
                     var arg0 = facade.Transform(argExpr, context);
+                    arg0 = ExpressionTransformerHelpers.AdaptExpressionToTargetType(argExpr, arg0, keyType, context);
+                    right = ExpressionTransformerHelpers.AdaptExpressionToTargetType(rightNode, right, valueType, context);
                     return $"{target}.{method}({arg0}, {right})";
                 }
 
                 // Multi-argument indexer: use set(arg0, arg1, ..., value)
-                var transformedArgs = string.Join(", ", argList.Select(a => facade.Transform(a.Expression, context)));
+                var transformedArgs = string.Join(
+                    ", ",
+                    argList.Select((argument, index) =>
+                    {
+                        var transformedArg = facade.Transform(argument.Expression, context);
+                        var parameterType = indexerSymbol?.Parameters.Length > index
+                            ? indexerSymbol.Parameters[index].Type
+                            : null;
+                        return ExpressionTransformerHelpers.AdaptExpressionToTargetType(
+                            argument.Expression,
+                            transformedArg,
+                            parameterType,
+                            context);
+                    }));
+                right = ExpressionTransformerHelpers.AdaptExpressionToTargetType(rightNode, right, valueType, context);
                 return $"{target}.set({transformedArgs}, {right})";
             }
         }
@@ -262,7 +290,7 @@ public class AssignmentTransformer : IExpressionTransformer
                         right = ObjectCreationTransformer.WrapArrayForCollectionArg(right, arrayType, context);
                     }
 
-                    right = ApplyIntegralNarrowingIfNeeded(rightNode, right, propType, context);
+                    right = ExpressionTransformerHelpers.AdaptExpressionToTargetType(rightNode, right, propType, context);
                 }
 
                 if (IsInExplicitSetterMethod(bareIdentProp, context))
@@ -392,6 +420,8 @@ public class AssignmentTransformer : IExpressionTransformer
         {
             var rhsTypeForClone = context.SemanticModel.GetTypeInfo(rightNode).Type;
             rightStr = StructCloneHelper.CloneStructValueIfNeeded(rightNode, rightStr, rhsTypeForClone, context);
+            var lhsType = context.SemanticModel.GetTypeInfo(leftNode).Type;
+            rightStr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(rightNode, rightStr, lhsType, context);
         }
 
         return $"{left} {op} {rightStr}";
@@ -424,36 +454,6 @@ public class AssignmentTransformer : IExpressionTransformer
             return false;
 
         return string.Equals(currentMethod.Name, "Set" + property.Name, StringComparison.Ordinal);
-    }
-
-    private static string ApplyIntegralNarrowingIfNeeded(
-        ExpressionSyntax rhsNode,
-        string rhsText,
-        ITypeSymbol targetType,
-        ConversionContext context)
-    {
-        if (context.SemanticModel == null)
-            return rhsText;
-
-        var targetSpecial = targetType.SpecialType;
-        string? cast = targetSpecial switch
-        {
-            SpecialType.System_Byte or SpecialType.System_SByte => "byte",
-            SpecialType.System_Int16 or SpecialType.System_UInt16 => "short",
-            _ => null
-        };
-
-        if (cast == null)
-            return rhsText;
-
-        var rhsType = context.SemanticModel.GetTypeInfo(rhsNode).Type;
-        if (rhsType == null)
-            return rhsText;
-
-        bool rhsIsWiderIntegral = rhsType.SpecialType is
-            SpecialType.System_Int32 or SpecialType.System_UInt32 or SpecialType.System_Int64 or SpecialType.System_UInt64;
-
-        return rhsIsWiderIntegral ? $"({cast}) ({rhsText})" : rhsText;
     }
 
     /// <summary>

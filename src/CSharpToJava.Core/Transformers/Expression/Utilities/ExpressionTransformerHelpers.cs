@@ -28,6 +28,189 @@ public static class ExpressionTransformerHelpers
     }
 
     /// <summary>
+    /// Adapts an expression to its Roslyn ConvertedType when Java requires an explicit numeric
+    /// conversion or a target-typed literal suffix to preserve C# implicit conversion semantics.
+    /// </summary>
+    public static string AdaptExpressionToConvertedType(
+        ExpressionSyntax expression,
+        string transformedExpression,
+        ConversionContext context)
+    {
+        if (context.SemanticModel == null)
+            return transformedExpression;
+
+        var typeInfo = context.SemanticModel.GetTypeInfo(expression);
+        return AdaptExpressionToTargetTypeCore(
+            expression,
+            transformedExpression,
+            typeInfo.Type,
+            typeInfo.ConvertedType);
+    }
+
+    /// <summary>
+    /// Adapts an expression to a known target type when Java needs an explicit numeric conversion.
+    /// This is used for assignments, indexers, method arguments, object initializers, and returns.
+    /// </summary>
+    public static string AdaptExpressionToTargetType(
+        ExpressionSyntax expression,
+        string transformedExpression,
+        ITypeSymbol? targetType,
+        ConversionContext context)
+    {
+        if (context.SemanticModel == null || targetType == null)
+            return transformedExpression;
+
+        var sourceType = context.SemanticModel.GetTypeInfo(expression).Type;
+        return AdaptExpressionToTargetTypeCore(
+            expression,
+            transformedExpression,
+            sourceType,
+            targetType);
+    }
+
+    private static string AdaptExpressionToTargetTypeCore(
+        ExpressionSyntax expression,
+        string transformedExpression,
+        ITypeSymbol? sourceType,
+        ITypeSymbol? targetType)
+    {
+        if (sourceType == null || targetType == null)
+            return transformedExpression;
+
+        sourceType = UnwrapNullable(sourceType);
+        targetType = UnwrapNullable(targetType);
+
+        if (sourceType == null || targetType == null)
+            return transformedExpression;
+
+        if (SymbolEqualityComparer.Default.Equals(sourceType, targetType))
+            return transformedExpression;
+
+        var sourceSpecial = sourceType.SpecialType;
+        var targetSpecial = targetType.SpecialType;
+
+        if (!IsNumericOrCharType(sourceSpecial) || !IsNumericOrCharType(targetSpecial))
+            return transformedExpression;
+
+        if (TryRewriteNumericLiteral(expression, targetSpecial, out var rewrittenLiteral))
+            return rewrittenLiteral;
+
+        var castKeyword = targetSpecial switch
+        {
+            SpecialType.System_Byte or SpecialType.System_SByte => "byte",
+            SpecialType.System_Int16 or SpecialType.System_UInt16 => "short",
+            SpecialType.System_Int32 or SpecialType.System_UInt32 => "int",
+            SpecialType.System_Int64 or SpecialType.System_UInt64 => "long",
+            SpecialType.System_Single => "float",
+            SpecialType.System_Double => "double",
+            SpecialType.System_Char => "char",
+            _ => null
+        };
+
+        return castKeyword == null
+            ? transformedExpression
+            : $"({castKeyword}) ({transformedExpression})";
+    }
+
+    private static ITypeSymbol? UnwrapNullable(ITypeSymbol? type)
+    {
+        if (type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullableType)
+            return nullableType.TypeArguments[0];
+
+        return type;
+    }
+
+    private static bool IsNumericOrCharType(SpecialType specialType)
+    {
+        return specialType is SpecialType.System_Byte
+            or SpecialType.System_SByte
+            or SpecialType.System_Int16
+            or SpecialType.System_UInt16
+            or SpecialType.System_Int32
+            or SpecialType.System_UInt32
+            or SpecialType.System_Int64
+            or SpecialType.System_UInt64
+            or SpecialType.System_Single
+            or SpecialType.System_Double
+            or SpecialType.System_Char;
+    }
+
+    private static bool TryRewriteNumericLiteral(
+        ExpressionSyntax expression,
+        SpecialType targetSpecialType,
+        out string rewrittenLiteral)
+    {
+        if (!TryGetSignedDecimalIntegralLiteral(expression, out var signedLiteral))
+        {
+            rewrittenLiteral = string.Empty;
+            return false;
+        }
+
+        rewrittenLiteral = targetSpecialType switch
+        {
+            SpecialType.System_Int64 or SpecialType.System_UInt64 => signedLiteral + "L",
+            SpecialType.System_Single => signedLiteral + "f",
+            SpecialType.System_Double => signedLiteral + ".0",
+            _ => string.Empty
+        };
+
+        return !string.IsNullOrEmpty(rewrittenLiteral);
+    }
+
+    private static bool TryGetSignedDecimalIntegralLiteral(ExpressionSyntax expression, out string signedLiteral)
+    {
+        switch (expression)
+        {
+            case LiteralExpressionSyntax literal when literal.IsKind(SyntaxKind.NumericLiteralExpression):
+                return TryNormalizeDecimalIntegralLiteral(literal.Token.Text, out signedLiteral);
+
+            case PrefixUnaryExpressionSyntax prefix
+                when prefix.IsKind(SyntaxKind.UnaryMinusExpression) || prefix.IsKind(SyntaxKind.UnaryPlusExpression):
+                if (TryGetSignedDecimalIntegralLiteral(prefix.Operand, out var operandLiteral))
+                {
+                    signedLiteral = prefix.IsKind(SyntaxKind.UnaryMinusExpression)
+                        ? operandLiteral.StartsWith("-", StringComparison.Ordinal) ? operandLiteral : "-" + operandLiteral
+                        : operandLiteral.TrimStart('+');
+                    return true;
+                }
+                break;
+        }
+
+        signedLiteral = string.Empty;
+        return false;
+    }
+
+    private static bool TryNormalizeDecimalIntegralLiteral(string tokenText, out string normalizedLiteral)
+    {
+        if (string.IsNullOrWhiteSpace(tokenText))
+        {
+            normalizedLiteral = string.Empty;
+            return false;
+        }
+
+        var cleaned = tokenText.Replace("_", "", StringComparison.Ordinal);
+        cleaned = cleaned.TrimEnd('u', 'U', 'l', 'L');
+
+        if (cleaned.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
+            || cleaned.StartsWith("0b", StringComparison.OrdinalIgnoreCase)
+            || cleaned.Contains('.', StringComparison.Ordinal)
+            || cleaned.Contains('e', StringComparison.OrdinalIgnoreCase))
+        {
+            normalizedLiteral = string.Empty;
+            return false;
+        }
+
+        if (cleaned.Length == 0 || !cleaned.All(char.IsDigit))
+        {
+            normalizedLiteral = string.Empty;
+            return false;
+        }
+
+        normalizedLiteral = cleaned;
+        return true;
+    }
+
+    /// <summary>
     /// Checks if the type name is a .NET system primitive type.
     /// </summary>
     public static bool IsSystemPrimitiveType(string? typeName)

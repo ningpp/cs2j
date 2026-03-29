@@ -370,6 +370,7 @@ public class StatementTransformer : IStatementTransformer
 
         var exprTransformer = ExpressionTransformerFacade.Instance;
         var expr = exprTransformer.Transform(stmt.Expression, context);
+        var returnTargetType = ResolveReturnTargetType(stmt, context);
 
         // Detect when a C# array element (from jagged array) is returned where a List<T> is expected.
         // e.g., return outEdges[vertex]; where the method returns IList<TEdge> → List<TEdge> in Java
@@ -459,6 +460,12 @@ public class StatementTransformer : IStatementTransformer
             expr = StructCloneHelper.CloneStructValueIfNeeded(stmt.Expression, expr, retExprTypeForClone, context);
         }
 
+        expr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
+            stmt.Expression,
+            expr,
+            returnTargetType,
+            context);
+
         // Bug 3: drain any pre/post statements produced while transforming the return expression
         // (e.g., ref argument wrapping adds pre-statements for holder init and post-statements for write-back).
         if (context.HasPendingPreStatements || context.HasPendingPostStatements)
@@ -486,6 +493,25 @@ public class StatementTransformer : IStatementTransformer
         }
 
         return new JavaStatementNode($"return {expr};");
+    }
+
+    private static ITypeSymbol? ResolveReturnTargetType(ReturnStatementSyntax stmt, ConversionContext context)
+    {
+        if (context.SemanticModel == null)
+            return null;
+
+        var returnScope = stmt.Ancestors().FirstOrDefault(ancestor => ancestor is MethodDeclarationSyntax
+            or AccessorDeclarationSyntax
+            or LocalFunctionStatementSyntax
+            or AnonymousFunctionExpressionSyntax);
+
+        return returnScope switch
+        {
+            MethodDeclarationSyntax method => context.SemanticModel.GetTypeInfo(method.ReturnType).Type,
+            AccessorDeclarationSyntax accessor => (context.SemanticModel.GetDeclaredSymbol(accessor) as IMethodSymbol)?.ReturnType,
+            LocalFunctionStatementSyntax localFunction => context.SemanticModel.GetTypeInfo(localFunction.ReturnType).Type,
+            _ => null
+        };
     }
 
     private JavaSyntaxNode TransformIfStatement(IfStatementSyntax stmt, ConversionContext context)
@@ -782,9 +808,17 @@ public class StatementTransformer : IStatementTransformer
         if (stmt.Declaration != null)
         {
             var typeInfo = context.SemanticModel?.GetTypeInfo(stmt.Declaration.Type);
+            var declaredType = typeInfo.HasValue ? typeInfo.Value.Type : null;
             var javaType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "var";
             var vars = stmt.Declaration.Variables.Select(v => {
-                var init = v.Initializer != null ? $" = {exprTransformer.Transform(v.Initializer.Value, context)}" : "";
+                var initExpr = v.Initializer != null
+                    ? ExpressionTransformerHelpers.AdaptExpressionToTargetType(
+                        v.Initializer.Value,
+                        exprTransformer.Transform(v.Initializer.Value, context),
+                        declaredType,
+                        context)
+                    : string.Empty;
+                var init = v.Initializer != null ? $" = {initExpr}" : "";
                 return $"{v.Identifier}{init}";
             });
             initializers = $"{javaType} {string.Join(", ", vars)}";
@@ -1312,12 +1346,20 @@ public class StatementTransformer : IStatementTransformer
         if (stmt.Declaration != null)
         {
             var typeInfo = context.SemanticModel?.GetTypeInfo(stmt.Declaration.Type);
+            var resourceType = typeInfo.HasValue ? typeInfo.Value.Type : null;
             var javaType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "AutoCloseable";
 
             foreach (var variable in stmt.Declaration.Variables)
             {
+                var resourceInit = variable.Initializer != null
+                    ? ExpressionTransformerHelpers.AdaptExpressionToTargetType(
+                        variable.Initializer.Value,
+                        exprTransformer.Transform(variable.Initializer.Value, context),
+                        resourceType,
+                        context)
+                    : string.Empty;
                 var init = variable.Initializer != null
-                    ? $" = {exprTransformer.Transform(variable.Initializer.Value, context)}"
+                    ? $" = {resourceInit}"
                     : "";
                 resources.Add($"{javaType} {variable.Identifier}{init}");
             }
@@ -1551,6 +1593,11 @@ public class StatementTransformer : IStatementTransformer
             string init;
             if (v.Initializer != null)
             {
+                var localTargetType = context.SemanticModel?.GetDeclaredSymbol(v) switch
+                {
+                    ILocalSymbol localSymbol => localSymbol.Type,
+                    _ => null
+                };
                 var initExpr = exprTransformer.Transform(v.Initializer.Value, context);
                 // When the declared type is a primitive array (e.g., int[]) and the initializer is
                 // a generic method whose original return type is T[] (type-parameter array),
@@ -1664,13 +1711,12 @@ public class StatementTransformer : IStatementTransformer
                     var initValueType = context.SemanticModel.GetTypeInfo(v.Initializer.Value).Type;
                     initExpr = StructCloneHelper.CloneStructValueIfNeeded(v.Initializer.Value, initExpr, initValueType, context);
                 }
+                initExpr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
+                    v.Initializer.Value,
+                    initExpr,
+                    localTargetType,
+                    context);
                 init = $" = {initExpr}";
-                // Java cannot auto-box int to Double/Float (only int→Integer is supported).
-                // When a boxed Double/Float local is initialized with an int literal, widen it.
-                if (javaType == "Double" && IsIntegerLiteralString(initExpr))
-                    init = $" = {initExpr}.0";
-                else if (javaType == "Float" && IsIntegerLiteralString(initExpr))
-                    init = $" = {initExpr}f";
             }
             else if (wasConvertedFromVar && javaType != "var" && javaType != "Object")
             {
@@ -1720,18 +1766,6 @@ public class StatementTransformer : IStatementTransformer
     private JavaSyntaxNode TransformYieldBreak(YieldStatementSyntax? stmt, ConversionContext context)
     {
         return new JavaStatementNode("return _yieldResult;");
-    }
-
-    /// <summary>
-    /// Returns true when <paramref name="s"/> is a bare integer literal string (possibly negative),
-    /// e.g. "0", "1", "-1", "42". Used to detect int literals that need widening to Double/Float.
-    /// </summary>
-    private static bool IsIntegerLiteralString(string? s)
-    {
-        if (string.IsNullOrWhiteSpace(s)) return false;
-        s = s.Trim();
-        if (s.StartsWith("-") || s.StartsWith("+")) s = s.Substring(1).Trim();
-        return s.Length > 0 && s.All(char.IsDigit);
     }
 
     /// <summary>

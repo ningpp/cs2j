@@ -6,6 +6,7 @@ using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression;
+using CSharpToJava.Core.Transformers.Expression.Utilities;
 
 namespace CSharpToJava.Core.Transformers.Member;
 
@@ -128,12 +129,11 @@ public class FieldTransformer : IMemberTransformer
                     }
                 }
 
-                // Java cannot auto-box int to Double/Float (only int→Integer is supported).
-                // When a boxed Double/Float field is initialized with an int literal, widen it.
-                if (javaType == "Double" && IsIntegerLiteralString(javaField.Initializer))
-                    javaField.Initializer += ".0";
-                else if (javaType == "Float" && IsIntegerLiteralString(javaField.Initializer))
-                    javaField.Initializer += "f";
+                javaField.Initializer = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
+                    variable.Initializer.Value,
+                    javaField.Initializer,
+                    fieldTypeSymbol,
+                    context);
             }
 
             // Issue 5: suggest AtomicReference for volatile fields of non-primitive types.
@@ -172,18 +172,6 @@ public class FieldTransformer : IMemberTransformer
             result &= ~JavaModifiers.Public;
 
         return result;
-    }
-
-    /// <summary>
-    /// Returns true when <paramref name="s"/> is a bare integer literal string (possibly negative),
-    /// e.g. "0", "1", "-1", "42". Used to detect int literals that need widening to Double/Float.
-    /// </summary>
-    private static bool IsIntegerLiteralString(string? s)
-    {
-        if (string.IsNullOrWhiteSpace(s)) return false;
-        s = s.Trim();
-        if (s.StartsWith("-") || s.StartsWith("+")) s = s.Substring(1).Trim();
-        return s.Length > 0 && s.All(char.IsDigit);
     }
 
     private static bool IsCollectionOrListInterface(ITypeSymbol type)

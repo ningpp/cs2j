@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Transformers.Expression.Utilities;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -105,7 +106,7 @@ public class ObjectCreationTransformer : IExpressionTransformer
         // Check if there's a collection initializer
         if (node.Initializer != null && node.Initializer.Kind() == SyntaxKind.CollectionInitializerExpression)
         {
-            return TransformCollectionCreationWithInitializer(typeName, node.Initializer, context);
+            return TransformCollectionCreationWithInitializer(typeName, node.Initializer, createdTypeSymbol, context);
         }
 
         // Delegate construction (new D(expr)) should become a functional value in Java,
@@ -500,11 +501,14 @@ public class ObjectCreationTransformer : IExpressionTransformer
                     var memberSymbol = context.SemanticModel?.GetSymbolInfo(idName).Symbol;
                     if (memberSymbol is IFieldSymbol fieldSym)
                     {
+                        value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(assignExpr.Right, value, fieldSym.Type, context);
                         var javaFieldName = ConversionContext.EscapeJavaKeyword(fieldSym.Name);
                         pendingAssignments.Add($"{tmpVar}.{javaFieldName} = {value};");
                     }
                     else
                     {
+                        var propertyType = memberSymbol is IPropertySymbol propertySymbol ? propertySymbol.Type : null;
+                        value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(assignExpr.Right, value, propertyType, context);
                         var propertyName = ConversionContext.EscapeJavaKeyword(idName.Identifier.Text);
                         var setterName = ConvertToSetter(propertyName);
                         pendingAssignments.Add($"{tmpVar}.{setterName}({value});");
@@ -515,11 +519,14 @@ public class ObjectCreationTransformer : IExpressionTransformer
                     var memberSymbol2 = context.SemanticModel?.GetSymbolInfo(memberAccess.Name).Symbol;
                     if (memberSymbol2 is IFieldSymbol fieldSym2)
                     {
+                        value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(assignExpr.Right, value, fieldSym2.Type, context);
                         var javaFieldName = ConversionContext.EscapeJavaKeyword(fieldSym2.Name);
                         pendingAssignments.Add($"{tmpVar}.{javaFieldName} = {value};");
                     }
                     else
                     {
+                        var propertyType = memberSymbol2 is IPropertySymbol propertySymbol2 ? propertySymbol2.Type : null;
+                        value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(assignExpr.Right, value, propertyType, context);
                         var propertyName = ConversionContext.EscapeJavaKeyword(memberAccess.Name.Identifier.Text);
                         var setterName = ConvertToSetter(propertyName);
                         pendingAssignments.Add($"{tmpVar}.{setterName}({value});");
@@ -527,6 +534,8 @@ public class ObjectCreationTransformer : IExpressionTransformer
                 }
                 else
                 {
+                    var targetType = context.SemanticModel?.GetTypeInfo(assignExpr.Left).Type;
+                    value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(assignExpr.Right, value, targetType, context);
                     var target = facade.Transform(assignExpr.Left, context);
                     pendingAssignments.Add($"{tmpVar}.{target} = {value};");
                 }
@@ -910,9 +919,22 @@ public class ObjectCreationTransformer : IExpressionTransformer
     /// new Dictionary&lt;K,V&gt; { { k, v }, ... }.
     /// </summary>
     private string TransformCollectionCreationWithInitializer(
-        string typeName, InitializerExpressionSyntax initializer, ConversionContext context)
+        string typeName,
+        InitializerExpressionSyntax initializer,
+        ITypeSymbol? createdTypeSymbol,
+        ConversionContext context)
     {
         var facade = ExpressionTransformerFacade.Instance;
+        INamedTypeSymbol? namedCreatedType = createdTypeSymbol as INamedTypeSymbol;
+        ITypeSymbol? elementType = namedCreatedType?.TypeArguments.Length >= 1
+            ? namedCreatedType.TypeArguments[0]
+            : null;
+        ITypeSymbol? keyType = namedCreatedType?.TypeArguments.Length >= 2
+            ? namedCreatedType.TypeArguments[0]
+            : null;
+        ITypeSymbol? valueType = namedCreatedType?.TypeArguments.Length >= 2
+            ? namedCreatedType.TypeArguments[1]
+            : null;
 
         // Dictionary-like: each element is a ComplexElementInitializerExpression ({ key, value })
         bool isDictionaryLike = initializer.Expressions.Count > 0 &&
@@ -928,6 +950,8 @@ public class ObjectCreationTransformer : IExpressionTransformer
                 {
                     var key = facade.Transform(complexInit.Expressions[0], context);
                     var value = facade.Transform(complexInit.Expressions[1], context);
+                    key = ExpressionTransformerHelpers.AdaptExpressionToTargetType(complexInit.Expressions[0], key, keyType, context);
+                    value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(complexInit.Expressions[1], value, valueType, context);
                     context.AddPreStatement($"{tmpVar}.put({key}, {value});");
                 }
             }
@@ -935,7 +959,13 @@ public class ObjectCreationTransformer : IExpressionTransformer
         }
 
         // Set-like or List-like: emit as a single constructor expression
-        var items = initializer.Expressions.Select(e => facade.Transform(e, context)).ToList();
+        var items = initializer.Expressions
+            .Select(e => ExpressionTransformerHelpers.AdaptExpressionToTargetType(
+                e,
+                facade.Transform(e, context),
+                elementType,
+                context))
+            .ToList();
         var itemsStr = string.Join(", ", items);
 
         bool isSetLike = typeName.StartsWith("HashSet", StringComparison.Ordinal) ||

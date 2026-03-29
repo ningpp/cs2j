@@ -37,6 +37,7 @@ public class ElementAccessTransformer : IExpressionTransformer
     {
         var facade = ExpressionTransformerFacade.Instance;
         var expr = facade.Transform(node.Expression, context);
+        var indexerSymbol = context.SemanticModel?.GetSymbolInfo(node).Symbol as IPropertySymbol;
 
         // Determine collection type via semantic model
         var typeInfo = context.SemanticModel?.GetTypeInfo(node.Expression);
@@ -86,6 +87,15 @@ public class ElementAccessTransformer : IExpressionTransformer
             }
 
             var idx = facade.Transform(arg, context);
+            var indexType = indexerSymbol?.Parameters.FirstOrDefault()?.Type;
+            if (indexType == null && exprType is INamedTypeSymbol namedExpr)
+            {
+                if (isMap && namedExpr.TypeArguments.Length >= 1)
+                    indexType = namedExpr.TypeArguments[0];
+                else if (isList)
+                    indexType = context.SemanticModel?.Compilation.GetSpecialType(SpecialType.System_Int32);
+            }
+            idx = ExpressionTransformerHelpers.AdaptExpressionToTargetType(arg, idx, indexType, context);
             if (isArray) return $"{expr}[{idx}]";
             if (isString) return $"{expr}.charAt({idx})";
             if (isMap) return $"{expr}.get({idx})";
@@ -98,7 +108,18 @@ public class ElementAccessTransformer : IExpressionTransformer
         }
 
         // Multi-argument (e.g., 2D arrays or custom 2D indexers)
-        var argList = node.ArgumentList.Arguments.Select(a => facade.Transform(a.Expression, context)).ToList();
+        var argList = node.ArgumentList.Arguments.Select((argument, index) =>
+        {
+            var transformedArg = facade.Transform(argument.Expression, context);
+            var parameterType = indexerSymbol?.Parameters.Length > index
+                ? indexerSymbol.Parameters[index].Type
+                : null;
+            return ExpressionTransformerHelpers.AdaptExpressionToTargetType(
+                argument.Expression,
+                transformedArg,
+                parameterType,
+                context);
+        }).ToList();
         if (isArray)
             return string.Concat(argList.Select(a => $"[{a}]").Prepend(expr));
         else
