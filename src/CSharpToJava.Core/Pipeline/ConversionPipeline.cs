@@ -56,6 +56,8 @@ public class ConversionPipeline
 
     private readonly List<Java.JavaSyntaxRewriter> _irRewriters = new();
 
+    public IReadOnlyList<Cs2jPassMetric> LastProjectPassMetrics { get; private set; } = Array.Empty<Cs2jPassMetric>();
+
     public ConversionPipeline()
     {
     }
@@ -221,6 +223,8 @@ public class ConversionPipeline
         ConversionOptions options,
         IEnumerable<string>? additionalSemanticProjectPaths = null)
     {
+        LastProjectPassMetrics = Array.Empty<Cs2jPassMetric>();
+
         // 查找所有 .cs 文件
         var primaryProjectPath = Path.GetFullPath(projectPath);
         var csFiles = Directory.GetFiles(primaryProjectPath, "*.cs", SearchOption.AllDirectories);
@@ -281,7 +285,9 @@ public class ConversionPipeline
         // 使用 ProjectConversionPipeline 进行转换
         var pipeline = new ProjectConversionPipeline(options);
         var emitFilePaths = new HashSet<string>(csFiles.Select(Path.GetFullPath), StringComparer.OrdinalIgnoreCase);
-        return await pipeline.ConvertProjectAsync(sourceFiles, emitFilePaths);
+        var results = await pipeline.ConvertProjectAsync(sourceFiles, emitFilePaths);
+        LastProjectPassMetrics = pipeline.LastPassMetrics.ToList();
+        return results;
     }
 
     private IReadOnlyList<ICs2jPass<SingleFilePassState>> CreateSingleFilePasses()

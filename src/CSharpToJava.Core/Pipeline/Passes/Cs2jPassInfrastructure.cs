@@ -18,10 +18,16 @@ public sealed record Cs2jPassMetric(
     int DiagnosticCountBefore,
     int DiagnosticCountAfter,
     long ManagedMemoryBytesBefore,
-    long ManagedMemoryBytesAfter)
+    long ManagedMemoryBytesAfter,
+    int RewriteCount = 0)
 {
     public int DiagnosticDelta => DiagnosticCountAfter - DiagnosticCountBefore;
     public long ManagedMemoryDelta => ManagedMemoryBytesAfter - ManagedMemoryBytesBefore;
+}
+
+public interface ICs2jPassMetricSource
+{
+    int RewriteCount { get; }
 }
 
 public sealed class Cs2jPassExecutionException : Exception
@@ -75,6 +81,7 @@ public static class Cs2jPassExecutor
             finally
             {
                 stopwatch.Stop();
+                var rewriteCount = pass is ICs2jPassMetricSource metricSource ? metricSource.RewriteCount : 0;
                 metrics.Add(new Cs2jPassMetric(
                     pass.Name,
                     pass.Stage,
@@ -82,7 +89,8 @@ public static class Cs2jPassExecutor
                     diagnosticCountBefore,
                     context.Diagnostics.Messages.Count,
                     managedMemoryBefore,
-                    GC.GetTotalMemory(forceFullCollection: false)));
+                    GC.GetTotalMemory(forceFullCollection: false),
+                    rewriteCount));
             }
         }
 

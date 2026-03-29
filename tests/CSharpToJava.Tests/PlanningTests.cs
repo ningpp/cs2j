@@ -137,36 +137,71 @@ public class PlanningTests
     {
         var snapshot = PassProfileSnapshotBuilder.Build(
         [
-            new PassProfileFileEntry
+            new PassProfileEntry
             {
+                EntryKind = PassProfileEntryKind.File,
                 ModuleName = "core",
                 FileName = "A.java",
                 Success = true,
                 PassMetrics =
                 [
-                    new Cs2jPassMetric("CheckPass", Cs2jPassStage.Check, TimeSpan.FromMilliseconds(5), 0, 1, 100, 120),
+                    new Cs2jPassMetric("CheckPass", Cs2jPassStage.Check, TimeSpan.FromMilliseconds(5), 0, 1, 100, 120, RewriteCount: 1),
                     new Cs2jPassMetric("EmitPass", Cs2jPassStage.Emit, TimeSpan.FromMilliseconds(8), 1, 1, 120, 125),
                 ]
             },
-            new PassProfileFileEntry
+            new PassProfileEntry
             {
+                EntryKind = PassProfileEntryKind.File,
                 ModuleName = "core",
                 FileName = "B.java",
                 Success = false,
                 PassMetrics =
                 [
-                    new Cs2jPassMetric("CheckPass", Cs2jPassStage.Check, TimeSpan.FromMilliseconds(7), 0, 2, 90, 130),
+                    new Cs2jPassMetric("CheckPass", Cs2jPassStage.Check, TimeSpan.FromMilliseconds(7), 0, 2, 90, 130, RewriteCount: 2),
                 ]
             }
         ]);
 
-        Assert.Equal(2, snapshot.Files.Count);
+        Assert.Equal(2, snapshot.Entries.Count);
 
         var checkAggregate = Assert.Single(snapshot.Aggregates, aggregate => aggregate.Name == "CheckPass");
         Assert.Equal(Cs2jPassStage.Check, checkAggregate.Stage);
-        Assert.Equal(2, checkAggregate.FileCount);
+        Assert.Equal(PassProfileEntryKind.File, checkAggregate.EntryKind);
+        Assert.Equal(2, checkAggregate.EntryCount);
         Assert.Equal(12d, checkAggregate.TotalElapsedMilliseconds, precision: 3);
         Assert.Equal(3, checkAggregate.TotalDiagnosticDelta);
         Assert.Equal(60, checkAggregate.TotalManagedMemoryDelta);
+        Assert.Equal(3, checkAggregate.TotalRewriteCount);
+    }
+
+    [Fact]
+    public void PassProfileEntryBuilder_CreateProjectEntry_DoesNotDuplicateMetricsAcrossResults()
+    {
+        var entry = PassProfileEntryBuilder.CreateProjectEntry(
+            [
+                new Cs2jPassMetric("ProjectCheckPass", Cs2jPassStage.Check, TimeSpan.FromMilliseconds(5), 0, 1, 100, 120, RewriteCount: 4)
+            ],
+            [
+                new ConversionResult
+                {
+                    Success = true,
+                    FileName = "A.java",
+                },
+                new ConversionResult
+                {
+                    Success = true,
+                    FileName = "B.java",
+                }
+            ],
+            projectName: "CoreProject",
+            moduleName: "core");
+
+        var snapshot = PassProfileSnapshotBuilder.Build([Assert.IsType<PassProfileEntry>(entry)]);
+        var aggregate = Assert.Single(snapshot.Aggregates);
+
+        Assert.Equal(PassProfileEntryKind.Project, aggregate.EntryKind);
+        Assert.Equal(1, aggregate.EntryCount);
+        Assert.Equal(5d, aggregate.TotalElapsedMilliseconds, precision: 3);
+        Assert.Equal(4, aggregate.TotalRewriteCount);
     }
 }

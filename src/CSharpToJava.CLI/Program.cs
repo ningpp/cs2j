@@ -200,9 +200,13 @@ class Program
             int successCount = 0;
             int failureCount = 0;
             var planningResults = new List<ConversionResult>();
-            var passProfileEntries = new List<PassProfileFileEntry>();
+            var passProfileEntries = new List<PassProfileEntry>();
 
-            CollectPassProfileEntries(passProfileEntries, results);
+            AddProjectPassProfileEntry(
+                passProfileEntries,
+                pipeline.LastProjectPassMetrics,
+                results,
+                GetDefaultProjectProfileName(opts.Source));
 
             foreach (var result in results)
             {
@@ -309,7 +313,7 @@ class Program
         int failureCount = 0;
         int copiedResourceCount = 0;
         var planningResults = new List<ConversionResult>();
-        var passProfileEntries = new List<PassProfileFileEntry>();
+        var passProfileEntries = new List<PassProfileEntry>();
 
         foreach (var project in graph.ProjectsInTopologicalOrder)
         {
@@ -329,7 +333,7 @@ class Program
 
             var semanticContextDirs = GetReferencedProjectDirectories(project, graph);
             var results = await pipeline.ConvertProjectWithPartialMergeAsync(project.ProjectDirectory, options, semanticContextDirs);
-            CollectPassProfileEntries(passProfileEntries, results, project.Name);
+            AddProjectPassProfileEntry(passProfileEntries, pipeline.LastProjectPassMetrics, results, project.Name);
             foreach (var result in results)
             {
                 if (ShouldAnalyzeForCompatibilityPlanning(result))
@@ -427,7 +431,7 @@ class Program
         int successCount = 0;
         int failureCount = 0;
         var planningResults = new List<ConversionResult>();
-        var passProfileEntries = new List<PassProfileFileEntry>();
+        var passProfileEntries = new List<PassProfileEntry>();
 
         foreach (var project in projects)
         {
@@ -452,7 +456,7 @@ class Program
 
             var pipeline = new ProjectConversionPipeline(options);
             var results = await pipeline.ConvertProjectAsync(project.Compilation, emitFilePaths);
-            CollectPassProfileEntries(passProfileEntries, results, project.Name);
+            AddProjectPassProfileEntry(passProfileEntries, pipeline.LastPassMetrics, results, project.Name);
 
             foreach (var result in results)
             {
@@ -524,7 +528,7 @@ class Program
         var sharedCompatPackIds = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
         var sharedCompatExternalDependencies = new List<JavaDependency>();
         var convertedModuleCount = 1;
-        var passProfileEntries = new List<PassProfileFileEntry>();
+        var passProfileEntries = new List<PassProfileEntry>();
 
         // Emit compatibility module first.
         var compatModuleRoot = Path.Combine(opts.Destination, sharedCompatibilityModuleName);
@@ -578,7 +582,7 @@ class Program
 
             var pipeline = new ProjectConversionPipeline(options);
             var results = await pipeline.ConvertProjectAsync(project.Compilation, emitFilePaths);
-            CollectPassProfileEntries(passProfileEntries, results, moduleName);
+            AddProjectPassProfileEntry(passProfileEntries, pipeline.LastPassMetrics, results, project.Name, moduleName);
 
             foreach (var result in results)
             {
@@ -702,7 +706,7 @@ class Program
         var modulePlans = new List<JavaModulePlan>();
         var sharedCompatPackIds = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
         var sharedCompatExternalDependencies = new List<JavaDependency>();
-        var passProfileEntries = new List<PassProfileFileEntry>();
+        var passProfileEntries = new List<PassProfileEntry>();
 
         var pipeline = new ConversionPipeline();
 
@@ -774,7 +778,7 @@ class Program
                 var semanticContextDirs = GetReferencedProjectDirectories(assignment.Project, graph);
                 var results = await pipeline.ConvertProjectWithPartialMergeAsync(assignment.Project.ProjectDirectory, options, semanticContextDirs);
                 moduleResults.AddRange(results.Where(result => !string.IsNullOrEmpty(result.GeneratedCode)));
-                CollectPassProfileEntries(passProfileEntries, results, module.Name);
+                AddProjectPassProfileEntry(passProfileEntries, pipeline.LastProjectPassMetrics, results, assignment.Project.Name, module.Name);
                 foreach (var result in results)
                 {
                     if (result.FileName == null) continue;
@@ -1685,7 +1689,7 @@ class Program
         await File.WriteAllTextAsync(manifestPath, serializer.Serialize(plan), new System.Text.UTF8Encoding(false));
     }
 
-    private static async Task WritePassProfileSnapshot(string destinationRoot, IReadOnlyList<PassProfileFileEntry> entries)
+    private static async Task WritePassProfileSnapshot(string destinationRoot, IReadOnlyList<PassProfileEntry> entries)
     {
         if (entries.Count == 0)
         {
@@ -1698,23 +1702,25 @@ class Program
         await File.WriteAllTextAsync(snapshotPath, serializer.Serialize(snapshot), new System.Text.UTF8Encoding(false));
     }
 
-    private static void CollectPassProfileEntries(List<PassProfileFileEntry> entries, IEnumerable<ConversionResult> results, string? moduleName = null)
+    private static void AddProjectPassProfileEntry(
+        List<PassProfileEntry> entries,
+        IReadOnlyList<Cs2jPassMetric> passMetrics,
+        IEnumerable<ConversionResult> results,
+        string? projectName,
+        string? moduleName = null)
     {
-        foreach (var result in results)
+        var entry = PassProfileEntryBuilder.CreateProjectEntry(passMetrics, results, projectName, moduleName);
+        if (entry != null)
         {
-            if (result.PassMetrics.Count == 0)
-            {
-                continue;
-            }
-
-            entries.Add(new PassProfileFileEntry
-            {
-                ModuleName = moduleName,
-                FileName = result.FileName,
-                Success = result.Success,
-                PassMetrics = result.PassMetrics,
-            });
+            entries.Add(entry);
         }
+    }
+
+    private static string GetDefaultProjectProfileName(string sourcePath)
+    {
+        var fullPath = Path.GetFullPath(sourcePath)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return Path.GetFileName(fullPath);
     }
 
     private static JavaModulePlan PlannedModuleToJavaModulePlan(PlannedModule module, string groupId, IReadOnlyList<string>? requiredCompatPacks = null)

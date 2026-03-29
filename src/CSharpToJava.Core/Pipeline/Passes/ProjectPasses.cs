@@ -130,13 +130,16 @@ public sealed class ProjectPassState
     }
 }
 
-public sealed class ProjectLinqDesugarPass : ICs2jPass<ProjectPassState>
+public sealed class ProjectLinqDesugarPass : ICs2jPass<ProjectPassState>, ICs2jPassMetricSource
 {
     public string Name => nameof(ProjectLinqDesugarPass);
     public Cs2jPassStage Stage => Cs2jPassStage.Desugar;
+    public int RewriteCount { get; private set; }
 
     public void Execute(ProjectPassState state)
     {
+        RewriteCount = 0;
+
         var runLinqRewrite = state.Context.Options.EnableLinqRewrite && !state.Context.Options.EffectivePreferStreamApi;
         if (!runLinqRewrite)
         {
@@ -157,6 +160,7 @@ public sealed class ProjectLinqDesugarPass : ICs2jPass<ProjectPassState>
                 var semanticModel = state.Compilation.GetSemanticModel(syntaxTree);
                 var rewriter = new LinqRewriter(semanticModel, state.Context.Options);
                 var rewrittenRoot = rewriter.Visit(syntaxTree.GetRoot());
+                RewriteCount += rewriter.RewrittenLinqQueries;
                 var rewrittenTree = rewrittenRoot is CompilationUnitSyntax rewrittenCompilationUnit
                     ? syntaxTree.WithRootAndOptions(rewrittenCompilationUnit, syntaxTree.Options)
                     : syntaxTree;
@@ -445,18 +449,21 @@ public sealed class ProjectCrossPackageImportEmitPass : ICs2jPass<ProjectPassSta
     }
 }
 
-public sealed class ProjectPostGenerationRewriteEmitPass : ICs2jPass<ProjectPassState>
+public sealed class ProjectPostGenerationRewriteEmitPass : ICs2jPass<ProjectPassState>, ICs2jPassMetricSource
 {
     public string Name => nameof(ProjectPostGenerationRewriteEmitPass);
     public Cs2jPassStage Stage => Cs2jPassStage.Emit;
+    public int RewriteCount { get; private set; }
 
     public void Execute(ProjectPassState state)
     {
+        RewriteCount = 0;
+
         if (!state.Results.Any(result => !string.IsNullOrEmpty(result.GeneratedCode)))
         {
             return;
         }
 
-        PostGenerationRewriteEngine.ApplyCompatibilityRewrites(state.Results);
+        RewriteCount = PostGenerationRewriteEngine.ApplyCompatibilityRewrites(state.Results);
     }
 }

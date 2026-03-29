@@ -36,6 +36,7 @@ public class Phase2PassPipelineTests
                 Assert.Equal("DesugarListPass", metric.Name);
                 Assert.Equal(Cs2jPassStage.Desugar, metric.Stage);
                 Assert.Equal(0, metric.DiagnosticDelta);
+                Assert.Equal(0, metric.RewriteCount);
                 Assert.True(metric.ManagedMemoryBytesBefore >= 0);
                 Assert.True(metric.ManagedMemoryBytesAfter >= 0);
                 Assert.Equal(metric.ManagedMemoryBytesAfter - metric.ManagedMemoryBytesBefore, metric.ManagedMemoryDelta);
@@ -45,6 +46,7 @@ public class Phase2PassPipelineTests
                 Assert.Equal("CheckListPass", metric.Name);
                 Assert.Equal(Cs2jPassStage.Check, metric.Stage);
                 Assert.Equal(1, metric.DiagnosticDelta);
+                Assert.Equal(0, metric.RewriteCount);
                 Assert.True(metric.ManagedMemoryBytesBefore >= 0);
                 Assert.True(metric.ManagedMemoryBytesAfter >= 0);
                 Assert.Equal(metric.ManagedMemoryBytesAfter - metric.ManagedMemoryBytesBefore, metric.ManagedMemoryDelta);
@@ -54,6 +56,7 @@ public class Phase2PassPipelineTests
                 Assert.Equal("EmitListPass", metric.Name);
                 Assert.Equal(Cs2jPassStage.Emit, metric.Stage);
                 Assert.Equal(0, metric.DiagnosticDelta);
+                Assert.Equal(0, metric.RewriteCount);
                 Assert.True(metric.ManagedMemoryBytesBefore >= 0);
                 Assert.True(metric.ManagedMemoryBytesAfter >= 0);
                 Assert.Equal(metric.ManagedMemoryBytesAfter - metric.ManagedMemoryBytesBefore, metric.ManagedMemoryDelta);
@@ -121,6 +124,25 @@ public class Phase2PassPipelineTests
     }
 
     [Fact]
+    public void ConversionPipeline_ReportsRewriteCount_ForSingleFileLinqDesugarPass()
+    {
+        var pipeline = new ConversionPipeline();
+        var options = CreateOptions();
+        options.PreferStreamApi = false;
+
+        var result = pipeline.Convert(new ConversionRequest
+        {
+            SourceCode = "using System.Collections.Generic; using System.Linq; class Sample { bool HasPositive(List<int> values) { return values.Any(v => v > 0); } }",
+            FileName = "Sample.cs",
+            Options = options,
+        });
+
+        Assert.True(result.Success);
+        var metric = Assert.Single(result.PassMetrics, item => item.Name == "SingleFileLinqDesugarPass");
+        Assert.True(metric.RewriteCount > 0);
+    }
+
+    [Fact]
     public async Task ProjectConversionPipeline_ExposesProjectPassMetrics()
     {
         var pipeline = new ProjectConversionPipeline(CreateOptions());
@@ -170,6 +192,8 @@ public class Phase2PassPipelineTests
         var primaryResult = Assert.Single(results, result => result.FileName == "Sample.java");
         Assert.True(primaryResult.Success);
         Assert.Contains("ProjectLinqDesugarPass", primaryResult.PassMetrics.Select(metric => metric.Name));
+        Assert.NotEmpty(pipeline.LastPassMetrics);
+        Assert.True(Assert.Single(primaryResult.PassMetrics, metric => metric.Name == "ProjectLinqDesugarPass").RewriteCount > 0);
         Assert.DoesNotContain(".stream()", primaryResult.GeneratedCode);
     }
 

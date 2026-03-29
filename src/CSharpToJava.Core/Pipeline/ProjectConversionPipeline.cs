@@ -15,6 +15,8 @@ public class ProjectConversionPipeline
     private readonly TypeMappingRegistry _typeMappings;
     private readonly List<Java.JavaSyntaxRewriter> _irRewriters = new();
 
+    public IReadOnlyList<Cs2jPassMetric> LastPassMetrics { get; private set; } = Array.Empty<Cs2jPassMetric>();
+
     /// <summary>
     /// 创建项目转换管道
     /// <exception cref="TypeMappingConfigurationException">配置文件不存在或格式错误</exception>
@@ -42,6 +44,8 @@ public class ProjectConversionPipeline
         ISet<string>? emitFilePaths = null)
     {
         ArgumentNullException.ThrowIfNull(library);
+
+        LastPassMetrics = Array.Empty<Cs2jPassMetric>();
 
         var context = new ConversionContext(_options, _typeMappings);
         var compilation = library.PrimaryCompilation;
@@ -71,6 +75,8 @@ public class ProjectConversionPipeline
         IEnumerable<SourceFile> sourceFiles,
         ISet<string>? emitFilePaths = null)
     {
+        LastPassMetrics = Array.Empty<Cs2jPassMetric>();
+
         var context = new ConversionContext(_options, _typeMappings);
         var sourceFileList = sourceFiles.ToList();
 
@@ -149,6 +155,7 @@ public class ProjectConversionPipeline
         try
         {
             Cs2jPassExecutor.Execute(passState, context, CreateProjectPasses(), passMetrics);
+            LastPassMetrics = passMetrics.ToList();
             if (passState.Results.Count == 0 && context.Diagnostics.Messages.Any(m => m.Severity == Context.DiagnosticSeverity.Error))
             {
                 passState.Results.Add(new ConversionResult
@@ -164,6 +171,7 @@ public class ProjectConversionPipeline
         }
         catch (Exception ex)
         {
+            LastPassMetrics = passMetrics.ToList();
             context.Diagnostics.Error($"Project conversion failed: {ex.Message}");
             if (passState.Results.Count == 0)
             {

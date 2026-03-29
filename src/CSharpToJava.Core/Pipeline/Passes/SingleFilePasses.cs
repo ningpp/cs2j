@@ -20,13 +20,16 @@ public sealed class SingleFilePassState
     public bool EmitSucceeded { get; set; }
 }
 
-public sealed class SingleFileLinqDesugarPass : ICs2jPass<SingleFilePassState>
+public sealed class SingleFileLinqDesugarPass : ICs2jPass<SingleFilePassState>, ICs2jPassMetricSource
 {
     public string Name => nameof(SingleFileLinqDesugarPass);
     public Cs2jPassStage Stage => Cs2jPassStage.Desugar;
+    public int RewriteCount { get; private set; }
 
     public void Execute(SingleFilePassState state)
     {
+        RewriteCount = 0;
+
         var runLinqRewrite = state.Request.Options.EnableLinqRewrite && !state.Request.Options.EffectivePreferStreamApi;
         if (!runLinqRewrite)
         {
@@ -43,6 +46,7 @@ public sealed class SingleFileLinqDesugarPass : ICs2jPass<SingleFilePassState>
         {
             var rewriter = new LinqRewriter(state.Context.SemanticModel, state.Request.Options);
             var rewrittenRoot = (CompilationUnitSyntax)rewriter.Visit(state.SyntaxTree.GetRoot());
+            RewriteCount = rewriter.RewrittenLinqQueries;
             state.SyntaxTree = state.SyntaxTree.WithRootAndOptions(rewrittenRoot, state.SyntaxTree.Options);
 
             foreach (var skipped in rewriter.SkippedLinqChains)

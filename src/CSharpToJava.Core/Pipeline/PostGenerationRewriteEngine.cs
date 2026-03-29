@@ -10,12 +10,16 @@ namespace CSharpToJava.Core.Pipeline;
 /// </summary>
 public static class PostGenerationRewriteEngine
 {
-    public static void ApplyCompatibilityRewrites(List<ConversionResult> results)
+    public static int ApplyCompatibilityRewrites(List<ConversionResult> results)
     {
+        var rewriteCount = 0;
+
         foreach (var r in results)
         {
 
         }
+
+        return rewriteCount;
     }
 
     public static string ApplyCompatibilityRewritesForTesting(string fileName, string generatedCode)
