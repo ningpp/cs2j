@@ -30,10 +30,23 @@ public static class CompatibilityPackPlanner
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Select(coordinate => WorkspacePlanBuilder.ExternalDependency(coordinate)));
 
+        var runtimeBridges = applicablePacks
+            .Select(pack => new JavaRuntimeBridgeRequirement
+            {
+                BridgeId = pack.Id,
+                Description = pack.Description,
+                RequiredCompatPacks = [pack.Id],
+                Dependencies = WorkspacePlanBuilder.MergeDependencies(
+                    pack.MavenDependencies.Select(coordinate => WorkspacePlanBuilder.ExternalDependency(coordinate))),
+            })
+            .OrderBy(bridge => bridge.BridgeId, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
         return new CompatibilityPackRequirements
         {
             RequiredPackIds = packIds,
             ExternalDependencies = externalDependencies,
+            RuntimeBridges = runtimeBridges,
         };
     }
 }
@@ -42,4 +55,5 @@ public sealed class CompatibilityPackRequirements
 {
     public required IReadOnlyList<string> RequiredPackIds { get; init; }
     public required IReadOnlyList<JavaDependency> ExternalDependencies { get; init; }
+    public required IReadOnlyList<JavaRuntimeBridgeRequirement> RuntimeBridges { get; init; }
 }

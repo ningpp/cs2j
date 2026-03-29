@@ -35,14 +35,31 @@ public class PlanningTests
     }
 
     [Fact]
-    public void JavaWorkspacePlanJsonSerializer_SerializesModulesDependenciesAndCompatPacks()
+    public void JavaWorkspacePlanJsonSerializer_SerializesModulesDependenciesCompatPacksAndRuntimeBridges()
     {
+        var jsonBridge = new JavaRuntimeBridgeRequirement
+        {
+            BridgeId = "json",
+            Description = "System.Text.Json -> Jackson bridge",
+            RequiredCompatPacks = ["json"],
+            Dependencies =
+            [
+                new JavaDependency
+                {
+                    GroupId = "com.fasterxml.jackson.core",
+                    ArtifactId = "jackson-databind",
+                    Version = "2.17.0",
+                }
+            ],
+        };
+
         var plan = new JavaWorkspacePlan
         {
             GroupId = "com.example",
             ArtifactId = "demo-parent",
             Version = "1.0-SNAPSHOT",
             JavaVersion = "Java25",
+            RequiredRuntimeBridges = [jsonBridge],
             Modules =
             [
                 new JavaModulePlan
@@ -67,6 +84,7 @@ public class PlanningTests
                         }
                     ],
                     RequiredCompatPacks = ["json", "trace"],
+                    RequiredRuntimeBridges = [jsonBridge],
                     SourceSets = new JavaSourceSets
                     {
                         TestSources = ["test"],
@@ -87,8 +105,15 @@ public class PlanningTests
         var module = Assert.Single(modules);
         Assert.Equal("core-module", module.GetProperty("moduleName").GetString());
 
+        var runtimeBridges = root.GetProperty("requiredRuntimeBridges").EnumerateArray().ToList();
+        var runtimeBridge = Assert.Single(runtimeBridges);
+        Assert.Equal("json", runtimeBridge.GetProperty("bridgeId").GetString());
+
         var compatPacks = module.GetProperty("requiredCompatPacks").EnumerateArray().Select(item => item.GetString()).ToArray();
         Assert.Equal(new[] { "json", "trace" }, compatPacks);
+
+        var moduleRuntimeBridges = module.GetProperty("requiredRuntimeBridges").EnumerateArray().ToList();
+        Assert.Equal("json", Assert.Single(moduleRuntimeBridges).GetProperty("bridgeId").GetString());
 
         var dependencies = module.GetProperty("dependencies").EnumerateArray().ToList();
         Assert.Equal(2, dependencies.Count);
@@ -97,7 +122,7 @@ public class PlanningTests
     }
 
     [Fact]
-    public void CompatibilityPackPlanner_Analyze_ReturnsPackIdsAndExternalDependencies()
+    public void CompatibilityPackPlanner_Analyze_ReturnsPackIdsRuntimeBridgesAndExternalDependencies()
     {
         var requirements = CompatibilityPackPlanner.Analyze(
             [
@@ -114,6 +139,10 @@ public class PlanningTests
         var dependency = Assert.Single(requirements.ExternalDependencies);
         Assert.Equal("com.fasterxml.jackson.core", dependency.GroupId);
         Assert.Equal("jackson-databind", dependency.ArtifactId);
+
+        var jsonBridge = Assert.Single(requirements.RuntimeBridges, bridge => bridge.BridgeId == "json");
+        Assert.Equal("System.Text.Json → Jackson bridge", jsonBridge.Description);
+        Assert.Equal(new[] { "json" }, jsonBridge.RequiredCompatPacks);
     }
 
     [Fact]
@@ -131,6 +160,54 @@ public class PlanningTests
             && dependency.ArtifactId == "jackson-databind"
             && dependency.Scope == JavaDependencyScope.Compile);
         Assert.Contains(merged, dependency => dependency.GroupId == "org.slf4j" && dependency.ArtifactId == "slf4j-api");
+    }
+
+    [Fact]
+    public void WorkspacePlanBuilder_MergeRuntimeBridges_DeduplicatesBridgeIdsAndDependencies()
+    {
+        var merged = WorkspacePlanBuilder.MergeRuntimeBridges(
+        [
+            new JavaRuntimeBridgeRequirement
+            {
+                BridgeId = "json",
+                Description = "System.Text.Json -> Jackson bridge",
+                RequiredCompatPacks = ["json"],
+                Dependencies =
+                [
+                    new JavaDependency
+                    {
+                        GroupId = "com.fasterxml.jackson.core",
+                        ArtifactId = "jackson-databind",
+                        Version = "2.17.0",
+                    }
+                ],
+            },
+            new JavaRuntimeBridgeRequirement
+            {
+                BridgeId = "json",
+                Description = "System.Text.Json -> Jackson bridge",
+                RequiredCompatPacks = ["json"],
+                Dependencies =
+                [
+                    new JavaDependency
+                    {
+                        GroupId = "com.fasterxml.jackson.core",
+                        ArtifactId = "jackson-databind",
+                        Version = "2.17.0",
+                    }
+                ],
+            },
+            new JavaRuntimeBridgeRequirement
+            {
+                BridgeId = "trace",
+                Description = "System.Diagnostics.Trace compatibility",
+                RequiredCompatPacks = ["trace"],
+            }
+        ]);
+
+        Assert.Equal(2, merged.Count);
+        Assert.Equal("json", merged[0].BridgeId);
+        Assert.Single(merged[0].Dependencies);
     }
 
     [Fact]
@@ -363,6 +440,87 @@ public class PlanningTests
             await thirdSession.SaveAsync();
 
             Assert.Equal("{\"value\":2}", await File.ReadAllTextAsync(outputFile));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task InputFingerprintSnapshotBuilder_BuildsStableSnapshotAndRoundTrips()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "cs2j-input-fingerprint-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempRoot);
+
+        try
+        {
+            var sourceFile = Path.Combine(tempRoot, "Program.cs");
+            var mappingFile = Path.Combine(tempRoot, "TypeMappings.json");
+            var toolFile = Path.Combine(tempRoot, "tool.dll");
+
+            await File.WriteAllTextAsync(sourceFile, "class Program {}\n");
+            await File.WriteAllTextAsync(mappingFile, "{}\n");
+            await File.WriteAllTextAsync(toolFile, "tool-binary-placeholder\n");
+
+            var snapshot = InputFingerprintSnapshotBuilder.Build(new InputFingerprintBuildRequest
+            {
+                SourceName = "demo",
+                SourcePath = tempRoot,
+                InputFilePaths = [sourceFile],
+                OptionTokens = ["mode=multi-module", "include-tests=true"],
+                ToolAssemblyPaths = [toolFile],
+                MappingConfigPath = mappingFile,
+            });
+
+            var serializer = new InputFingerprintSnapshotJsonSerializer();
+            var roundTripped = serializer.Deserialize(serializer.Serialize(snapshot));
+
+            Assert.True(snapshot.Matches(roundTripped));
+            Assert.Contains(snapshot.Entries, entry => entry.Kind == InputFingerprintEntryKind.SourceInput && entry.Path == Path.GetFullPath(sourceFile));
+            Assert.Contains(snapshot.Entries, entry => entry.Kind == InputFingerprintEntryKind.MappingConfiguration && entry.Path == Path.GetFullPath(mappingFile));
+            Assert.Contains(snapshot.Entries, entry => entry.Kind == InputFingerprintEntryKind.ToolAssembly && entry.Path == Path.GetFullPath(toolFile));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task InputFingerprintSnapshot_Matches_DetectsOptionChanges()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "cs2j-input-options-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempRoot);
+
+        try
+        {
+            var sourceFile = Path.Combine(tempRoot, "Program.cs");
+            await File.WriteAllTextAsync(sourceFile, "class Program {}\n");
+
+            var baseline = InputFingerprintSnapshotBuilder.Build(new InputFingerprintBuildRequest
+            {
+                SourceName = "demo",
+                SourcePath = tempRoot,
+                InputFilePaths = [sourceFile],
+                OptionTokens = ["mode=multi-module"],
+            });
+
+            var changedOptions = InputFingerprintSnapshotBuilder.Build(new InputFingerprintBuildRequest
+            {
+                SourceName = "demo",
+                SourcePath = tempRoot,
+                InputFilePaths = [sourceFile],
+                OptionTokens = ["mode=single-module"],
+            });
+
+            Assert.False(baseline.Matches(changedOptions));
         }
         finally
         {

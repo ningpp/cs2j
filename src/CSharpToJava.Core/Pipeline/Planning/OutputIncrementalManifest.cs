@@ -13,6 +13,7 @@ public enum OutputIncrementalEntryKind
     WorkspaceManifest,
     PassProfile,
     CanarySummary,
+    InputFingerprint,
 }
 
 public sealed class OutputIncrementalManifestEntry

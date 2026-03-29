@@ -163,6 +163,12 @@ class Program
 
             if (workspaceProjects != null && workspaceProjects.Count > 0)
             {
+                var inputFingerprintSnapshot = BuildWorkspaceInputFingerprintSnapshot(opts, workspaceProjects);
+                if (TryReusePreviousProjectOutputs(opts.Destination, inputFingerprintSnapshot, opts.Verbose))
+                {
+                    return 0;
+                }
+
                 if (opts.Verbose)
                 {
                     Console.WriteLine($"MSBuild resolved {workspaceProjects.Count} project(s)");
@@ -170,16 +176,29 @@ class Program
 
                 if (opts.Mode.Equals("multi-module", StringComparison.OrdinalIgnoreCase))
                 {
-                    return await ConvertFromWorkspaceMultiModule(opts, options, workspaceProjects);
+                    return await ConvertFromWorkspaceMultiModule(opts, options, workspaceProjects, inputFingerprintSnapshot);
                 }
 
-                return await ConvertFromWorkspaceSingleModule(opts, options, workspaceProjects);
+                return await ConvertFromWorkspaceSingleModule(opts, options, workspaceProjects, inputFingerprintSnapshot);
             }
 
             // Fall back to manual project discovery (no MSBuild SDK available).
             if (ProjectDiscovery.TryResolveProjectEntry(opts.Source, out var entryProject))
             {
-                return await ConvertFromProjectGraph(opts, options, entryProject);
+                var graph = ProjectDiscovery.LoadProjectGraph(entryProject);
+                var inputFingerprintSnapshot = BuildProjectGraphInputFingerprintSnapshot(opts, graph);
+                if (TryReusePreviousProjectOutputs(opts.Destination, inputFingerprintSnapshot, opts.Verbose))
+                {
+                    return 0;
+                }
+
+                return await ConvertFromProjectGraph(opts, options, graph, inputFingerprintSnapshot);
+            }
+
+            var manualInputFingerprintSnapshot = BuildManualInputFingerprintSnapshot(opts);
+            if (TryReusePreviousProjectOutputs(opts.Destination, manualInputFingerprintSnapshot, opts.Verbose))
+            {
+                return 0;
             }
 
             var outputRoot = opts.GeneratePom
@@ -245,6 +264,7 @@ class Program
 
             var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries, outputSession);
             await WriteCanarySummarySnapshot(opts.Destination, opts.Source, results, passProfileSnapshot, outputSession);
+            WriteInputFingerprintSnapshot(opts.Destination, manualInputFingerprintSnapshot, outputSession);
             await outputSession.SaveAsync();
 
             Console.WriteLine();
@@ -263,24 +283,31 @@ class Program
         }
     }
 
-    private static async Task<int> ConvertFromProjectGraph(ConvertProjectOptions opts, ConversionOptions options, string entryProject)
+    private static async Task<int> ConvertFromProjectGraph(
+        ConvertProjectOptions opts,
+        ConversionOptions options,
+        ProjectGraph graph,
+        InputFingerprintSnapshot inputFingerprintSnapshot)
     {
-        var graph = ProjectDiscovery.LoadProjectGraph(entryProject);
         if (graph.ProjectsInTopologicalOrder.Count == 0)
         {
-            Console.Error.WriteLine($"Error: No project discovered from {entryProject}");
+            Console.Error.WriteLine($"Error: No project discovered from {graph.RootProjectPath}");
             return 1;
         }
 
         if (opts.Mode.Equals("multi-module", StringComparison.OrdinalIgnoreCase))
         {
-            return await ConvertFromProjectGraphMultiModule(opts, options, graph);
+            return await ConvertFromProjectGraphMultiModule(opts, options, graph, inputFingerprintSnapshot);
         }
 
-        return await ConvertFromProjectGraphSingleModule(opts, options, graph);
+        return await ConvertFromProjectGraphSingleModule(opts, options, graph, inputFingerprintSnapshot);
     }
 
-    private static async Task<int> ConvertFromProjectGraphSingleModule(ConvertProjectOptions opts, ConversionOptions options, ProjectGraph graph)
+    private static async Task<int> ConvertFromProjectGraphSingleModule(
+        ConvertProjectOptions opts,
+        ConversionOptions options,
+        ProjectGraph graph,
+        InputFingerprintSnapshot inputFingerprintSnapshot)
     {
         var outputSession = OutputIncrementalWriteSession.Create(opts.Destination, opts.Source);
 
@@ -391,6 +418,7 @@ class Program
 
         var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries, outputSession);
         await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot, outputSession);
+        WriteInputFingerprintSnapshot(opts.Destination, inputFingerprintSnapshot, outputSession);
         await outputSession.SaveAsync();
 
         Console.WriteLine();
@@ -402,7 +430,8 @@ class Program
     private static async Task<int> ConvertFromWorkspaceSingleModule(
         ConvertProjectOptions opts,
         ConversionOptions options,
-        IReadOnlyList<WorkspaceProject> projects)
+        IReadOnlyList<WorkspaceProject> projects,
+        InputFingerprintSnapshot inputFingerprintSnapshot)
     {
         var outputSession = OutputIncrementalWriteSession.Create(opts.Destination, opts.Source);
         var mainJavaRoot = opts.GeneratePom
@@ -502,6 +531,7 @@ class Program
 
         var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries, outputSession);
         await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot, outputSession);
+        WriteInputFingerprintSnapshot(opts.Destination, inputFingerprintSnapshot, outputSession);
         await outputSession.SaveAsync();
 
         Console.WriteLine();
@@ -513,7 +543,8 @@ class Program
     private static async Task<int> ConvertFromWorkspaceMultiModule(
         ConvertProjectOptions opts,
         ConversionOptions options,
-        IReadOnlyList<WorkspaceProject> projects)
+        IReadOnlyList<WorkspaceProject> projects,
+        InputFingerprintSnapshot inputFingerprintSnapshot)
     {
         var outputSession = OutputIncrementalWriteSession.Create(opts.Destination, opts.Source);
         // Build module plan from workspace projects.
@@ -538,6 +569,7 @@ class Program
         var modulePlans = new List<JavaModulePlan>();
         var sharedCompatPackIds = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
         var sharedCompatExternalDependencies = new List<JavaDependency>();
+        var sharedCompatRuntimeBridges = new List<JavaRuntimeBridgeRequirement>();
         var convertedModuleCount = 1;
         var canaryResults = new List<ConversionResult>();
         var passProfileEntries = new List<PassProfileEntry>();
@@ -625,6 +657,7 @@ class Program
                 }
 
                 sharedCompatExternalDependencies.AddRange(compatibilityRequirements.ExternalDependencies);
+                sharedCompatRuntimeBridges.AddRange(compatibilityRequirements.RuntimeBridges);
 
                 var deps = new List<JavaDependency>(WorkspacePlanBuilder.DefaultDependencies());
                 deps.Add(WorkspacePlanBuilder.InternalModuleRef(opts.MavenGroupId, sharedCompatibilityModuleName));
@@ -645,6 +678,7 @@ class Program
                     SourceSets = isTest ? new JavaSourceSets { TestSources = ["test"] } : new JavaSourceSets(),
                     Dependencies = deps,
                     RequiredCompatPacks = compatibilityRequirements.RequiredPackIds,
+                    RequiredRuntimeBridges = compatibilityRequirements.RuntimeBridges,
                 };
 
                 modulePlans.Add(modulePlan);
@@ -661,6 +695,7 @@ class Program
                 Dependencies = WorkspacePlanBuilder.MergeDependencies(
                     WorkspacePlanBuilder.DefaultDependencies().Concat(sharedCompatExternalDependencies)),
                 RequiredCompatPacks = sharedCompatPackIds.ToList(),
+                RequiredRuntimeBridges = WorkspacePlanBuilder.MergeRuntimeBridges(sharedCompatRuntimeBridges),
             };
 
             modulePlans.Insert(0, compatPlan);
@@ -673,6 +708,7 @@ class Program
 
         var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries, outputSession);
         await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot, outputSession);
+        WriteInputFingerprintSnapshot(opts.Destination, inputFingerprintSnapshot, outputSession);
         await outputSession.SaveAsync();
 
         Console.WriteLine();
@@ -681,7 +717,11 @@ class Program
         return failureCount > 0 ? 1 : 0;
     }
 
-    private static async Task<int> ConvertFromProjectGraphMultiModule(ConvertProjectOptions opts, ConversionOptions options, ProjectGraph graph)
+    private static async Task<int> ConvertFromProjectGraphMultiModule(
+        ConvertProjectOptions opts,
+        ConversionOptions options,
+        ProjectGraph graph,
+        InputFingerprintSnapshot inputFingerprintSnapshot)
     {
         var plan = MultiModulePlanner.Build(graph, opts.IncludeTests);
         if (plan.ModulesInBuildOrder.Count == 0)
@@ -722,6 +762,7 @@ class Program
         var modulePlans = new List<JavaModulePlan>();
         var sharedCompatPackIds = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
         var sharedCompatExternalDependencies = new List<JavaDependency>();
+        var sharedCompatRuntimeBridges = new List<JavaRuntimeBridgeRequirement>();
         var canaryResults = new List<ConversionResult>();
         var passProfileEntries = new List<PassProfileEntry>();
 
@@ -847,8 +888,13 @@ class Program
                 }
 
                 sharedCompatExternalDependencies.AddRange(compatibilityRequirements.ExternalDependencies);
+                sharedCompatRuntimeBridges.AddRange(compatibilityRequirements.RuntimeBridges);
 
-                var modulePlan = PlannedModuleToJavaModulePlan(module, opts.MavenGroupId, compatibilityRequirements.RequiredPackIds);
+                var modulePlan = PlannedModuleToJavaModulePlan(
+                    module,
+                    opts.MavenGroupId,
+                    compatibilityRequirements.RequiredPackIds,
+                    compatibilityRequirements.RuntimeBridges);
                 modulePlans.Add(modulePlan);
                 await WriteMultiModulePom(opts, moduleRoot, modulePlan, outputSession);
             }
@@ -863,6 +909,7 @@ class Program
                 Dependencies = WorkspacePlanBuilder.MergeDependencies(
                     WorkspacePlanBuilder.DefaultDependencies().Concat(sharedCompatExternalDependencies)),
                 RequiredCompatPacks = sharedCompatPackIds.ToList(),
+                RequiredRuntimeBridges = WorkspacePlanBuilder.MergeRuntimeBridges(sharedCompatRuntimeBridges),
             };
 
             modulePlans.Insert(0, compatPlan);
@@ -875,6 +922,7 @@ class Program
 
         var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries, outputSession);
         await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot, outputSession);
+        WriteInputFingerprintSnapshot(opts.Destination, inputFingerprintSnapshot, outputSession);
         await outputSession.SaveAsync();
 
         Console.WriteLine();
@@ -1656,6 +1704,7 @@ class Program
             Dependencies = WorkspacePlanBuilder.MergeDependencies(
                 WorkspacePlanBuilder.DefaultDependencies().Concat(compatibilityRequirements.ExternalDependencies)),
             RequiredCompatPacks = compatibilityRequirements.RequiredPackIds,
+            RequiredRuntimeBridges = compatibilityRequirements.RuntimeBridges,
         };
     }
 
@@ -1756,6 +1805,235 @@ class Program
         return Task.CompletedTask;
     }
 
+    private static void WriteInputFingerprintSnapshot(
+        string destinationRoot,
+        InputFingerprintSnapshot snapshot,
+        OutputIncrementalWriteSession outputSession)
+    {
+        var serializer = new InputFingerprintSnapshotJsonSerializer();
+        var snapshotPath = Path.Combine(destinationRoot, InputFingerprintSnapshot.FileName);
+        outputSession.WriteTextFile(snapshotPath, serializer.Serialize(snapshot), OutputIncrementalEntryKind.InputFingerprint);
+    }
+
+    private static bool TryReusePreviousProjectOutputs(
+        string destinationRoot,
+        InputFingerprintSnapshot currentSnapshot,
+        bool verbose)
+    {
+        var snapshotPath = Path.Combine(destinationRoot, InputFingerprintSnapshot.FileName);
+        var outputManifestPath = Path.Combine(destinationRoot, OutputIncrementalWriteSession.ManifestFileName);
+        if (!File.Exists(snapshotPath) || !File.Exists(outputManifestPath))
+        {
+            return false;
+        }
+
+        try
+        {
+            var serializer = new InputFingerprintSnapshotJsonSerializer();
+            var previousSnapshot = serializer.Deserialize(File.ReadAllText(snapshotPath));
+            if (!currentSnapshot.Matches(previousSnapshot))
+            {
+                return false;
+            }
+
+            Console.WriteLine("Inputs unchanged; reusing existing outputs.");
+            if (verbose)
+            {
+                Console.WriteLine($"Input fingerprint matched: {snapshotPath}");
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            if (verbose)
+            {
+                Console.WriteLine($"Failed to evaluate input fingerprint snapshot, continuing with conversion: {ex.Message}");
+            }
+
+            return false;
+        }
+    }
+
+    private static InputFingerprintSnapshot BuildWorkspaceInputFingerprintSnapshot(
+        ConvertProjectOptions opts,
+        IReadOnlyList<WorkspaceProject> projects)
+    {
+        var commonRoot = GetCommonRoot(projects.Select(project => project.Directory).Append(ResolveInputRoot(opts.Source)));
+        return BuildInputFingerprintSnapshot(opts, EnumerateInputFiles(commonRoot, opts.Destination));
+    }
+
+    private static InputFingerprintSnapshot BuildProjectGraphInputFingerprintSnapshot(
+        ConvertProjectOptions opts,
+        ProjectGraph graph)
+    {
+        var commonRoot = GetCommonRoot(graph.ProjectsInTopologicalOrder.Select(project => project.ProjectDirectory).Append(ResolveInputRoot(opts.Source)));
+        return BuildInputFingerprintSnapshot(opts, EnumerateInputFiles(commonRoot, opts.Destination));
+    }
+
+    private static InputFingerprintSnapshot BuildManualInputFingerprintSnapshot(ConvertProjectOptions opts)
+    {
+        var sourceRoot = ResolveInputRoot(opts.Source);
+        return BuildInputFingerprintSnapshot(opts, EnumerateInputFiles(sourceRoot, opts.Destination));
+    }
+
+    private static InputFingerprintSnapshot BuildInputFingerprintSnapshot(
+        ConvertProjectOptions opts,
+        IReadOnlyList<string> inputFiles)
+    {
+        return InputFingerprintSnapshotBuilder.Build(new InputFingerprintBuildRequest
+        {
+            SourceName = GetSourceName(opts.Source),
+            SourcePath = opts.Source,
+            InputFilePaths = inputFiles,
+            OptionTokens = GetProjectConversionOptionTokens(opts),
+            ToolAssemblyPaths = GetToolAssemblyPaths(),
+            MappingConfigPath = opts.MappingConfig,
+        });
+    }
+
+    private static IReadOnlyList<string> GetProjectConversionOptionTokens(ConvertProjectOptions opts)
+    {
+        return new List<string>
+        {
+            $"java-version={opts.JavaVersion}",
+            $"mapping-config={(string.IsNullOrWhiteSpace(opts.MappingConfig) ? "<default>" : Path.GetFullPath(opts.MappingConfig))}",
+            $"use-records={opts.UseRecords}",
+            $"use-optional={opts.UseOptionalForNullable}",
+            $"generate-javadoc={opts.GenerateJavaDoc}",
+            $"enable-linq-rewrite={opts.EnableLinqRewrite}",
+            $"prefer-stream-api={opts.PreferStreamApi?.ToString() ?? "default"}",
+            $"generate-pom={opts.GeneratePom}",
+            $"maven-group-id={opts.MavenGroupId}",
+            $"maven-version={opts.MavenVersion}",
+            $"include-tests={opts.IncludeTests}",
+            $"mode={opts.Mode}",
+        };
+    }
+
+    private static IReadOnlyList<string> GetToolAssemblyPaths()
+    {
+        return new[]
+        {
+            typeof(Program).Assembly.Location,
+            typeof(ConversionPipeline).Assembly.Location,
+            typeof(ProjectConversionPipeline).Assembly.Location,
+            typeof(SolutionLoader).Assembly.Location,
+        }
+        .Where(path => !string.IsNullOrWhiteSpace(path) && File.Exists(path))
+        .Select(Path.GetFullPath)
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToList();
+    }
+
+    private static IReadOnlyList<string> EnumerateInputFiles(string rootPath, string destinationRoot)
+    {
+        if (File.Exists(rootPath))
+        {
+            return new[] { Path.GetFullPath(rootPath) };
+        }
+
+        var fullRootPath = Path.GetFullPath(rootPath);
+        var fullDestinationPath = Path.GetFullPath(destinationRoot);
+        var ignoredDirectoryNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ".git",
+            ".vs",
+            ".idea",
+            "bin",
+            "obj",
+            "node_modules",
+        };
+
+        var files = new List<string>();
+        var pendingDirectories = new Stack<string>();
+        pendingDirectories.Push(fullRootPath);
+
+        while (pendingDirectories.Count > 0)
+        {
+            var currentDirectory = pendingDirectories.Pop();
+            if (IsSameOrDescendantPath(currentDirectory, fullDestinationPath))
+            {
+                continue;
+            }
+
+            foreach (var file in Directory.EnumerateFiles(currentDirectory))
+            {
+                files.Add(Path.GetFullPath(file));
+            }
+
+            foreach (var subDirectory in Directory.EnumerateDirectories(currentDirectory))
+            {
+                if (ignoredDirectoryNames.Contains(Path.GetFileName(subDirectory)))
+                {
+                    continue;
+                }
+
+                if (IsSameOrDescendantPath(subDirectory, fullDestinationPath))
+                {
+                    continue;
+                }
+
+                pendingDirectories.Push(subDirectory);
+            }
+        }
+
+        return files
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static string ResolveInputRoot(string sourcePath)
+    {
+        var fullPath = Path.GetFullPath(sourcePath);
+        return File.Exists(fullPath)
+            ? Path.GetDirectoryName(fullPath) ?? fullPath
+            : fullPath;
+    }
+
+    private static string GetCommonRoot(IEnumerable<string> paths)
+    {
+        var normalizedPaths = paths
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Select(Path.GetFullPath)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (normalizedPaths.Count == 0)
+        {
+            return Path.GetFullPath(".");
+        }
+
+        var commonRoot = normalizedPaths[0].TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        while (normalizedPaths.Any(path => !IsSameOrDescendantPath(path, commonRoot)))
+        {
+            var parent = Directory.GetParent(commonRoot);
+            if (parent == null)
+            {
+                break;
+            }
+
+            commonRoot = parent.FullName.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+
+        return commonRoot;
+    }
+
+    private static bool IsSameOrDescendantPath(string path, string candidateAncestor)
+    {
+        var fullPath = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var fullAncestor = Path.GetFullPath(candidateAncestor).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        if (string.Equals(fullPath, fullAncestor, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var ancestorWithSeparator = fullAncestor + Path.DirectorySeparatorChar;
+        return fullPath.StartsWith(ancestorWithSeparator, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static void AddProjectPassProfileEntry(
         List<PassProfileEntry> entries,
         IReadOnlyList<Cs2jPassMetric> passMetrics,
@@ -1783,7 +2061,11 @@ class Program
         return Path.GetFileName(fullPath);
     }
 
-    private static JavaModulePlan PlannedModuleToJavaModulePlan(PlannedModule module, string groupId, IReadOnlyList<string>? requiredCompatPacks = null)
+    private static JavaModulePlan PlannedModuleToJavaModulePlan(
+        PlannedModule module,
+        string groupId,
+        IReadOnlyList<string>? requiredCompatPacks = null,
+        IReadOnlyList<JavaRuntimeBridgeRequirement>? requiredRuntimeBridges = null)
     {
         var deps = new List<JavaDependency>(WorkspacePlanBuilder.DefaultDependencies());
 
@@ -1806,6 +2088,7 @@ class Program
                 : new JavaSourceSets(),
             Dependencies = deps,
             RequiredCompatPacks = requiredCompatPacks ?? [],
+            RequiredRuntimeBridges = requiredRuntimeBridges ?? [],
         };
     }
 

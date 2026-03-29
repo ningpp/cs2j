@@ -32,7 +32,8 @@ public sealed class WorkspacePlanBuilder
     public WorkspacePlanBuilder AddSingleModule(
         bool hasTests,
         IReadOnlyList<JavaDependency>? dependencies = null,
-        IReadOnlyList<string>? compatPacks = null)
+        IReadOnlyList<string>? compatPacks = null,
+        IReadOnlyList<JavaRuntimeBridgeRequirement>? runtimeBridges = null)
     {
         _modules.Add(new JavaModulePlan
         {
@@ -44,6 +45,7 @@ public sealed class WorkspacePlanBuilder
             },
             Dependencies = dependencies ?? DefaultDependencies(),
             RequiredCompatPacks = compatPacks ?? [],
+            RequiredRuntimeBridges = runtimeBridges ?? [],
         });
         return this;
     }
@@ -55,6 +57,7 @@ public sealed class WorkspacePlanBuilder
         Version = _version,
         JavaVersion = _javaVersion,
         Modules = _modules.AsReadOnly(),
+        RequiredRuntimeBridges = MergeRuntimeBridges(_modules.SelectMany(module => module.RequiredRuntimeBridges)),
     };
 
     /// <summary>
@@ -109,6 +112,38 @@ public sealed class WorkspacePlanBuilder
         return merged;
     }
 
+    public static IReadOnlyList<JavaRuntimeBridgeRequirement> MergeRuntimeBridges(
+        IEnumerable<JavaRuntimeBridgeRequirement> runtimeBridges)
+    {
+        var merged = new List<JavaRuntimeBridgeRequirement>();
+        var indexByBridgeId = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var runtimeBridge in runtimeBridges)
+        {
+            if (!indexByBridgeId.TryGetValue(runtimeBridge.BridgeId, out var index))
+            {
+                indexByBridgeId[runtimeBridge.BridgeId] = merged.Count;
+                merged.Add(CloneRuntimeBridge(runtimeBridge));
+                continue;
+            }
+
+            var existing = merged[index];
+            merged[index] = new JavaRuntimeBridgeRequirement
+            {
+                BridgeId = existing.BridgeId,
+                Description = existing.Description,
+                RequiredCompatPacks = existing.RequiredCompatPacks
+                    .Concat(runtimeBridge.RequiredCompatPacks)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(pack => pack, StringComparer.OrdinalIgnoreCase)
+                    .ToList(),
+                Dependencies = MergeDependencies(existing.Dependencies.Concat(runtimeBridge.Dependencies)),
+            };
+        }
+
+        return merged;
+    }
+
     /// <summary>
     /// 从模块间依赖名称创建内部模块引用依赖。
     /// </summary>
@@ -121,4 +156,18 @@ public sealed class WorkspacePlanBuilder
             Scope = scope,
             IsInternal = true,
         };
+
+    private static JavaRuntimeBridgeRequirement CloneRuntimeBridge(JavaRuntimeBridgeRequirement runtimeBridge)
+    {
+        return new JavaRuntimeBridgeRequirement
+        {
+            BridgeId = runtimeBridge.BridgeId,
+            Description = runtimeBridge.Description,
+            RequiredCompatPacks = runtimeBridge.RequiredCompatPacks
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(pack => pack, StringComparer.OrdinalIgnoreCase)
+                .ToList(),
+            Dependencies = MergeDependencies(runtimeBridge.Dependencies),
+        };
+    }
 }

@@ -10,9 +10,18 @@ public sealed class JavaWorkspacePlan
     public required string Version { get; init; }
     public required string JavaVersion { get; init; }
     public required IReadOnlyList<JavaModulePlan> Modules { get; init; }
+    public IReadOnlyList<JavaRuntimeBridgeRequirement> RequiredRuntimeBridges { get; init; } = [];
 
     /// <summary>单模块快捷判定。</summary>
     public bool IsSingleModule => Modules.Count == 1;
+}
+
+public sealed class JavaRuntimeBridgeRequirement
+{
+    public required string BridgeId { get; init; }
+    public required string Description { get; init; }
+    public IReadOnlyList<string> RequiredCompatPacks { get; init; } = [];
+    public IReadOnlyList<JavaDependency> Dependencies { get; init; } = [];
 }
 
 /// <summary>
@@ -25,6 +34,7 @@ public sealed class JavaModulePlan
     public JavaSourceSets SourceSets { get; init; } = new();
     public IReadOnlyList<JavaDependency> Dependencies { get; init; } = [];
     public IReadOnlyList<string> RequiredCompatPacks { get; init; } = [];
+    public IReadOnlyList<JavaRuntimeBridgeRequirement> RequiredRuntimeBridges { get; init; } = [];
     public bool HasTestSources => SourceSets.TestSources.Count > 0;
 }
 
