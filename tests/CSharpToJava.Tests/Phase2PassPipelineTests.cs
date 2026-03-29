@@ -278,6 +278,71 @@ public class Phase2PassPipelineTests
         Assert.Contains(failureResult.Diagnostics, diagnostic => diagnostic.Code == "CS2J3203");
     }
 
+    [Fact]
+    public async Task ProjectConversionPipeline_ParallelTreeLocalPasses_PreserveSequentialResults()
+    {
+        var sequentialOptions = CreateOptions();
+        sequentialOptions.PreferStreamApi = false;
+        sequentialOptions.EnableParallelProjectPasses = false;
+
+        var parallelOptions = CreateOptions();
+        parallelOptions.PreferStreamApi = false;
+        parallelOptions.EnableParallelProjectPasses = true;
+
+        var sourceFiles = new[]
+        {
+            new SourceFile
+            {
+                FilePath = "Linq.cs",
+                Content = "using System.Collections.Generic; using System.Linq; class Sample { bool HasPositive(List<int> values) { return values.Any(v => v > 0); } }",
+            },
+            new SourceFile
+            {
+                FilePath = "Mixed.cs",
+                Content = "using System; using System.Runtime.InteropServices; class Sample { [DllImport(\"kernel32.dll\")] private static extern bool Beep(uint frequency, uint duration); bool IsWindows() { return OperatingSystem.IsWindows(); } }",
+            }
+        };
+
+        var sequentialResults = await new ProjectConversionPipeline(sequentialOptions).ConvertProjectAsync(sourceFiles);
+        var parallelPipeline = new ProjectConversionPipeline(parallelOptions);
+        var parallelResults = await parallelPipeline.ConvertProjectAsync(sourceFiles);
+
+        var sequentialSummary = sequentialResults
+            .OrderBy(result => result.FileName, StringComparer.Ordinal)
+            .Select(result => new
+            {
+                result.FileName,
+                result.Success,
+                result.GeneratedCode,
+                Diagnostics = result.Diagnostics.Select(diagnostic => $"{diagnostic.Code}|{diagnostic.Category}|{diagnostic.Message}").ToArray(),
+            })
+            .ToArray();
+
+        var parallelSummary = parallelResults
+            .OrderBy(result => result.FileName, StringComparer.Ordinal)
+            .Select(result => new
+            {
+                result.FileName,
+                result.Success,
+                result.GeneratedCode,
+                Diagnostics = result.Diagnostics.Select(diagnostic => $"{diagnostic.Code}|{diagnostic.Category}|{diagnostic.Message}").ToArray(),
+            })
+            .ToArray();
+
+        Assert.Equal(sequentialSummary.Length, parallelSummary.Length);
+
+        for (var index = 0; index < sequentialSummary.Length; index++)
+        {
+            Assert.Equal(sequentialSummary[index].FileName, parallelSummary[index].FileName);
+            Assert.Equal(sequentialSummary[index].Success, parallelSummary[index].Success);
+            Assert.Equal(sequentialSummary[index].GeneratedCode, parallelSummary[index].GeneratedCode);
+            Assert.Equal(sequentialSummary[index].Diagnostics, parallelSummary[index].Diagnostics);
+        }
+
+        var linqMetric = Assert.Single(parallelPipeline.LastPassMetrics, metric => metric.Name == "ProjectLinqDesugarPass");
+        Assert.True(linqMetric.RewriteCount > 0);
+    }
+
     private static ConversionOptions CreateOptions()
     {
         return new ConversionOptions

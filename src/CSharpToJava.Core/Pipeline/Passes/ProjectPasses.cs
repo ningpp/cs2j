@@ -130,6 +130,15 @@ public sealed class ProjectPassState
     }
 }
 
+internal sealed record ProjectSyntaxTreeDiagnosticsResult(string FilePath, IReadOnlyList<DiagnosticMessage> Diagnostics);
+
+internal sealed class ProjectLinqRewriteResult
+{
+    public required SyntaxTree SyntaxTree { get; init; }
+    public required IReadOnlyList<string> Warnings { get; init; }
+    public required int RewriteCount { get; init; }
+}
+
 public sealed class ProjectLinqDesugarPass : ICs2jPass<ProjectPassState>, ICs2jPassMetricSource
 {
     public string Name => nameof(ProjectLinqDesugarPass);
@@ -146,37 +155,21 @@ public sealed class ProjectLinqDesugarPass : ICs2jPass<ProjectPassState>, ICs2jP
             return;
         }
 
-        var rewrittenTrees = new List<SyntaxTree>();
-        foreach (var syntaxTree in state.Compilation.SyntaxTrees)
+        var rewriteResults = ProjectPassParallelism.RunDeterministic(
+            state.Compilation.SyntaxTrees.ToList(),
+            state.Context.Options.EnableParallelProjectPasses,
+            syntaxTree => RewriteSyntaxTree(state, syntaxTree));
+
+        var rewrittenTrees = new List<SyntaxTree>(rewriteResults.Count);
+        foreach (var rewriteResult in rewriteResults)
         {
-            if (string.IsNullOrWhiteSpace(syntaxTree.FilePath) || syntaxTree.FilePath.StartsWith("<", StringComparison.Ordinal))
+            RewriteCount += rewriteResult.RewriteCount;
+            foreach (var warning in rewriteResult.Warnings)
             {
-                rewrittenTrees.Add(syntaxTree);
-                continue;
+                state.Context.Diagnostics.Warning(warning);
             }
 
-            try
-            {
-                var semanticModel = state.Compilation.GetSemanticModel(syntaxTree);
-                var rewriter = new LinqRewriter(semanticModel, state.Context.Options);
-                var rewrittenRoot = rewriter.Visit(syntaxTree.GetRoot());
-                RewriteCount += rewriter.RewrittenLinqQueries;
-                var rewrittenTree = rewrittenRoot is CompilationUnitSyntax rewrittenCompilationUnit
-                    ? syntaxTree.WithRootAndOptions(rewrittenCompilationUnit, syntaxTree.Options)
-                    : syntaxTree;
-
-                foreach (var skipped in rewriter.SkippedLinqChains)
-                {
-                    state.Context.Diagnostics.Warning($"LINQ rewrite skipped in '{Path.GetFileName(syntaxTree.FilePath)}': {skipped}");
-                }
-
-                rewrittenTrees.Add(rewrittenTree);
-            }
-            catch (Exception ex)
-            {
-                state.Context.Diagnostics.Warning($"LINQ rewrite skipped in '{Path.GetFileName(syntaxTree.FilePath)}': {ex.Message}");
-                rewrittenTrees.Add(syntaxTree);
-            }
+            rewrittenTrees.Add(rewriteResult.SyntaxTree);
         }
 
         state.Compilation = CSharpCompilation.Create(
@@ -194,6 +187,47 @@ public sealed class ProjectLinqDesugarPass : ICs2jPass<ProjectPassState>, ICs2jP
             isTestProject: primaryProject?.IsTestProject ?? false,
             libraryName: state.Library.Name);
         state.Context.ProjectCompilation = state.Compilation;
+    }
+
+    private static ProjectLinqRewriteResult RewriteSyntaxTree(ProjectPassState state, SyntaxTree syntaxTree)
+    {
+        if (string.IsNullOrWhiteSpace(syntaxTree.FilePath) || syntaxTree.FilePath.StartsWith("<", StringComparison.Ordinal))
+        {
+            return new ProjectLinqRewriteResult
+            {
+                SyntaxTree = syntaxTree,
+                Warnings = [],
+                RewriteCount = 0,
+            };
+        }
+
+        try
+        {
+            var semanticModel = state.Compilation.GetSemanticModel(syntaxTree);
+            var rewriter = new LinqRewriter(semanticModel, state.Context.Options);
+            var rewrittenRoot = rewriter.Visit(syntaxTree.GetRoot());
+            var rewrittenTree = rewrittenRoot is CompilationUnitSyntax rewrittenCompilationUnit
+                ? syntaxTree.WithRootAndOptions(rewrittenCompilationUnit, syntaxTree.Options)
+                : syntaxTree;
+
+            return new ProjectLinqRewriteResult
+            {
+                SyntaxTree = rewrittenTree,
+                Warnings = rewriter.SkippedLinqChains
+                    .Select(skipped => $"LINQ rewrite skipped in '{Path.GetFileName(syntaxTree.FilePath)}': {skipped}")
+                    .ToList(),
+                RewriteCount = rewriter.RewrittenLinqQueries,
+            };
+        }
+        catch (Exception ex)
+        {
+            return new ProjectLinqRewriteResult
+            {
+                SyntaxTree = syntaxTree,
+                Warnings = [$"LINQ rewrite skipped in '{Path.GetFileName(syntaxTree.FilePath)}': {ex.Message}"],
+                RewriteCount = 0,
+            };
+        }
     }
 }
 
@@ -219,14 +253,20 @@ public sealed class ProjectUnsupportedDomainCheckPass : ICs2jPass<ProjectPassSta
 
     public void Execute(ProjectPassState state)
     {
-        foreach (var syntaxTree in state.Compilation.SyntaxTrees)
-        {
-            if (string.IsNullOrWhiteSpace(syntaxTree.FilePath) || syntaxTree.FilePath.StartsWith("<", StringComparison.Ordinal))
-            {
-                continue;
-            }
+        var syntaxTrees = state.Compilation.SyntaxTrees
+            .Where(syntaxTree => !string.IsNullOrWhiteSpace(syntaxTree.FilePath) && !syntaxTree.FilePath.StartsWith("<", StringComparison.Ordinal))
+            .ToList();
 
-            var diagnostics = UnsupportedDomainAnalyzer.AnalyzeSyntaxTree(syntaxTree);
+        var analysisResults = ProjectPassParallelism.RunDeterministic(
+            syntaxTrees,
+            state.Context.Options.EnableParallelProjectPasses,
+            syntaxTree => new ProjectSyntaxTreeDiagnosticsResult(
+                syntaxTree.FilePath,
+                UnsupportedDomainAnalyzer.AnalyzeSyntaxTree(syntaxTree)));
+
+        foreach (var analysisResult in analysisResults)
+        {
+            var diagnostics = analysisResult.Diagnostics;
             if (diagnostics.Count == 0)
             {
                 continue;
@@ -237,7 +277,7 @@ public sealed class ProjectUnsupportedDomainCheckPass : ICs2jPass<ProjectPassSta
                 state.Context.Diagnostics.Error(diagnostic.Message, diagnostic.Location, diagnostic.Code, diagnostic.Category);
             }
 
-            state.RecordBlockingDiagnostics(syntaxTree.FilePath, diagnostics);
+            state.RecordBlockingDiagnostics(analysisResult.FilePath, diagnostics);
         }
     }
 }
@@ -249,15 +289,20 @@ public sealed class ProjectPlatformBoundaryCheckPass : ICs2jPass<ProjectPassStat
 
     public void Execute(ProjectPassState state)
     {
-        foreach (var syntaxTree in state.Compilation.SyntaxTrees)
-        {
-            if (string.IsNullOrWhiteSpace(syntaxTree.FilePath) || syntaxTree.FilePath.StartsWith("<", StringComparison.Ordinal))
-            {
-                continue;
-            }
+        var syntaxTrees = state.Compilation.SyntaxTrees
+            .Where(syntaxTree => !string.IsNullOrWhiteSpace(syntaxTree.FilePath) && !syntaxTree.FilePath.StartsWith("<", StringComparison.Ordinal))
+            .ToList();
 
-            var semanticModel = state.Compilation.GetSemanticModel(syntaxTree);
-            var diagnostics = PlatformBoundaryAnalyzer.AnalyzeSyntaxTree(syntaxTree, semanticModel);
+        var analysisResults = ProjectPassParallelism.RunDeterministic(
+            syntaxTrees,
+            state.Context.Options.EnableParallelProjectPasses,
+            syntaxTree => new ProjectSyntaxTreeDiagnosticsResult(
+                syntaxTree.FilePath,
+                PlatformBoundaryAnalyzer.AnalyzeSyntaxTree(syntaxTree, state.Compilation.GetSemanticModel(syntaxTree))));
+
+        foreach (var analysisResult in analysisResults)
+        {
+            var diagnostics = analysisResult.Diagnostics;
             if (diagnostics.Count == 0)
             {
                 continue;
@@ -268,7 +313,7 @@ public sealed class ProjectPlatformBoundaryCheckPass : ICs2jPass<ProjectPassStat
                 state.Context.Diagnostics.Error(diagnostic.Message, diagnostic.Location, diagnostic.Code, diagnostic.Category);
             }
 
-            state.RecordBlockingDiagnostics(syntaxTree.FilePath, diagnostics);
+            state.RecordBlockingDiagnostics(analysisResult.FilePath, diagnostics);
         }
     }
 }
@@ -280,15 +325,20 @@ public sealed class ProjectNativeInteropCheckPass : ICs2jPass<ProjectPassState>
 
     public void Execute(ProjectPassState state)
     {
-        foreach (var syntaxTree in state.Compilation.SyntaxTrees)
-        {
-            if (string.IsNullOrWhiteSpace(syntaxTree.FilePath) || syntaxTree.FilePath.StartsWith("<", StringComparison.Ordinal))
-            {
-                continue;
-            }
+        var syntaxTrees = state.Compilation.SyntaxTrees
+            .Where(syntaxTree => !string.IsNullOrWhiteSpace(syntaxTree.FilePath) && !syntaxTree.FilePath.StartsWith("<", StringComparison.Ordinal))
+            .ToList();
 
-            var semanticModel = state.Compilation.GetSemanticModel(syntaxTree);
-            var diagnostics = NativeInteropAnalyzer.AnalyzeSyntaxTree(syntaxTree, semanticModel);
+        var analysisResults = ProjectPassParallelism.RunDeterministic(
+            syntaxTrees,
+            state.Context.Options.EnableParallelProjectPasses,
+            syntaxTree => new ProjectSyntaxTreeDiagnosticsResult(
+                syntaxTree.FilePath,
+                NativeInteropAnalyzer.AnalyzeSyntaxTree(syntaxTree, state.Compilation.GetSemanticModel(syntaxTree))));
+
+        foreach (var analysisResult in analysisResults)
+        {
+            var diagnostics = analysisResult.Diagnostics;
             if (diagnostics.Count == 0)
             {
                 continue;
@@ -299,7 +349,7 @@ public sealed class ProjectNativeInteropCheckPass : ICs2jPass<ProjectPassState>
                 state.Context.Diagnostics.Error(diagnostic.Message, diagnostic.Location, diagnostic.Code, diagnostic.Category);
             }
 
-            state.RecordBlockingDiagnostics(syntaxTree.FilePath, diagnostics);
+            state.RecordBlockingDiagnostics(analysisResult.FilePath, diagnostics);
         }
     }
 }

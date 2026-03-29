@@ -44,7 +44,8 @@ class Program
                 UseRecords = opts.UseRecords,
                 UseOptionalForNullable = opts.UseOptionalForNullable,
                 EnableLinqRewrite = opts.EnableLinqRewrite,
-                PreferStreamApi = opts.PreferStreamApi
+                PreferStreamApi = opts.PreferStreamApi,
+                EnableParallelProjectPasses = opts.EnableParallelProjectPasses,
             };
 
             var pipeline = new ConversionPipeline();
@@ -1843,10 +1844,14 @@ class ConvertOptions
     [Option("prefer-procedural", Default = false, SetName = "linq-strategy", HelpText = "Prefer procedural loops for LINQ conversion")]
     public bool PreferProceduralFlag { get; set; }
 
+    [Option("no-parallel-project-passes", Default = false, HelpText = "Disable parallel execution for safe project-level tree-local passes")]
+    public bool NoParallelProjectPasses { get; set; }
+
     // 便捷属性
     public bool UseRecords => !NoRecords;
     public bool GenerateJavaDoc => !NoJavaDoc;
     public bool EnableLinqRewrite => !NoLinqRewrite;
+    public bool EnableParallelProjectPasses => !NoParallelProjectPasses;
 
     /// <summary>Resolve PreferStreamApi: explicit flags override, otherwise null (version-based default).</summary>
     public bool? PreferStreamApi => PreferStreamApiFlag ? true : PreferProceduralFlag ? false : null;

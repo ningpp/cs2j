@@ -78,6 +78,12 @@ public class ConversionOptions
     /// dedicated shared module.
     /// </summary>
     public string? SharedCompatibilityPackage { get; set; }
+
+    /// <summary>
+    /// When enabled, project-level tree-local passes may process syntax trees in parallel
+    /// while merging results back in deterministic order.
+    /// </summary>
+    public bool EnableParallelProjectPasses { get; set; } = true;
 }
 
 /// <summary>
