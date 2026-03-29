@@ -105,6 +105,20 @@ Creates specialized transformers for different C# constructs (`src/CSharpToJava.
 3. **Factory Pattern**: Centralized transformer creation
 4. **Registry Pattern**: Type mapping management
 5. **Adapter Pattern**: Roslyn semantic model to converter context
+6. **Rewriter Pattern**: `JavaSyntaxRewriter` for IR-level post-processing
+
+### Java IR (Intermediate Representation)
+
+Located in `src/CSharpToJava.Core/Java/` (9 files, ~2,000 lines):
+- `JavaSyntaxNode` — base class for all IR nodes
+- `JavaCompilationUnit` — file-level: package, imports, type declarations
+- `JavaTypeDeclaration` — class/interface/enum/record declarations
+- `JavaMemberDeclaration` — field/method/constructor/parameter/annotations/modifiers
+- `JavaStatement` — 14 statement types (block, if, for, while, try-catch, switch, etc.)
+- `JavaExpression` — 16 expression types (method call, member access, literal, lambda, etc.)
+- `JavaMethodBody` — structured method body container (alternative to raw string Body)
+- `JavaSyntaxRewriter` — deep traversal framework for IR-level modifications
+- `JavaRawStatement` / `JavaRawExpression` — backward-compatible fallback to raw strings
 
 ### Important Features
 

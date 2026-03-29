@@ -1032,7 +1032,7 @@ JavaSyntaxNode (现有)
 - ✅ `ConversionContext` 拆为多个独立职责类（221 行，含向后兼容 facade）
 - ✅ `MethodConversionState` 管理方法级状态
 - ✅ `TypeMappingService` 管理全部类型/命名空间映射
-- ⬜ Java IR 扩展到支持 Statement 和 Expression 节点
+- ✅ Java IR 扩展到支持 Statement 和 Expression 节点
 - ⬜ 转换器输出结构化 Java IR，而非字符串
 - ⬜ IR 层后处理替代字符串层后处理
 
@@ -1041,7 +1041,7 @@ JavaSyntaxNode (现有)
 | 指标 | 阶段 2 结果 | 当前值 | 目标值 |
 |------|-----------|-------|-------|
 | `ConversionContext.cs` 行数 | 1,149 | 221 | ≤ 300 ✅ |
-| Java AST 行数 | 682 | 871 | ≥ 2,000 |
+| Java AST 行数 | 682 | 2,029 | ≥ 2,000 ✅ |
 | Replace() 调用总数 | 501 | ~499 | ≤ 50 |
 | 测试通过/失败 | 461/15 | 474/0 ✅ | 474/0 |
 
