@@ -33,6 +33,8 @@ internal static class ProjectConversionExclusionPlanner
                 Path.GetFullPath(project.ProjectPath),
                 project.ProjectName,
                 project.ProjectReferences.Select(Path.GetFullPath).ToList()))
+            .GroupBy(project => project.ProjectPath, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
             .ToDictionary(project => project.ProjectPath, StringComparer.OrdinalIgnoreCase);
 
         var reverseDependencies = nodes.Values.ToDictionary(

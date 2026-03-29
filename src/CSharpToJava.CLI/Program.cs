@@ -163,6 +163,7 @@ class Program
 
             if (workspaceProjects != null && workspaceProjects.Count > 0)
             {
+                workspaceProjects = NormalizeWorkspaceProjects(workspaceProjects, opts.Verbose);
                 var inputFingerprintSnapshot = BuildWorkspaceInputFingerprintSnapshot(opts, workspaceProjects);
                 if (TryReusePreviousProjectOutputs(opts.Destination, inputFingerprintSnapshot, opts.Verbose))
                 {
@@ -1928,6 +1929,35 @@ class Program
             RootProjectPath = graph.RootProjectPath,
             ProjectsInTopologicalOrder = filteredProjects,
         };
+    }
+
+    private static IReadOnlyList<WorkspaceProject> NormalizeWorkspaceProjects(
+        IReadOnlyList<WorkspaceProject> projects,
+        bool verbose)
+    {
+        var groupedProjects = projects
+            .GroupBy(project => Path.GetFullPath(project.FilePath), StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (groupedProjects.All(group => group.Count() == 1))
+        {
+            return projects;
+        }
+
+        var normalizedProjects = new List<WorkspaceProject>(groupedProjects.Count);
+        foreach (var group in groupedProjects)
+        {
+            var selectedProject = group.First();
+            normalizedProjects.Add(selectedProject);
+
+            if (verbose && group.Count() > 1)
+            {
+                var names = string.Join(", ", group.Select(project => project.Name));
+                Console.WriteLine($"Collapsing multi-target workspace project '{selectedProject.FilePath}' to '{selectedProject.Name}' from [{names}]");
+            }
+        }
+
+        return normalizedProjects;
     }
 
     private static IReadOnlyList<WorkspaceProject> FilterUnsupportedWorkspaceProjects(
