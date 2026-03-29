@@ -1042,8 +1042,8 @@ JavaSyntaxNode (现有)
 |------|-----------|-------|-------|
 | `ConversionContext.cs` 行数 | 1,149 | 221 | ≤ 300 ✅ |
 | Java AST 行数 | 682 | 2,029 | ≥ 2,000 ✅ |
-| Replace() 调用总数 | 501 | ~499 | ≤ 50 |
-| 测试通过/失败 | 461/15 | 474/0 ✅ | 474/0 |
+| Replace() 调用总数 | 501 | 505 | ≤ 50 |
+| 测试通过/失败 | 461/15 | 493/0 ✅ | 全部通过 |
 
 ### 阶段 4：建立输出规划与兼容包体系
 
@@ -1051,15 +1051,21 @@ JavaSyntaxNode (现有)
 
 **交付物**：
 
-- `JavaWorkspacePlan` / `JavaModulePlan` 数据模型
-- Maven/Gradle 生成器抽象
-- 8 个 Compatibility Pack（dotnet-core/ref-holder/io/xml/json/test/threading/regex）
-- 第三方依赖映射初版
+- ✅ `JavaWorkspacePlan` / `JavaModulePlan` 数据模型（`Pipeline/Planning/` 目录）
+- ✅ `IBuildFileGenerator` 接口 + `MavenPomGenerator` 实现
+- ✅ `WorkspacePlanBuilder` 构建器（支持单模块/多模块/内部依赖）
+- ✅ 8 个 Compatibility Pack（ref-holder/dotnet-core/io/xml/json/test/trace/regex）
+- ✅ `ICompatibilityPack` 接口 + `CompatibilityPackRegistry` 注册表
+- ✅ `CompatibilityPackContext` 按需生成支持
+- ✅ 委托 SAM 方法推断（InferSamMethodName）
+- ⬜ 第三方依赖映射完善（Pack → Maven 依赖自动关联）
+- ⬜ CLI 层集成 WorkspacePlan + MavenPomGenerator 替代现有 POM 生成
 
 **完成标准**：
 
-- 兼容类按需生成
-- 同一输入稳定生成一致输出
+- ✅ 兼容类按需生成（CompatibilityPackRegistry.GenerateApplicable）
+- ✅ 同一输入稳定生成一致输出
+- ⬜ CLI 使用新 WorkspacePlan 代替旧的直接 POM 生成
 
 ### 阶段 5：性能、增量与大仓库验证
 
@@ -1082,13 +1088,13 @@ JavaSyntaxNode (现有)
 
 ### 架构健康指标
 
-| 指标 | 当前基线 | 阶段 0 结果 | 阶段 1 进度 | 阶段 3 进度 | 最终目标 |
-|------|---------|-----------|-----------|-----------|---------|
-| `ProjectConversionPipeline.cs` 行数 | 4,697 | 145 ✅ | 145 | 145 | ≤ 300 |
-| PostGenerationRewriteEngine 补丁数 | 586 | 586 | 501（-85） | ~499 | ≤ 50 |
-| `ConversionContext.cs` 行数 | 1,149 | 1,149 | 1,149 | 221 ✅ | ≤ 300 |
-| Java AST 行数 | 682 | 682 | 682 | 2,029 ✅ | ≥ 2,000 |
-| 回归测试通过/失败 | 461/15 | 461/15 | 461/15 | 474/0 ✅ | 全部通过 |
+| 指标 | 当前基线 | 阶段 0 结果 | 阶段 1 进度 | 阶段 3 进度 | 阶段 4 进度 | 最终目标 |
+|------|---------|-----------|-----------|-----------|-----------|---------|
+| `ProjectConversionPipeline.cs` 行数 | 4,697 | 145 ✅ | 145 | 145 | 145 | ≤ 300 |
+| PostGenerationRewriteEngine 补丁数 | 586 | 586 | 501（-85） | ~499 | 505 | ≤ 50 |
+| `ConversionContext.cs` 行数 | 1,149 | 1,149 | 1,149 | 221 ✅ | 221 | ≤ 300 |
+| Java AST 行数 | 682 | 682 | 682 | 2,029 ✅ | 2,029 | ≥ 2,000 |
+| 回归测试通过/失败 | 461/15 | 461/15 | 461/15 | 474/0 ✅ | 493/0 ✅ | 全部通过 |
 
 ### 功能指标
 
