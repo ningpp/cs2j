@@ -200,6 +200,9 @@ class Program
             int successCount = 0;
             int failureCount = 0;
             var planningResults = new List<ConversionResult>();
+            var passProfileEntries = new List<PassProfileFileEntry>();
+
+            CollectPassProfileEntries(passProfileEntries, results);
 
             foreach (var result in results)
             {
@@ -233,6 +236,8 @@ class Program
             {
                 await WriteSingleModulePom(opts, CreateSingleModulePlan(opts, includeTests: false, planningResults));
             }
+
+            await WritePassProfileSnapshot(opts.Destination, passProfileEntries);
 
             Console.WriteLine();
             Console.WriteLine($"Conversion complete: {successCount} succeeded, {failureCount} failed");
@@ -304,6 +309,7 @@ class Program
         int failureCount = 0;
         int copiedResourceCount = 0;
         var planningResults = new List<ConversionResult>();
+        var passProfileEntries = new List<PassProfileFileEntry>();
 
         foreach (var project in graph.ProjectsInTopologicalOrder)
         {
@@ -323,6 +329,7 @@ class Program
 
             var semanticContextDirs = GetReferencedProjectDirectories(project, graph);
             var results = await pipeline.ConvertProjectWithPartialMergeAsync(project.ProjectDirectory, options, semanticContextDirs);
+            CollectPassProfileEntries(passProfileEntries, results, project.Name);
             foreach (var result in results)
             {
                 if (ShouldAnalyzeForCompatibilityPlanning(result))
@@ -375,6 +382,8 @@ class Program
             await WriteSingleModulePom(opts, CreateSingleModulePlan(opts, opts.IncludeTests, planningResults));
         }
 
+        await WritePassProfileSnapshot(opts.Destination, passProfileEntries);
+
         Console.WriteLine();
         Console.WriteLine($"Conversion complete: {successCount} succeeded, {failureCount} failed, {copiedResourceCount} resources copied");
 
@@ -418,6 +427,7 @@ class Program
         int successCount = 0;
         int failureCount = 0;
         var planningResults = new List<ConversionResult>();
+        var passProfileEntries = new List<PassProfileFileEntry>();
 
         foreach (var project in projects)
         {
@@ -442,6 +452,7 @@ class Program
 
             var pipeline = new ProjectConversionPipeline(options);
             var results = await pipeline.ConvertProjectAsync(project.Compilation, emitFilePaths);
+            CollectPassProfileEntries(passProfileEntries, results, project.Name);
 
             foreach (var result in results)
             {
@@ -477,6 +488,8 @@ class Program
             await WriteSingleModulePom(opts, CreateSingleModulePlan(opts, opts.IncludeTests, planningResults));
         }
 
+        await WritePassProfileSnapshot(opts.Destination, passProfileEntries);
+
         Console.WriteLine();
         Console.WriteLine($"Conversion complete (MSBuild): {successCount} succeeded, {failureCount} failed");
 
@@ -511,6 +524,7 @@ class Program
         var sharedCompatPackIds = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
         var sharedCompatExternalDependencies = new List<JavaDependency>();
         var convertedModuleCount = 1;
+        var passProfileEntries = new List<PassProfileFileEntry>();
 
         // Emit compatibility module first.
         var compatModuleRoot = Path.Combine(opts.Destination, sharedCompatibilityModuleName);
@@ -564,6 +578,7 @@ class Program
 
             var pipeline = new ProjectConversionPipeline(options);
             var results = await pipeline.ConvertProjectAsync(project.Compilation, emitFilePaths);
+            CollectPassProfileEntries(passProfileEntries, results, moduleName);
 
             foreach (var result in results)
             {
@@ -639,6 +654,8 @@ class Program
             await WriteWorkspacePlanManifest(opts.Destination, workspacePlan);
         }
 
+        await WritePassProfileSnapshot(opts.Destination, passProfileEntries);
+
         Console.WriteLine();
         Console.WriteLine($"Conversion complete (MSBuild): {successCount} succeeded, {failureCount} failed, modules={convertedModuleCount}");
 
@@ -685,6 +702,7 @@ class Program
         var modulePlans = new List<JavaModulePlan>();
         var sharedCompatPackIds = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
         var sharedCompatExternalDependencies = new List<JavaDependency>();
+        var passProfileEntries = new List<PassProfileFileEntry>();
 
         var pipeline = new ConversionPipeline();
 
@@ -756,6 +774,7 @@ class Program
                 var semanticContextDirs = GetReferencedProjectDirectories(assignment.Project, graph);
                 var results = await pipeline.ConvertProjectWithPartialMergeAsync(assignment.Project.ProjectDirectory, options, semanticContextDirs);
                 moduleResults.AddRange(results.Where(result => !string.IsNullOrEmpty(result.GeneratedCode)));
+                CollectPassProfileEntries(passProfileEntries, results, module.Name);
                 foreach (var result in results)
                 {
                     if (result.FileName == null) continue;
@@ -835,6 +854,8 @@ class Program
             await WriteParentPom(opts, workspacePlan);
             await WriteWorkspacePlanManifest(opts.Destination, workspacePlan);
         }
+
+        await WritePassProfileSnapshot(opts.Destination, passProfileEntries);
 
         Console.WriteLine();
         Console.WriteLine($"Conversion complete: {successCount} succeeded, {failureCount} failed, {copiedResourceCount} resources copied, modules={modulesInBuildOrder.Count}");
@@ -1662,6 +1683,38 @@ class Program
         var serializer = new JavaWorkspacePlanJsonSerializer();
         var manifestPath = Path.Combine(destinationRoot, "cs2j-workspace-plan.json");
         await File.WriteAllTextAsync(manifestPath, serializer.Serialize(plan), new System.Text.UTF8Encoding(false));
+    }
+
+    private static async Task WritePassProfileSnapshot(string destinationRoot, IReadOnlyList<PassProfileFileEntry> entries)
+    {
+        if (entries.Count == 0)
+        {
+            return;
+        }
+
+        var snapshot = PassProfileSnapshotBuilder.Build(entries);
+        var serializer = new PassProfileSnapshotJsonSerializer();
+        var snapshotPath = Path.Combine(destinationRoot, "cs2j-pass-profile.json");
+        await File.WriteAllTextAsync(snapshotPath, serializer.Serialize(snapshot), new System.Text.UTF8Encoding(false));
+    }
+
+    private static void CollectPassProfileEntries(List<PassProfileFileEntry> entries, IEnumerable<ConversionResult> results, string? moduleName = null)
+    {
+        foreach (var result in results)
+        {
+            if (result.PassMetrics.Count == 0)
+            {
+                continue;
+            }
+
+            entries.Add(new PassProfileFileEntry
+            {
+                ModuleName = moduleName,
+                FileName = result.FileName,
+                Success = result.Success,
+                PassMetrics = result.PassMetrics,
+            });
+        }
     }
 
     private static JavaModulePlan PlannedModuleToJavaModulePlan(PlannedModule module, string groupId, IReadOnlyList<string>? requiredCompatPacks = null)

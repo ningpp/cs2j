@@ -131,4 +131,42 @@ public class PlanningTests
             && dependency.Scope == JavaDependencyScope.Compile);
         Assert.Contains(merged, dependency => dependency.GroupId == "org.slf4j" && dependency.ArtifactId == "slf4j-api");
     }
+
+    [Fact]
+    public void PassProfileSnapshotBuilder_AggregatesMetricsAcrossFiles()
+    {
+        var snapshot = PassProfileSnapshotBuilder.Build(
+        [
+            new PassProfileFileEntry
+            {
+                ModuleName = "core",
+                FileName = "A.java",
+                Success = true,
+                PassMetrics =
+                [
+                    new Cs2jPassMetric("CheckPass", Cs2jPassStage.Check, TimeSpan.FromMilliseconds(5), 0, 1, 100, 120),
+                    new Cs2jPassMetric("EmitPass", Cs2jPassStage.Emit, TimeSpan.FromMilliseconds(8), 1, 1, 120, 125),
+                ]
+            },
+            new PassProfileFileEntry
+            {
+                ModuleName = "core",
+                FileName = "B.java",
+                Success = false,
+                PassMetrics =
+                [
+                    new Cs2jPassMetric("CheckPass", Cs2jPassStage.Check, TimeSpan.FromMilliseconds(7), 0, 2, 90, 130),
+                ]
+            }
+        ]);
+
+        Assert.Equal(2, snapshot.Files.Count);
+
+        var checkAggregate = Assert.Single(snapshot.Aggregates, aggregate => aggregate.Name == "CheckPass");
+        Assert.Equal(Cs2jPassStage.Check, checkAggregate.Stage);
+        Assert.Equal(2, checkAggregate.FileCount);
+        Assert.Equal(12d, checkAggregate.TotalElapsedMilliseconds, precision: 3);
+        Assert.Equal(3, checkAggregate.TotalDiagnosticDelta);
+        Assert.Equal(60, checkAggregate.TotalManagedMemoryDelta);
+    }
 }

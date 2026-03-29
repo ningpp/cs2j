@@ -18,6 +18,7 @@
 1. 为每个 pass 记录执行前后的托管内存快照。
 2. 把内存增量与已有耗时、诊断增量并列放进 `Cs2jPassMetric`。
 3. 用测试固定这些字段的存在与基本语义。
+4. 把项目级转换结果汇总为可落盘的 `cs2j-pass-profile.json`，形成结构化 profiling snapshot。
 
 ## 本批非目标
 
@@ -57,11 +58,12 @@
 1. `Cs2jPassExecutor` 仍按顺序记录 metrics。
 2. 每条 metric 都有非负的内存前后值。
 3. `ManagedMemoryDelta` 等于 after - before。
+4. profile snapshot 能按 pass 聚合总耗时、诊断增量和托管内存增量。
 
 ## 后续衔接
 
 在这一批之后，Phase 5 的下一步优先级为：
 
 1. 给 rewrite pass 增加 rewrite-count 指标
-2. 输出可落盘的 profiling snapshot
+2. 在 snapshot 基础上增加 rewrite-count 与更多 middle-end 指标
 3. 评估缓存和并行化需要的最小侵入改造
