@@ -1,1 +1,0 @@
-dotnet run --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- convert-project -s "C:\automatic-graph-layout-master\GraphLayout\MSAGL" -d "C:\agl\v20260315"
