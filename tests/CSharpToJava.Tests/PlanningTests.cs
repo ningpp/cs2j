@@ -35,6 +35,31 @@ public class PlanningTests
     }
 
     [Fact]
+    public void MavenPomGenerator_GenerateRootBuildFile_DoesNotIncludeSpotlessFormattingByDefault()
+    {
+        var module = new JavaModulePlan
+        {
+            ModuleName = "demo-module",
+            IsTestOnly = false,
+        };
+
+        var plan = new JavaWorkspacePlan
+        {
+            GroupId = "com.example",
+            ArtifactId = "demo-parent",
+            Version = "1.0-SNAPSHOT",
+            JavaVersion = "Java25",
+            Modules = [module],
+        };
+
+        var generator = new MavenPomGenerator();
+        var pom = generator.GenerateRootBuildFile(plan);
+
+        Assert.DoesNotContain("spotless-maven-plugin", pom, StringComparison.Ordinal);
+        Assert.DoesNotContain("googleJavaFormat", pom, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void JavaWorkspacePlanJsonSerializer_SerializesModulesDependenciesCompatPacksAndRuntimeBridges()
     {
         var jsonBridge = new JavaRuntimeBridgeRequirement

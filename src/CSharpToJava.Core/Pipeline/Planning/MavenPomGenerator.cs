@@ -52,7 +52,6 @@ public sealed class MavenPomGenerator : IBuildFileGenerator
     <build>
         <plugins>
             {CompilerPlugin(javaVer)}
-            {SpotlessPlugin()}
 {surefirePlugin}
         </plugins>
     </build>
@@ -211,30 +210,6 @@ public sealed class MavenPomGenerator : IBuildFileGenerator
                         <arg>1000000</arg>
                     </compilerArgs>
                 </configuration>
-            </plugin>";
-
-    private static string SpotlessPlugin() => @"<plugin>
-                <groupId>com.diffplug.spotless</groupId>
-                <artifactId>spotless-maven-plugin</artifactId>
-                <version>3.4.0</version>
-                <configuration>
-                    <java>
-                        <googleJavaFormat>
-                            <version>1.35.0</version>
-                            <style>GOOGLE</style>
-                            <reflowLongStrings>false</reflowLongStrings>
-                            <formatJavadoc>false</formatJavadoc>
-                        </googleJavaFormat>
-                    </java>
-                </configuration>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>apply</goal>
-                        </goals>
-                        <phase>process-sources</phase>
-                    </execution>
-                </executions>
             </plugin>";
 
     // ── 工具方法 ────────────────────────────────────────────
