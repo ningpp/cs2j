@@ -975,6 +975,28 @@ JavaSyntaxNode (现有)
 > 多数 Regex.Replace 为文件特定模式，Transformer 层无法覆盖。
 > 已消除补丁总计 83 个 Replace + 2 个 Regex = 85 个（504→421 Replace, 82→80 Regex）。
 
+### 阶段 4+：FQN 清理与 Transformer 层修复
+
+**状态：已完成** — 通过 8 次提交，消除 9 个 PostGen 补丁、清理全代码库 FQN 冗余引用，新增 5 个测试。
+
+**已完成的变更**：
+
+1. **Dead code after throw**（Step 1）：ClassTransformer 添加 `EndsWithTerminalStatement()` 检查，消除 2 个补丁
+2. **List.remove autoboxing**（Step 2）：InvocationExpressionTransformer 添加 `IsListOfBoxedInt()` + `Integer.valueOf()` 包装，消除 4 个补丁
+3. **Collectors FQN 清理**（Step 3）：全代码库 `java.util.stream.Collectors` → `Collectors`，消除 3 个补丁
+4. **Comparator FQN 清理**（Step 4）：全代码库 `java.util.Comparator` → `Comparator`
+5. **Stream.concat/Arrays.stream FQN 清理**（Step 5）：`java.util.stream.Stream.concat` → `Stream.concat`、`java.util.Arrays.stream` → `Arrays.stream`
+6. **Objects FQN 清理**（Step 7）：`java.util.Objects` → `Objects`
+7. **Collections/Consumer/BiConsumer FQN 清理**（Step 8）：`java.util.Collections` → `Collections`、`java.util.function.Consumer/BiConsumer` → `Consumer/BiConsumer`
+
+**量化进度**：
+
+| 指标 | 阶段 4 结果 | 当前值 |
+|------|-----------|-------|
+| PostGenerationRewriteEngine 行数 | 1,867 | 1,826 |
+| code.Replace + Regex.Replace 补丁数 | 440 | 497（含未计入的文件特定补丁） |
+| 测试通过/失败 | 499/0 | 504/0 |
+
 **剩余交付物**：
 
 - `DelegateTransformer` 增强：Consumer/BiConsumer 签名自动判断
@@ -1091,13 +1113,13 @@ JavaSyntaxNode (现有)
 
 ### 架构健康指标
 
-| 指标 | 当前基线 | 阶段 0 结果 | 阶段 1 进度 | 阶段 3 进度 | 阶段 4 进度 | 最终目标 |
-|------|---------|-----------|-----------|-----------|-----------|---------|
-| `ProjectConversionPipeline.cs` 行数 | 4,697 | 145 ✅ | 145 | 145 | 145 | ≤ 300 |
-| PostGenerationRewriteEngine 补丁数 | 586 | 586 | 501（-85） | ~499 | 440 | ≤ 50 |
-| `ConversionContext.cs` 行数 | 1,149 | 1,149 | 1,149 | 221 ✅ | 221 | ≤ 300 |
-| Java AST 行数 | 682 | 682 | 682 | 2,029 ✅ | 2,029 | ≥ 2,000 |
-| 回归测试通过/失败 | 461/15 | 461/15 | 461/15 | 474/0 ✅ | 499/0 ✅ | 全部通过 |
+| 指标 | 当前基线 | 阶段 0 结果 | 阶段 1 进度 | 阶段 3 进度 | 阶段 4 进度 | 阶段 4+ FQN 清理 | 最终目标 |
+|------|---------|-----------|-----------|-----------|-----------|----------------|---------|
+| `ProjectConversionPipeline.cs` 行数 | 4,697 | 145 ✅ | 145 | 145 | 145 | 224 | ≤ 300 |
+| PostGenerationRewriteEngine 补丁数 | 586 | 586 | 501（-85） | ~499 | 440 | 497 | ≤ 50 |
+| `ConversionContext.cs` 行数 | 1,149 | 1,149 | 1,149 | 221 ✅ | 221 | 221 | ≤ 300 |
+| Java AST 行数 | 682 | 682 | 682 | 2,029 ✅ | 2,029 | 2,029 | ≥ 2,000 |
+| 回归测试通过/失败 | 461/15 | 461/15 | 461/15 | 474/0 ✅ | 499/0 ✅ | 504/0 ✅ | 全部通过 |
 
 ### 功能指标
 
