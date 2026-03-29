@@ -19,9 +19,6 @@ public sealed class MavenPomGenerator : IBuildFileGenerator
 
     public string GenerateModuleBuildFile(JavaWorkspacePlan plan, JavaModulePlan module)
     {
-        if (plan.IsSingleModule)
-            return GenerateSingleModulePom(plan, module);
-
         return GenerateChildModulePom(plan, module);
     }
 

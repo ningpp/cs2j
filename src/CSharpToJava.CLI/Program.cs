@@ -490,6 +490,7 @@ class Program
         int successCount = 0;
         int failureCount = 0;
         var moduleNames = new List<string> { sharedCompatibilityModuleName };
+        var modulePlans = new List<JavaModulePlan>();
 
         // Emit compatibility module first.
         var compatModuleRoot = Path.Combine(opts.Destination, sharedCompatibilityModuleName);
@@ -518,21 +519,8 @@ class Program
                 IsTestOnly = false,
                 Dependencies = WorkspacePlanBuilder.DefaultDependencies(),
             };
-            var generator = new MavenPomGenerator();
-            var planBuilder = new WorkspacePlanBuilder()
-                .GroupId(opts.MavenGroupId)
-                .ArtifactId(new DirectoryInfo(opts.Destination).Name)
-                .Version(opts.MavenVersion)
-                .JavaVersion(opts.JavaVersion)
-                .AddModule(compatPlan);
-            // Modules will be added below; for now just write compat POM.
-            var tempPlan = planBuilder.Build();
-            // Write child POM for compat using a multi-module plan context.
-            // We'll rebuild the full plan after all modules are known.
-            await File.WriteAllTextAsync(
-                Path.Combine(compatModuleRoot, "pom.xml"),
-                generator.GenerateModuleBuildFile(tempPlan, compatPlan),
-                new System.Text.UTF8Encoding(false));
+            modulePlans.Add(compatPlan);
+            await WriteMultiModulePom(opts, compatModuleRoot, compatPlan);
         }
 
         // Convert each workspace project as its own module.
@@ -610,13 +598,16 @@ class Program
                     Dependencies = deps,
                 };
 
+                modulePlans.Add(modulePlan);
                 await WriteMultiModulePom(opts, moduleRoot, modulePlan);
             }
         }
 
         if (opts.GeneratePom)
         {
-            await WriteParentPom(opts, moduleNames);
+            var workspacePlan = BuildWorkspacePlan(opts, modulePlans);
+            await WriteParentPom(opts, workspacePlan);
+            await WriteWorkspacePlanManifest(opts.Destination, workspacePlan);
         }
 
         Console.WriteLine();
@@ -662,6 +653,7 @@ class Program
         int successCount = 0;
         int failureCount = 0;
         int copiedResourceCount = 0;
+        var modulePlans = new List<JavaModulePlan>();
 
         var pipeline = new ConversionPipeline();
 
@@ -721,6 +713,7 @@ class Program
                         IsTestOnly = false,
                         Dependencies = WorkspacePlanBuilder.DefaultDependencies(),
                     };
+                    modulePlans.Add(compatPlan);
                     await WriteMultiModulePom(opts, moduleRoot, compatPlan);
                 }
 
@@ -785,13 +778,16 @@ class Program
             if (opts.GeneratePom)
             {
                 var modulePlan = PlannedModuleToJavaModulePlan(module, opts.MavenGroupId);
+                modulePlans.Add(modulePlan);
                 await WriteMultiModulePom(opts, moduleRoot, modulePlan);
             }
         }
 
         if (opts.GeneratePom)
         {
-            await WriteParentPom(opts, modulesInBuildOrder.Select(m => m.Name).ToList());
+            var workspacePlan = BuildWorkspacePlan(opts, modulePlans);
+            await WriteParentPom(opts, workspacePlan);
+            await WriteWorkspacePlanManifest(opts.Destination, workspacePlan);
         }
 
         Console.WriteLine();
@@ -1558,59 +1554,48 @@ class Program
         var pomContent = generator.GenerateRootBuildFile(plan);
         var pomPath = Path.Combine(opts.Destination, generator.BuildFileName);
         await File.WriteAllTextAsync(pomPath, pomContent);
+        await WriteWorkspacePlanManifest(opts.Destination, plan);
     }
 
     private static async Task WriteMultiModulePom(ConvertProjectOptions opts, string moduleRoot, JavaModulePlan modulePlan)
     {
-        var parentArtifactId = new DirectoryInfo(opts.Destination).Name;
-        var plan = new WorkspacePlanBuilder()
-            .GroupId(opts.MavenGroupId)
-            .ArtifactId(parentArtifactId)
-            .Version(opts.MavenVersion)
-            .JavaVersion(opts.JavaVersion)
-            .AddModule(modulePlan)
-            .Build();
-
-        // 用 multi-module 路径：生成子模块 POM 时需要 2+ modules 以触发 child POM 模式
-        // 但 GenerateModuleBuildFile 只看 plan.IsSingleModule，所以再加一个占位
-        var multiPlan = new JavaWorkspacePlan
-        {
-            GroupId = plan.GroupId,
-            ArtifactId = plan.ArtifactId,
-            Version = plan.Version,
-            JavaVersion = plan.JavaVersion,
-            Modules = [modulePlan, modulePlan], // 保证 IsSingleModule == false
-        };
+        var plan = BuildWorkspacePlan(opts, [modulePlan]);
 
         var generator = new MavenPomGenerator();
-        var pomContent = generator.GenerateModuleBuildFile(multiPlan, modulePlan);
+        var pomContent = generator.GenerateModuleBuildFile(plan, modulePlan);
         var pomPath = Path.Combine(moduleRoot, generator.BuildFileName);
         await File.WriteAllTextAsync(pomPath, pomContent);
     }
 
-    private static async Task WriteParentPom(ConvertProjectOptions opts, IReadOnlyList<string> moduleNames)
+    private static async Task WriteParentPom(ConvertProjectOptions opts, JavaWorkspacePlan plan)
     {
-        var parentArtifactId = new DirectoryInfo(opts.Destination).Name;
-        var builder = new WorkspacePlanBuilder()
-            .GroupId(opts.MavenGroupId)
-            .ArtifactId(parentArtifactId)
-            .Version(opts.MavenVersion)
-            .JavaVersion(opts.JavaVersion);
-
-        foreach (var name in moduleNames)
-        {
-            builder.AddModule(new JavaModulePlan
-            {
-                ModuleName = name,
-                IsTestOnly = false,
-            });
-        }
-
-        var plan = builder.Build();
         var generator = new MavenPomGenerator();
         var pomContent = generator.GenerateRootBuildFile(plan);
         var pomPath = Path.Combine(opts.Destination, generator.BuildFileName);
         await File.WriteAllTextAsync(pomPath, pomContent);
+    }
+
+    private static JavaWorkspacePlan BuildWorkspacePlan(ConvertProjectOptions opts, IReadOnlyList<JavaModulePlan> modulePlans)
+    {
+        var builder = new WorkspacePlanBuilder()
+            .GroupId(opts.MavenGroupId)
+            .ArtifactId(new DirectoryInfo(opts.Destination).Name)
+            .Version(opts.MavenVersion)
+            .JavaVersion(opts.JavaVersion);
+
+        foreach (var modulePlan in modulePlans)
+        {
+            builder.AddModule(modulePlan);
+        }
+
+        return builder.Build();
+    }
+
+    private static async Task WriteWorkspacePlanManifest(string destinationRoot, JavaWorkspacePlan plan)
+    {
+        var serializer = new JavaWorkspacePlanJsonSerializer();
+        var manifestPath = Path.Combine(destinationRoot, "cs2j-workspace-plan.json");
+        await File.WriteAllTextAsync(manifestPath, serializer.Serialize(plan), new System.Text.UTF8Encoding(false));
     }
 
     private static JavaModulePlan PlannedModuleToJavaModulePlan(PlannedModule module, string groupId)

@@ -11,6 +11,6 @@ public interface IBuildFileGenerator
     /// <summary>生成根/父构建文件。</summary>
     string GenerateRootBuildFile(JavaWorkspacePlan plan);
 
-    /// <summary>生成单个模块的构建文件。</summary>
+    /// <summary>生成模块/子模块的构建文件。</summary>
     string GenerateModuleBuildFile(JavaWorkspacePlan plan, JavaModulePlan module);
 }
