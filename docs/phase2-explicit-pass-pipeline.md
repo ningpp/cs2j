@@ -105,11 +105,15 @@ Pass 接口需要满足两个条件：
 2. `SingleFileCompilationCheckPass`
    - 确保 library、compilation、semantic model 边界完整
 
-3. `SingleFileContextNormalizationPass`
+3. `SingleFileUnsupportedDomainCheckPass`
+   - 对 WinForms / WPF / MAUI / 原生互操作等不支持域做前置诊断
+   - 若命中阻断规则，停止后续 emit
+
+4. `SingleFileContextNormalizationPass`
    - 统一刷新 `ProjectCompilation`、`SemanticModel`
    - 清理 imports / aliases / merged types / synthesized records 等上下文残留
 
-4. `SingleFileJavaEmitPass`
+5. `SingleFileJavaEmitPass`
    - 执行 visitor、IR rewriter 和最终 Java 文本输出
 
 ### 6.2 项目级 Pass 链
@@ -123,19 +127,23 @@ Pass 接口需要满足两个条件：
 2. `ProjectCompilationCheckPass`
    - 检查 compilation 至少包含可处理的语法树
 
-3. `ProjectPartialTypeNormalizationPass`
+3. `ProjectUnsupportedDomainCheckPass`
+   - 对 UI 框架、XAML、native interop 等不支持域做项目级前置诊断
+   - 为被阻断文件直接生成失败结果，避免继续 emit
+
+4. `ProjectPartialTypeNormalizationPass`
    - 迁移 partial merge 的分组逻辑
 
-4. `ProjectTypeEmitPass`
+5. `ProjectTypeEmitPass`
    - 执行类型级 Java 输出
 
-5. `ProjectCompatibilityEmitPass`
+6. `ProjectCompatibilityEmitPass`
    - 迁移 compatibility helper 的集中输出
 
-6. `ProjectCrossPackageImportEmitPass`
+7. `ProjectCrossPackageImportEmitPass`
    - 迁移跨包 import 补全
 
-7. `ProjectPostGenerationRewriteEmitPass`
+8. `ProjectPostGenerationRewriteEmitPass`
    - 显式保留当前 post-generation rewrite 落点
 
 ## 7. 与后续阶段的衔接
@@ -164,5 +172,5 @@ Pass 接口需要满足两个条件：
 本轮结束后，下一步优先级建议如下：
 
 1. 继续扩展项目级 `Desugar` Pass，把 `async/await` lowering 也纳入显式阶段。
-2. 新增 `UnsupportedDomainPass` 和 `PlatformBoundaryPass`，把 UI / 原生互操作 / 平台 API 检查前移到 `Check`。
+2. 在现有不支持域检查之上继续细分 `PlatformBoundaryPass`，把平台 API 族分类做得更可解释。
 3. 开始从 `PostGenerationRewriteEngine` 抽离通用逻辑，向 `Normalize` 和 IR 层迁移。

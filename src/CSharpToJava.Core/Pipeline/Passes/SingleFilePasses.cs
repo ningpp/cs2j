@@ -16,6 +16,7 @@ public sealed class SingleFilePassState
     public required CSharpCompilation Compilation { get; set; }
     public required Cs2jLibrary Library { get; set; }
     public string GeneratedCode { get; set; } = string.Empty;
+    public bool BlockEmit { get; set; }
     public bool EmitSucceeded { get; set; }
 }
 
@@ -93,6 +94,26 @@ public sealed class SingleFileCompilationCheckPass : ICs2jPass<SingleFilePassSta
     }
 }
 
+public sealed class SingleFileUnsupportedDomainCheckPass : ICs2jPass<SingleFilePassState>
+{
+    public string Name => nameof(SingleFileUnsupportedDomainCheckPass);
+    public Cs2jPassStage Stage => Cs2jPassStage.Check;
+
+    public void Execute(SingleFilePassState state)
+    {
+        var diagnostics = UnsupportedDomainAnalyzer.AnalyzeSyntaxTree(state.SyntaxTree);
+        foreach (var diagnostic in diagnostics)
+        {
+            state.Context.Diagnostics.Error(diagnostic.Message, diagnostic.Location);
+        }
+
+        if (diagnostics.Any(diagnostic => diagnostic.Severity == Context.DiagnosticSeverity.Error))
+        {
+            state.BlockEmit = true;
+        }
+    }
+}
+
 public sealed class SingleFileContextNormalizationPass : ICs2jPass<SingleFilePassState>
 {
     public string Name => nameof(SingleFileContextNormalizationPass);
@@ -124,6 +145,13 @@ public sealed class SingleFileJavaEmitPass : ICs2jPass<SingleFilePassState>
 
     public void Execute(SingleFilePassState state)
     {
+        if (state.BlockEmit)
+        {
+            state.EmitSucceeded = false;
+            state.GeneratedCode = string.Empty;
+            return;
+        }
+
         var visitor = new CSharpToJavaVisitor(state.Context);
         var compilationUnit = visitor.Visit(state.SyntaxTree.GetRoot());
         if (compilationUnit is not Java.JavaCompilationUnit javaCompilation)

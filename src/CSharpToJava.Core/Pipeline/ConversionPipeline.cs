@@ -290,6 +290,7 @@ public class ConversionPipeline
         {
             new SingleFileLinqDesugarPass(),
             new SingleFileCompilationCheckPass(),
+            new SingleFileUnsupportedDomainCheckPass(),
             new SingleFileContextNormalizationPass(),
             new SingleFileJavaEmitPass(_irRewriters),
         };

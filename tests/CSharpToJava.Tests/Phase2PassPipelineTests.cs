@@ -68,10 +68,28 @@ public class Phase2PassPipelineTests
             {
                 "SingleFileLinqDesugarPass",
                 "SingleFileCompilationCheckPass",
+                "SingleFileUnsupportedDomainCheckPass",
                 "SingleFileContextNormalizationPass",
                 "SingleFileJavaEmitPass",
             },
             result.PassMetrics.Select(metric => metric.Name).ToArray());
+    }
+
+    [Fact]
+    public void ConversionPipeline_FailsUnsupportedDomainCheck_ForWinFormsInput()
+    {
+        var pipeline = new ConversionPipeline();
+        var result = pipeline.Convert(new ConversionRequest
+        {
+            SourceCode = "using System.Windows.Forms; class Sample : Form { }",
+            FileName = "Sample.cs",
+            Options = CreateOptions(),
+        });
+
+        Assert.False(result.Success);
+        Assert.Empty(result.GeneratedCode);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Message.Contains("System.Windows.Forms", StringComparison.Ordinal));
+        Assert.Contains("SingleFileUnsupportedDomainCheckPass", result.PassMetrics.Select(metric => metric.Name));
     }
 
     [Fact]
@@ -93,6 +111,7 @@ public class Phase2PassPipelineTests
             {
                 "ProjectLinqDesugarPass",
                 "ProjectCompilationCheckPass",
+                "ProjectUnsupportedDomainCheckPass",
                 "ProjectPartialTypeNormalizationPass",
                 "ProjectTypeEmitPass",
                 "ProjectCompatibilityEmitPass",
@@ -122,6 +141,45 @@ public class Phase2PassPipelineTests
         Assert.True(primaryResult.Success);
         Assert.Contains("ProjectLinqDesugarPass", primaryResult.PassMetrics.Select(metric => metric.Name));
         Assert.DoesNotContain(".stream()", primaryResult.GeneratedCode);
+    }
+
+    [Fact]
+    public async Task ProjectConversionPipeline_BlocksUnsupportedDomainFiles_WithFailureResult()
+    {
+        var pipeline = new ProjectConversionPipeline(CreateOptions());
+        var results = await pipeline.ConvertProjectAsync(new[]
+        {
+            new SourceFile
+            {
+                FilePath = "Unsupported.cs",
+                Content = "using System.Windows.Forms; class Unsupported : Form { }",
+            }
+        });
+
+        var failureResult = Assert.Single(results);
+        Assert.False(failureResult.Success);
+        Assert.Empty(failureResult.GeneratedCode);
+        Assert.Contains(failureResult.Diagnostics, diagnostic => diagnostic.Message.Contains("System.Windows.Forms", StringComparison.Ordinal));
+        Assert.Contains("ProjectUnsupportedDomainCheckPass", failureResult.PassMetrics.Select(metric => metric.Name));
+    }
+
+    [Fact]
+    public async Task ProjectConversionPipeline_BlocksNativeInteropFiles_WithFailureResult()
+    {
+        var pipeline = new ProjectConversionPipeline(CreateOptions());
+        var results = await pipeline.ConvertProjectAsync(new[]
+        {
+            new SourceFile
+            {
+                FilePath = "Interop.cs",
+                Content = "using System.Runtime.InteropServices; class NativeMethods { [DllImport(\"kernel32.dll\")] private static extern bool Beep(uint frequency, uint duration); }",
+            }
+        });
+
+        var failureResult = Assert.Single(results);
+        Assert.False(failureResult.Success);
+        Assert.Empty(failureResult.GeneratedCode);
+        Assert.Contains(failureResult.Diagnostics, diagnostic => diagnostic.Message.Contains("DllImport", StringComparison.Ordinal));
     }
 
     private static ConversionOptions CreateOptions()

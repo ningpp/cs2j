@@ -55,6 +55,19 @@ class Program
                 FileName = opts.Input
             });
 
+            if (!result.Success)
+            {
+                if (result.Diagnostics.Count > 0)
+                {
+                    foreach (var diag in result.Diagnostics)
+                    {
+                        Console.Error.WriteLine($"[{diag.Severity}] {FormatDiagnostic(diag)}");
+                    }
+                }
+
+                return 1;
+            }
+
             if (opts.Output != null)
             {
                 await File.WriteAllTextAsync(opts.Output, result.GeneratedCode, new System.Text.UTF8Encoding(false));
@@ -80,8 +93,7 @@ class Program
                     Console.WriteLine($"  [{prefix}] {FormatDiagnostic(diag)}");
                 }
             }
-
-            return result.Success ? 0 : 1;
+            return 0;
         }
         catch (Exception ex)
         {

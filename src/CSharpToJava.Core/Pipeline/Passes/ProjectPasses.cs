@@ -15,7 +15,63 @@ public sealed class ProjectPassState
     public required CSharpCompilation Compilation { get; set; }
     public ISet<string>? EmitFilePaths { get; init; }
     public IReadOnlyList<PartialTypeGroup> TypeGroups { get; set; } = [];
+    public HashSet<string> BlockedFilePaths { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, List<DiagnosticMessage>> DiagnosticsByFile { get; } = new(StringComparer.OrdinalIgnoreCase);
     public List<ConversionResult> Results { get; } = [];
+
+    public void RegisterFileDiagnostics(string filePath, IEnumerable<DiagnosticMessage> diagnostics, bool blockEmit)
+    {
+        var normalizedPath = NormalizeFilePath(filePath);
+        if (!DiagnosticsByFile.TryGetValue(normalizedPath, out var existing))
+        {
+            existing = [];
+            DiagnosticsByFile[normalizedPath] = existing;
+        }
+
+        existing.AddRange(diagnostics);
+        if (blockEmit)
+        {
+            BlockedFilePaths.Add(normalizedPath);
+        }
+    }
+
+    public IReadOnlyList<DiagnosticMessage> GetDiagnosticsForPaths(IEnumerable<string> filePaths)
+    {
+        var diagnostics = new List<DiagnosticMessage>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var filePath in filePaths.Select(NormalizeFilePath).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (!DiagnosticsByFile.TryGetValue(filePath, out var fileDiagnostics))
+            {
+                continue;
+            }
+
+            foreach (var diagnostic in fileDiagnostics)
+            {
+                var span = diagnostic.Location?.GetLineSpan();
+                var key = $"{filePath}|{span?.StartLinePosition.Line}|{span?.StartLinePosition.Character}|{diagnostic.Severity}|{diagnostic.Message}";
+                if (seen.Add(key))
+                {
+                    diagnostics.Add(diagnostic);
+                }
+            }
+        }
+
+        return diagnostics;
+    }
+
+    private static string NormalizeFilePath(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath) || filePath.StartsWith("<", StringComparison.Ordinal))
+        {
+            return filePath;
+        }
+
+        return Path.IsPathRooted(filePath)
+            ? Path.GetFullPath(filePath)
+            : Path.GetFullPath(filePath);
+    }
 }
 
 public sealed class ProjectLinqDesugarPass : ICs2jPass<ProjectPassState>
@@ -96,6 +152,43 @@ public sealed class ProjectCompilationCheckPass : ICs2jPass<ProjectPassState>
     }
 }
 
+public sealed class ProjectUnsupportedDomainCheckPass : ICs2jPass<ProjectPassState>
+{
+    public string Name => nameof(ProjectUnsupportedDomainCheckPass);
+    public Cs2jPassStage Stage => Cs2jPassStage.Check;
+
+    public void Execute(ProjectPassState state)
+    {
+        foreach (var syntaxTree in state.Compilation.SyntaxTrees)
+        {
+            if (string.IsNullOrWhiteSpace(syntaxTree.FilePath) || syntaxTree.FilePath.StartsWith("<", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var diagnostics = UnsupportedDomainAnalyzer.AnalyzeSyntaxTree(syntaxTree);
+            if (diagnostics.Count == 0)
+            {
+                continue;
+            }
+
+            foreach (var diagnostic in diagnostics)
+            {
+                state.Context.Diagnostics.Error(diagnostic.Message, diagnostic.Location);
+            }
+
+            state.RegisterFileDiagnostics(syntaxTree.FilePath, diagnostics, blockEmit: true);
+            state.Results.Add(new ConversionResult
+            {
+                Success = false,
+                FileName = syntaxTree.FilePath,
+                GeneratedCode = string.Empty,
+                Diagnostics = diagnostics,
+            });
+        }
+    }
+}
+
 public sealed class ProjectPartialTypeNormalizationPass : ICs2jPass<ProjectPassState>
 {
     public string Name => nameof(ProjectPartialTypeNormalizationPass);
@@ -124,7 +217,13 @@ public sealed class ProjectTypeEmitPass : ICs2jPass<ProjectPassState>
     {
         foreach (var typeGroup in state.TypeGroups)
         {
-            if (!ShouldEmitTypeGroup(typeGroup, state.EmitFilePaths))
+            var candidatePaths = CollectCandidatePaths(typeGroup);
+            if (candidatePaths.Any(path => state.BlockedFilePaths.Contains(NormalizeFilePath(path))))
+            {
+                continue;
+            }
+
+            if (!ShouldEmitTypeGroup(candidatePaths, state.EmitFilePaths))
             {
                 continue;
             }
@@ -132,18 +231,20 @@ public sealed class ProjectTypeEmitPass : ICs2jPass<ProjectPassState>
             var result = TypeGroupResolver.ConvertTypeGroup(typeGroup, state.Compilation, state.Context, _irRewriters);
             if (result != null)
             {
+                var diagnostics = state.GetDiagnosticsForPaths(candidatePaths);
+                if (diagnostics.Count > 0)
+                {
+                    result.Diagnostics = result.Diagnostics.Concat(diagnostics).ToList();
+                    result.Success = result.Success && diagnostics.All(diagnostic => diagnostic.Severity != Context.DiagnosticSeverity.Error);
+                }
+
                 state.Results.Add(result);
             }
         }
     }
 
-    private static bool ShouldEmitTypeGroup(PartialTypeGroup typeGroup, ISet<string>? emitFilePaths)
+    private static List<string> CollectCandidatePaths(PartialTypeGroup typeGroup)
     {
-        if (emitFilePaths == null || emitFilePaths.Count == 0)
-        {
-            return true;
-        }
-
         var candidatePaths = new List<string>();
         foreach (var syntaxNode in typeGroup.SyntaxNodes)
         {
@@ -163,7 +264,27 @@ public sealed class ProjectTypeEmitPass : ICs2jPass<ProjectPassState>
             }
         }
 
+        return candidatePaths;
+    }
+
+    private static bool ShouldEmitTypeGroup(IReadOnlyCollection<string> candidatePaths, ISet<string>? emitFilePaths)
+    {
+        if (emitFilePaths == null || emitFilePaths.Count == 0)
+        {
+            return true;
+        }
+
         return candidatePaths.Any(path => emitFilePaths.Contains(Path.GetFullPath(path)));
+    }
+
+    private static string NormalizeFilePath(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath) || filePath.StartsWith("<", StringComparison.Ordinal))
+        {
+            return filePath;
+        }
+
+        return Path.GetFullPath(filePath);
     }
 }
 
@@ -174,6 +295,11 @@ public sealed class ProjectCompatibilityEmitPass : ICs2jPass<ProjectPassState>
 
     public void Execute(ProjectPassState state)
     {
+        if (!state.Results.Any(result => !string.IsNullOrEmpty(result.GeneratedCode)))
+        {
+            return;
+        }
+
         if (!state.Context.Options.EmitCompatibilityHelpers)
         {
             return;
@@ -199,6 +325,11 @@ public sealed class ProjectCrossPackageImportEmitPass : ICs2jPass<ProjectPassSta
 
     public void Execute(ProjectPassState state)
     {
+        if (!state.Results.Any(result => !string.IsNullOrEmpty(result.GeneratedCode)))
+        {
+            return;
+        }
+
         CrossPackageImportResolver.AddCrossPackageImports(state.Results, state.Context.Options.SharedCompatibilityPackage);
     }
 }
@@ -210,6 +341,11 @@ public sealed class ProjectPostGenerationRewriteEmitPass : ICs2jPass<ProjectPass
 
     public void Execute(ProjectPassState state)
     {
+        if (!state.Results.Any(result => !string.IsNullOrEmpty(result.GeneratedCode)))
+        {
+            return;
+        }
+
         PostGenerationRewriteEngine.ApplyCompatibilityRewrites(state.Results);
     }
 }
