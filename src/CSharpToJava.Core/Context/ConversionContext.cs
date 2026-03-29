@@ -132,16 +132,15 @@ public class ConversionContext
     private Dictionary<string, int> _syntheticNameCounters = new();
 
     /// <summary>
-    /// 跟踪已合并的 partial 类型
-    /// Key: Type name, Value: MergedTypeDeclaration
+    /// Partial type merge tracking (delegates to PartialTypeMergeStore).
     /// </summary>
-    private Dictionary<string, MergedTypeDeclaration> _mergedPartialTypes = new();
+    private readonly PartialTypeMergeStore _partialTypeStore = new();
 
-    /// <summary>
-    /// 跟踪哪些语法节点是 partial 类型的一部分
-    /// Key: Syntax node span, Value: merged type name
-    /// </summary>
-    private Dictionary<string, string> _partialSyntaxNodeMap = new();
+    public void RegisterMergedPartialType(MergedTypeDeclaration mergedType) => _partialTypeStore.Register(mergedType);
+    public bool IsMergedPartialType(TypeDeclarationSyntax syntaxNode) => _partialTypeStore.IsMerged(syntaxNode);
+    public MergedTypeDeclaration? GetMergedType(string typeName) => _partialTypeStore.Get(typeName);
+    public IReadOnlyList<MergedTypeDeclaration> GetAllMergedTypes() => _partialTypeStore.GetAll();
+    public void ClearMergedTypes() => _partialTypeStore.Clear();
 
     /// <summary>
     /// 完整的项目编译，用于跨文件语义分析
@@ -292,65 +291,6 @@ public class ConversionContext
     public void AddImportsForTypePublic(string csharpType) => TypeMapper.AddImportsForTypePublic(csharpType);
 
     public string MapTypeFromSyntax(TypeSyntax typeSyntax) => TypeMapper.MapTypeFromSyntax(typeSyntax);
-
-    /// <summary>
-    /// 注册一个已合并的 partial 类型
-    /// </summary>
-    public void RegisterMergedPartialType(MergedTypeDeclaration mergedType)
-    {
-        _mergedPartialTypes[mergedType.TypeSymbol.Name] = mergedType;
-
-        // 标记所有原始语法节点为已合并
-        foreach (var syntaxNode in mergedType.OriginalSyntaxNodes)
-        {
-            var key = GetSyntaxNodeKey(syntaxNode);
-            _partialSyntaxNodeMap[key] = mergedType.TypeSymbol.Name;
-        }
-    }
-
-    /// <summary>
-    /// 检查一个语法节点是否是已合并的 partial 类型的一部分
-    /// </summary>
-    public bool IsMergedPartialType(TypeDeclarationSyntax syntaxNode)
-    {
-        var key = GetSyntaxNodeKey(syntaxNode);
-        return _partialSyntaxNodeMap.ContainsKey(key);
-    }
-
-    /// <summary>
-    /// 获取已合并的类型声明
-    /// </summary>
-    public MergedTypeDeclaration? GetMergedType(string typeName)
-    {
-        return _mergedPartialTypes.GetValueOrDefault(typeName);
-    }
-
-    /// <summary>
-    /// 获取所有已合并的类型
-    /// </summary>
-    public IReadOnlyList<MergedTypeDeclaration> GetAllMergedTypes()
-    {
-        return _mergedPartialTypes.Values.ToList();
-    }
-
-    /// <summary>
-    /// 清除所有已合并的 partial 类型记录
-    /// </summary>
-    public void ClearMergedTypes()
-    {
-        _mergedPartialTypes.Clear();
-        _partialSyntaxNodeMap.Clear();
-    }
-
-    /// <summary>
-    /// 为语法节点生成唯一键
-    /// </summary>
-    private static string GetSyntaxNodeKey(TypeDeclarationSyntax syntaxNode)
-    {
-        var location = syntaxNode.SyntaxTree.FilePath;
-        var span = syntaxNode.Span;
-        return $"{location}:{span.Start}:{span.Length}";
-    }
 
     /// <summary>
     /// 获取用于跨文件分析的语义模型
