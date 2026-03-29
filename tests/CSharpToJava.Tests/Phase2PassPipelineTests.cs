@@ -36,18 +36,27 @@ public class Phase2PassPipelineTests
                 Assert.Equal("DesugarListPass", metric.Name);
                 Assert.Equal(Cs2jPassStage.Desugar, metric.Stage);
                 Assert.Equal(0, metric.DiagnosticDelta);
+                Assert.True(metric.ManagedMemoryBytesBefore >= 0);
+                Assert.True(metric.ManagedMemoryBytesAfter >= 0);
+                Assert.Equal(metric.ManagedMemoryBytesAfter - metric.ManagedMemoryBytesBefore, metric.ManagedMemoryDelta);
             },
             metric =>
             {
                 Assert.Equal("CheckListPass", metric.Name);
                 Assert.Equal(Cs2jPassStage.Check, metric.Stage);
                 Assert.Equal(1, metric.DiagnosticDelta);
+                Assert.True(metric.ManagedMemoryBytesBefore >= 0);
+                Assert.True(metric.ManagedMemoryBytesAfter >= 0);
+                Assert.Equal(metric.ManagedMemoryBytesAfter - metric.ManagedMemoryBytesBefore, metric.ManagedMemoryDelta);
             },
             metric =>
             {
                 Assert.Equal("EmitListPass", metric.Name);
                 Assert.Equal(Cs2jPassStage.Emit, metric.Stage);
                 Assert.Equal(0, metric.DiagnosticDelta);
+                Assert.True(metric.ManagedMemoryBytesBefore >= 0);
+                Assert.True(metric.ManagedMemoryBytesAfter >= 0);
+                Assert.Equal(metric.ManagedMemoryBytesAfter - metric.ManagedMemoryBytesBefore, metric.ManagedMemoryDelta);
             });
     }
 

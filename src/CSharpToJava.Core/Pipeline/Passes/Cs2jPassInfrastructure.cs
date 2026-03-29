@@ -16,9 +16,12 @@ public sealed record Cs2jPassMetric(
     Cs2jPassStage Stage,
     TimeSpan Elapsed,
     int DiagnosticCountBefore,
-    int DiagnosticCountAfter)
+    int DiagnosticCountAfter,
+    long ManagedMemoryBytesBefore,
+    long ManagedMemoryBytesAfter)
 {
     public int DiagnosticDelta => DiagnosticCountAfter - DiagnosticCountBefore;
+    public long ManagedMemoryDelta => ManagedMemoryBytesAfter - ManagedMemoryBytesBefore;
 }
 
 public sealed class Cs2jPassExecutionException : Exception
@@ -58,6 +61,7 @@ public static class Cs2jPassExecutor
         foreach (var pass in passes)
         {
             var diagnosticCountBefore = context.Diagnostics.Messages.Count;
+            var managedMemoryBefore = GC.GetTotalMemory(forceFullCollection: false);
             var stopwatch = Stopwatch.StartNew();
 
             try
@@ -76,7 +80,9 @@ public static class Cs2jPassExecutor
                     pass.Stage,
                     stopwatch.Elapsed,
                     diagnosticCountBefore,
-                    context.Diagnostics.Messages.Count));
+                    context.Diagnostics.Messages.Count,
+                    managedMemoryBefore,
+                    GC.GetTotalMemory(forceFullCollection: false)));
             }
         }
 
