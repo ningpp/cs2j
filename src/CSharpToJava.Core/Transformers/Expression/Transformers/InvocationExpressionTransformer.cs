@@ -2023,7 +2023,26 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                         : selectIndexed;
                 }
                 var mapArg = facade.Transform(selectLambdaArg, context);
-                return $"{receiver}.map({mapArg})";
+
+                // On primitive streams (from primitive arrays), IntStream.map expects int→int.
+                // Cross-type selectors need mapToDouble/mapToLong/mapToObj instead of map.
+                var selectMapOp = "map";
+                var selectSrcType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                if (selectSrcType is IArrayTypeSymbol selectArrType
+                    && methodSymbol.TypeArguments.Length >= 2)
+                {
+                    var srcCat = PrimitiveStreamCategory(selectArrType.ElementType.SpecialType);
+                    if (srcCat != "")
+                    {
+                        var resCat = PrimitiveStreamCategory(methodSymbol.TypeArguments[1].SpecialType);
+                        if (resCat != "" && resCat != srcCat)
+                            selectMapOp = resCat switch { "double" => "mapToDouble", "long" => "mapToLong", _ => "mapToInt" };
+                        else if (resCat == "")
+                            selectMapOp = "mapToObj";
+                    }
+                }
+
+                return $"{receiver}.{selectMapOp}({mapArg})";
             }
 
             // SelectMany → flatMap(selector)
@@ -2259,30 +2278,28 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 return $"{receiver}.filter({predArg}).count()";
             }
 
-            // Min() → min(Comparator.naturalOrder()).orElseThrow()
-            if (originalMethodName == "Min" && node.ArgumentList.Arguments.Count == 0)
+            // Min()/Max() — primitive streams (IntStream/DoubleStream/LongStream) use
+            // parameterless min()/max(); boxed Stream<T> needs Comparator.naturalOrder().
+            // Min(selector)/Max(selector) — use mapToInt/mapToDouble/mapToLong for numeric
+            // return types so the result is a primitive stream with parameterless min()/max().
+            if (originalMethodName is "Min" or "Max")
             {
-                return $"{receiver}.min(java.util.Comparator.naturalOrder()).orElseThrow()";
-            }
+                var op = originalMethodName == "Min" ? "min" : "max";
+                var retSpec = methodSymbol?.ReturnType?.SpecialType ?? SpecialType.None;
 
-            // Min(selector) → map(selector).min(Comparator.naturalOrder()).orElseThrow()
-            if (originalMethodName == "Min" && node.ArgumentList.Arguments.Count >= 1)
-            {
+                if (node.ArgumentList.Arguments.Count == 0)
+                {
+                    if (IsPrimitiveStreamContext(retSpec, receiver, memberAccess, context))
+                        return $"{receiver}.{op}().orElseThrow()";
+                    return $"{receiver}.{op}(java.util.Comparator.naturalOrder()).orElseThrow()";
+                }
+
+                // Min(selector) / Max(selector)
                 var selArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                return $"{receiver}.map({selArg}).min(java.util.Comparator.naturalOrder()).orElseThrow()";
-            }
-
-            // Max() → max(Comparator.naturalOrder()).orElseThrow()
-            if (originalMethodName == "Max" && node.ArgumentList.Arguments.Count == 0)
-            {
-                return $"{receiver}.max(java.util.Comparator.naturalOrder()).orElseThrow()";
-            }
-
-            // Max(selector) → map(selector).max(Comparator.naturalOrder()).orElseThrow()
-            if (originalMethodName == "Max" && node.ArgumentList.Arguments.Count >= 1)
-            {
-                var selArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                return $"{receiver}.map({selArg}).max(java.util.Comparator.naturalOrder()).orElseThrow()";
+                var mapOp = GetPrimitiveMapOperation(retSpec, memberAccess, context);
+                if (mapOp != null)
+                    return $"{receiver}.{mapOp}({selArg}).{op}().orElseThrow()";
+                return $"{receiver}.map({selArg}).{op}(java.util.Comparator.naturalOrder()).orElseThrow()";
             }
 
             // ToArray() → typed toArray() based on element type
@@ -3211,6 +3228,88 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         { Parameters.Length: 0 }                    => "get",       // Supplier
         _                                           => "apply",     // Function/BiFunction
     };
+
+    /// <summary>
+    /// Returns the primitive-stream category ("int", "long", "double") for a C# SpecialType,
+    /// or empty string if the type doesn't map to a Java primitive stream.
+    /// </summary>
+    private static string PrimitiveStreamCategory(SpecialType spec) => spec switch
+    {
+        SpecialType.System_Int32 or SpecialType.System_Int16 or SpecialType.System_Byte
+            or SpecialType.System_UInt32 or SpecialType.System_UInt16 or SpecialType.System_SByte => "int",
+        SpecialType.System_Int64 or SpecialType.System_UInt64 => "long",
+        SpecialType.System_Double or SpecialType.System_Single or SpecialType.System_Decimal => "double",
+        _ => ""
+    };
+
+    /// <summary>
+    /// Determines whether the current LINQ receiver represents a Java primitive stream
+    /// (IntStream, DoubleStream, LongStream) so that parameterless min()/max() can be used.
+    /// Checks both the C# receiver type (primitive array → Arrays.stream produces primitive stream)
+    /// and the Java receiver string (for chained LINQ where the C# type is IEnumerable&lt;T&gt;).
+    /// </summary>
+    private static bool IsPrimitiveStreamContext(
+        SpecialType returnSpecialType,
+        string receiver,
+        MemberAccessExpressionSyntax memberAccess,
+        ConversionContext context)
+    {
+        if (PrimitiveStreamCategory(returnSpecialType) == "")
+            return false;
+
+        // Direct receiver is a primitive array → Arrays.stream(int[]) produces IntStream
+        var csType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+        if (csType is IArrayTypeSymbol arr && PrimitiveStreamCategory(arr.ElementType.SpecialType) != "")
+            return true;
+
+        // Chained LINQ (e.g. arr.Select(...).Max()): receiver type is IEnumerable<T>,
+        // but the Java string reveals it originated from a primitive stream source.
+        // Exclude .boxed() and .mapToObj() which convert back to boxed Stream<T>.
+        if ((receiver.StartsWith("Arrays.stream(", StringComparison.Ordinal)
+                || receiver.Contains("IntStream.range(", StringComparison.Ordinal)
+                || receiver.Contains("IntStream.rangeClosed(", StringComparison.Ordinal))
+            && !receiver.Contains(".boxed()", StringComparison.Ordinal)
+            && !receiver.Contains(".mapToObj(", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Returns the appropriate mapToXxx operation for a Min/Max selector that returns a primitive type.
+    /// Handles the Java API constraint that IntStream.mapToInt / DoubleStream.mapToDouble /
+    /// LongStream.mapToLong don't exist — uses "map" instead when the receiver is already the
+    /// matching primitive stream type.
+    /// Returns null when the return type is non-primitive (use regular .map() with Comparator).
+    /// </summary>
+    private static string? GetPrimitiveMapOperation(
+        SpecialType returnSpecialType,
+        MemberAccessExpressionSyntax memberAccess,
+        ConversionContext context)
+    {
+        var category = PrimitiveStreamCategory(returnSpecialType);
+        if (category == "")
+            return null;
+
+        string mapOp = category switch
+        {
+            "int" => "mapToInt",
+            "long" => "mapToLong",
+            "double" => "mapToDouble",
+            _ => "map"
+        };
+
+        // If the direct C# source is a primitive array of the same category,
+        // the Java receiver is already the matching primitive stream → use map() instead.
+        // (IntStream.mapToInt / DoubleStream.mapToDouble / LongStream.mapToLong don't exist.)
+        var csType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+        if (csType is IArrayTypeSymbol arr && PrimitiveStreamCategory(arr.ElementType.SpecialType) == category)
+            mapOp = "map";
+
+        return mapOp;
+    }
 
     /// <summary>
     /// Builds a Java Stream source expression for a LINQ receiver while preserving

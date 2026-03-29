@@ -357,6 +357,119 @@ public class LinqStreamApiFallbackTests
         Assert.Contains(".max(", java);
     }
 
+    [Fact]
+    public void Max_OnIntArray_UsesParameterlessMax()
+    {
+        const string code = """
+            using System.Linq;
+            class C
+            {
+                public int Test(int[] arr)
+                {
+                    return arr.Max();
+                }
+            }
+            """;
+        var java = ConvertAndGetCode(code);
+        // IntStream.max() takes no Comparator
+        Assert.Contains(".max().orElseThrow()", java);
+        Assert.DoesNotContain("Comparator", java);
+    }
+
+    [Fact]
+    public void Min_OnIntArray_UsesParameterlessMin()
+    {
+        const string code = """
+            using System.Linq;
+            class C
+            {
+                public int Test(int[] arr)
+                {
+                    return arr.Min();
+                }
+            }
+            """;
+        var java = ConvertAndGetCode(code);
+        Assert.Contains(".min().orElseThrow()", java);
+        Assert.DoesNotContain("Comparator", java);
+    }
+
+    [Fact]
+    public void Max_OnBoxedList_UsesComparator()
+    {
+        const string code = """
+            using System.Collections.Generic;
+            using System.Linq;
+            class C
+            {
+                public int Test(List<int> nums)
+                {
+                    return nums.Max();
+                }
+            }
+            """;
+        var java = ConvertAndGetCode(code);
+        Assert.Contains("Comparator.naturalOrder()", java);
+    }
+
+    [Fact]
+    public void Max_SelectorOnIntArray_ReturningDouble_UsesMapToDouble()
+    {
+        const string code = """
+            using System.Linq;
+            class C
+            {
+                double[] values;
+                public double Test(int[] arr)
+                {
+                    return arr.Max(i => values[i]);
+                }
+            }
+            """;
+        var java = ConvertAndGetCode(code);
+        Assert.Contains("mapToDouble(", java);
+        Assert.DoesNotContain("Comparator", java);
+    }
+
+    [Fact]
+    public void Select_OnIntArray_CrossType_UsesMapToDouble()
+    {
+        const string code = """
+            using System.Linq;
+            class C
+            {
+                double[] values;
+                public double Test(int[] arr)
+                {
+                    return arr.Select(i => values[i]).Max();
+                }
+            }
+            """;
+        var java = ConvertAndGetCode(code);
+        Assert.Contains("mapToDouble(", java);
+        Assert.DoesNotContain("Comparator", java);
+    }
+
+    [Fact]
+    public void Select_OnIntArray_SameType_UsesMap()
+    {
+        const string code = """
+            using System.Linq;
+            class C
+            {
+                public int Test(int[] arr)
+                {
+                    return arr.Select(i => i + 1).Max();
+                }
+            }
+            """;
+        var java = ConvertAndGetCode(code);
+        // IntStream.map(IntUnaryOperator) for same-type → .map()
+        Assert.Contains(".map(", java);
+        Assert.DoesNotContain("mapToDouble", java);
+        Assert.DoesNotContain("Comparator", java);
+    }
+
     // ── ToArray ─────────────────────────────────────────────────────────────
 
     [Fact]
