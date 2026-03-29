@@ -91,6 +91,7 @@ public class Phase2PassPipelineTests
         Assert.Equal(
             new[]
             {
+                "ProjectLinqDesugarPass",
                 "ProjectCompilationCheckPass",
                 "ProjectPartialTypeNormalizationPass",
                 "ProjectTypeEmitPass",
@@ -99,6 +100,28 @@ public class Phase2PassPipelineTests
                 "ProjectPostGenerationRewriteEmitPass",
             },
             primaryResult.PassMetrics.Select(metric => metric.Name).ToArray());
+    }
+
+    [Fact]
+    public async Task ProjectConversionPipeline_RewritesLinqBeforeEmit_WhenStreamApiDisabled()
+    {
+        var options = CreateOptions();
+        options.PreferStreamApi = false;
+
+        var pipeline = new ProjectConversionPipeline(options);
+        var results = await pipeline.ConvertProjectAsync(new[]
+        {
+            new SourceFile
+            {
+                FilePath = "Sample.cs",
+                Content = "using System.Collections.Generic; using System.Linq; class Sample { bool HasPositive(List<int> values) { return values.Any(v => v > 0); } }",
+            }
+        });
+
+        var primaryResult = Assert.Single(results, result => result.FileName == "Sample.java");
+        Assert.True(primaryResult.Success);
+        Assert.Contains("ProjectLinqDesugarPass", primaryResult.PassMetrics.Select(metric => metric.Name));
+        Assert.DoesNotContain(".stream()", primaryResult.GeneratedCode);
     }
 
     private static ConversionOptions CreateOptions()

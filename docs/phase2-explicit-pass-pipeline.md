@@ -116,22 +116,26 @@ Pass 接口需要满足两个条件：
 
 项目级入口在 `Cs2jLibrary` 归一化后，接入以下 Pass：
 
-1. `ProjectCompilationCheckPass`
+1. `ProjectLinqDesugarPass`
+   - 在 `PreferStreamApi = false` 时，对项目内语法树逐个执行 LINQ rewrite
+   - 保留现有 warning 兼容语义，不因单文件 rewrite 失败而中断整个项目
+
+2. `ProjectCompilationCheckPass`
    - 检查 compilation 至少包含可处理的语法树
 
-2. `ProjectPartialTypeNormalizationPass`
+3. `ProjectPartialTypeNormalizationPass`
    - 迁移 partial merge 的分组逻辑
 
-3. `ProjectTypeEmitPass`
+4. `ProjectTypeEmitPass`
    - 执行类型级 Java 输出
 
-4. `ProjectCompatibilityEmitPass`
+5. `ProjectCompatibilityEmitPass`
    - 迁移 compatibility helper 的集中输出
 
-5. `ProjectCrossPackageImportEmitPass`
+6. `ProjectCrossPackageImportEmitPass`
    - 迁移跨包 import 补全
 
-6. `ProjectPostGenerationRewriteEmitPass`
+7. `ProjectPostGenerationRewriteEmitPass`
    - 显式保留当前 post-generation rewrite 落点
 
 ## 7. 与后续阶段的衔接
@@ -159,6 +163,6 @@ Pass 接口需要满足两个条件：
 
 本轮结束后，下一步优先级建议如下：
 
-1. 在项目级主线上补 `Desugar` Pass，逐步把项目级 LINQ / async lowering 纳入显式阶段。
+1. 继续扩展项目级 `Desugar` Pass，把 `async/await` lowering 也纳入显式阶段。
 2. 新增 `UnsupportedDomainPass` 和 `PlatformBoundaryPass`，把 UI / 原生互操作 / 平台 API 检查前移到 `Check`。
 3. 开始从 `PostGenerationRewriteEngine` 抽离通用逻辑，向 `Normalize` 和 IR 层迁移。

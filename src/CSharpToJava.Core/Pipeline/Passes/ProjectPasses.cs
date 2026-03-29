@@ -1,5 +1,8 @@
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.LinqRewrite;
 using CSharpToJava.Core.PartialType;
 using CSharpToJava.Core.Pipeline.Compatibility;
 
@@ -7,12 +10,75 @@ namespace CSharpToJava.Core.Pipeline;
 
 public sealed class ProjectPassState
 {
-    public required Cs2jLibrary Library { get; init; }
+    public required Cs2jLibrary Library { get; set; }
     public required ConversionContext Context { get; init; }
     public required CSharpCompilation Compilation { get; set; }
     public ISet<string>? EmitFilePaths { get; init; }
     public IReadOnlyList<PartialTypeGroup> TypeGroups { get; set; } = [];
     public List<ConversionResult> Results { get; } = [];
+}
+
+public sealed class ProjectLinqDesugarPass : ICs2jPass<ProjectPassState>
+{
+    public string Name => nameof(ProjectLinqDesugarPass);
+    public Cs2jPassStage Stage => Cs2jPassStage.Desugar;
+
+    public void Execute(ProjectPassState state)
+    {
+        var runLinqRewrite = state.Context.Options.EnableLinqRewrite && !state.Context.Options.EffectivePreferStreamApi;
+        if (!runLinqRewrite)
+        {
+            return;
+        }
+
+        var rewrittenTrees = new List<SyntaxTree>();
+        foreach (var syntaxTree in state.Compilation.SyntaxTrees)
+        {
+            if (string.IsNullOrWhiteSpace(syntaxTree.FilePath) || syntaxTree.FilePath.StartsWith("<", StringComparison.Ordinal))
+            {
+                rewrittenTrees.Add(syntaxTree);
+                continue;
+            }
+
+            try
+            {
+                var semanticModel = state.Compilation.GetSemanticModel(syntaxTree);
+                var rewriter = new LinqRewriter(semanticModel, state.Context.Options);
+                var rewrittenRoot = rewriter.Visit(syntaxTree.GetRoot());
+                var rewrittenTree = rewrittenRoot is CompilationUnitSyntax rewrittenCompilationUnit
+                    ? syntaxTree.WithRootAndOptions(rewrittenCompilationUnit, syntaxTree.Options)
+                    : syntaxTree;
+
+                foreach (var skipped in rewriter.SkippedLinqChains)
+                {
+                    state.Context.Diagnostics.Warning($"LINQ rewrite skipped in '{Path.GetFileName(syntaxTree.FilePath)}': {skipped}");
+                }
+
+                rewrittenTrees.Add(rewrittenTree);
+            }
+            catch (Exception ex)
+            {
+                state.Context.Diagnostics.Warning($"LINQ rewrite skipped in '{Path.GetFileName(syntaxTree.FilePath)}': {ex.Message}");
+                rewrittenTrees.Add(syntaxTree);
+            }
+        }
+
+        state.Compilation = CSharpCompilation.Create(
+            state.Compilation.AssemblyName ?? "TempAssembly",
+            rewrittenTrees,
+            state.Compilation.References,
+            state.Compilation.Options);
+
+        var primaryProject = state.Library.Projects.FirstOrDefault();
+        state.Library = Cs2jLibraryFactory.CreateFromCompilation(
+            state.Compilation,
+            projectName: primaryProject?.Name,
+            projectFilePath: primaryProject?.ProjectFilePath,
+            projectReferences: primaryProject?.ProjectReferences?.ToList(),
+            isTestProject: primaryProject?.IsTestProject ?? false,
+            libraryName: state.Library.Name);
+        state.Context.ProjectCompilation = state.Compilation;
+    }
 }
 
 public sealed class ProjectCompilationCheckPass : ICs2jPass<ProjectPassState>

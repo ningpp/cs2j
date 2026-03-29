@@ -109,6 +109,7 @@ public class ProjectConversionPipeline
     {
         return new ICs2jPass<ProjectPassState>[]
         {
+            new ProjectLinqDesugarPass(),
             new ProjectCompilationCheckPass(),
             new ProjectPartialTypeNormalizationPass(),
             new ProjectTypeEmitPass(_irRewriters),
