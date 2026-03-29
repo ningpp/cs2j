@@ -75,6 +75,10 @@ tests/
 └── CSharpToJava.Tests/     # XUnit tests
 ```
 
+## Design Docs
+
+- [J2CL-informed Java-only architecture plan for large C# projects](docs/j2cl-architecture-upgrade.md)
+
 ## License
 
-MIT License
+私有的、需付费使用
