@@ -67,6 +67,12 @@ public class ConversionOptions
     public bool EmitCompatibilityHelpers { get; set; } = true;
 
     /// <summary>
+    /// 使用 Pack 化兼容层（按需生成）替代全量生成。
+    /// 启用后只生成已转换代码实际引用的兼容类。
+    /// </summary>
+    public bool UseCompatibilityPacks { get; set; } = false;
+
+    /// <summary>
     /// Optional shared compatibility package that should be imported into all generated files.
     /// Used together with EmitCompatibilityHelpers=false when helper classes live in a
     /// dedicated shared module.

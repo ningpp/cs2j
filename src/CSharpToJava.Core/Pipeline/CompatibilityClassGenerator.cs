@@ -52,7 +52,7 @@ public static class CompatibilityClassGenerator
     /// Generates Holder class files for ref/out parameter support.
     /// These are emitted unconditionally so all converted code can import them.
     /// </summary>
-    private static List<ConversionResult> GenerateHolderClasses(string basePackage)
+    internal static List<ConversionResult> GenerateHolderClasses(string basePackage)
     {
         var holders = new (string name, string type, string defaultValue)[]
         {
@@ -167,10 +167,6 @@ public final class StopwatchHelper {{
             Diagnostics = new List<Context.DiagnosticMessage>()
         });
 
-        results.AddRange(GenerateXmlWrappers(basePackage));
-        results.AddRange(GenerateJsonWrappers(basePackage));
-        results.AddRange(GenerateUtilityClasses(basePackage));
-
         return results;
     }
 
@@ -183,7 +179,7 @@ public final class StopwatchHelper {{
             || string.Equals(r.FileName, "TestContext.java", StringComparison.Ordinal));
     }
 
-    private static List<ConversionResult> GenerateMSTestCompatibilityClasses(bool includeTestContext)
+    internal static List<ConversionResult> GenerateMSTestCompatibilityClasses(bool includeTestContext)
     {
         if (!includeTestContext)
         {
@@ -317,7 +313,7 @@ public final class CollectionAssert {{
         };
     }
 
-    private static List<ConversionResult> GenerateRegexCompatibilityClasses(string basePackage)
+    internal static List<ConversionResult> GenerateRegexCompatibilityClasses(string basePackage)
     {
         var results = new List<ConversionResult>();
 
@@ -487,7 +483,7 @@ public final class Regex {{
         return results;
     }
 
-    private static List<ConversionResult> GenerateTraceCompatibilityClasses(string basePackage)
+    internal static List<ConversionResult> GenerateTraceCompatibilityClasses(string basePackage)
     {
         var results = new List<ConversionResult>();
 
@@ -547,7 +543,7 @@ public final class Trace {{
     /// Generates thin Java wrapper classes for System.Xml.* types, backed by javax.xml.stream (StAX).
     /// These match the Java method names that the converter generates from C# XmlReader/XmlWriter usage.
     /// </summary>
-    private static List<ConversionResult> GenerateXmlWrappers(string basePackage)
+    internal static List<ConversionResult> GenerateXmlWrappers(string basePackage)
     {
         var results = new List<ConversionResult>();
 
@@ -1221,7 +1217,7 @@ public class XmlWriter {{
     /// <summary>
     /// Generates Java wrapper classes for System.Text.Json.* types, backed by Jackson.
     /// </summary>
-    private static List<ConversionResult> GenerateJsonWrappers(string basePackage)
+    internal static List<ConversionResult> GenerateJsonWrappers(string basePackage)
     {
         var results = new List<ConversionResult>();
 
@@ -1294,7 +1290,7 @@ public class JsonSerializer {{
     /// <summary>
     /// Generates general-purpose Java utility stubs that replace .NET BCL types/methods.
     /// </summary>
-    private static List<ConversionResult> GenerateUtilityClasses(string basePackage)
+    internal static List<ConversionResult> GenerateUtilityClasses(string basePackage)
     {
         var results = new List<ConversionResult>();
 

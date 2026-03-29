@@ -1,6 +1,7 @@
 ﻿using Microsoft.CodeAnalysis.CSharp;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.PartialType;
+using CSharpToJava.Core.Pipeline.Compatibility;
 using CSharpToJava.TypeMapping;
 
 namespace CSharpToJava.Core.Pipeline;
@@ -94,8 +95,16 @@ public class ProjectConversionPipeline
             if (_options.EmitCompatibilityHelpers)
             {
                 var basePackage = CompatibilityClassGenerator.DetermineBasePackage(results);
-                var includeTestContext = CompatibilityClassGenerator.RequiresTestContext(results);
-                results.AddRange(CompatibilityClassGenerator.GenerateCompatibilitySupport(basePackage, includeTestContext));
+                if (_options.UseCompatibilityPacks)
+                {
+                    var packRegistry = CompatibilityPackRegistry.CreateDefault();
+                    results.AddRange(packRegistry.GenerateApplicable(results, basePackage));
+                }
+                else
+                {
+                    var includeTestContext = CompatibilityClassGenerator.RequiresTestContext(results);
+                    results.AddRange(CompatibilityClassGenerator.GenerateCompatibilitySupport(basePackage, includeTestContext));
+                }
             }
 
             // Phase 5: Add cross-package wildcard imports so all MSAGL types see each other
@@ -159,8 +168,16 @@ public class ProjectConversionPipeline
             if (_options.EmitCompatibilityHelpers)
             {
                 var basePackage = CompatibilityClassGenerator.DetermineBasePackage(results);
-                var includeTestContext = CompatibilityClassGenerator.RequiresTestContext(results);
-                results.AddRange(CompatibilityClassGenerator.GenerateCompatibilitySupport(basePackage, includeTestContext));
+                if (_options.UseCompatibilityPacks)
+                {
+                    var packRegistry = CompatibilityPackRegistry.CreateDefault();
+                    results.AddRange(packRegistry.GenerateApplicable(results, basePackage));
+                }
+                else
+                {
+                    var includeTestContext = CompatibilityClassGenerator.RequiresTestContext(results);
+                    results.AddRange(CompatibilityClassGenerator.GenerateCompatibilitySupport(basePackage, includeTestContext));
+                }
             }
 
             CrossPackageImportResolver.AddCrossPackageImports(results, _options.SharedCompatibilityPackage);
