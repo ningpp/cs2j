@@ -2122,7 +2122,27 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                             flatMapArg = selector;
                         }
                     }
-                    return $"{receiver}.flatMap({flatMapArg})";
+                    // IntStream/LongStream/DoubleStream.flatMap expects same-type stream result
+                    // (e.g. IntFunction<IntStream>). When the lambda returns a non-primitive
+                    // Stream<T>, we must .boxed() first to get Stream<Integer>.
+                    var smReceiverType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                    bool smNeedsBoxed = smReceiverType is IArrayTypeSymbol smArrType
+                        && PrimitiveStreamCategory(smArrType.ElementType.SpecialType) != ""
+                        && methodSymbol.TypeArguments.Length >= 2
+                        && PrimitiveStreamCategory(methodSymbol.TypeArguments[1].SpecialType) == "";
+                    if (!smNeedsBoxed && smReceiverType is not IArrayTypeSymbol)
+                    {
+                        // For chained LINQ (receiver is IEnumerable<int>, not int[]),
+                        // check receiver string for primitive stream indicators
+                        smNeedsBoxed = (receiver.StartsWith("Arrays.stream(", StringComparison.Ordinal)
+                            || receiver.Contains("IntStream.range(", StringComparison.Ordinal))
+                            && !receiver.Contains(".boxed()", StringComparison.Ordinal)
+                            && !receiver.Contains(".mapToObj(", StringComparison.Ordinal)
+                            && methodSymbol.TypeArguments.Length >= 2
+                            && PrimitiveStreamCategory(methodSymbol.TypeArguments[1].SpecialType) == "";
+                    }
+                    var boxedInsert = smNeedsBoxed ? ".boxed()" : "";
+                    return $"{receiver}{boxedInsert}.flatMap({flatMapArg})";
                 }
             }
 
