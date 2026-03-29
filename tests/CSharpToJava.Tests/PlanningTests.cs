@@ -1,4 +1,5 @@
 using System.Text.Json;
+using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline;
 using CSharpToJava.Core.Pipeline.Planning;
 
@@ -203,5 +204,84 @@ public class PlanningTests
         Assert.Equal(1, aggregate.EntryCount);
         Assert.Equal(5d, aggregate.TotalElapsedMilliseconds, precision: 3);
         Assert.Equal(4, aggregate.TotalRewriteCount);
+    }
+
+    [Fact]
+    public void CanarySummarySnapshotBuilder_AggregatesDiagnosticsAndPassProfile()
+    {
+        var passProfileSnapshot = PassProfileSnapshotBuilder.Build(
+        [
+            new PassProfileEntry
+            {
+                EntryKind = PassProfileEntryKind.Project,
+                ModuleName = "core",
+                ProjectName = "CoreProject",
+                Success = false,
+                PassMetrics =
+                [
+                    new Cs2jPassMetric("ProjectCheckPass", Cs2jPassStage.Check, TimeSpan.FromMilliseconds(5), 0, 2, 100, 120, RewriteCount: 3),
+                ]
+            },
+            new PassProfileEntry
+            {
+                EntryKind = PassProfileEntryKind.Project,
+                ModuleName = "graph",
+                ProjectName = "GraphProject",
+                Success = true,
+                PassMetrics =
+                [
+                    new Cs2jPassMetric("ProjectCheckPass", Cs2jPassStage.Check, TimeSpan.FromMilliseconds(7), 0, 1, 90, 110, RewriteCount: 1),
+                ]
+            }
+        ]);
+
+        var summary = CanarySummarySnapshotBuilder.Build(
+            "MSAGL",
+            "C:/repos/msagl",
+            [
+                new ConversionResult
+                {
+                    Success = true,
+                    FileName = "A.java",
+                    Diagnostics =
+                    [
+                        new DiagnosticMessage(DiagnosticSeverity.Warning, "platform warning", null, "CS2J3102", "platform-boundary")
+                    ]
+                },
+                new ConversionResult
+                {
+                    Success = false,
+                    FileName = "B.java",
+                    Diagnostics =
+                    [
+                        new DiagnosticMessage(DiagnosticSeverity.Error, "interop error", null, "CS2J3201", "native-interop"),
+                        new DiagnosticMessage(DiagnosticSeverity.Error, "interop usage", null, "CS2J3203", "native-interop"),
+                    ]
+                }
+            ],
+            passProfileSnapshot);
+
+        Assert.Equal("MSAGL", summary.SourceName);
+        Assert.Equal("C:/repos/msagl", summary.SourcePath);
+        Assert.Equal(2, summary.ModuleCount);
+        Assert.Equal(2, summary.ResultCount);
+        Assert.Equal(1, summary.SuccessCount);
+        Assert.Equal(1, summary.FailureCount);
+        Assert.Equal(0, summary.DiagnosticSeverities.InfoCount);
+        Assert.Equal(1, summary.DiagnosticSeverities.WarningCount);
+        Assert.Equal(2, summary.DiagnosticSeverities.ErrorCount);
+
+        var nativeInterop = Assert.Single(summary.DiagnosticCategories, entry => entry.Category == "native-interop");
+        Assert.Equal(2, nativeInterop.Count);
+        var platformBoundary = Assert.Single(summary.DiagnosticCategories, entry => entry.Category == "platform-boundary");
+        Assert.Equal(1, platformBoundary.Count);
+
+        var interopCode = Assert.Single(summary.DiagnosticCodes, entry => entry.Code == "CS2J3201");
+        Assert.Equal(1, interopCode.Count);
+
+        var passAggregate = Assert.Single(summary.PassAggregates);
+        Assert.Equal(PassProfileEntryKind.Project, passAggregate.EntryKind);
+        Assert.Equal(2, passAggregate.EntryCount);
+        Assert.Equal(4, passAggregate.TotalRewriteCount);
     }
 }

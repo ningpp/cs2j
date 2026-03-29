@@ -206,7 +206,7 @@ class Program
                 passProfileEntries,
                 pipeline.LastProjectPassMetrics,
                 results,
-                GetDefaultProjectProfileName(opts.Source));
+                GetSourceName(opts.Source));
 
             foreach (var result in results)
             {
@@ -241,7 +241,8 @@ class Program
                 await WriteSingleModulePom(opts, CreateSingleModulePlan(opts, includeTests: false, planningResults));
             }
 
-            await WritePassProfileSnapshot(opts.Destination, passProfileEntries);
+            var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries);
+            await WriteCanarySummarySnapshot(opts.Destination, opts.Source, results, passProfileSnapshot);
 
             Console.WriteLine();
             Console.WriteLine($"Conversion complete: {successCount} succeeded, {failureCount} failed");
@@ -313,6 +314,7 @@ class Program
         int failureCount = 0;
         int copiedResourceCount = 0;
         var planningResults = new List<ConversionResult>();
+        var canaryResults = new List<ConversionResult>();
         var passProfileEntries = new List<PassProfileEntry>();
 
         foreach (var project in graph.ProjectsInTopologicalOrder)
@@ -333,6 +335,7 @@ class Program
 
             var semanticContextDirs = GetReferencedProjectDirectories(project, graph);
             var results = await pipeline.ConvertProjectWithPartialMergeAsync(project.ProjectDirectory, options, semanticContextDirs);
+            canaryResults.AddRange(results);
             AddProjectPassProfileEntry(passProfileEntries, pipeline.LastProjectPassMetrics, results, project.Name);
             foreach (var result in results)
             {
@@ -386,7 +389,8 @@ class Program
             await WriteSingleModulePom(opts, CreateSingleModulePlan(opts, opts.IncludeTests, planningResults));
         }
 
-        await WritePassProfileSnapshot(opts.Destination, passProfileEntries);
+        var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries);
+        await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot);
 
         Console.WriteLine();
         Console.WriteLine($"Conversion complete: {successCount} succeeded, {failureCount} failed, {copiedResourceCount} resources copied");
@@ -431,6 +435,7 @@ class Program
         int successCount = 0;
         int failureCount = 0;
         var planningResults = new List<ConversionResult>();
+        var canaryResults = new List<ConversionResult>();
         var passProfileEntries = new List<PassProfileEntry>();
 
         foreach (var project in projects)
@@ -456,6 +461,7 @@ class Program
 
             var pipeline = new ProjectConversionPipeline(options);
             var results = await pipeline.ConvertProjectAsync(project.Compilation, emitFilePaths);
+            canaryResults.AddRange(results);
             AddProjectPassProfileEntry(passProfileEntries, pipeline.LastPassMetrics, results, project.Name);
 
             foreach (var result in results)
@@ -492,7 +498,8 @@ class Program
             await WriteSingleModulePom(opts, CreateSingleModulePlan(opts, opts.IncludeTests, planningResults));
         }
 
-        await WritePassProfileSnapshot(opts.Destination, passProfileEntries);
+        var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries);
+        await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot);
 
         Console.WriteLine();
         Console.WriteLine($"Conversion complete (MSBuild): {successCount} succeeded, {failureCount} failed");
@@ -528,6 +535,7 @@ class Program
         var sharedCompatPackIds = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
         var sharedCompatExternalDependencies = new List<JavaDependency>();
         var convertedModuleCount = 1;
+        var canaryResults = new List<ConversionResult>();
         var passProfileEntries = new List<PassProfileEntry>();
 
         // Emit compatibility module first.
@@ -582,6 +590,7 @@ class Program
 
             var pipeline = new ProjectConversionPipeline(options);
             var results = await pipeline.ConvertProjectAsync(project.Compilation, emitFilePaths);
+            canaryResults.AddRange(results);
             AddProjectPassProfileEntry(passProfileEntries, pipeline.LastPassMetrics, results, project.Name, moduleName);
 
             foreach (var result in results)
@@ -658,7 +667,8 @@ class Program
             await WriteWorkspacePlanManifest(opts.Destination, workspacePlan);
         }
 
-        await WritePassProfileSnapshot(opts.Destination, passProfileEntries);
+        var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries);
+        await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot);
 
         Console.WriteLine();
         Console.WriteLine($"Conversion complete (MSBuild): {successCount} succeeded, {failureCount} failed, modules={convertedModuleCount}");
@@ -706,6 +716,7 @@ class Program
         var modulePlans = new List<JavaModulePlan>();
         var sharedCompatPackIds = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
         var sharedCompatExternalDependencies = new List<JavaDependency>();
+        var canaryResults = new List<ConversionResult>();
         var passProfileEntries = new List<PassProfileEntry>();
 
         var pipeline = new ConversionPipeline();
@@ -777,6 +788,7 @@ class Program
 
                 var semanticContextDirs = GetReferencedProjectDirectories(assignment.Project, graph);
                 var results = await pipeline.ConvertProjectWithPartialMergeAsync(assignment.Project.ProjectDirectory, options, semanticContextDirs);
+                canaryResults.AddRange(results);
                 moduleResults.AddRange(results.Where(result => !string.IsNullOrEmpty(result.GeneratedCode)));
                 AddProjectPassProfileEntry(passProfileEntries, pipeline.LastProjectPassMetrics, results, assignment.Project.Name, module.Name);
                 foreach (var result in results)
@@ -859,7 +871,8 @@ class Program
             await WriteWorkspacePlanManifest(opts.Destination, workspacePlan);
         }
 
-        await WritePassProfileSnapshot(opts.Destination, passProfileEntries);
+        var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries);
+        await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot);
 
         Console.WriteLine();
         Console.WriteLine($"Conversion complete: {successCount} succeeded, {failureCount} failed, {copiedResourceCount} resources copied, modules={modulesInBuildOrder.Count}");
@@ -1689,17 +1702,35 @@ class Program
         await File.WriteAllTextAsync(manifestPath, serializer.Serialize(plan), new System.Text.UTF8Encoding(false));
     }
 
-    private static async Task WritePassProfileSnapshot(string destinationRoot, IReadOnlyList<PassProfileEntry> entries)
+    private static async Task<PassProfileSnapshot?> WritePassProfileSnapshot(string destinationRoot, IReadOnlyList<PassProfileEntry> entries)
     {
         if (entries.Count == 0)
         {
-            return;
+            return null;
         }
 
         var snapshot = PassProfileSnapshotBuilder.Build(entries);
         var serializer = new PassProfileSnapshotJsonSerializer();
         var snapshotPath = Path.Combine(destinationRoot, "cs2j-pass-profile.json");
         await File.WriteAllTextAsync(snapshotPath, serializer.Serialize(snapshot), new System.Text.UTF8Encoding(false));
+        return snapshot;
+    }
+
+    private static async Task WriteCanarySummarySnapshot(
+        string destinationRoot,
+        string sourcePath,
+        IReadOnlyList<ConversionResult> results,
+        PassProfileSnapshot? passProfileSnapshot)
+    {
+        if (results.Count == 0)
+        {
+            return;
+        }
+
+        var snapshot = CanarySummarySnapshotBuilder.Build(GetSourceName(sourcePath), sourcePath, results, passProfileSnapshot);
+        var serializer = new CanarySummarySnapshotJsonSerializer();
+        var summaryPath = Path.Combine(destinationRoot, "cs2j-canary-summary.json");
+        await File.WriteAllTextAsync(summaryPath, serializer.Serialize(snapshot), new System.Text.UTF8Encoding(false));
     }
 
     private static void AddProjectPassProfileEntry(
@@ -1716,10 +1747,16 @@ class Program
         }
     }
 
-    private static string GetDefaultProjectProfileName(string sourcePath)
+    private static string GetSourceName(string sourcePath)
     {
         var fullPath = Path.GetFullPath(sourcePath)
             .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        if (File.Exists(fullPath))
+        {
+            return Path.GetFileNameWithoutExtension(fullPath);
+        }
+
         return Path.GetFileName(fullPath);
     }
 
