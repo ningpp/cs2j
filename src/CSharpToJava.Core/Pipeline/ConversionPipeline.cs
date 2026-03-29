@@ -5,7 +5,6 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.LinqRewrite;
 using CSharpToJava.Core.Visitors;
-using CSharpToJava.Core.PartialType;
 using CSharpToJava.TypeMapping;
 using DiagSeverity = Microsoft.CodeAnalysis.DiagnosticSeverity;
 
@@ -29,18 +28,10 @@ public class ConversionResult
     public bool Success { get; set; }
     public string GeneratedCode { get; set; } = string.Empty;
     public IReadOnlyList<DiagnosticMessage> Diagnostics { get; set; } = Array.Empty<DiagnosticMessage>();
+    public IReadOnlyList<Cs2jPassMetric> PassMetrics { get; set; } = Array.Empty<Cs2jPassMetric>();
     public string? FileName { get; set; }
     /// <summary>Java package for this output file (used by Holder class generation).</summary>
     public string? Package { get; set; }
-}
-
-/// <summary>
-/// 转换阶段接口
-/// </summary>
-public interface IConversionPhase
-{
-    string Name { get; }
-    void Execute(ConversionContext context);
 }
 
 /// <summary>
@@ -63,12 +54,10 @@ public class ConversionPipeline
         "global using System.Threading.Tasks;\n",
         path: "<global-usings>");
 
-    private readonly List<IConversionPhase> _phases = new();
     private readonly List<Java.JavaSyntaxRewriter> _irRewriters = new();
 
     public ConversionPipeline()
     {
-        InitializePhases();
     }
 
     /// <summary>
@@ -78,13 +67,6 @@ public class ConversionPipeline
     {
         _irRewriters.Add(rewriter);
         return this;
-    }
-
-    private void InitializePhases()
-    {
-        _phases.Add(new Phases.ParsingPhase());
-        _phases.Add(new Phases.TransformationPhase());
-        _phases.Add(new Phases.CodeGenerationPhase());
     }
 
     /// <summary>
@@ -105,6 +87,7 @@ public class ConversionPipeline
         }
 
         var context = new ConversionContext(request.Options, typeMappings);
+        var passMetrics = new List<Cs2jPassMetric>();
 
         try
         {
@@ -116,7 +99,7 @@ public class ConversionPipeline
                 {
                     context.Diagnostics.Error(diag.GetMessage(), diag.Location);
                 }
-                return CreateFailureResult(context, request.FileName);
+                return CreateFailureResult(context, request.FileName, passMetrics);
             }
 
             var compilation = CSharpCompilation.Create(
@@ -163,76 +146,28 @@ public class ConversionPipeline
             );
             var library = Cs2jLibraryFactory.CreateSingleFile(request.SourceCode, request.FileName, syntaxTree, compilation);
             context.SemanticModel = library.PrimaryCompilation?.GetSemanticModel(syntaxTree) ?? compilation.GetSemanticModel(syntaxTree);
-
-            // LINQ 预处理：将 LINQ 转换为过程化代码
-            // When PreferStreamApi is active, skip procedural rewriting — let the Stream API
-            // fallback in InvocationExpressionTransformer handle LINQ chains instead.
-            var runLinqRewrite = request.Options.EnableLinqRewrite && !request.Options.EffectivePreferStreamApi;
-            if (runLinqRewrite)
+            var passState = new SingleFilePassState
             {
-                try
-                {
-                    var rewriter = new LinqRewriter(context.SemanticModel, request.Options);
-                    var rewrittenRoot = (CompilationUnitSyntax)rewriter.Visit(syntaxTree.GetRoot());
-                    syntaxTree = syntaxTree.WithRootAndOptions(rewrittenRoot, syntaxTree.Options);
+                Request = request,
+                Context = context,
+                SyntaxTree = syntaxTree,
+                Compilation = compilation,
+                Library = library,
+            };
 
-                    // Report any LINQ chains that were skipped (fell back to Stream API)
-                    foreach (var skipped in rewriter.SkippedLinqChains)
-                    {
-                        context.Diagnostics.Warning($"LINQ rewrite skipped: {skipped} (will use Stream API fallback)");
-                    }
+            Cs2jPassExecutor.Execute(passState, context, CreateSingleFilePasses(), passMetrics);
 
-                    // 重新创建编译和语义模型；保留 Options（含隐式 usings）和全局 using 树
-                    compilation = CSharpCompilation.Create(
-                        "TempAssembly",
-                        new[] { syntaxTree, GlobalUsingsTree },
-                        compilation.References,
-                        compilation.Options
-                    );
-                    library = Cs2jLibraryFactory.CreateSingleFile(request.SourceCode, request.FileName, syntaxTree, compilation);
-                    context.SemanticModel = library.PrimaryCompilation?.GetSemanticModel(syntaxTree) ?? compilation.GetSemanticModel(syntaxTree);
-                }
-                catch (Exception ex)
-                {
-                    // Log LINQ rewrite failure but continue with original syntax tree
-                    context.Diagnostics.Warning($"LINQ rewrite skipped due to error: {ex.Message}");
-                }
+            if (passState.EmitSucceeded)
+            {
+                return CreateSuccessResult(passState.GeneratedCode, context, request.FileName, passMetrics);
             }
 
-            // 转换阶段
-            var visitor = new CSharpToJavaVisitor(context);
-            var compilationUnit = visitor.Visit(syntaxTree.GetRoot());
-
-            if (compilationUnit is Java.JavaCompilationUnit javaCompilation)
-            {
-                // IR 层后处理：在 ToString 之前对结构化 IR 进行重写
-                foreach (var rewriter in _irRewriters)
-                {
-                    rewriter.VisitCompilationUnit(javaCompilation);
-                }
-
-                // Files with only attributes produce empty compilation units
-                // Treat them as successful but with minimal output
-                var code = javaCompilation.ToString("");
-                if (string.IsNullOrWhiteSpace(code) && request.FileName != null)
-                {
-                    // Check if the original file had only attributes/usings (no type declarations)
-                    var root = syntaxTree.GetRoot() as CompilationUnitSyntax;
-                    if (root != null && root.Members.Count == 0)
-                    {
-                        return CreateSuccessResult("// " + Path.GetFileName(request.FileName) + " - contains no convertible code", context, request.FileName);
-                    }
-                }
-
-                return CreateSuccessResult(code, context, request.FileName);
-            }
-
-            return CreateFailureResult(context, request.FileName);
+            return CreateFailureResult(context, request.FileName, passMetrics);
         }
         catch (Exception ex)
         {
             context.Diagnostics.Error($"Conversion failed: {ex.Message}");
-            return CreateFailureResult(context, request.FileName);
+            return CreateFailureResult(context, request.FileName, passMetrics);
         }
     }
 
@@ -349,24 +284,44 @@ public class ConversionPipeline
         return await pipeline.ConvertProjectAsync(sourceFiles, emitFilePaths);
     }
 
-    private ConversionResult CreateSuccessResult(string code, ConversionContext context, string? fileName)
+    private IReadOnlyList<ICs2jPass<SingleFilePassState>> CreateSingleFilePasses()
+    {
+        return new ICs2jPass<SingleFilePassState>[]
+        {
+            new SingleFileLinqDesugarPass(),
+            new SingleFileCompilationCheckPass(),
+            new SingleFileContextNormalizationPass(),
+            new SingleFileJavaEmitPass(_irRewriters),
+        };
+    }
+
+    private ConversionResult CreateSuccessResult(
+        string code,
+        ConversionContext context,
+        string? fileName,
+        IReadOnlyList<Cs2jPassMetric>? passMetrics = null)
     {
         return new ConversionResult
         {
             Success = context.Diagnostics.Messages.All(m => m.Severity != Context.DiagnosticSeverity.Error),
             GeneratedCode = code,
             Diagnostics = context.Diagnostics.Messages.ToList(),
+            PassMetrics = passMetrics != null ? passMetrics.ToList() : Array.Empty<Cs2jPassMetric>(),
             FileName = fileName
         };
     }
 
-    private ConversionResult CreateFailureResult(ConversionContext context, string? fileName)
+    private ConversionResult CreateFailureResult(
+        ConversionContext context,
+        string? fileName,
+        IReadOnlyList<Cs2jPassMetric>? passMetrics = null)
     {
         return new ConversionResult
         {
             Success = false,
             GeneratedCode = string.Empty,
             Diagnostics = context.Diagnostics.Messages.ToList(),
+            PassMetrics = passMetrics != null ? passMetrics.ToList() : Array.Empty<Cs2jPassMetric>(),
             FileName = fileName
         };
     }

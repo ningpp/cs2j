@@ -1,6 +1,5 @@
 ﻿using Microsoft.CodeAnalysis.CSharp;
 using CSharpToJava.Core.Context;
-using CSharpToJava.Core.PartialType;
 using CSharpToJava.Core.Pipeline.Compatibility;
 using CSharpToJava.TypeMapping;
 
@@ -61,7 +60,7 @@ public class ProjectConversionPipeline
         }
 
         context.ProjectCompilation = compilation;
-        return Task.FromResult(ConvertCompilationCore(compilation, context, emitFilePaths));
+        return Task.FromResult(ConvertCompilationCore(library, compilation, context, emitFilePaths));
     }
 
     /// <summary>
@@ -85,7 +84,7 @@ public class ProjectConversionPipeline
             }
 
             var library = Cs2jLibraryFactory.CreateFromSourceFiles(sourceFileList, compilation);
-            return Task.FromResult(ConvertCompilationCore(library.PrimaryCompilation!, context, emitFilePaths));
+            return Task.FromResult(ConvertCompilationCore(library, library.PrimaryCompilation!, context, emitFilePaths));
         }
         catch (Exception ex)
         {
@@ -106,68 +105,74 @@ public class ProjectConversionPipeline
         return ConvertLibraryAsync(library, emitFilePaths);
     }
 
+    private IReadOnlyList<ICs2jPass<ProjectPassState>> CreateProjectPasses()
+    {
+        return new ICs2jPass<ProjectPassState>[]
+        {
+            new ProjectCompilationCheckPass(),
+            new ProjectPartialTypeNormalizationPass(),
+            new ProjectTypeEmitPass(_irRewriters),
+            new ProjectCompatibilityEmitPass(),
+            new ProjectCrossPackageImportEmitPass(),
+            new ProjectPostGenerationRewriteEmitPass(),
+        };
+    }
+
+    private static void AttachPassMetrics(IEnumerable<ConversionResult> results, IReadOnlyList<Cs2jPassMetric> passMetrics)
+    {
+        var metrics = passMetrics.ToList();
+        foreach (var result in results)
+        {
+            result.PassMetrics = metrics;
+        }
+    }
+
     private List<ConversionResult> ConvertCompilationCore(
+        Cs2jLibrary library,
         CSharpCompilation compilation,
         ConversionContext context,
         ISet<string>? emitFilePaths)
     {
-        var results = new List<ConversionResult>();
+        var passMetrics = new List<Cs2jPassMetric>();
+        var passState = new ProjectPassState
+        {
+            Library = library,
+            Context = context,
+            Compilation = compilation,
+            EmitFilePaths = emitFilePaths,
+        };
+
         try
         {
-            context.ProjectCompilation = compilation;
-            var partialMerger = new PartialTypeMerger(context.Diagnostics);
-            var mergedTypes = partialMerger.FindAndGroupTypes(compilation);
-
-            foreach (var typeGroup in mergedTypes)
+            Cs2jPassExecutor.Execute(passState, context, CreateProjectPasses(), passMetrics);
+            if (passState.Results.Count == 0 && context.Diagnostics.Messages.Any(m => m.Severity == Context.DiagnosticSeverity.Error))
             {
-                if (emitFilePaths != null && emitFilePaths.Count > 0)
+                passState.Results.Add(new ConversionResult
                 {
-                    var candidatePaths = new List<string>();
-                    foreach (var syntaxNode in typeGroup.SyntaxNodes)
-                    {
-                        var path = syntaxNode.SyntaxTree.FilePath;
-                        if (!string.IsNullOrWhiteSpace(path))
-                            candidatePaths.Add(path);
-                    }
-                    foreach (var syntaxRef in typeGroup.TypeSymbol.DeclaringSyntaxReferences)
-                    {
-                        var path = syntaxRef.SyntaxTree.FilePath;
-                        if (!string.IsNullOrWhiteSpace(path))
-                            candidatePaths.Add(path);
-                    }
-                    if (!candidatePaths.Any(path => emitFilePaths.Contains(Path.GetFullPath(path))))
-                        continue;
-                }
-
-                var result = TypeGroupResolver.ConvertTypeGroup(typeGroup, compilation, context, _irRewriters);
-                if (result != null)
-                    results.Add(result);
+                    Success = false,
+                    FileName = library.Name,
+                    Diagnostics = context.Diagnostics.Messages.ToList(),
+                });
             }
 
-            if (_options.EmitCompatibilityHelpers)
-            {
-                var basePackage = CompatibilityClassGenerator.DetermineBasePackage(results);
-                if (_options.UseCompatibilityPacks)
-                {
-                    var packRegistry = CompatibilityPackRegistry.CreateDefault();
-                    results.AddRange(packRegistry.GenerateApplicable(results, basePackage));
-                }
-                else
-                {
-                    var includeTestContext = CompatibilityClassGenerator.RequiresTestContext(results);
-                    results.AddRange(CompatibilityClassGenerator.GenerateCompatibilitySupport(basePackage, includeTestContext));
-                }
-            }
-
-            CrossPackageImportResolver.AddCrossPackageImports(results, _options.SharedCompatibilityPackage);
-            PostGenerationRewriteEngine.ApplyCompatibilityRewrites(results);
-
-            return results;
+            AttachPassMetrics(passState.Results, passMetrics);
+            return passState.Results;
         }
         catch (Exception ex)
         {
             context.Diagnostics.Error($"Project conversion failed: {ex.Message}");
-            return results;
+            if (passState.Results.Count == 0)
+            {
+                passState.Results.Add(new ConversionResult
+                {
+                    Success = false,
+                    FileName = library.Name,
+                    Diagnostics = context.Diagnostics.Messages.ToList(),
+                });
+            }
+
+            AttachPassMetrics(passState.Results, passMetrics);
+            return passState.Results;
         }
     }
 
