@@ -5,7 +5,6 @@ using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.PartialType;
 using CSharpToJava.Core.Transformers;
-using System.Text;
 
 namespace CSharpToJava.Core.Context;
 
@@ -185,9 +184,14 @@ public class ConversionContext
     }
 
     /// <summary>
-    /// 类型符号到 Java 类型的缓存
+    /// Type mapping service (owns MapType, MapTypeFromSyntax, NamespaceToPackage, TypeCache, FlagsEnums).
     /// </summary>
-    public Dictionary<ITypeSymbol, string> TypeCache { get; } = new();
+    public TypeMappingService TypeMapper { get; private set; } = null!;
+
+    /// <summary>
+    /// 类型符号到 Java 类型的缓存 (delegates to TypeMapper)
+    /// </summary>
+    public Dictionary<ITypeSymbol, string> TypeCache => TypeMapper.TypeCache;
 
     /// <summary>
     /// Synthesized Java record definitions generated from C# anonymous types.
@@ -265,17 +269,10 @@ public class ConversionContext
     public CSharpCompilation? ProjectCompilation { get; set; }
 
     /// <summary>
-    /// Set of [Flags] enum names that should be mapped to int in Java.
-    /// Populated by EnumTransformer when a [Flags] enum is encountered.
+    /// Set of [Flags] enum names (delegates to TypeMapper).
     /// </summary>
-    private static readonly HashSet<string> _flagsEnumNames = new(StringComparer.Ordinal);
-
-    public void RegisterFlagsEnum(string enumName)
-    {
-        _flagsEnumNames.Add(enumName);
-    }
-
-    public bool IsFlagsEnum(string enumName) => _flagsEnumNames.Contains(enumName);
+    public void RegisterFlagsEnum(string enumName) => TypeMapper.RegisterFlagsEnum(enumName);
+    public bool IsFlagsEnum(string enumName) => TypeMapper.IsFlagsEnum(enumName);
 
     // ─── Facade methods delegating to MethodState for backward compatibility ───
 
@@ -297,6 +294,16 @@ public class ConversionContext
     {
         Options = options;
         TypeMappings = typeMappings;
+        TypeMapper = new TypeMappingService(
+            options,
+            typeMappings,
+            Diagnostics,
+            ImportedTypes,
+            () => CurrentNamespace,
+            () => SemanticModel?.Compilation?.GlobalNamespace,
+            key => TryGetSynthesizedRecord(key, out _));
+        TypeMapper.SetSynthesizedRecordNameResolver(key =>
+            TryGetSynthesizedRecord(key, out var rec) && rec != null ? rec.RecordName : "Object");
     }
 
     /// <summary>
@@ -387,490 +394,24 @@ public class ConversionContext
         // TypeCache maps ITypeSymbol → Java type name and is used to skip re-running MapTypeInternal.
         // But the import side-effects inside MapTypeInternal (AddImportsForType calls) are NOT replayed
         // on cache hits. Clearing the cache here ensures each type group re-triggers those import additions.
-        TypeCache.Clear();
+        TypeMapper.ClearCache();
     }
 
     /// <summary>
-    /// 将 C# 命名空间转换为 Java 包名
+    /// 将 C# 命名空间转换为 Java 包名 (delegates to TypeMapper)
     /// </summary>
-    public string NamespaceToPackage(string ns)
-    {
-        // Normalize global namespace to empty string
-        var normalizedNs = (string.IsNullOrWhiteSpace(ns) || ns == "<global namespace>") ? "" : ns;
-
-        // 优先检查 TypeMappings.json 中的配置 (supports empty string key for global namespace)
-        var mapped = TypeMappings.MapNamespace(normalizedNs);
-        if (mapped != null)
-        {
-            return mapped;
-        }
-
-        if (string.IsNullOrEmpty(normalizedNs))
-            return string.Empty;
-
-        // 其次检查用户自定义映射
-        foreach (var (pattern, replacement) in Options.NamespaceMappings)
-        {
-            if (normalizedNs.StartsWith(pattern))
-            {
-                return normalizedNs.Replace(pattern, replacement);
-            }
-        }
-
-        // 默认转换：直接使用原始 namespace（适用于非 System 命名空间）
-        return normalizedNs;
-    }
+    public string NamespaceToPackage(string ns) => TypeMapper.NamespaceToPackage(ns);
 
     /// <summary>
-    /// 映射 C# 类型到 Java 类型
+    /// 映射 C# 类型到 Java 类型 (delegates to TypeMapper)
     /// </summary>
-    public string MapType(ITypeSymbol typeSymbol)
-    {
-        if (TypeCache.TryGetValue(typeSymbol, out var cached))
-        {
-            return cached;
-        }
+    public string MapType(ITypeSymbol typeSymbol) => TypeMapper.MapType(typeSymbol);
 
-        var result = MapTypeInternal(typeSymbol);
-        TypeCache[typeSymbol] = result;
-        return result;
-    }
+    // ─── Facade methods delegating to TypeMapper for backward compatibility ───
 
-    private string MapTypeInternal(ITypeSymbol typeSymbol)
-    {
-        // 处理可空值类型
-        if (typeSymbol.OriginalDefinition?.SpecialType == SpecialType.System_Nullable_T || typeSymbol.OriginalDefinition?.ToDisplayString() == "System.Nullable")
-        {
-            var underlyingType = ((INamedTypeSymbol)typeSymbol).TypeArguments[0];
-            var javaType = MapType(underlyingType);
+    public void AddImportsForTypePublic(string csharpType) => TypeMapper.AddImportsForTypePublic(csharpType);
 
-            if (Options.UseOptionalForNullable)
-            {
-                AddImport("java.util.Optional");
-                return $"Optional<{javaType}>";
-            }
-
-            // 默认：使用装箱类型（nullable 值类型在 Java 中必须使用装箱类型）
-            return javaType switch
-            {
-                "int"     => "Integer",
-                "long"    => "Long",
-                "double"  => "Double",
-                "float"   => "Float",
-                "short"   => "Short",
-                "byte"    => "Byte",
-                "char"    => "Character",
-                "boolean" => "Boolean",
-                _ => javaType
-            };
-        }
-
-        // Anonymous types — try to match to a synthesized record if one was registered
-        if (typeSymbol is INamedTypeSymbol anonymousCheck && anonymousCheck.IsAnonymousType)
-        {
-            var props = anonymousCheck.GetMembers().OfType<IPropertySymbol>().ToList();
-            if (props.Count > 0 && _synthesizedRecords.Count > 0)
-            {
-                var fieldParts = new List<string>();
-                foreach (var prop in props)
-                {
-                    var fieldName = EscapeJavaKeyword(prop.Name);
-                    fieldName = char.IsUpper(fieldName[0])
-                        ? char.ToLower(fieldName[0]) + fieldName.Substring(1)
-                        : fieldName;
-                    var propJavaType = prop.Type.IsAnonymousType ? "Object" : MapType(prop.Type);
-                    fieldParts.Add($"{fieldName}:{propJavaType}");
-                }
-                var key = string.Join(",", fieldParts);
-                if (TryGetSynthesizedRecord(key, out var record) && record != null)
-                {
-                    return record.RecordName;
-                }
-            }
-            return "Object";
-        }
-
-        // 处理数组类型
-        if (typeSymbol is IArrayTypeSymbol arrayType)
-        {
-            var elementType = MapType(arrayType.ElementType);
-            // C# int[,] (rank 2) → Java int[][] (two levels of brackets)
-            var brackets = string.Concat(Enumerable.Repeat("[]", arrayType.Rank));
-            return elementType + brackets;
-        }
-
-        // 处理泛型类型
-        if (typeSymbol is INamedTypeSymbol namedType && namedType.TypeArguments.Length > 0)
-        {
-            var baseType = namedType.Name;
-            var genericTypeNamespace = namedType.ContainingNamespace?.ToDisplayString();
-
-            // Expression<TDelegate> (System.Linq.Expressions) has no Java equivalent.
-            // Strip the wrapper and map the inner delegate type to its Java functional interface.
-            if (namedType.Name == "Expression"
-                && namedType.ContainingNamespace?.ToDisplayString() == "System.Linq.Expressions"
-                && namedType.TypeArguments.Length == 1)
-            {
-                return MapType(namedType.TypeArguments[0]);
-            }
-
-            // 获取未绑定的泛型类型定义，用于查找映射
-            var originalDefinition = namedType.OriginalDefinition ?? namedType.ConstructedFrom;
-
-            // 构建完全限定名（不带类型参数，使用 ` 数字后缀）
-            string fullQualifiedName;
-            if (originalDefinition != null)
-            {
-                // 使用命名空间和类型名 + 泛型参数数量
-                var namespaceStr = originalDefinition.ContainingNamespace?.ToDisplayString() ?? "";
-                if (!string.IsNullOrEmpty(namespaceStr))
-                {
-                    fullQualifiedName = namespaceStr + "." + baseType + "`" + namedType.TypeArguments.Length;
-                }
-                else
-                {
-                    fullQualifiedName = baseType + "`" + namedType.TypeArguments.Length;
-                }
-            }
-            else
-            {
-                fullQualifiedName = baseType + "`" + namedType.TypeArguments.Length;
-            }
-
-            // 移除 global:: 前缀（如果有）
-            if (fullQualifiedName.StartsWith("global::"))
-            {
-                fullQualifiedName = fullQualifiedName.Substring(8);
-            }
-            var mappedBase = TypeMappings.MapType(fullQualifiedName);
-
-            // 如果完全限定名没有匹配，尝试简单名称 + 泛型数量
-            var configKey = fullQualifiedName;
-            if (mappedBase == fullQualifiedName)
-            {
-                configKey = baseType + "`" + namedType.TypeArguments.Length;
-                mappedBase = TypeMappings.MapType(configKey);
-            }
-
-            if (mappedBase != fullQualifiedName)
-            {
-                // 使用映射后的基础类型
-                baseType = MapSimpleTypeName(mappedBase);
-                // 添加导入
-                AddImportsForType(configKey);
-            }
-            else
-            {
-                // 对于未映射的类型，baseType 已经在开头处理过 ` 后缀了
-                // 这里不需要额外处理
-            }
-
-            // 递归映射类型参数（对于泛型类型参数，需要使用装箱类型）
-            var typeArgs = string.Join(", ", namedType.TypeArguments.Select(t => MapTypeForGeneric(t)));
-
-            // 确保基础类型名不包含 ` 后缀
-            var tickIndex = baseType.IndexOf('`');
-            if (tickIndex > 0)
-            {
-                baseType = baseType.Substring(0, tickIndex);
-            }
-
-            if (!string.IsNullOrEmpty(genericTypeNamespace)
-                && genericTypeNamespace.StartsWith("Microsoft.", StringComparison.Ordinal)
-                && !string.Equals(CurrentNamespace, genericTypeNamespace, StringComparison.Ordinal)
-                && namedType.ContainingType == null
-                && (!string.IsNullOrWhiteSpace(CurrentNamespace) ? !NamespaceContainsType(CurrentNamespace, baseType) : true))
-            {
-                var javaPackage = NamespaceToPackage(genericTypeNamespace);
-                AddImport($"{javaPackage}.{baseType}");
-            }
-
-            // Object doesn't take type parameters in Java - strip them
-            if (baseType == "Object")
-                return "Object";
-
-            return $"{baseType}<{typeArgs}>";
-        }
-
-        // 处理动态类型
-        if (typeSymbol is IDynamicTypeSymbol)
-        {
-            Diagnostics.Warning("Dynamic type converted to Object");
-            return "Object";
-        }
-
-        // [Flags] enum types → int (registered by EnumTransformer during project conversion)
-        if (typeSymbol is INamedTypeSymbol namedEnumCheck && namedEnumCheck.TypeKind == TypeKind.Enum)
-        {
-            // Check static registry (populated when EnumTransformer processes [Flags] enums)
-            if (IsFlagsEnum(namedEnumCheck.Name))
-                return "int";
-            // Also check the Roslyn attribute directly for same-compilation flags enums
-            bool hasFlagsAttr = namedEnumCheck.GetAttributes().Any(a =>
-                a.AttributeClass?.Name is "FlagsAttribute" or "Flags");
-            if (hasFlagsAttr)
-            {
-                RegisterFlagsEnum(namedEnumCheck.Name);
-                return "int";
-            }
-        }
-
-        // 对于没有类型参数的命名类型，检查配置映射
-        var name = typeSymbol.Name;
-
-        // 首先尝试完全限定名
-        var fullQualifiedNameSimple = typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        if (fullQualifiedNameSimple.StartsWith("global::"))
-        {
-            fullQualifiedNameSimple = fullQualifiedNameSimple.Substring(8);
-        }
-        var mapped = TypeMappings.MapType(fullQualifiedNameSimple);
-
-        // 如果完全限定名没有匹配，尝试简单名称
-        var configKeySimple = fullQualifiedNameSimple;
-        if (mapped == fullQualifiedNameSimple)
-        {
-            configKeySimple = name;
-            mapped = TypeMappings.MapType(name);
-        }
-
-        var ns = typeSymbol.ContainingNamespace?.ToDisplayString();
-
-        if (mapped != name && mapped != fullQualifiedNameSimple)
-        {
-            AddImportsForType(configKeySimple);
-            var mappedSimple = MapSimpleTypeName(mapped);
-            if (mappedSimple == "Edge" && ns == "Microsoft.Msagl.Core.Layout"
-                && !string.Equals(CurrentNamespace, ns, StringComparison.Ordinal))
-            {
-                return "Microsoft.Msagl.Core.Layout.Edge";
-            }
-            if (!string.IsNullOrWhiteSpace(CurrentNamespace)
-                && !string.IsNullOrWhiteSpace(ns)
-                && !string.Equals(CurrentNamespace, ns, StringComparison.Ordinal)
-                && NamespaceContainsType(CurrentNamespace, mappedSimple))
-            {
-                return $"{NamespaceToPackage(ns)}.{mappedSimple}";
-            }
-            return mappedSimple;
-        }
-
-        // For unmapped types from the project being converted (e.g. Microsoft.Msagl.*), add explicit
-        // imports for cross-namespace references so simple names resolve reliably.
-        if (!string.IsNullOrEmpty(ns) && ns.StartsWith("Microsoft."))
-        {
-            if (!string.Equals(CurrentNamespace, ns, StringComparison.Ordinal)
-                && typeSymbol.ContainingType == null
-                && (!string.IsNullOrWhiteSpace(CurrentNamespace) ? !NamespaceContainsType(CurrentNamespace, name) : true))
-            {
-                var javaPackage = NamespaceToPackage(ns);
-                AddImport($"{javaPackage}.{name}");
-            }
-        }
-
-        // For nested types (e.g. C# Variable.NeighborAndWeight), use OuterClass.InnerClass in Java.
-        // Exclude type parameters (ITypeParameterSymbol) — they are referenced by simple name T, not OuterClass.T.
-        if (typeSymbol is not ITypeParameterSymbol
-            && typeSymbol.ContainingType is INamedTypeSymbol outerType
-            && outerType.TypeKind != TypeKind.Error)
-        {
-            var nestedStr = $"{outerType.Name}.{MapSimpleTypeName(name)}";
-            if (typeSymbol.TypeKind == TypeKind.Delegate) {
-                 var curOuter = outerType;
-                 var allTypeArgs = new List<string>();
-                 while (curOuter != null) {
-                     allTypeArgs.InsertRange(0, curOuter.TypeArguments.Select(t => MapTypeForGeneric(t)));
-                     curOuter = curOuter.ContainingType;
-                 }
-                 if (allTypeArgs.Count > 0) {
-                     nestedStr += "<" + string.Join(", ", allTypeArgs) + ">";
-                 }
-            }
-            return nestedStr;
-        }
-
-        // If current namespace defines a type with the same simple name, keep this type fully qualified
-        // when it comes from a different namespace to avoid accidental capture by the local type.
-        // Example: in Microsoft.Msagl.GraphmapsWithMesh, local Edge shadows Microsoft.Msagl.Core.Layout.Edge.
-        if (!string.IsNullOrWhiteSpace(CurrentNamespace)
-            && !string.IsNullOrWhiteSpace(ns)
-            && !string.Equals(CurrentNamespace, ns, StringComparison.Ordinal)
-            && NamespaceContainsType(CurrentNamespace, name))
-        {
-            return $"{NamespaceToPackage(ns)}.{MapSimpleTypeName(name)}";
-        }
-
-        if (name == "Edge" && ns == "Microsoft.Msagl.Core.Layout"
-            && !string.Equals(CurrentNamespace, ns, StringComparison.Ordinal))
-        {
-            return "Microsoft.Msagl.Core.Layout.Edge";
-        }
-
-        return MapSimpleTypeName(name);
-    }
-
-    private bool NamespaceContainsType(string namespaceName, string typeName)
-    {
-        if (GlobalNamespace == null || string.IsNullOrWhiteSpace(namespaceName) || string.IsNullOrWhiteSpace(typeName))
-            return false;
-
-        var ns = ResolveNamespaceSymbol(GlobalNamespace, namespaceName);
-        return ns?.GetTypeMembers(typeName).Length > 0;
-    }
-
-    private static INamespaceSymbol? ResolveNamespaceSymbol(INamespaceSymbol root, string namespaceName)
-    {
-        var current = root;
-        foreach (var part in namespaceName.Split('.', StringSplitOptions.RemoveEmptyEntries))
-        {
-            current = current.GetNamespaceMembers().FirstOrDefault(n => n.Name == part);
-            if (current == null)
-                return null;
-        }
-        return current;
-    }
-
-    private string MapSimpleTypeName(string typeName)
-    {
-        // 基础类型映射
-        return typeName switch
-        {
-            "String" => "String",
-            "Int32" => "int",
-            "Int64" => "long",
-            "Int16" => "short",
-            "Byte" => "byte",
-            "SByte" => "byte",
-            "UInt32" => "int",  // Java 没有 unsigned
-            "UInt64" => "long",
-            "UInt16" => "short",
-            "Single" => "float",
-            "Double" => "double",
-            "Boolean" => "boolean",
-            "Char" => "char",
-            "Object" => "Object",
-            "Void" => "void",
-            "var" => "var",  // Java 10+ 支持 var
-            _ => typeName
-        };
-    }
-
-    /// <summary>
-    /// 映射类型用于泛型参数（需要使用装箱类型）
-    /// </summary>
-    private string MapTypeForGeneric(ITypeSymbol typeSymbol)
-    {
-        var result = MapType(typeSymbol);
-
-        // 对于原始类型，在泛型参数中需要使用装箱类型
-        return result switch
-        {
-            "int" => "Integer",
-            "long" => "Long",
-            "short" => "Short",
-            "byte" => "Byte",
-            "float" => "Float",
-            "double" => "Double",
-            "boolean" => "Boolean",
-            "char" => "Character",
-            _ => result
-        };
-    }
-
-    /// <summary>
-    /// 为类型映射添加必要的导入
-    /// </summary>
-    private void AddImportsForType(string csharpType)
-    {
-        var imports = TypeMappings.GetRequiredImports(csharpType);
-        foreach (var import in imports)
-        {
-            AddImport(import);
-        }
-    }
-
-    /// <summary>
-    /// Public wrapper for <see cref="AddImportsForType"/> used by transformers.
-    /// </summary>
-    public void AddImportsForTypePublic(string csharpType) => AddImportsForType(csharpType);
-
-    /// <summary>
-    /// Maps a C# type from its syntax representation (string) when the Roslyn semantic model
-    /// cannot resolve the type (e.g. unresolved assembly references). Used as fallback from
-    /// FieldTransformer / PropertyTransformer / MethodTransformer instead of returning "Object".
-    /// </summary>
-    public string MapTypeFromSyntax(TypeSyntax typeSyntax)
-    {
-        if (typeSyntax == null) return "Object";
-        return MapTypeFromSyntaxString(typeSyntax.ToString().Trim());
-    }
-
-    private string MapTypeFromSyntaxString(string typeName)
-    {
-        if (string.IsNullOrWhiteSpace(typeName)) return "Object";
-
-        // C# keyword types → Java equivalents (must happen before TypeMappings lookup,
-        // which only knows fully-qualified names like System.Boolean, not the keywords).
-        var keywordMapped = typeName switch
-        {
-            "bool"    => "boolean",
-            "int"     => "int",
-            "long"    => "long",
-            "short"   => "short",
-            "byte"    => "byte",
-            "sbyte"   => "byte",
-            "uint"    => "int",
-            "ulong"   => "long",
-            "ushort"  => "short",
-            "float"   => "float",
-            "double"  => "double",
-            "decimal" => "double",
-            "char"    => "char",
-            "void"    => "void",
-            "object"  => "Object",
-            "string"  => "String",
-            _         => (string?)null
-        };
-        if (keywordMapped != null) return keywordMapped;
-
-        // Nullable T? → strip the ?
-        if (typeName.EndsWith("?") && typeName.Length > 1)
-            return MapTypeFromSyntaxString(typeName.Substring(0, typeName.Length - 1));
-
-        // Array T[] → map element type + []
-        if (typeName.EndsWith("[]"))
-        {
-            var elemType = MapTypeFromSyntaxString(typeName.Substring(0, typeName.Length - 2));
-            return elemType + "[]";
-        }
-
-        // Generic type e.g. List<XmlReader>
-        var openAngle = typeName.IndexOf('<');
-        if (openAngle > 0 && typeName.EndsWith(">"))
-        {
-            var baseTypeName = typeName.Substring(0, openAngle).Trim();
-            var innerArgs = typeName.Substring(openAngle + 1, typeName.Length - openAngle - 2);
-            var mappedBase = TypeMappings.MapType(baseTypeName);
-            if (mappedBase != baseTypeName)
-            {
-                AddImportsForType(baseTypeName);
-                mappedBase = MapSimpleTypeName(mappedBase);
-            }
-            if (mappedBase == "Object") return "Object";
-            return $"{mappedBase}<{innerArgs}>";
-        }
-
-        // Try exact match in type registry
-        var mapped = TypeMappings.MapType(typeName);
-        if (mapped != typeName)
-        {
-            AddImportsForType(typeName);
-            return MapSimpleTypeName(mapped);
-        }
-
-        // No mapping found: use the syntax name directly (handles classes whose name is unchanged)
-        return MapSimpleTypeName(typeName);
-    }
+    public string MapTypeFromSyntax(TypeSyntax typeSyntax) => TypeMapper.MapTypeFromSyntax(typeSyntax);
 
     /// <summary>
     /// 注册一个已合并的 partial 类型
@@ -978,29 +519,10 @@ public class ConversionContext
     /// </summary>
     private INamespaceSymbol? GlobalNamespace => SemanticModel?.Compilation?.GlobalNamespace;
 
-    /// <summary>
-    /// 检查是否是 Java 关键字
-    /// </summary>
-    public static bool IsJavaKeyword(string word)
-    {
-        return word switch
-        {
-            "abstract" or "assert" or "boolean" or "break" or "byte" or "case" or "catch" or
-            "char" or "class" or "const" or "continue" or "default" or "do" or "double" or
-            "else" or "enum" or "extends" or "final" or "finally" or "float" or "for" or
-            "goto" or "if" or "implements" or "import" or "instanceof" or "int" or
-            "interface" or "long" or "native" or "new" or "package" or "private" or
-            "protected" or "public" or "return" or "short" or "static" or "strictfp" or
-            "super" or "switch" or "synchronized" or "this" or "throw" or "throws" or
-            "transient" or "try" or "void" or "volatile" or "while" => true,
-            _ => false
-        };
-    }
+    // ─── Static facades delegating to JavaNaming ───
 
-    public static string EscapeJavaKeyword(string word)
-    {
-        return IsJavaKeyword(word) ? word + "Value" : word;
-    }
+    public static bool IsJavaKeyword(string word) => JavaNaming.IsJavaKeyword(word);
+    public static string EscapeJavaKeyword(string word) => JavaNaming.EscapeJavaKeyword(word);
 
     /// <summary>
     /// Checks whether a C# method has a type-erasure conflict with another overload in the
