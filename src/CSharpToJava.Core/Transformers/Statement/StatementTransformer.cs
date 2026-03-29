@@ -1218,25 +1218,13 @@ public class StatementTransformer : IStatementTransformer
                 {
                     case CaseSwitchLabelSyntax caseLabel:
                         var transformedLabel = exprTransformer.Transform(caseLabel.Value, context);
-                        if (context.SemanticModel?.GetSymbolInfo(caseLabel.Value).Symbol is IFieldSymbol fieldSymbol &&
-                            fieldSymbol.ContainingType?.TypeKind == TypeKind.Enum)
+                        if (ExpressionTransformerHelpers.TryFormatEnumMemberAccess(
+                            caseLabel.Value,
+                            context,
+                            useUnqualifiedRegularEnumInSwitchLabel: true,
+                            out var formattedEnumLabel))
                         {
-                            // For [Flags] enums (now Java classes with static int fields), keep the qualified name
-                            // so Java switch-on-int can use the compile-time constant (e.g. case Direction.North:)
-                            if (context.IsFlagsEnum(fieldSymbol.ContainingType.Name))
-                                transformedLabel = $"{fieldSymbol.ContainingType.Name}.{fieldSymbol.Name}";
-                            else
-                                transformedLabel = fieldSymbol.Name; // regular enum: unqualified name in switch
-                        }
-                        else if (caseLabel.Value is MemberAccessExpressionSyntax memberAccess)
-                        {
-                            // Check if the containing type is a flags enum - if so keep fully qualified
-                            var maSymbol = context.SemanticModel?.GetSymbolInfo(memberAccess).Symbol;
-                            if (maSymbol is IFieldSymbol maField && maField.ContainingType?.TypeKind == TypeKind.Enum
-                                && context.IsFlagsEnum(maField.ContainingType.Name))
-                                transformedLabel = $"{maField.ContainingType.Name}.{maField.Name}";
-                            else
-                                transformedLabel = memberAccess.Name.Identifier.Text;
+                            transformedLabel = formattedEnumLabel;
                         }
                         else if (transformedLabel.Contains(".get"))
                         {

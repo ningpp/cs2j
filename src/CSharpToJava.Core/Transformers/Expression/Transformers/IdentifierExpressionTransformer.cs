@@ -282,10 +282,22 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
     private string TransformMemberAccess(MemberAccessExpressionSyntax node, ConversionContext context)
     {
         var facade = ExpressionTransformerFacade.Instance;
+        var memberName = node.Name.Identifier.Text;
+        string? staticTypeTarget = null;
+
+        if (ExpressionTransformerHelpers.TryGetStaticTypeReceiverJavaReference(
+            node.Expression,
+            context,
+            boxJavaPrimitiveType: true,
+            out var staticReceiver,
+            out _))
+        {
+            staticTypeTarget = staticReceiver;
+        }
 
         // Fix: Generic type static member access — C# allows Set<T>.Method() but Java requires Set.Method().
         // Strip type arguments from the receiver whenever it is a generic name expression.
-        if (node.Expression is GenericNameSyntax genericExprName)
+        if (node.Expression is GenericNameSyntax genericExprName && staticTypeTarget == null)
         {
             var rawReceiver = ConversionContext.EscapeJavaKeyword(genericExprName.Identifier.Text);
             var rawMember   = ConversionContext.EscapeJavaKeyword(node.Name.Identifier.Text);
@@ -305,14 +317,27 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
             return $"{boxedName}.{mappedMember}";
         }
 
-        var target = facade.Transform(node.Expression, context);
-        var memberName = node.Name.Identifier.Text;
+        if (ExpressionTransformerHelpers.TryFormatEnumMemberAccess(
+            node,
+            context,
+            useUnqualifiedRegularEnumInSwitchLabel: false,
+            out var formattedEnumMemberAccess))
+        {
+            return formattedEnumMemberAccess;
+        }
+
+        var target = staticTypeTarget ?? facade.Transform(node.Expression, context);
 
         if (target == "String" && memberName == "Empty")
             return "\"\"";
 
         // Fallback for unresolved method-group symbol: Parallel.Invoke used as delegate value.
-        if (memberName == "Invoke" && node.Expression.ToString() is "Parallel" or "System.Threading.Tasks.Parallel")
+        if (memberName == "Invoke"
+            && ExpressionTransformerHelpers.StaticReceiverMatches(
+                node.Expression,
+                context,
+                "Parallel",
+                "System.Threading.Tasks.Parallel"))
         {
             context.AddImport("java.util.Arrays");
             return "actions -> Arrays.stream(actions).forEach(Runnable::run)";

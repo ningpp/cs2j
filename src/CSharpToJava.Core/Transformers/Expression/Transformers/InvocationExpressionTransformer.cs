@@ -233,6 +233,15 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         var receiver = memberAccess.Expression is GenericNameSyntax genericReceiverName
             ? ConversionContext.EscapeJavaKeyword(genericReceiverName.Identifier.Text)
             : facade.Transform(memberAccess.Expression, context);
+        if (ExpressionTransformerHelpers.TryGetStaticTypeReceiverJavaReference(
+            memberAccess.Expression,
+            context,
+            boxJavaPrimitiveType: true,
+            out var staticReceiver,
+            out _))
+        {
+            receiver = staticReceiver;
+        }
         var originalMethodName = memberAccess.Name.Identifier.Text;
         var earlyMethodSymbol = context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol;
 
@@ -251,7 +260,11 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         if (originalMethodName == "Exit"
             && node.ArgumentList.Arguments.Count >= 1
             && (earlyMethodSymbol?.ContainingType.ToDisplayString() == "System.Environment"
-                || memberAccess.Expression.ToString() is "Environment" or "System.Environment"))
+                || ExpressionTransformerHelpers.StaticReceiverMatches(
+                    memberAccess.Expression,
+                    context,
+                    "Environment",
+                    "System.Environment")))
         {
             var exitCode = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             return $"System.exit({exitCode})";
@@ -261,8 +274,13 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         // C# Debug.Fail(msg) is a diagnostic assertion failure; Java has no direct equivalent.
         if (originalMethodName == "Fail"
             && (earlyMethodSymbol?.ContainingType.ToDisplayString() is "System.Diagnostics.Debug" or "System.Diagnostics.Trace"
-                || memberAccess.Expression.ToString() is "Debug" or "Trace"
-                    or "System.Diagnostics.Debug" or "System.Diagnostics.Trace"))
+                || ExpressionTransformerHelpers.StaticReceiverMatches(
+                    memberAccess.Expression,
+                    context,
+                    "Debug",
+                    "Trace",
+                    "System.Diagnostics.Debug",
+                    "System.Diagnostics.Trace")))
         {
             var failArgs = string.Join(", ", node.ArgumentList.Arguments.Select(a => facade.Transform(a.Expression, context)));
             return string.IsNullOrEmpty(failArgs)
@@ -275,9 +293,15 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         if (originalMethodName == "Assert"
             && (earlyMethodSymbol?.ContainingType.ToDisplayString() is "System.Diagnostics.Debug" or "System.Diagnostics.Trace"
                     or "System.Diagnostics.Contracts.Contract"
-                || memberAccess.Expression.ToString() is "Debug" or "Trace" or "Contract"
-                    or "System.Diagnostics.Debug" or "System.Diagnostics.Trace"
-                    or "System.Diagnostics.Contracts.Contract")
+                || ExpressionTransformerHelpers.StaticReceiverMatches(
+                    memberAccess.Expression,
+                    context,
+                    "Debug",
+                    "Trace",
+                    "Contract",
+                    "System.Diagnostics.Debug",
+                    "System.Diagnostics.Trace",
+                    "System.Diagnostics.Contracts.Contract"))
             && node.ArgumentList.Arguments.Count >= 1)
         {
             var condition = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
@@ -291,7 +315,12 @@ public class InvocationExpressionTransformer : IExpressionTransformer
 
         if (originalMethodName == "GetTempPath"
             && (earlyMethodSymbol?.ContainingType.ToDisplayString() == "System.IO.Path"
-                || memberAccess.Expression.ToString() is "Path" or "Paths" or "System.IO.Path"))
+                || ExpressionTransformerHelpers.StaticReceiverMatches(
+                    memberAccess.Expression,
+                    context,
+                    "Path",
+                    "Paths",
+                    "System.IO.Path")))
         {
             return "System.getProperty(\"java.io.tmpdir\")";
         }
@@ -299,7 +328,12 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         if (originalMethodName == "Combine"
             && node.ArgumentList.Arguments.Count >= 2
             && (earlyMethodSymbol?.ContainingType.ToDisplayString() == "System.IO.Path"
-                || memberAccess.Expression.ToString() is "Path" or "Paths" or "System.IO.Path"))
+                || ExpressionTransformerHelpers.StaticReceiverMatches(
+                    memberAccess.Expression,
+                    context,
+                    "Path",
+                    "Paths",
+                    "System.IO.Path")))
         {
             var combineLeft = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var combineRight = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
@@ -356,7 +390,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return $"Objects.equals({leftArg}, {rightArg})";
         }
 
-        if (IsSystemStringMethod(earlyMethodSymbol, memberAccess.Expression))
+        if (IsSystemStringMethod(earlyMethodSymbol, memberAccess.Expression, context))
         {
             if (originalMethodName == "Equals"
                 && node.ArgumentList.Arguments.Count == 3
@@ -508,7 +542,11 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         if (originalMethodName == "Create" && node.ArgumentList.Arguments.Count >= 2)
         {
             bool isSystemTupleCreate = earlyMethodSymbol?.ContainingType?.ToDisplayString() == "System.Tuple"
-                || memberAccess.Expression.ToString() is "Tuple" or "System.Tuple";
+                || ExpressionTransformerHelpers.StaticReceiverMatches(
+                    memberAccess.Expression,
+                    context,
+                    "Tuple",
+                    "System.Tuple");
             if (isSystemTupleCreate)
             {
                 int arity = node.ArgumentList.Arguments.Count;
@@ -620,7 +658,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         }
 
         // MSTest Assert.* -> JUnit Assertions.*
-        if (TryMapMSTestAssertInvocation(memberAccess.Expression, originalMethodName, methodSymbol, out var junitAssertName))
+        if (TryMapMSTestAssertInvocation(memberAccess.Expression, context, originalMethodName, methodSymbol, out var junitAssertName))
         {
             var assertArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
             context.AddImport("org.junit.jupiter.api.Assertions");
@@ -629,8 +667,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
 
         // C# String.Format(...) -> Java String.format(...)
         if (originalMethodName == "Format"
-            && (methodSymbol?.ContainingType.ToDisplayString() == "System.String"
-                || memberAccess.Expression.ToString() is "String" or "System.String"))
+            && IsSystemStringMethod(methodSymbol, memberAccess.Expression, context))
         {
             int fmtStart = HasIFormatProviderFirstArg(node, context) ? 1 : 0;
             var fmtArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, fmtStart, methodSymbol);
@@ -729,7 +766,12 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         if (originalMethodName == "Sort"
             && node.ArgumentList.Arguments.Count is 1 or 2
             && (methodSymbol?.ContainingType.ToDisplayString() == "System.Array"
-                || (methodSymbol == null && memberAccess.Expression.ToString() is "Array" or "System.Array" or "Object")))
+                || (methodSymbol == null && ExpressionTransformerHelpers.StaticReceiverMatches(
+                    memberAccess.Expression,
+                    context,
+                    "Array",
+                    "System.Array",
+                    "Object"))))
         {
             var arrayArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             context.AddImport("java.util.Arrays");
@@ -759,7 +801,11 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         if (originalMethodName == "ForEach"
             && node.ArgumentList.Arguments.Count >= 2
             && (methodSymbol?.ContainingType.ToDisplayString() == "System.Array"
-                || (methodSymbol == null && memberAccess.Expression.ToString() is "Array" or "System.Array")))
+                || (methodSymbol == null && ExpressionTransformerHelpers.StaticReceiverMatches(
+                    memberAccess.Expression,
+                    context,
+                    "Array",
+                    "System.Array"))))
         {
             var arrayArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var actionArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
@@ -776,7 +822,11 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         if (originalMethodName == "Copy"
             && (node.ArgumentList.Arguments.Count == 3 || node.ArgumentList.Arguments.Count >= 5)
             && (methodSymbol?.ContainingType.ToDisplayString() == "System.Array"
-                || (methodSymbol == null && memberAccess.Expression.ToString() is "Array" or "System.Array")))
+                || (methodSymbol == null && ExpressionTransformerHelpers.StaticReceiverMatches(
+                    memberAccess.Expression,
+                    context,
+                    "Array",
+                    "System.Array"))))
         {
             if (node.ArgumentList.Arguments.Count == 3)
             {
@@ -799,7 +849,12 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         if (originalMethodName == "Clear"
             && node.ArgumentList.Arguments.Count == 3
             && (methodSymbol?.ContainingType.ToDisplayString() == "System.Array"
-                || (methodSymbol == null && memberAccess.Expression.ToString() is "Array" or "System.Array" or "Object")))
+                || (methodSymbol == null && ExpressionTransformerHelpers.StaticReceiverMatches(
+                    memberAccess.Expression,
+                    context,
+                    "Array",
+                    "System.Array",
+                    "Object"))))
         {
             var arrayArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var indexArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
@@ -834,7 +889,11 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         if (originalMethodName == "ForEach"
             && node.ArgumentList.Arguments.Count >= 2
             && (methodSymbol?.ContainingType.ToDisplayString() == "System.Threading.Tasks.Parallel"
-                || memberAccess.Expression.ToString() is "Parallel" or "System.Threading.Tasks.Parallel"))
+                || ExpressionTransformerHelpers.StaticReceiverMatches(
+                    memberAccess.Expression,
+                    context,
+                    "Parallel",
+                    "System.Threading.Tasks.Parallel")))
         {
             var sourceExpr = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var actionArgExpr = node.ArgumentList.Arguments[^1].Expression;
@@ -871,7 +930,12 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         if (originalMethodName == "CreateInstance"
             && node.ArgumentList.Arguments.Count == 2
             && (methodSymbol?.ContainingType.ToDisplayString() == "System.Array"
-                || (methodSymbol == null && memberAccess.Expression.ToString() is "Array" or "System.Array" or "Object")))
+                || (methodSymbol == null && ExpressionTransformerHelpers.StaticReceiverMatches(
+                    memberAccess.Expression,
+                    context,
+                    "Array",
+                    "System.Array",
+                    "Object"))))
         {
             var typeArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var lengthArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
@@ -965,7 +1029,11 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         // (receiver text "Math") for environments with incomplete assembly references.
         if (originalMethodName == "Round"
             && (methodSymbol?.ContainingType.ToDisplayString() is "System.Math" or "System.MathF"
-                || (methodSymbol == null && memberAccess.Expression.ToString() is "Math" or "System.Math")))
+                || (methodSymbol == null && ExpressionTransformerHelpers.StaticReceiverMatches(
+                    memberAccess.Expression,
+                    context,
+                    "Math",
+                    "System.Math"))))
         {
             var argCount = node.ArgumentList.Arguments.Count;
 
@@ -997,7 +1065,11 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         // The 1-argument overload Math.Log(x) falls through to TypeMappings (Log → log).
         if (originalMethodName == "Log"
             && (methodSymbol?.ContainingType.ToDisplayString() is "System.Math" or "System.MathF"
-                || (methodSymbol == null && memberAccess.Expression.ToString() is "Math" or "System.Math")))
+                || (methodSymbol == null && ExpressionTransformerHelpers.StaticReceiverMatches(
+                    memberAccess.Expression,
+                    context,
+                    "Math",
+                    "System.Math"))))
         {
             var argCount = node.ArgumentList.Arguments.Count;
 
@@ -1037,28 +1109,15 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         // Guard: skip when the receiver is a GenericNameSyntax — it was already correctly
         // stripped of its type arguments by the fix above (e.g. DemoSet<string> → DemoSet),
         // and MapType on the containing type would re-introduce them (DemoSet<T>).
-        if (methodSymbol != null && context.SemanticModel != null
-            && memberAccess.Expression is not GenericNameSyntax)
+        if (methodSymbol != null
+            && ExpressionTransformerHelpers.TryGetStaticTypeReceiverJavaReference(
+                memberAccess.Expression,
+                context,
+                boxJavaPrimitiveType: true,
+                out var semanticStaticReceiver,
+                out _))
         {
-            var receiverExprSymbol = context.SemanticModel.GetSymbolInfo(memberAccess.Expression).Symbol;
-            if (receiverExprSymbol is INamedTypeSymbol)
-            {
-                var containingTypeName = methodSymbol.ContainingType.ToDisplayString();
-                receiver = context.TypeMappings.MapType(containingTypeName);
-                // Roslyn's ToDisplayString() uses C# keyword aliases for well-known types:
-                // e.g. System.String → "string", System.Object → "object".
-                // TypeMappings.json keys use the fully-qualified form ("System.String"),
-                // so the alias lookup misses. Retry with the FQN as a fallback.
-                if (receiver == containingTypeName)
-                {
-                    var fqn = $"{methodSymbol.ContainingType.ContainingNamespace}.{methodSymbol.ContainingType.Name}";
-                    receiver = context.TypeMappings.MapType(fqn);
-                }
-                // Box any primitive type so static methods are called on the wrapper class.
-                // e.g. System.Int32 maps to "int", but Int32.Parse → Integer.parseInt not int.parseInt.
-                receiver = ExpressionTransformerHelpers.BoxJavaPrimitiveType(receiver);
-
-            }
+            receiver = semanticStaticReceiver;
         }
 
         // System.Convert static methods → Java boxed-type equivalents (semantic-resolved path)
@@ -1337,7 +1396,11 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         // Java's StringBuilder has no appendFormat(); use append(String.format()) instead.
         if (originalMethodName == "AppendFormat"
             && (methodSymbol?.ContainingType.ToDisplayString() is "System.Text.StringBuilder"
-                || memberAccess.Expression.ToString() is "StringBuilder" or "System.Text.StringBuilder"))
+                || ExpressionTransformerHelpers.StaticReceiverMatches(
+                    memberAccess.Expression,
+                    context,
+                    "StringBuilder",
+                    "System.Text.StringBuilder")))
         {
             int appendFmtStart = isExtensionInStaticPath ? 1 : 0;
             var fmtArgs = ArgumentTransformer.TransformArgumentList(
@@ -1380,8 +1443,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         // Fallback: String.IsNullOrEmpty(s) -> (s == null || s.isEmpty())
         bool isStringIsNullOrEmpty = originalMethodName == "IsNullOrEmpty"
             && node.ArgumentList.Arguments.Count - argStartIndex >= 1
-            && (methodSymbol?.ContainingType.ToDisplayString() is "string" or "System.String"
-                || memberAccess.Expression.ToString() is "String" or "string" or "System.String");
+            && IsSystemStringMethod(methodSymbol, memberAccess.Expression, context);
         if (isStringIsNullOrEmpty)
         {
             var valueExpr = facade.Transform(node.ArgumentList.Arguments[argStartIndex].Expression, context);
@@ -1391,8 +1453,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         // Fallback: String.IsNullOrWhiteSpace(s) -> StringHelper.isNullOrWhiteSpace(s)
         bool isStringIsNullOrWhiteSpace = originalMethodName == "IsNullOrWhiteSpace"
             && node.ArgumentList.Arguments.Count - argStartIndex >= 1
-            && (methodSymbol?.ContainingType.ToDisplayString() is "string" or "System.String"
-                || memberAccess.Expression.ToString() is "String" or "string" or "System.String");
+            && IsSystemStringMethod(methodSymbol, memberAccess.Expression, context);
         if (isStringIsNullOrWhiteSpace)
         {
             var valueExpr = facade.Transform(node.ArgumentList.Arguments[argStartIndex].Expression, context);
@@ -1402,8 +1463,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         // Fallback: String.Concat(...) -> StringHelper.concat(...)
         bool isStringConcat = originalMethodName == "Concat"
             && node.ArgumentList.Arguments.Count - argStartIndex >= 1
-            && (methodSymbol?.ContainingType.ToDisplayString() is "string" or "System.String"
-                || memberAccess.Expression.ToString() is "String" or "string" or "System.String");
+            && IsSystemStringMethod(methodSymbol, memberAccess.Expression, context);
         if (isStringConcat)
         {
             var concatArgs = ArgumentTransformer.TransformArgumentList(
@@ -1415,16 +1475,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         // Emit converter helper calls instead of invalid Double.TryParse/Integer.TryParse in Java.
         if (originalMethodName == "TryParse" && node.ArgumentList.Arguments.Count - argStartIndex >= 2)
         {
-            var receiverText = memberAccess.Expression.ToString();
-            string? helper = receiverText switch
-            {
-                "Double" or "double" or "System.Double" => "MathHelper.tryParseDouble",
-                "Single" or "float" or "Float" or "System.Single" => "MathHelper.tryParseFloat",
-                "Int32" or "int" or "Integer" or "System.Int32" => "MathHelper.tryParseInt",
-                "Int64" or "long" or "Long" or "System.Int64" => "MathHelper.tryParseLong",
-                "Boolean" or "bool" or "System.Boolean" => "MathHelper.tryParseBool",
-                _ => null
-            };
+            var helper = GetTryParseHelperMethod(memberAccess.Expression, context);
 
             if (helper != null)
             {
@@ -1439,7 +1490,11 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         bool isJsonDeserialize = originalMethodName == "Deserialize"
             && node.ArgumentList.Arguments.Count - argStartIndex >= 1
             && (methodSymbol?.ContainingType.ToDisplayString() == "System.Text.Json.JsonSerializer"
-                || memberAccess.Expression.ToString() is "JsonSerializer" or "System.Text.Json.JsonSerializer");
+                || ExpressionTransformerHelpers.StaticReceiverMatches(
+                    memberAccess.Expression,
+                    context,
+                    "JsonSerializer",
+                    "System.Text.Json.JsonSerializer"));
         if (isJsonDeserialize)
         {
             ITypeSymbol? deserializeTargetType = null;
@@ -1479,7 +1534,11 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         bool isRegexSplit = originalMethodName == "Split"
             && node.ArgumentList.Arguments.Count >= 2
             && (methodSymbol?.ContainingType.ToDisplayString() == "System.Text.RegularExpressions.Regex"
-                || memberAccess.Expression.ToString() is "Regex" or "System.Text.RegularExpressions.Regex");
+                || ExpressionTransformerHelpers.StaticReceiverMatches(
+                    memberAccess.Expression,
+                    context,
+                    "Regex",
+                    "System.Text.RegularExpressions.Regex"));
         if (isRegexSplit)
         {
             var splitInput = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
@@ -1491,8 +1550,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         // Fix: String.Split(' ') → Java split(" ") — Java's split() takes a String regex, not char.
         // Convert any char literal arguments to their regex-string equivalents.
         bool isStringSplit = originalMethodName == "Split"
-            && (methodSymbol?.ContainingType.ToDisplayString() is "string" or "System.String"
-                || (methodSymbol == null && memberAccess.Expression.ToString() is "string" or "String" or "System.String"));
+            && IsSystemStringMethod(methodSymbol, memberAccess.Expression, context);
         if (isStringSplit && node.ArgumentList.Arguments.Count > argStartIndex)
         {
             if (TryTransformSplitWithRemoveEmptyEntries(node.ArgumentList, receiver, methodName, context, facade, argStartIndex, out var removeEmptySplit))
@@ -1506,8 +1564,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
 
         // String.TrimStart([chars]) -> stripLeading() for common whitespace trimming usage.
         bool isStringTrimStart = originalMethodName == "TrimStart"
-            && (methodSymbol?.ContainingType.ToDisplayString() is "string" or "System.String"
-                || (methodSymbol == null && memberAccess.Expression.ToString() is "string" or "String" or "System.String"));
+            && IsSystemStringMethod(methodSymbol, memberAccess.Expression, context);
         if (isStringTrimStart)
         {
             return $"{receiver}.stripLeading()";
@@ -1518,8 +1575,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         // Only rewrite when the first argument is a string literal — dynamic format strings
         // cannot be statically rewritten and are left as-is.
         bool isStringFormat = originalMethodName == "Format"
-            && (methodSymbol?.ContainingType.ToDisplayString() is "string" or "System.String"
-                || (methodSymbol == null && memberAccess.Expression.ToString() is "String" or "string" or "System.String"));
+            && IsSystemStringMethod(methodSymbol, memberAccess.Expression, context);
         if (isStringFormat && node.ArgumentList.Arguments.Count > argStartIndex)
         {
             var firstArg = node.ArgumentList.Arguments[argStartIndex];
@@ -3472,14 +3528,18 @@ public class InvocationExpressionTransformer : IExpressionTransformer
 
     private static bool TryMapMSTestAssertInvocation(
         ExpressionSyntax receiverExpression,
+        ConversionContext context,
         string originalMethodName,
         IMethodSymbol? methodSymbol,
         out string junitMethodName)
     {
         junitMethodName = string.Empty;
 
-        var receiverText = receiverExpression.ToString();
-        var isAssertReceiver = receiverText is "Assert" or "Microsoft.VisualStudio.TestTools.UnitTesting.Assert";
+        var isAssertReceiver = ExpressionTransformerHelpers.StaticReceiverMatches(
+            receiverExpression,
+            context,
+            "Assert",
+            "Microsoft.VisualStudio.TestTools.UnitTesting.Assert");
         var containingType = methodSymbol?.ContainingType.ToDisplayString();
         var isMSTestAssert = containingType == "Microsoft.VisualStudio.TestTools.UnitTesting.Assert";
         if (!isAssertReceiver && !isMSTestAssert)
@@ -3668,13 +3728,40 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         return typeSymbol?.SpecialType == SpecialType.System_String;
     }
 
-    private static bool IsSystemStringMethod(IMethodSymbol? methodSymbol, ExpressionSyntax receiverExpression)
+    private static bool IsSystemStringMethod(
+        IMethodSymbol? methodSymbol,
+        ExpressionSyntax receiverExpression,
+        ConversionContext context)
     {
         if (methodSymbol?.ContainingType?.SpecialType == SpecialType.System_String)
             return true;
 
-        var receiverText = receiverExpression.ToString();
-        return receiverText is "String" or "System.String" or "string";
+        return ExpressionTransformerHelpers.StaticReceiverMatches(
+            receiverExpression,
+            context,
+            "String",
+            "System.String",
+            "string");
+    }
+
+    private static string? GetTryParseHelperMethod(ExpressionSyntax receiverExpression, ConversionContext context)
+    {
+        if (ExpressionTransformerHelpers.StaticReceiverMatches(receiverExpression, context, "Double", "double", "System.Double"))
+            return "MathHelper.tryParseDouble";
+
+        if (ExpressionTransformerHelpers.StaticReceiverMatches(receiverExpression, context, "Single", "Float", "float", "System.Single"))
+            return "MathHelper.tryParseFloat";
+
+        if (ExpressionTransformerHelpers.StaticReceiverMatches(receiverExpression, context, "Int32", "Integer", "int", "System.Int32"))
+            return "MathHelper.tryParseInt";
+
+        if (ExpressionTransformerHelpers.StaticReceiverMatches(receiverExpression, context, "Int64", "Long", "long", "System.Int64"))
+            return "MathHelper.tryParseLong";
+
+        if (ExpressionTransformerHelpers.StaticReceiverMatches(receiverExpression, context, "Boolean", "bool", "System.Boolean"))
+            return "MathHelper.tryParseBool";
+
+        return null;
     }
 
     private static bool TryGetStringComparisonIgnoreCase(ExpressionSyntax expression, SemanticModel? semanticModel, out bool ignoreCase)

@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Context;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Linq;
 
 namespace CSharpToJava.Core.Transformers.Expression.Utilities;
 
@@ -308,6 +309,113 @@ public static class ExpressionTransformerHelpers
     }
 
     /// <summary>
+    /// Formats an enum member access using a single symbol-based rule shared across
+    /// expression contexts and switch labels.
+    /// </summary>
+    public static bool TryFormatEnumMemberAccess(
+        ExpressionSyntax expression,
+        ConversionContext context,
+        bool useUnqualifiedRegularEnumInSwitchLabel,
+        out string formattedAccess)
+    {
+        formattedAccess = string.Empty;
+
+        if (!TryGetEnumMemberSymbol(expression, context, out var enumMember))
+            return false;
+
+        if (IsFlagsEnum(enumMember.ContainingType, context))
+        {
+            formattedAccess = $"{GetJavaStaticTypeReference(enumMember.ContainingType, context, preserveEnumType: true)}.{enumMember.Name}";
+            return true;
+        }
+
+        var enumTypeReference = GetJavaStaticTypeReference(enumMember.ContainingType, context, preserveEnumType: false);
+        formattedAccess = useUnqualifiedRegularEnumInSwitchLabel
+            ? enumMember.Name
+            : $"{enumTypeReference}.{enumMember.Name}";
+        return true;
+    }
+
+    /// <summary>
+    /// Resolves a static receiver expression to the Roslyn type symbol when the receiver denotes a type.
+    /// This covers aliases and relative namespace paths as well as fully-qualified type references.
+    /// </summary>
+    public static bool TryGetStaticReceiverType(
+        ExpressionSyntax expression,
+        ConversionContext context,
+        out INamedTypeSymbol typeSymbol)
+    {
+        typeSymbol = null!;
+
+        if (context.SemanticModel == null)
+            return false;
+
+        var symbolInfo = context.SemanticModel.GetSymbolInfo(expression);
+        var symbol = symbolInfo.Symbol ?? symbolInfo.CandidateSymbols.FirstOrDefault();
+
+        switch (symbol)
+        {
+            case IAliasSymbol { Target: INamedTypeSymbol aliasedType }:
+                typeSymbol = aliasedType;
+                return true;
+
+            case INamedTypeSymbol namedType when namedType.TypeKind != TypeKind.Error:
+                typeSymbol = namedType;
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>
+    /// Checks whether a static receiver expression matches any of the provided C# type names.
+    /// Semantic symbol resolution is preferred and syntax text is used only as a fallback.
+    /// </summary>
+    public static bool StaticReceiverMatches(
+        ExpressionSyntax expression,
+        ConversionContext context,
+        params string[] candidateTypeNames)
+    {
+        if (TryGetStaticReceiverType(expression, context, out var typeSymbol))
+        {
+            return candidateTypeNames.Any(candidate => StaticReceiverMatchesCandidate(typeSymbol, candidate));
+        }
+
+        var receiverText = expression.ToString();
+        return candidateTypeNames.Any(candidate => string.Equals(receiverText, candidate, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Formats a static receiver expression as a Java type reference based on its semantic symbol.
+    /// Generic arguments are stripped because Java forbids them at static call sites.
+    /// </summary>
+    public static bool TryGetStaticTypeReceiverJavaReference(
+        ExpressionSyntax expression,
+        ConversionContext context,
+        bool boxJavaPrimitiveType,
+        out string javaReceiver,
+        out INamedTypeSymbol typeSymbol)
+    {
+        javaReceiver = string.Empty;
+        typeSymbol = null!;
+
+        if (!TryGetStaticReceiverType(expression, context, out typeSymbol))
+            return false;
+
+        javaReceiver = GetJavaStaticTypeReference(
+            typeSymbol,
+            context,
+            preserveEnumType: typeSymbol.TypeKind == TypeKind.Enum);
+
+        javaReceiver = StripTypeArguments(javaReceiver);
+        if (boxJavaPrimitiveType)
+            javaReceiver = BoxJavaPrimitiveType(javaReceiver);
+
+        return true;
+    }
+
+    /// <summary>
     /// Checks if the type name is a Java wrapper type.
     /// Note: 'Byte' maps to C# sbyte (signed); C# byte (unsigned) is mapped to 'Short'.
     /// </summary>
@@ -325,6 +433,145 @@ public static class ExpressionTransformerHelpers
             "Short" or "Byte" or "Character" or "Boolean" => true,
             _ => false
         };
+    }
+
+    private static bool TryGetEnumMemberSymbol(
+        ExpressionSyntax expression,
+        ConversionContext context,
+        out IFieldSymbol enumMember)
+    {
+        enumMember = null!;
+
+        if (context.SemanticModel == null)
+            return false;
+
+        var symbolInfo = context.SemanticModel.GetSymbolInfo(expression);
+        var symbol = symbolInfo.Symbol as IFieldSymbol
+            ?? symbolInfo.CandidateSymbols.OfType<IFieldSymbol>().FirstOrDefault();
+
+        if (symbol?.ContainingType?.TypeKind != TypeKind.Enum)
+            return false;
+
+        enumMember = symbol;
+        return true;
+    }
+
+    private static bool IsFlagsEnum(INamedTypeSymbol enumType, ConversionContext context)
+    {
+        return context.IsFlagsEnum(enumType.Name)
+            || context.IsFlagsEnum(enumType.ToDisplayString())
+            || enumType.GetAttributes().Any(attribute =>
+                attribute.AttributeClass?.ToDisplayString() is "System.FlagsAttribute" or "System.Flags" or "FlagsAttribute" or "Flags");
+    }
+
+    private static bool StaticReceiverMatchesCandidate(INamedTypeSymbol typeSymbol, string candidateTypeName)
+    {
+        if (string.IsNullOrWhiteSpace(candidateTypeName))
+            return false;
+
+        if (MatchesSpecialTypeAlias(typeSymbol, candidateTypeName))
+            return true;
+
+        var displayName = typeSymbol.ToDisplayString();
+        var fullyQualifiedName = NormalizeFullyQualifiedName(typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+
+        return string.Equals(displayName, candidateTypeName, StringComparison.Ordinal)
+            || string.Equals(fullyQualifiedName, candidateTypeName, StringComparison.Ordinal)
+            || string.Equals(typeSymbol.Name, candidateTypeName, StringComparison.Ordinal);
+    }
+
+    private static bool MatchesSpecialTypeAlias(INamedTypeSymbol typeSymbol, string candidateTypeName)
+    {
+        return candidateTypeName switch
+        {
+            "bool" => typeSymbol.SpecialType == SpecialType.System_Boolean,
+            "byte" => typeSymbol.SpecialType == SpecialType.System_Byte,
+            "char" => typeSymbol.SpecialType == SpecialType.System_Char,
+            "double" => typeSymbol.SpecialType == SpecialType.System_Double,
+            "float" => typeSymbol.SpecialType == SpecialType.System_Single,
+            "int" => typeSymbol.SpecialType == SpecialType.System_Int32,
+            "long" => typeSymbol.SpecialType == SpecialType.System_Int64,
+            "object" => typeSymbol.SpecialType == SpecialType.System_Object,
+            "short" => typeSymbol.SpecialType == SpecialType.System_Int16,
+            "string" => typeSymbol.SpecialType == SpecialType.System_String,
+            _ => false,
+        };
+    }
+
+    private static string GetJavaStaticTypeReference(
+        INamedTypeSymbol typeSymbol,
+        ConversionContext context,
+        bool preserveEnumType)
+    {
+        if (!preserveEnumType)
+        {
+            var mappedType = context.MapType(typeSymbol);
+            if (!string.IsNullOrWhiteSpace(mappedType))
+                return BoxJavaPrimitiveType(mappedType);
+        }
+
+        AddImportForTopLevelType(typeSymbol, context);
+        return BuildNestedTypeReference(typeSymbol);
+    }
+
+    private static void AddImportForTopLevelType(INamedTypeSymbol typeSymbol, ConversionContext context)
+    {
+        var topLevelType = typeSymbol;
+        while (topLevelType.ContainingType is INamedTypeSymbol parentType)
+            topLevelType = parentType;
+
+        var namespaceName = topLevelType.ContainingNamespace?.ToDisplayString();
+        if (string.IsNullOrWhiteSpace(namespaceName)
+            || namespaceName == "<global namespace>"
+            || string.Equals(namespaceName, context.CurrentNamespace, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        context.AddImport($"{context.NamespaceToPackage(namespaceName)}.{topLevelType.Name}");
+    }
+
+    private static string BuildNestedTypeReference(INamedTypeSymbol typeSymbol)
+    {
+        return typeSymbol.ContainingType is INamedTypeSymbol parentType
+            ? $"{BuildNestedTypeReference(parentType)}.{typeSymbol.Name}"
+            : typeSymbol.Name;
+    }
+
+    private static string NormalizeFullyQualifiedName(string name)
+    {
+        return name.StartsWith("global::", StringComparison.Ordinal)
+            ? name.Substring(8)
+            : name;
+    }
+
+    private static string StripTypeArguments(string typeName)
+    {
+        if (!typeName.Contains('<', StringComparison.Ordinal))
+            return typeName;
+
+        var builder = new StringBuilder(typeName.Length);
+        var depth = 0;
+
+        foreach (var ch in typeName)
+        {
+            if (ch == '<')
+            {
+                depth++;
+                continue;
+            }
+
+            if (ch == '>')
+            {
+                depth--;
+                continue;
+            }
+
+            if (depth == 0)
+                builder.Append(ch);
+        }
+
+        return builder.ToString();
     }
 
     /// <summary>
