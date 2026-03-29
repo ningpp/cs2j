@@ -68,6 +68,68 @@ public class ProjectDiscoveryTests
         }
     }
 
+    [Fact]
+    public void ProjectConversionExclusionPlanner_ExcludesWindowsProjects_AndTheirDependents()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var coreProject = CreateProject(root, "Core", isTest: false);
+            var graphmapsProject = CreateProject(
+                root,
+                "GraphmapsWpfControl",
+                isTest: false,
+                projectReferences: [coreProject],
+                sdk: "Microsoft.NET.Sdk.WindowsDesktop",
+                targetFramework: "net8.0-windows",
+                useWpf: true);
+            var consumerProject = CreateProject(root, "Consumer", isTest: false, projectReferences: [graphmapsProject]);
+            var solutionPath = CreateSolution(root, "GraphLayout.sln", [coreProject, graphmapsProject, consumerProject]);
+
+            var graph = ProjectDiscovery.LoadProjectGraph(solutionPath);
+            var exclusions = ProjectConversionExclusionPlanner.Plan(graph);
+
+            Assert.DoesNotContain(Path.GetFullPath(coreProject), exclusions.Keys, StringComparer.OrdinalIgnoreCase);
+            Assert.Contains(Path.GetFullPath(graphmapsProject), exclusions.Keys, StringComparer.OrdinalIgnoreCase);
+            Assert.Contains(Path.GetFullPath(consumerProject), exclusions.Keys, StringComparer.OrdinalIgnoreCase);
+            Assert.Contains("Windows-only project", exclusions[Path.GetFullPath(graphmapsProject)].Reason, StringComparison.Ordinal);
+            Assert.Contains("Depends on excluded project 'GraphmapsWpfControl'", exclusions[Path.GetFullPath(consumerProject)].Reason, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ProjectConversionExclusionPlanner_ExcludesUwpProjects()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var coreProject = CreateProject(root, "Core", isTest: false);
+            var uwpProject = CreateProject(
+                root,
+                "UwpGraphControl",
+                isTest: false,
+                projectReferences: [coreProject],
+                targetFramework: "net8.0",
+                targetPlatformIdentifier: "UAP",
+                packageReferences: ["Microsoft.NETCore.UniversalWindowsPlatform"]);
+            var solutionPath = CreateSolution(root, "GraphLayout.sln", [coreProject, uwpProject]);
+
+            var graph = ProjectDiscovery.LoadProjectGraph(solutionPath);
+            var exclusions = ProjectConversionExclusionPlanner.Plan(graph);
+
+            Assert.Contains(Path.GetFullPath(uwpProject), exclusions.Keys, StringComparer.OrdinalIgnoreCase);
+            Assert.Contains("TargetPlatformIdentifier=UAP", exclusions[Path.GetFullPath(uwpProject)].Reason, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     private static string CreateTempDirectory()
     {
         var path = Path.Combine(Path.GetTempPath(), "cs2j-project-discovery-" + Guid.NewGuid().ToString("N"));
@@ -75,7 +137,17 @@ public class ProjectDiscoveryTests
         return path;
     }
 
-    private static string CreateProject(string root, string name, bool isTest, IReadOnlyList<string>? projectReferences = null)
+    private static string CreateProject(
+        string root,
+        string name,
+        bool isTest,
+        IReadOnlyList<string>? projectReferences = null,
+        string sdk = "Microsoft.NET.Sdk",
+        string targetFramework = "net10.0",
+        bool useWpf = false,
+        bool useWindowsForms = false,
+        string? targetPlatformIdentifier = null,
+        IReadOnlyList<string>? packageReferences = null)
     {
         var projectDir = Path.Combine(root, name);
         Directory.CreateDirectory(projectDir);
@@ -89,6 +161,11 @@ public class ProjectDiscoveryTests
                 }));
 
         var isTestProperty = isTest ? "    <IsTestProject>true</IsTestProject>" + Environment.NewLine : string.Empty;
+                var useWpfProperty = useWpf ? "    <UseWPF>true</UseWPF>" + Environment.NewLine : string.Empty;
+                var useWindowsFormsProperty = useWindowsForms ? "    <UseWindowsForms>true</UseWindowsForms>" + Environment.NewLine : string.Empty;
+                var targetPlatformIdentifierProperty = string.IsNullOrWhiteSpace(targetPlatformIdentifier)
+                        ? string.Empty
+                        : $"    <TargetPlatformIdentifier>{targetPlatformIdentifier}</TargetPlatformIdentifier>" + Environment.NewLine;
         var itemGroup = string.IsNullOrEmpty(referencesXml)
             ? string.Empty
             : $@"
@@ -96,10 +173,20 @@ public class ProjectDiscoveryTests
 {referencesXml}
   </ItemGroup>";
 
-                var content = $@"<Project Sdk=""Microsoft.NET.Sdk"">
+                var packageReferencesXml = string.Join(Environment.NewLine,
+                        (packageReferences ?? [])
+                                .Select(packageReference => $"    <PackageReference Include=\"{packageReference}\" Version=\"1.0.0\" />"));
+                var packageItemGroup = string.IsNullOrEmpty(packageReferencesXml)
+                        ? string.Empty
+                        : $@"
+    <ItemGroup>
+{packageReferencesXml}
+    </ItemGroup>";
+
+                var content = $@"<Project Sdk=""{sdk}"">
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-{isTestProperty}  </PropertyGroup>{itemGroup}
+        <TargetFramework>{targetFramework}</TargetFramework>
+{isTestProperty}{useWpfProperty}{useWindowsFormsProperty}{targetPlatformIdentifierProperty}  </PropertyGroup>{itemGroup}{packageItemGroup}
 </Project>";
 
         var projectPath = Path.Combine(projectDir, name + ".csproj");

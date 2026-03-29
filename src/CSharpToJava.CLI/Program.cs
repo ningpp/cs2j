@@ -169,6 +169,13 @@ class Program
                     return 0;
                 }
 
+                workspaceProjects = FilterUnsupportedWorkspaceProjects(workspaceProjects, opts.Verbose);
+                if (workspaceProjects.Count == 0)
+                {
+                    Console.Error.WriteLine("Error: All discovered projects were excluded by platform rules.");
+                    return 1;
+                }
+
                 if (opts.Verbose)
                 {
                     Console.WriteLine($"MSBuild resolved {workspaceProjects.Count} project(s)");
@@ -190,6 +197,13 @@ class Program
                 if (TryReusePreviousProjectOutputs(opts.Destination, inputFingerprintSnapshot, opts.Verbose))
                 {
                     return 0;
+                }
+
+                graph = FilterUnsupportedProjectGraph(graph, opts.Verbose);
+                if (graph.ProjectsInTopologicalOrder.Count == 0)
+                {
+                    Console.Error.WriteLine("Error: All discovered projects were excluded by platform rules.");
+                    return 1;
                 }
 
                 return await ConvertFromProjectGraph(opts, options, graph, inputFingerprintSnapshot);
@@ -1875,6 +1889,101 @@ class Program
     {
         var sourceRoot = ResolveInputRoot(opts.Source);
         return BuildInputFingerprintSnapshot(opts, EnumerateInputFiles(sourceRoot, opts.Destination));
+    }
+
+    private static ProjectGraph FilterUnsupportedProjectGraph(ProjectGraph graph, bool verbose)
+    {
+        var exclusions = ProjectConversionExclusionPlanner.Plan(graph);
+        if (exclusions.Count == 0)
+        {
+            return graph;
+        }
+
+        WriteProjectExclusionSummary(exclusions.Values, verbose);
+
+        var includedPaths = new HashSet<string>(
+            graph.ProjectsInTopologicalOrder
+                .Select(project => Path.GetFullPath(project.ProjectFilePath))
+                .Where(path => !exclusions.ContainsKey(path)),
+            StringComparer.OrdinalIgnoreCase);
+
+        var filteredProjects = graph.ProjectsInTopologicalOrder
+            .Where(project => includedPaths.Contains(Path.GetFullPath(project.ProjectFilePath)))
+            .Select(project => new DiscoveredProject
+            {
+                Name = project.Name,
+                ProjectFilePath = project.ProjectFilePath,
+                ProjectDirectory = project.ProjectDirectory,
+                Kind = project.Kind,
+                ProjectReferences = project.ProjectReferences
+                    .Select(Path.GetFullPath)
+                    .Where(includedPaths.Contains)
+                    .ToList(),
+                ResourceItems = project.ResourceItems,
+            })
+            .ToList();
+
+        return new ProjectGraph
+        {
+            RootProjectPath = graph.RootProjectPath,
+            ProjectsInTopologicalOrder = filteredProjects,
+        };
+    }
+
+    private static IReadOnlyList<WorkspaceProject> FilterUnsupportedWorkspaceProjects(
+        IReadOnlyList<WorkspaceProject> projects,
+        bool verbose)
+    {
+        var exclusions = ProjectConversionExclusionPlanner.Plan(projects);
+        if (exclusions.Count == 0)
+        {
+            return projects;
+        }
+
+        WriteProjectExclusionSummary(exclusions.Values, verbose);
+
+        var includedPaths = new HashSet<string>(
+            projects
+                .Select(project => Path.GetFullPath(project.FilePath))
+                .Where(path => !exclusions.ContainsKey(path)),
+            StringComparer.OrdinalIgnoreCase);
+
+        return projects
+            .Where(project => includedPaths.Contains(Path.GetFullPath(project.FilePath)))
+            .Select(project => new WorkspaceProject
+            {
+                Name = project.Name,
+                FilePath = project.FilePath,
+                Directory = project.Directory,
+                Compilation = project.Compilation,
+                Documents = project.Documents,
+                ProjectReferences = project.ProjectReferences
+                    .Select(Path.GetFullPath)
+                    .Where(includedPaths.Contains)
+                    .ToList(),
+                IsTestProject = project.IsTestProject,
+            })
+            .ToList();
+    }
+
+    private static void WriteProjectExclusionSummary(
+        IEnumerable<ProjectConversionExclusion> exclusions,
+        bool verbose)
+    {
+        var orderedExclusions = exclusions
+            .OrderBy(exclusion => exclusion.ProjectName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        Console.WriteLine($"Skipping {orderedExclusions.Count} project(s) excluded by platform rules.");
+        if (!verbose)
+        {
+            return;
+        }
+
+        foreach (var exclusion in orderedExclusions)
+        {
+            Console.WriteLine($"  Skipped: {exclusion.ProjectName} ({exclusion.Reason})");
+        }
     }
 
     private static InputFingerprintSnapshot BuildInputFingerprintSnapshot(
