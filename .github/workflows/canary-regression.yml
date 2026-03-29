@@ -1,0 +1,143 @@
+name: Canary Regression
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: canary-regression-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  canary:
+    runs-on: windows-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: msagl
+            repository: microsoft/automatic-graph-layout
+            ref: master
+            entry_candidates: GraphLayout.sln;Microsoft.Msagl.sln;.
+            include_tests: true
+          - name: roslyn
+            repository: dotnet/roslyn
+            ref: main
+            entry_candidates: Roslyn.sln;src/Compilers/CSharp/csc/csc.csproj;.
+            include_tests: false
+          - name: dotnet-sdk
+            repository: dotnet/sdk
+            ref: main
+            entry_candidates: dotnet.sln;src/Cli/dotnet/dotnet.csproj;.
+            include_tests: false
+
+    steps:
+      - name: Enable long paths
+        shell: pwsh
+        run: git config --system core.longpaths true
+
+      - name: Checkout cs2j
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore and build cs2j
+        shell: pwsh
+        run: dotnet build CSharpToJavaConverter.slnx -c Release
+
+      - name: Checkout canary repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ matrix.repository }}
+          ref: ${{ matrix.ref }}
+          path: _canaries/${{ matrix.name }}
+          fetch-depth: 1
+
+      - name: Resolve canary source path
+        id: resolve
+        shell: pwsh
+        run: |
+          $repoRoot = Join-Path $PWD "_canaries/${{ matrix.name }}"
+          $candidates = "${{ matrix.entry_candidates }}".Split(';', [System.StringSplitOptions]::RemoveEmptyEntries)
+          $resolved = $null
+          foreach ($candidate in $candidates) {
+            $candidatePath = if ($candidate -eq '.') { $repoRoot } else { Join-Path $repoRoot $candidate }
+            if (Test-Path $candidatePath) {
+              $resolved = (Resolve-Path $candidatePath).Path
+              break
+            }
+          }
+
+          if (-not $resolved) {
+            $resolved = (Resolve-Path $repoRoot).Path
+          }
+
+          "source_path=$resolved" >> $env:GITHUB_OUTPUT
+          "output_root=$(Join-Path $PWD ("artifacts/${{ matrix.name }}"))" >> $env:GITHUB_OUTPUT
+
+      - name: Run canary conversion
+        id: convert
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $arguments = @(
+            'run',
+            '--project', 'src/CSharpToJava.CLI/CSharpToJava.CLI.csproj',
+            '--configuration', 'Release',
+            '--',
+            'convert-project',
+            '-s', '${{ steps.resolve.outputs.source_path }}',
+            '-d', '${{ steps.resolve.outputs.output_root }}',
+            '--mode', 'multi-module',
+            '--maven-group-id', 'io.github.ningpp.canary',
+            '--maven-version', '0.0.1-canary',
+            '--include-tests', '${{ matrix.include_tests }}',
+            '--verbose'
+          )
+
+          dotnet @arguments
+
+      - name: Summarize canary outputs
+        if: always()
+        shell: pwsh
+        run: |
+          $summaryPath = Join-Path '${{ steps.resolve.outputs.output_root }}' 'cs2j-canary-summary.json'
+          Add-Content $env:GITHUB_STEP_SUMMARY "## ${{ matrix.name }}"
+          Add-Content $env:GITHUB_STEP_SUMMARY "- repository: ${{ matrix.repository }}@${{ matrix.ref }}"
+          Add-Content $env:GITHUB_STEP_SUMMARY "- source: ${{ steps.resolve.outputs.source_path }}"
+          Add-Content $env:GITHUB_STEP_SUMMARY "- convert outcome: ${{ steps.convert.outcome }}"
+
+          if (Test-Path $summaryPath) {
+            $summary = Get-Content $summaryPath -Raw | ConvertFrom-Json
+            Add-Content $env:GITHUB_STEP_SUMMARY "- results: $($summary.resultCount)"
+            Add-Content $env:GITHUB_STEP_SUMMARY "- success: $($summary.successCount)"
+            Add-Content $env:GITHUB_STEP_SUMMARY "- failure: $($summary.failureCount)"
+            Add-Content $env:GITHUB_STEP_SUMMARY "- warnings: $($summary.diagnosticSeverities.warningCount)"
+            Add-Content $env:GITHUB_STEP_SUMMARY "- errors: $($summary.diagnosticSeverities.errorCount)"
+            Add-Content $env:GITHUB_STEP_SUMMARY "- pass aggregates: $($summary.passAggregates.Count)"
+          }
+          else {
+            Add-Content $env:GITHUB_STEP_SUMMARY "- canary summary: missing"
+          }
+
+      - name: Upload canary artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canary-${{ matrix.name }}
+          path: ${{ steps.resolve.outputs.output_root }}
+          if-no-files-found: warn
+
+      - name: Fail job on conversion failure
+        if: always() && steps.convert.outcome != 'success'
+        shell: pwsh
+        run: |
+          Write-Error "Canary conversion failed for ${{ matrix.name }}. See uploaded artifacts for diagnostics."
