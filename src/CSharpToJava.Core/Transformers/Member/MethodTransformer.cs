@@ -115,7 +115,7 @@ public class MethodTransformer : IMemberTransformer
             }
             else
             {
-                javaMethod.Body = statementTransformer.TransformBlock(methodDecl.Body, context);
+                javaMethod.StructuredBody = statementTransformer.TransformBlockToStructuredBody(methodDecl.Body, context);
             }
         }
         else if (methodDecl.ExpressionBody != null)

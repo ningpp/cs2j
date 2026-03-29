@@ -114,21 +114,28 @@ public class ConstructorTransformer : IMemberTransformer
         if (initializerStatements.Count > 0 || bodyStatements.Count > 0)
         {
             var allStatements = initializerStatements.Concat(bodyStatements);
-            javaCtor.Body = string.Join("\n        ", allStatements);
+            javaCtor.StructuredBody = new Java.JavaMethodBody(
+                allStatements.Select(s => (Java.JavaStatement)new Java.JavaRawStatement(s)));
         }
         else if (ctorDecl.Body != null)
         {
             // Empty block body (e.g., public Set() {}) → generate empty body, not abstract semicolon
-            javaCtor.Body = "";
+            javaCtor.StructuredBody = new Java.JavaMethodBody();
         }
 
         // Issue 5: For 'protected internal', annotate the body so readers know the access intent.
         if (IsProtectedInternal(ctorDecl.Modifiers))
         {
             var comment = "// C# 'protected internal' → Java 'protected' (package-private semantic is implicit via protected)";
-            javaCtor.Body = javaCtor.Body == null
-                ? comment
-                : comment + "\n        " + javaCtor.Body;
+            var commentStmt = new Java.JavaRawStatement(comment);
+            if (javaCtor.StructuredBody == null)
+            {
+                javaCtor.StructuredBody = new Java.JavaMethodBody([commentStmt]);
+            }
+            else
+            {
+                javaCtor.StructuredBody.Statements.Insert(0, commentStmt);
+            }
         }
 
         return javaCtor;

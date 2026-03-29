@@ -140,7 +140,7 @@ public class PropertyTransformer : IMemberTransformer
                 else
                 {
                     context.SuppressReturnClone = true;
-                    getter.Body = statementTransformer.TransformBlock(getAccessor.Body, context);
+                    getter.StructuredBody = statementTransformer.TransformBlockToStructuredBody(getAccessor.Body, context);
                     context.SuppressReturnClone = false;
                 }
                 getter.IsBodyExpression = false;
@@ -190,7 +190,7 @@ public class PropertyTransformer : IMemberTransformer
             if (setAccessor?.Body != null)
             {
                 var statementTransformer = new Transformers.Statement.StatementTransformer();
-                setter.Body = statementTransformer.TransformBlock(setAccessor.Body, context);
+                setter.StructuredBody = statementTransformer.TransformBlockToStructuredBody(setAccessor.Body, context);
                 setter.IsBodyExpression = false;
             }
 
