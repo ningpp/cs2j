@@ -1671,7 +1671,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                     receiverSyntaxNode: memberAccess.Expression);
             }
 
-            // ToList → .toList() (Java 16+) or collect(Collectors.toList())
+            // ToList → collect(Collectors.toList())  — always returns mutable ArrayList, matching C# List<T>
             if (originalMethodName == "ToList")
             {
                 if (receiver.EndsWith(".stream()", StringComparison.Ordinal))
@@ -1680,26 +1680,8 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                     var baseReceiver = receiver[..^".stream()".Length];
                     receiver = $"StreamSupport.stream({baseReceiver}.spliterator(), false)";
                 }
-
-                bool needsArrayListMaterialization = ShouldMaterializeArrayListForToList(node, context);
-                if (context.Options.TargetJavaVersion >= JavaVersion.Java25)
-                {
-                    var toListExpr = $"{receiver}.toList()";
-                    if (needsArrayListMaterialization)
-                    {
-                        context.AddImport("java.util.ArrayList");
-                        return $"new ArrayList<>({toListExpr})";
-                    }
-                    return toListExpr;
-                }
                 context.AddImport("java.util.stream.Collectors");
-                var collectExpr = $"{receiver}.collect(Collectors.toList())";
-                if (needsArrayListMaterialization)
-                {
-                    context.AddImport("java.util.ArrayList");
-                    return $"new ArrayList<>({collectExpr})";
-                }
-                return collectExpr;
+                return $"{receiver}.collect(Collectors.toList())";
             }
 
             // ToDictionary → collect(Collectors.toMap(keySelector, valueSelector))

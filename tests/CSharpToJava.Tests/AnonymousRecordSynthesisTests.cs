@@ -140,10 +140,10 @@ public class AnonymousRecordSynthesisTests
         Assert.Equal(1, recordCount);
     }
 
-    // ── .toList() shorthand for Java 25 ────────────────────────────────
+    // ── collect(Collectors.toList()) for all Java versions ─────────────
 
     [Fact]
-    public void ToList_UsesToListShorthand_Java21()
+    public void ToList_UsesCollectors_Always()
     {
         const string code = """
             using System.Collections.Generic;
@@ -160,31 +160,7 @@ public class AnonymousRecordSynthesisTests
         {
             TargetJavaVersion = JavaVersion.Java25,
         });
-        Assert.Contains(".toList()", java);
-        Assert.DoesNotContain("Collectors.toList()", java);
-    }
-
-    [Fact]
-    public void ToList_UsesCollectors_Java8()
-    {
-        const string code = """
-            using System.Collections.Generic;
-            using System.Linq;
-            class C
-            {
-                public List<int> Test(List<int> nums)
-                {
-                    return nums.OrderBy(x => x).ToList();
-                }
-            }
-            """;
-        var java = ConvertAndGetCode(code, new ConversionOptions
-        {
-            TargetJavaVersion = JavaVersion.Java25,
-        });
-        Assert.Contains("Collectors.toList()", java);
-        // Should NOT use the shorthand .toList() directly on stream (only Collectors form)
-        Assert.DoesNotContain(").toList()", java);
+        Assert.Contains("collect(Collectors.toList())", java);
     }
 
     // ── OrderBy + ThenBy merging ────────────────────────────────────────

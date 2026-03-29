@@ -314,30 +314,7 @@ public class StreamApiPrimaryPathTests
     // ── Java version variations ─────────────────────────────────────────────
 
     [Fact]
-    public void Java8_UsesCollectorsToList()
-    {
-        const string code = """
-            using System.Collections.Generic;
-            using System.Linq;
-            class C
-            {
-                public List<int> Test(List<int> items)
-                {
-                    return items.OrderBy(x => x).ToList();
-                }
-            }
-            """;
-        var java = ConvertAndGetCode(code, new ConversionOptions
-        {
-            TargetJavaVersion = JavaVersion.Java25,
-            PreferStreamApi = true,
-        });
-        Assert.Contains("Collectors.toList()", java);
-        Assert.DoesNotContain(".toList()", java.Replace("Collectors.toList()", ""));
-    }
-
-    [Fact]
-    public void Java21_UsesToListShorthand()
+    public void Java25_UsesCollectorsToList()
     {
         const string code = """
             using System.Collections.Generic;
@@ -351,12 +328,11 @@ public class StreamApiPrimaryPathTests
             }
             """;
         var java = ConvertAndGetCode(code);
-        Assert.Contains(".toList()", java);
-        Assert.DoesNotContain("Collectors.toList()", java);
+        Assert.Contains("collect(Collectors.toList())", java);
     }
 
     [Fact]
-    public void ToList_WithListReturnType_MaterializesArrayList()
+    public void ToList_WithListReturnType_UsesCollectors()
     {
         const string code = """
             using System.Collections.Generic;
@@ -370,8 +346,7 @@ public class StreamApiPrimaryPathTests
             }
             """;
         var java = ConvertAndGetCode(code);
-        Assert.Contains("new ArrayList<>(", java);
-        Assert.Contains(".toList()", java);
+        Assert.Contains("collect(Collectors.toList())", java);
     }
 
     // ── Default behavior: Java 25 uses Stream API by default ───────────────
@@ -398,7 +373,7 @@ public class StreamApiPrimaryPathTests
     }
 
     [Fact]
-    public void DefaultOptions_Java8_UsesProcedural()
+    public void ExplicitProcedural_DisablesStreamApi()
     {
         const string code = """
             using System.Collections.Generic;
@@ -411,8 +386,8 @@ public class StreamApiPrimaryPathTests
                 }
             }
             """;
-        // Java 25 default → procedural path
-        var result = Convert(code, new ConversionOptions { TargetJavaVersion = JavaVersion.Java25 });
+        // PreferStreamApi=false forces LinqRewriter procedural path
+        var result = Convert(code, new ConversionOptions { TargetJavaVersion = JavaVersion.Java25, PreferStreamApi = false });
         Assert.True(result.Success);
         Assert.DoesNotContain(".stream()", result.GeneratedCode);
     }
