@@ -2028,18 +2028,36 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 // Cross-type selectors need mapToDouble/mapToLong/mapToObj instead of map.
                 var selectMapOp = "map";
                 var selectSrcType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                bool selectOnPrimitiveStream = false;
+                string selectSrcCat = "";
+
                 if (selectSrcType is IArrayTypeSymbol selectArrType
                     && methodSymbol.TypeArguments.Length >= 2)
                 {
-                    var srcCat = PrimitiveStreamCategory(selectArrType.ElementType.SpecialType);
-                    if (srcCat != "")
-                    {
-                        var resCat = PrimitiveStreamCategory(methodSymbol.TypeArguments[1].SpecialType);
-                        if (resCat != "" && resCat != srcCat)
-                            selectMapOp = resCat switch { "double" => "mapToDouble", "long" => "mapToLong", _ => "mapToInt" };
-                        else if (resCat == "")
-                            selectMapOp = "mapToObj";
-                    }
+                    selectSrcCat = PrimitiveStreamCategory(selectArrType.ElementType.SpecialType);
+                    selectOnPrimitiveStream = selectSrcCat != "";
+                }
+
+                // Chained LINQ: receiver is IEnumerable<int>, not int[].
+                // Detect via receiver string if it's still a primitive stream pipeline.
+                if (!selectOnPrimitiveStream && methodSymbol.TypeArguments.Length >= 2
+                    && (receiver.StartsWith("Arrays.stream(", StringComparison.Ordinal)
+                        || receiver.Contains("IntStream.range(", StringComparison.Ordinal))
+                    && !receiver.Contains(".boxed()", StringComparison.Ordinal)
+                    && !receiver.Contains(".mapToObj(", StringComparison.Ordinal))
+                {
+                    selectSrcCat = "int"; // IntStream is the most common case
+                    selectOnPrimitiveStream = true;
+                }
+
+                if (selectOnPrimitiveStream)
+                {
+                    var resCat = PrimitiveStreamCategory(methodSymbol.TypeArguments[1].SpecialType);
+                    if (resCat != "" && resCat != selectSrcCat)
+                        selectMapOp = resCat switch { "double" => "mapToDouble", "long" => "mapToLong", _ => "mapToInt" };
+                    else if (resCat == "")
+                        selectMapOp = "mapToObj";
+                    // When resCat == selectSrcCat, keep "map" (IntStream.map for int→int)
                 }
 
                 return $"{receiver}.{selectMapOp}({mapArg})";
