@@ -624,6 +624,49 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 return $"String.format({formatArgs})";
             }
 
+            // string.IsNullOrEmpty(s) → (s == null || s.isEmpty())
+            if (primTypeSyntax.Keyword.Text == "string" && originalMethodName == "IsNullOrEmpty"
+                && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var valueExpr = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"({valueExpr} == null || {valueExpr}.isEmpty())";
+            }
+
+            // string.IsNullOrWhiteSpace(s) → StringHelper.isNullOrWhiteSpace(s)
+            if (primTypeSyntax.Keyword.Text == "string" && originalMethodName == "IsNullOrWhiteSpace"
+                && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var valueExpr = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"StringHelper.isNullOrWhiteSpace({valueExpr})";
+            }
+
+            // string.Concat(...) → StringHelper.concat(...)
+            if (primTypeSyntax.Keyword.Text == "string" && originalMethodName == "Concat"
+                && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var concatArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                return $"StringHelper.concat({concatArgs})";
+            }
+
+            // Numeric TryParse: double.TryParse(s, out result) → MathHelper.tryParseDouble(s, holder)
+            if (originalMethodName == "TryParse" && node.ArgumentList.Arguments.Count >= 2)
+            {
+                string? tryParseHelper = primTypeSyntax.Keyword.Text switch
+                {
+                    "double" => "MathHelper.tryParseDouble",
+                    "float"  => "MathHelper.tryParseFloat",
+                    "int"    => "MathHelper.tryParseInt",
+                    "long"   => "MathHelper.tryParseLong",
+                    "bool"   => "MathHelper.tryParseBool",
+                    _        => null
+                };
+                if (tryParseHelper != null)
+                {
+                    var helperArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                    return $"{tryParseHelper}({helperArgs})";
+                }
+            }
+
             var boxedReceiver = ExpressionTransformerHelpers.BoxedTypeName(primTypeSyntax);
             var mappedMethod  = MapPrimitiveStaticMethodName(primTypeSyntax.Keyword.Text, originalMethodName);
             var primArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
