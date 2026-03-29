@@ -1732,11 +1732,11 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                             {
                                 var boxedElem = ExpressionTransformerHelpers.BoxJavaPrimitiveType(javaElem);
                                 return reversed
-                                    ? $"java.util.Comparator.<{boxedElem}>naturalOrder().reversed()"
-                                    : $"java.util.Comparator.<{boxedElem}>naturalOrder()";
+                                    ? $"Comparator.<{boxedElem}>naturalOrder().reversed()"
+                                    : $"Comparator.<{boxedElem}>naturalOrder()";
                             }
                         }
-                        return reversed ? "java.util.Comparator.reverseOrder()" : "java.util.Comparator.naturalOrder()";
+                        return reversed ? "Comparator.reverseOrder()" : "Comparator.naturalOrder()";
                     }
                     if (methodSymbol.TypeArguments.Length >= 2
                         && TryGetSingleParamLambda(node.ArgumentList.Arguments[argStartIndex].Expression,
@@ -1760,11 +1760,11 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                             : "";
                         var typedParam = !string.IsNullOrEmpty(lambdaParamType)
                             ? $"({lambdaParamType} {lParam})" : lParam;
-                        var cmp = $"java.util.Comparator.{comparingFn}({typedParam} -> {lBody})";
+                        var cmp = $"Comparator.{comparingFn}({typedParam} -> {lBody})";
                         return reversed ? $"{cmp}.reversed()" : cmp;
                     }
                     // Fallback (no type info): use untyped comparing
-                    var fallback = $"java.util.Comparator.comparing({sortArgs})";
+                    var fallback = $"Comparator.comparing({sortArgs})";
                     return reversed ? $"{fallback}.reversed()" : fallback;
                 }
 

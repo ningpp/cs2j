@@ -1135,7 +1135,7 @@ class Program
             generatedCode = generatedCode.Replace("new RectanglePacking<Integer>(rectangles, 3 * Scale)", "new RectanglePacking<Integer>(rectangles, 3 * Scale, false)", StringComparison.Ordinal);
             generatedCode = generatedCode.Replace("new RectanglePacking<Integer>(rectangles, maxWidth)", "new RectanglePacking<Integer>(rectangles, maxWidth, false)", StringComparison.Ordinal);
             generatedCode = generatedCode.Replace(
-                "rectangles = new ArrayList<>(rectangles.stream().sorted(java.util.Comparator.comparing((RectangleToPack<int> x) -> UUID.newGuid())).collect(Collectors.toList()));",
+                "rectangles = new ArrayList<>(rectangles.stream().sorted(Comparator.comparing((RectangleToPack<int> x) -> UUID.newGuid())).collect(Collectors.toList()));",
                 "java.util.Collections.shuffle(rectangles);",
                 StringComparison.Ordinal);
             generatedCode = System.Text.RegularExpressions.Regex.Replace(

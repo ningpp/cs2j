@@ -68,7 +68,7 @@ public class RectanglePackingTestCompatibilityRewriteTests
 
             public class RectanglePackingTest {
                 public void test(ArrayList<RectangleToPack<Integer>> rectangles) {
-                    rectangles = new ArrayList<>(rectangles.stream().sorted(java.util.Comparator.comparing((RectangleToPack<int> x) -> UUID.newGuid())).collect(Collectors.toList()));
+                    rectangles = new ArrayList<>(rectangles.stream().sorted(Comparator.comparing((RectangleToPack<int> x) -> UUID.newGuid())).collect(Collectors.toList()));
                 }
             }
             """;

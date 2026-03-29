@@ -64,7 +64,7 @@ public class QueryExpressionTransformer : IExpressionTransformer
                     var orderLambdaParam = BuildTypedLambdaParameter(fromClauseType, rangeVar, context, orderings[0].Expression);
                     var firstKey = facade.Transform(orderings[0].Expression, context);
                     var firstDesc = orderings[0].AscendingOrDescendingKeyword.IsKind(SyntaxKind.DescendingKeyword) ? ".reversed()" : "";
-                    var comparatorBuilder = new System.Text.StringBuilder($"java.util.Comparator.comparing({orderLambdaParam} -> {firstKey}){firstDesc}");
+                    var comparatorBuilder = new System.Text.StringBuilder($"Comparator.comparing({orderLambdaParam} -> {firstKey}){firstDesc}");
                     for (int oi = 1; oi < orderings.Count; oi++)
                     {
                         var ord = orderings[oi];
@@ -217,7 +217,7 @@ public class QueryExpressionTransformer : IExpressionTransformer
                         var contLambdaParam = BuildTypedLambdaParameter(null, rangeVar, context, contOrderings[0].Expression);
                         var contFirstKey = facade.Transform(contOrderings[0].Expression, context);
                         var contFirstDesc = contOrderings[0].AscendingOrDescendingKeyword.IsKind(SyntaxKind.DescendingKeyword) ? ".reversed()" : "";
-                        var contComparator = new System.Text.StringBuilder($"java.util.Comparator.comparing({contLambdaParam} -> {contFirstKey}){contFirstDesc}");
+                        var contComparator = new System.Text.StringBuilder($"Comparator.comparing({contLambdaParam} -> {contFirstKey}){contFirstDesc}");
                         for (int ci2 = 1; ci2 < contOrderings.Count; ci2++)
                         {
                             var cord = contOrderings[ci2];
