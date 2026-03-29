@@ -161,7 +161,8 @@ public class ConversionPipeline
                         "System.Threading.Tasks",
                     })
             );
-            context.SemanticModel = compilation.GetSemanticModel(syntaxTree);
+            var library = Cs2jLibraryFactory.CreateSingleFile(request.SourceCode, request.FileName, syntaxTree, compilation);
+            context.SemanticModel = library.PrimaryCompilation?.GetSemanticModel(syntaxTree) ?? compilation.GetSemanticModel(syntaxTree);
 
             // LINQ 预处理：将 LINQ 转换为过程化代码
             // When PreferStreamApi is active, skip procedural rewriting — let the Stream API
@@ -188,7 +189,8 @@ public class ConversionPipeline
                         compilation.References,
                         compilation.Options
                     );
-                    context.SemanticModel = compilation.GetSemanticModel(syntaxTree);
+                    library = Cs2jLibraryFactory.CreateSingleFile(request.SourceCode, request.FileName, syntaxTree, compilation);
+                    context.SemanticModel = library.PrimaryCompilation?.GetSemanticModel(syntaxTree) ?? compilation.GetSemanticModel(syntaxTree);
                 }
                 catch (Exception ex)
                 {

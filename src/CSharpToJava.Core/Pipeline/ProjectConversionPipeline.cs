@@ -35,100 +35,62 @@ public class ProjectConversionPipeline
     }
 
     /// <summary>
+    /// Converts a normalized Phase 1 library input.
+    /// Current implementation assumes a single primary compilation per library.
+    /// </summary>
+    public Task<List<ConversionResult>> ConvertLibraryAsync(
+        Cs2jLibrary library,
+        ISet<string>? emitFilePaths = null)
+    {
+        ArgumentNullException.ThrowIfNull(library);
+
+        var context = new ConversionContext(_options, _typeMappings);
+        var compilation = library.PrimaryCompilation;
+        if (compilation == null)
+        {
+            context.Diagnostics.Error($"Library '{library.Name}' does not contain a primary compilation.");
+            return Task.FromResult(new List<ConversionResult>
+            {
+                new()
+                {
+                    Success = false,
+                    FileName = library.Name,
+                    Diagnostics = context.Diagnostics.Messages.ToList(),
+                }
+            });
+        }
+
+        context.ProjectCompilation = compilation;
+        return Task.FromResult(ConvertCompilationCore(compilation, context, emitFilePaths));
+    }
+
+    /// <summary>
     /// </summary>
     /// <param name="sourceFiles">源代码文件列表</param>
     /// <returns>转换结果列表</returns>
-    public async Task<List<ConversionResult>> ConvertProjectAsync(
+    public Task<List<ConversionResult>> ConvertProjectAsync(
         IEnumerable<SourceFile> sourceFiles,
         ISet<string>? emitFilePaths = null)
     {
         var context = new ConversionContext(_options, _typeMappings);
-        var results = new List<ConversionResult>();
+        var sourceFileList = sourceFiles.ToList();
 
         try
         {
             // Phase 1: Build compilation from all source files.
-            var compilation = ProjectCompilationBuilder.BuildCompilation(sourceFiles, context);
+            var compilation = ProjectCompilationBuilder.BuildCompilation(sourceFileList, context);
             if (compilation == null)
             {
-                return TypeGroupResolver.CreateFailureResults(sourceFiles, context);
+                return Task.FromResult(TypeGroupResolver.CreateFailureResults(sourceFileList, context));
             }
 
-            // Phase 2: 查找并合并 partial 类型
-            var partialMerger = new PartialTypeMerger(context.Diagnostics);
-            var mergedTypes = partialMerger.FindAndGroupTypes(compilation);
-
-            // Phase 3: 转换每个类型
-            foreach (var typeGroup in mergedTypes)
-            {
-                if (emitFilePaths != null && emitFilePaths.Count > 0)
-                {
-                    var candidatePaths = new List<string>();
-
-                    foreach (var syntaxNode in typeGroup.SyntaxNodes)
-                    {
-                        var path = syntaxNode.SyntaxTree.FilePath;
-                        if (!string.IsNullOrWhiteSpace(path))
-                        {
-                            candidatePaths.Add(path);
-                        }
-                    }
-
-                    if (candidatePaths.Count == 0)
-                    {
-                        foreach (var syntaxRef in typeGroup.TypeSymbol.DeclaringSyntaxReferences)
-                        {
-                            var path = syntaxRef.SyntaxTree.FilePath;
-                            if (!string.IsNullOrWhiteSpace(path))
-                            {
-                                candidatePaths.Add(path);
-                            }
-                        }
-                    }
-
-                    var shouldEmit = candidatePaths.Any(path => emitFilePaths.Contains(Path.GetFullPath(path)));
-
-                    if (!shouldEmit)
-                    {
-                        continue;
-                    }
-                }
-
-                var result = TypeGroupResolver.ConvertTypeGroup(typeGroup, compilation, context, _irRewriters);
-                if (result != null)
-                {
-                    results.Add(result);
-                }
-            }
-
-            // Phase 4: Emit compatibility helper classes when requested.
-            if (_options.EmitCompatibilityHelpers)
-            {
-                var basePackage = CompatibilityClassGenerator.DetermineBasePackage(results);
-                if (_options.UseCompatibilityPacks)
-                {
-                    var packRegistry = CompatibilityPackRegistry.CreateDefault();
-                    results.AddRange(packRegistry.GenerateApplicable(results, basePackage));
-                }
-                else
-                {
-                    var includeTestContext = CompatibilityClassGenerator.RequiresTestContext(results);
-                    results.AddRange(CompatibilityClassGenerator.GenerateCompatibilitySupport(basePackage, includeTestContext));
-                }
-            }
-
-            // Phase 5: Add cross-package wildcard imports so all MSAGL types see each other
-            CrossPackageImportResolver.AddCrossPackageImports(results, _options.SharedCompatibilityPackage);
-
-            // Phase 6: Apply compatibility rewrites for unresolved C#-style API remnants.
-            PostGenerationRewriteEngine.ApplyCompatibilityRewrites(results);
-
-            return results;
+            var library = Cs2jLibraryFactory.CreateFromSourceFiles(sourceFileList, compilation);
+            return Task.FromResult(ConvertCompilationCore(library.PrimaryCompilation!, context, emitFilePaths));
         }
         catch (Exception ex)
         {
             context.Diagnostics.Error($"Project conversion failed: {ex.Message}");
-            return TypeGroupResolver.CreateFailureResults(sourceFiles, context);
+            return Task.FromResult(TypeGroupResolver.CreateFailureResults(sourceFileList, context));
         }
     }
 
@@ -136,16 +98,23 @@ public class ProjectConversionPipeline
     /// Converts a project using a pre-built CSharpCompilation (e.g. from MSBuildWorkspace).
     /// Skips the manual compilation step — the provided compilation already has full references.
     /// </summary>
-    public async Task<List<ConversionResult>> ConvertProjectAsync(
+    public Task<List<ConversionResult>> ConvertProjectAsync(
         CSharpCompilation compilation,
         ISet<string>? emitFilePaths = null)
     {
-        var context = new ConversionContext(_options, _typeMappings);
-        context.ProjectCompilation = compilation;
-        var results = new List<ConversionResult>();
+        var library = Cs2jLibraryFactory.CreateFromCompilation(compilation);
+        return ConvertLibraryAsync(library, emitFilePaths);
+    }
 
+    private List<ConversionResult> ConvertCompilationCore(
+        CSharpCompilation compilation,
+        ConversionContext context,
+        ISet<string>? emitFilePaths)
+    {
+        var results = new List<ConversionResult>();
         try
         {
+            context.ProjectCompilation = compilation;
             var partialMerger = new PartialTypeMerger(context.Diagnostics);
             var mergedTypes = partialMerger.FindAndGroupTypes(compilation);
 
