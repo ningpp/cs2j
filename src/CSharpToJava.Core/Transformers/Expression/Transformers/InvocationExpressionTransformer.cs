@@ -3214,66 +3214,6 @@ public class InvocationExpressionTransformer : IExpressionTransformer
     private static bool CanCallCollectionStream(ITypeSymbol? receiverType)
         => ExpressionTransformerHelpers.CanCallCollectionStream(receiverType);
 
-    private static bool ShouldMaterializeArrayListForToList(InvocationExpressionSyntax node, ConversionContext context)
-    {
-        if (context.SemanticModel == null)
-            return false;
-
-        if (node.Parent is ReturnStatementSyntax)
-        {
-            var enclosingMethod = node.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
-            if (enclosingMethod != null)
-            {
-                var methodSymbol = context.SemanticModel.GetDeclaredSymbol(enclosingMethod);
-                if (methodSymbol != null && IsCsharpListType(methodSymbol.ReturnType))
-                    return true;
-            }
-        }
-
-        if (node.Parent is EqualsValueClauseSyntax eq && eq.Parent is VariableDeclaratorSyntax declarator
-            && declarator.Parent is VariableDeclarationSyntax declaration)
-        {
-            var declaredType = context.SemanticModel.GetTypeInfo(declaration.Type).Type;
-            if (declaredType != null && IsCsharpListType(declaredType))
-                return true;
-        }
-
-        if (node.Parent is AssignmentExpressionSyntax assignment && assignment.Right == node)
-        {
-            var leftType = context.SemanticModel.GetTypeInfo(assignment.Left).Type;
-            if (leftType != null && IsCsharpListType(leftType))
-                return true;
-        }
-
-        var typeInfo = context.SemanticModel.GetTypeInfo(node);
-        var listType = typeInfo.ConvertedType ?? typeInfo.Type;
-        if (listType == null)
-            return false;
-
-        if (IsCsharpListType(listType))
-            return true;
-
-        var mapped = context.TypeMappings.MapType(listType.ToDisplayString());
-        if (string.IsNullOrWhiteSpace(mapped) || mapped == listType.ToDisplayString())
-            mapped = context.TypeMappings.MapType($"{listType.ContainingNamespace}.{listType.Name}");
-        if (string.IsNullOrWhiteSpace(mapped))
-            return false;
-
-        var normalized = mapped.StartsWith("java.util.", StringComparison.Ordinal)
-            ? mapped["java.util.".Length..]
-            : mapped;
-        return normalized == "ArrayList" || normalized.StartsWith("ArrayList<", StringComparison.Ordinal);
-    }
-
-    private static bool IsCsharpListType(ITypeSymbol type)
-    {
-        if (type.ToDisplayString() == "System.Collections.ArrayList")
-            return true;
-
-        return type is INamedTypeSymbol named
-            && named.OriginalDefinition?.ToDisplayString() == "System.Collections.Generic.List<T>";
-    }
-
     /// <summary>
     /// Maps C# built-in primitive static method names to their Java equivalents.
     /// e.g. double.IsInfinity → Double.isInfinite, int.Parse → Integer.parseInt
