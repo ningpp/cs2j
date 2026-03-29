@@ -2800,6 +2800,18 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             : ArgumentTransformer.TransformArgumentList(
                 node.ArgumentList, context, facade, argStartIndex, methodSymbol);
 
+        // List<Integer>.remove(int) 歧义修复：C# Remove(int item) 按值删除，
+        // Java remove(int) 按索引删除。需要包装为 Integer.valueOf() 以调用 remove(Object)。
+        if (originalMethodName == "Remove"
+            && methodName == "remove"
+            && node.ArgumentList.Arguments.Count == 1
+            && methodSymbol is { Parameters.Length: 1 }
+            && methodSymbol.Parameters[0].Type.SpecialType == SpecialType.System_Int32
+            && IsListOfBoxedInt(methodSymbol.ContainingType))
+        {
+            args = $"Integer.valueOf({args})";
+        }
+
         if (methodName == "toList" && string.IsNullOrEmpty(args))
         {
             context.AddImport("java.util.stream.StreamSupport");
@@ -3225,6 +3237,22 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// 判断类型是否为 List&lt;int&gt; / IList&lt;int&gt; / ICollection&lt;int&gt; 等
+    /// 元素为 int 的集合，用于检测 remove(int) 歧义。
+    /// </summary>
+    private static bool IsListOfBoxedInt(INamedTypeSymbol? containingType)
+    {
+        if (containingType == null) return false;
+        return HasIntElementType(containingType)
+            || containingType.AllInterfaces.Any(HasIntElementType);
+
+        static bool HasIntElementType(INamedTypeSymbol t) =>
+            t.TypeArguments.Length == 1
+            && t.TypeArguments[0].SpecialType == SpecialType.System_Int32
+            && t.Name is "List" or "IList" or "ICollection" or "Collection";
     }
 
     private static bool LooksLikeMaterializedCollectionExpression(string receiverExpr)

@@ -222,10 +222,7 @@ public static class PostGenerationRewriteEngine
                 StringComparison.Ordinal);
             code = code.Replace("TopologicalSort.getOrderOnEdges(liftedLeftRightRelations)", "TopologicalSort.getOrderOnEdges(Arrays.asList(liftedLeftRightRelations))", StringComparison.Ordinal);
             code = code.Replace("blockRoot = layerInfo.nodeToBlockRoot.get(v);", "blockRoot.value = layerInfo.nodeToBlockRoot.get(v);", StringComparison.Ordinal);
-            code = code.Replace("tileNodes.get(4 * root + 1).remove(LA[i])", "tileNodes.get(4 * root + 1).remove(Integer.valueOf(LA[i]))", StringComparison.Ordinal);
-            code = code.Replace("tileNodes.get(4 * root + 2).remove(LA[i])", "tileNodes.get(4 * root + 2).remove(Integer.valueOf(LA[i]))", StringComparison.Ordinal);
-            code = code.Replace("tileNodes.get(4 * root + 3).remove(LA[i])", "tileNodes.get(4 * root + 3).remove(Integer.valueOf(LA[i]))", StringComparison.Ordinal);
-            code = code.Replace("tileNodes.get(4 * root + 4).remove(LA[i])", "tileNodes.get(4 * root + 4).remove(Integer.valueOf(LA[i]))", StringComparison.Ordinal);
+            // List<Integer>.remove(int) 自动装箱 → 已在 InvocationExpressionTransformer 中处理
             code = code.Replace("for (LgNodeInfo t : neighb.collect(Collectors.toCollection(ArrayList::new)))", "for (LgNodeInfo t : neighb)", StringComparison.Ordinal);
             code = code.Replace("for (LgNodeInfo t : neighb.collect(java.util.stream.Collectors.toList()))", "for (LgNodeInfo t : neighb)", StringComparison.Ordinal);
             code = code.Replace("for (int level : IntStream.range(settings.getMinConstraintLevel(), settings.getMinConstraintLevel() + settings.getMaxConstraintLevel() + 1).boxed()) {", "for (int level : IntStream.range(settings.getMinConstraintLevel(), settings.getMinConstraintLevel() + settings.getMaxConstraintLevel() + 1).toArray()) {", StringComparison.Ordinal);
