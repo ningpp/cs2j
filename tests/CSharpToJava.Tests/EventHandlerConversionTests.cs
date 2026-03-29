@@ -48,8 +48,8 @@ public class EventHandlerConversionTests
         Assert.Contains("BiConsumer<Object, ProgressEventArgs>", result.GeneratedCode);
 
         // The listener add/remove methods should take BiConsumer
-        Assert.Contains("addProgressChangedListener(java.util.function.BiConsumer<Object, ProgressEventArgs>", result.GeneratedCode);
-        Assert.Contains("removeProgressChangedListener(java.util.function.BiConsumer<Object, ProgressEventArgs>", result.GeneratedCode);
+        Assert.Contains("addProgressChangedListener(BiConsumer<Object, ProgressEventArgs>", result.GeneratedCode);
+        Assert.Contains("removeProgressChangedListener(BiConsumer<Object, ProgressEventArgs>", result.GeneratedCode);
 
         // The fire method should invoke with both sender and args
         Assert.Contains("_handler.accept(sender, args)", result.GeneratedCode);

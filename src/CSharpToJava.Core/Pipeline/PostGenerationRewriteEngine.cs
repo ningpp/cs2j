@@ -871,7 +871,7 @@ public static class PostGenerationRewriteEngine
                         code = code.Replace("new RectanglePacking<Integer>(rectangles, maxWidth)", "new RectanglePacking<Integer>(rectangles, maxWidth, false)", StringComparison.Ordinal);
                         code = code.Replace(
                             "rectangles = new ArrayList<>(rectangles.stream().sorted(Comparator.comparing((RectangleToPack<int> x) -> UUID.newGuid())).collect(Collectors.toList()));",
-                            "java.util.Collections.shuffle(rectangles);",
+                            "Collections.shuffle(rectangles);",
                             StringComparison.Ordinal);
                         code = Regex.Replace(
                             code,
@@ -1189,7 +1189,7 @@ public static class PostGenerationRewriteEngine
             code = Regex.Replace(
                 code,
                 @"Arrays\.asList\(new int\[\]\s*\{\s*([^{}]+?)\s*\}\)",
-                "java.util.Collections.singletonList($1)");
+                "Collections.singletonList($1)");
 
             code = Regex.Replace(
                 code,

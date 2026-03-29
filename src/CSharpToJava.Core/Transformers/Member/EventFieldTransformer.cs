@@ -55,7 +55,7 @@ public class EventFieldTransformer : IEventFieldTransformer
 
     private class EventSignature
     {
-        public string ListenerType { get; set; } = "java.util.function.Consumer<Object>";
+        public string ListenerType { get; set; } = "Consumer<Object>";
         public List<JavaParameter> Parameters { get; set; } = new List<JavaParameter>();
         public string InvokeCallArguments { get; set; } = "";
         public string InvokeMethodName { get; set; } = "accept";
@@ -162,7 +162,7 @@ public class EventFieldTransformer : IEventFieldTransformer
 
             if (origName == "EventHandler" && origNs == "System" && namedType.TypeArguments.Length == 0)
             {
-                sig.ListenerType = "java.util.function.BiConsumer<Object, Object>";
+                sig.ListenerType = "BiConsumer<Object, Object>";
                 sig.Parameters.Add(new JavaParameter("Object", "sender"));
                 sig.Parameters.Add(new JavaParameter("Object", "args"));
                 sig.InvokeCallArguments = "sender, args";
@@ -173,7 +173,7 @@ public class EventFieldTransformer : IEventFieldTransformer
             if (origName == "EventHandler" && origNs == "System" && namedType.TypeArguments.Length == 1)
             {
                 var argType = context.MapType(namedType.TypeArguments[0]);
-                sig.ListenerType = $"java.util.function.BiConsumer<Object, {argType}>";
+                sig.ListenerType = $"BiConsumer<Object, {argType}>";
                 sig.Parameters.Add(new JavaParameter("Object", "sender"));
                 sig.Parameters.Add(new JavaParameter(argType, "args"));
                 sig.InvokeCallArguments = "sender, args";
@@ -192,7 +192,7 @@ public class EventFieldTransformer : IEventFieldTransformer
             if (origName == "Action" && origNs == "System" && namedType.TypeArguments.Length == 1)
             {
                 var argType = context.MapType(namedType.TypeArguments[0]);
-                sig.ListenerType = $"java.util.function.Consumer<{argType}>";
+                sig.ListenerType = $"Consumer<{argType}>";
                 sig.Parameters.Add(new JavaParameter(argType, "arg"));
                 sig.InvokeCallArguments = "arg";
                 sig.InvokeMethodName = "accept";
@@ -234,7 +234,7 @@ public class EventFieldTransformer : IEventFieldTransformer
                 var argTypeInfo = context.SemanticModel?.GetTypeInfo(argTypeSyntax);
                 var argType = argTypeInfo.HasValue && argTypeInfo.Value.Type != null ? context.MapType(argTypeInfo.Value.Type) : argTypeSyntax.ToString();
 
-                sig.ListenerType = $"java.util.function.BiConsumer<Object, {argType}>";
+                sig.ListenerType = $"BiConsumer<Object, {argType}>";
                 sig.Parameters.Add(new JavaParameter("Object", "sender"));
                 sig.Parameters.Add(new JavaParameter(argType, "args"));
                 sig.InvokeCallArguments = "sender, args";
@@ -248,7 +248,7 @@ public class EventFieldTransformer : IEventFieldTransformer
                 var argTypeInfo = context.SemanticModel?.GetTypeInfo(argTypeSyntax);
                 var argType = argTypeInfo.HasValue && argTypeInfo.Value.Type != null ? context.MapType(argTypeInfo.Value.Type) : argTypeSyntax.ToString();
 
-                sig.ListenerType = $"java.util.function.Consumer<{argType}>";
+                sig.ListenerType = $"Consumer<{argType}>";
                 sig.Parameters.Add(new JavaParameter(argType, "arg"));
                 sig.InvokeCallArguments = "arg";
                 sig.InvokeMethodName = "accept";

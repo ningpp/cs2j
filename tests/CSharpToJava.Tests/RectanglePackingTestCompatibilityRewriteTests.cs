@@ -75,7 +75,7 @@ public class RectanglePackingTestCompatibilityRewriteTests
 
         var output = ProjectConversionPipeline.ApplyCompatibilityRewritesForTesting("RectanglePackingTest.java", generated);
 
-        Assert.Contains("java.util.Collections.shuffle(rectangles);", output);
+        Assert.Contains("Collections.shuffle(rectangles);", output);
         Assert.DoesNotContain("UUID.newGuid()", output);
         Assert.DoesNotContain("RectangleToPack<int>", output);
     }
