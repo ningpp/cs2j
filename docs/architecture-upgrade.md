@@ -1001,7 +1001,7 @@ JavaSyntaxNode (现有)
 
 ### 阶段 3：拆分 ConversionContext 并扩展 Java IR
 
-**状态：进行中** — ConversionContext 从 1,149 行降至 348 行，已提取 7 个独立类。
+**状态：进行中** — ConversionContext 从 1,149 行降至 221 行（目标 ≤300 已达成），已提取 8 个独立类。Stream API ToList 修复使测试从 461/15 提升到 466/8。
 
 **目标**：建立干净的服务/会话/局部状态边界，扩展 Java IR 以减少字符串级修补。
 
@@ -1011,6 +1011,8 @@ JavaSyntaxNode (现有)
 2. **Step 3.2**: 提取 `TypeMappingService`（~500 行类型映射核心逻辑）和 `JavaNaming`（静态命名工具）
 3. **Step 3.3**: 提取 `ConversionOptions`、`DiagnosticCollector`、`SynthesizedRecordStore`，JavaNaming 扩展类型擦除方法
 4. **Step 3.4**: 提取 `PartialTypeMergeStore`
+5. **Step 3.5**: 精简 ConversionContext 至 221 行（移除冗余文档注释，折叠表达式体方法）
+6. **Stream API 修复**: ToList 始终使用 `collect(Collectors.toList())`（语义匹配 C# 可变 List，修复 7 个测试）
 
 **提取的类总览**：
 
@@ -1027,7 +1029,7 @@ JavaSyntaxNode (现有)
 
 **交付物**：
 
-- ✅ `ConversionContext` 拆为多个独立职责类（348 行，含向后兼容 facade）
+- ✅ `ConversionContext` 拆为多个独立职责类（221 行，含向后兼容 facade）
 - ✅ `MethodConversionState` 管理方法级状态
 - ✅ `TypeMappingService` 管理全部类型/命名空间映射
 - ⬜ Java IR 扩展到支持 Statement 和 Expression 节点
@@ -1038,10 +1040,10 @@ JavaSyntaxNode (现有)
 
 | 指标 | 阶段 2 结果 | 当前值 | 目标值 |
 |------|-----------|-------|-------|
-| `ConversionContext.cs` 行数 | 1,149 | 348 | ≤ 300 |
-| Java AST 行数 | 682 | 682 | ≥ 2,000 |
-| Replace() 调用总数 | 501 | 501 | ≤ 50 |
-| 测试通过/失败 | 461/15 | 461/15 | 461/15 |
+| `ConversionContext.cs` 行数 | 1,149 | 221 | ≤ 300 ✅ |
+| Java AST 行数 | 682 | 871 | ≥ 2,000 |
+| Replace() 调用总数 | 501 | ~493 | ≤ 50 |
+| 测试通过/失败 | 461/15 | 466/8 | 466/8 |
 
 ### 阶段 4：建立输出规划与兼容包体系
 
