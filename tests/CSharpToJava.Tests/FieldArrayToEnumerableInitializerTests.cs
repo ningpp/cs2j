@@ -19,6 +19,6 @@ public class FieldArrayToEnumerableInitializerTests
         var result = pipeline.Convert(new ConversionRequest { SourceCode = code });
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics.Select(d => d.Message)));
-        Assert.Contains("collect(java.util.stream.Collectors.toList())", result.GeneratedCode);
+        Assert.Contains("collect(Collectors.toList())", result.GeneratedCode);
     }
 }

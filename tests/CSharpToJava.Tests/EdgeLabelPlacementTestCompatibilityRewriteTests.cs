@@ -21,7 +21,7 @@ public class EdgeLabelPlacementTestCompatibilityRewriteTests
 
         var output = ProjectConversionPipeline.ApplyCompatibilityRewritesForTesting("EdgeLabelPlacementTest.java", generated);
 
-        Assert.Contains("CollectionAssert.areEqual(Arrays.stream(expected).boxed().collect(java.util.stream.Collectors.toList()), r);", output);
+        Assert.Contains("CollectionAssert.areEqual(Arrays.stream(expected).boxed().collect(Collectors.toList()), r);", output);
         Assert.DoesNotContain("CollectionAssert.areEqual(expected, r);", output);
     }
 
@@ -43,7 +43,7 @@ public class EdgeLabelPlacementTestCompatibilityRewriteTests
 
         Assert.Contains("java.lang.reflect.Method methodInfo = EdgeLabelPlacement.class.getDeclaredMethod(\"getPossibleSides\", Label.PlacementSide.class, Point.class);", output);
         Assert.Contains("methodInfo.setAccessible(true);", output);
-        Assert.Contains("return Arrays.stream((double[])(methodInfo.invoke(null, side, derivative))).boxed().collect(java.util.stream.Collectors.toList());", output);
+        Assert.Contains("return Arrays.stream((double[])(methodInfo.invoke(null, side, derivative))).boxed().collect(Collectors.toList());", output);
         Assert.Contains("catch (ReflectiveOperationException e)", output);
         Assert.DoesNotContain("BindingFlags.Static | BindingFlags.NonPublic", output);
     }

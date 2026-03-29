@@ -27,7 +27,7 @@ public class LinqWhereAfterMaterializationRecoveryTests
         var result = pipeline.Convert(new ConversionRequest { SourceCode = code });
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics.Select(d => d.Message)));
-        Assert.DoesNotContain("collect(java.util.stream.Collectors.toList()).filter(", result.GeneratedCode);
+        Assert.DoesNotContain("collect(Collectors.toList()).filter(", result.GeneratedCode);
         Assert.DoesNotContain("collect(Collectors.toList()).filter(", result.GeneratedCode);
         Assert.Contains(".filter(", result.GeneratedCode);
     }

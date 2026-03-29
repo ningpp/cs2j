@@ -973,13 +973,13 @@ class Program
             || string.Equals(fileNameOnly, "ClusterTests.java", StringComparison.OrdinalIgnoreCase))
         {
             generatedCode = generatedCode.Replace(
-                "for (Object b : StreamSupport.stream(translatedStuff.spliterator(), false).collect(Collectors.collectingAndThen(Collectors.toList(), _left -> { var _right = java.util.Arrays.stream(bounds).boxed().collect(java.util.stream.Collectors.toList()); return IntStream.range(0, Math.min(_left.size(), _right.size())).mapToObj(_i -> { var translated = _left.get(_i); var original = _right.get(_i); return new AnonymousRecord1(translated, original); }); }))) { Assertions.assertTrue(ApproximateComparer.close(b.t().getBoundingBox(), Rectangle.translate(b.o(), delta)), \"object was not translated: \" + b.t()); }",
-                "var translatedList = StreamSupport.stream(translatedStuff.spliterator(), false).collect(java.util.stream.Collectors.toList());\n        for (int i = 0; i < Math.min(translatedList.size(), bounds.length); i++) {\n        var translated = translatedList.get(i);\n        var original = bounds[i];\n        Assertions.assertTrue(ApproximateComparer.close(translated.getBoundingBox(), Rectangle.translate(original, delta)), \"object was not translated: \" + translated);\n        }",
+                "for (Object b : StreamSupport.stream(translatedStuff.spliterator(), false).collect(Collectors.collectingAndThen(Collectors.toList(), _left -> { var _right = java.util.Arrays.stream(bounds).boxed().collect(Collectors.toList()); return IntStream.range(0, Math.min(_left.size(), _right.size())).mapToObj(_i -> { var translated = _left.get(_i); var original = _right.get(_i); return new AnonymousRecord1(translated, original); }); }))) { Assertions.assertTrue(ApproximateComparer.close(b.t().getBoundingBox(), Rectangle.translate(b.o(), delta)), \"object was not translated: \" + b.t()); }",
+                "var translatedList = StreamSupport.stream(translatedStuff.spliterator(), false).collect(Collectors.toList());\n        for (int i = 0; i < Math.min(translatedList.size(), bounds.length); i++) {\n        var translated = translatedList.get(i);\n        var original = bounds[i];\n        Assertions.assertTrue(ApproximateComparer.close(translated.getBoundingBox(), Rectangle.translate(original, delta)), \"object was not translated: \" + translated);\n        }",
                 StringComparison.Ordinal);
 
             generatedCode = generatedCode.Replace(
-                "for (AnonymousRecord1 b : StreamSupport.stream(translatedStuff.spliterator(), false).collect(Collectors.collectingAndThen(Collectors.toList(), _left -> { var _right = java.util.Arrays.stream(bounds).boxed().collect(java.util.stream.Collectors.toList()); return IntStream.range(0, Math.min(_left.size(), _right.size())).mapToObj(_i -> { var translated = _left.get(_i); var original = _right.get(_i); return new AnonymousRecord1(translated, original); }); }))) { Assertions.assertTrue(ApproximateComparer.close(b.t().getBoundingBox(), Rectangle.translate(b.o(), delta)), \"object was not translated: \" + b.t()); }",
-                "var translatedList = StreamSupport.stream(translatedStuff.spliterator(), false).collect(java.util.stream.Collectors.toList());\n        for (int i = 0; i < Math.min(translatedList.size(), bounds.length); i++) {\n        var translated = translatedList.get(i);\n        var original = bounds[i];\n        Assertions.assertTrue(ApproximateComparer.close(translated.getBoundingBox(), Rectangle.translate(original, delta)), \"object was not translated: \" + translated);\n        }",
+                "for (AnonymousRecord1 b : StreamSupport.stream(translatedStuff.spliterator(), false).collect(Collectors.collectingAndThen(Collectors.toList(), _left -> { var _right = java.util.Arrays.stream(bounds).boxed().collect(Collectors.toList()); return IntStream.range(0, Math.min(_left.size(), _right.size())).mapToObj(_i -> { var translated = _left.get(_i); var original = _right.get(_i); return new AnonymousRecord1(translated, original); }); }))) { Assertions.assertTrue(ApproximateComparer.close(b.t().getBoundingBox(), Rectangle.translate(b.o(), delta)), \"object was not translated: \" + b.t()); }",
+                "var translatedList = StreamSupport.stream(translatedStuff.spliterator(), false).collect(Collectors.toList());\n        for (int i = 0; i < Math.min(translatedList.size(), bounds.length); i++) {\n        var translated = translatedList.get(i);\n        var original = bounds[i];\n        Assertions.assertTrue(ApproximateComparer.close(translated.getBoundingBox(), Rectangle.translate(original, delta)), \"object was not translated: \" + translated);\n        }",
                 StringComparison.Ordinal);
         }
 
@@ -996,11 +996,11 @@ class Program
             || string.Equals(fileNameOnly, "CdtTests.java", StringComparison.OrdinalIgnoreCase))
         {
             generatedCode = generatedCode.Replace(
-                "new ArrayList<>(Arrays.stream(new SymmetricTuple[] { new SymmetricTuple<Point>(new Point(109, 202), new Point(506, 135)), new SymmetricTuple<Point>(new Point(139, 96), new Point(452, 96)) }).collect(java.util.stream.Collectors.toList()))",
+                "new ArrayList<>(Arrays.stream(new SymmetricTuple[] { new SymmetricTuple<Point>(new Point(109, 202), new Point(506, 135)), new SymmetricTuple<Point>(new Point(139, 96), new Point(452, 96)) }).collect(Collectors.toList()))",
                 "new ArrayList<SymmetricTuple<Point>>(Arrays.asList(new SymmetricTuple<Point>(new Point(109, 202), new Point(506, 135)), new SymmetricTuple<Point>(new Point(139, 96), new Point(452, 96))))",
                 StringComparison.Ordinal);
             generatedCode = generatedCode.Replace(
-                "new ArrayList<>(Arrays.stream(cut).collect(java.util.stream.Collectors.toList()))",
+                "new ArrayList<>(Arrays.stream(cut).collect(Collectors.toList()))",
                 "new ArrayList(Arrays.asList(cut))",
                 StringComparison.Ordinal);
         }
@@ -1026,7 +1026,7 @@ class Program
         {
             generatedCode = generatedCode.Replace(
                 "CollectionAssert.areEqual(expected, r);",
-                "CollectionAssert.areEqual(Arrays.stream(expected).boxed().collect(java.util.stream.Collectors.toList()), r);",
+                "CollectionAssert.areEqual(Arrays.stream(expected).boxed().collect(Collectors.toList()), r);",
                 StringComparison.Ordinal);
             generatedCode = generatedCode.Replace(
                 "Method methodInfo = EdgeLabelPlacement.class.getMethod(\"GetPossibleSides\", BindingFlags.Static | BindingFlags.NonPublic);\n        return (Iterable<Double>)(methodInfo.invoke(null, new Object[] { side, derivative }));",
@@ -1085,11 +1085,11 @@ class Program
         {
             generatedCode = generatedCode.Replace(
                 "new HashSet<>(innerCluster.getNodes())",
-                "StreamSupport.stream(innerCluster.getNodes().spliterator(), false).collect(java.util.stream.Collectors.toSet())",
+                "StreamSupport.stream(innerCluster.getNodes().spliterator(), false).collect(Collectors.toSet())",
                 StringComparison.Ordinal);
             generatedCode = generatedCode.Replace(
                 "new HashSet<>(graph.getNodes().stream().limit(4))",
-                "graph.getNodes().stream().limit(4).collect(java.util.stream.Collectors.toSet())",
+                "graph.getNodes().stream().limit(4).collect(Collectors.toSet())",
                 StringComparison.Ordinal);
         }
 
@@ -1128,14 +1128,14 @@ class Program
         {
             generatedCode = generatedCode.Replace(
                 "isOverlapping(rectangles)",
-                "isOverlapping(StreamSupport.stream(rectangles.spliterator(), false).map(RectangleToPack<Integer>::getRectangle).collect(java.util.stream.Collectors.toList()))",
+                "isOverlapping(StreamSupport.stream(rectangles.spliterator(), false).map(RectangleToPack<Integer>::getRectangle).collect(Collectors.toList()))",
                 StringComparison.Ordinal);
             generatedCode = generatedCode.Replace("new RectanglePacking<Integer>(rectangles, 3.0)", "new RectanglePacking<Integer>(rectangles, 3.0, false)", StringComparison.Ordinal);
             generatedCode = generatedCode.Replace("new RectanglePacking<Integer>(rectangles, 2.0)", "new RectanglePacking<Integer>(rectangles, 2.0, false)", StringComparison.Ordinal);
             generatedCode = generatedCode.Replace("new RectanglePacking<Integer>(rectangles, 3 * Scale)", "new RectanglePacking<Integer>(rectangles, 3 * Scale, false)", StringComparison.Ordinal);
             generatedCode = generatedCode.Replace("new RectanglePacking<Integer>(rectangles, maxWidth)", "new RectanglePacking<Integer>(rectangles, maxWidth, false)", StringComparison.Ordinal);
             generatedCode = generatedCode.Replace(
-                "rectangles = new ArrayList<>(rectangles.stream().sorted(java.util.Comparator.comparing((RectangleToPack<int> x) -> UUID.newGuid())).collect(java.util.stream.Collectors.toList()));",
+                "rectangles = new ArrayList<>(rectangles.stream().sorted(java.util.Comparator.comparing((RectangleToPack<int> x) -> UUID.newGuid())).collect(Collectors.toList()));",
                 "java.util.Collections.shuffle(rectangles);",
                 StringComparison.Ordinal);
             generatedCode = System.Text.RegularExpressions.Regex.Replace(

@@ -2494,9 +2494,9 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 string zipOtherListExpr;
                 if (zipOtherType is IArrayTypeSymbol zipArrType2 && zipArrType2.ElementType.IsValueType
                     && context.MapType(zipArrType2.ElementType) is "int" or "long" or "double")
-                    zipOtherListExpr = $"java.util.Arrays.stream({zipOther}).boxed().collect(java.util.stream.Collectors.toList())";
+                    zipOtherListExpr = $"java.util.Arrays.stream({zipOther}).boxed().collect(Collectors.toList())";
                 else if (zipOtherType is IArrayTypeSymbol)
-                    zipOtherListExpr = $"java.util.Arrays.stream({zipOther}).collect(java.util.stream.Collectors.toList())";
+                    zipOtherListExpr = $"java.util.Arrays.stream({zipOther}).collect(Collectors.toList())";
                 else
                     zipOtherListExpr = zipOther;
                 if (TryGetTwoParamLambda(node.ArgumentList.Arguments[1].Expression, context, facade, out var zipP0, out var zipP1, out var zipBody))
@@ -2754,7 +2754,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 TryGetTwoParamLambda(node.ArgumentList.Arguments[3].Expression, context, facade, out var gjResP0, out var gjResP1, out var gjResBody);
                 // Resolve result body outer param name vs actual outer param
                 string prebind = gjResP0 != gjOuterP ? $"var {gjResP0} = {gjOuterP}; " : "";
-                string gjGroupExpr = $"{gjInnerStream}.filter({gjInnerP} -> java.util.Objects.equals({gjOuterKey}, {gjInnerKey})).collect(java.util.stream.Collectors.toList())";
+                string gjGroupExpr = $"{gjInnerStream}.filter({gjInnerP} -> java.util.Objects.equals({gjOuterKey}, {gjInnerKey})).collect(Collectors.toList())";
                 return $"{receiver}.map({gjOuterP} -> {{ {prebind}var {gjResP1} = {gjGroupExpr}; return {gjResBody}; }})";
             }
 
@@ -3261,7 +3261,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return false;
 
         return receiverExpr.Contains(".collect(Collectors.toList())", StringComparison.Ordinal)
-            || receiverExpr.Contains(".collect(java.util.stream.Collectors.toList())", StringComparison.Ordinal)
+            || receiverExpr.Contains(".collect(Collectors.toList())", StringComparison.Ordinal)
             || receiverExpr.EndsWith(".toList()", StringComparison.Ordinal);
     }
 
@@ -3574,8 +3574,8 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         if (otherType is IArrayTypeSymbol arrType)
         {
             if (arrType.ElementType.IsValueType)
-                return $"java.util.Arrays.stream({other}).boxed().collect(java.util.stream.Collectors.toSet())";
-            return $"java.util.Arrays.stream({other}).collect(java.util.stream.Collectors.toSet())";
+                return $"java.util.Arrays.stream({other}).boxed().collect(Collectors.toSet())";
+            return $"java.util.Arrays.stream({other}).collect(Collectors.toSet())";
         }
         return $"new HashSet<>({other})";
     }

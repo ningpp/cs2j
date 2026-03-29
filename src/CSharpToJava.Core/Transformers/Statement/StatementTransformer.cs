@@ -1620,7 +1620,7 @@ public class StatementTransformer : IStatementTransformer
                     bool semanticTypeIsEnumerableLike = localSym?.Type is INamedTypeSymbol localNamed
                         && localNamed.Name is "IEnumerable" or "IOrderedEnumerable" or "ICollection" or "IList";
                     bool looksLikeStreamExpr = !initExpr.Contains(".collect(Collectors.toList())")
-                        && !initExpr.Contains(".collect(java.util.stream.Collectors.toList())")
+                        && !initExpr.Contains(".collect(Collectors.toList())")
                         && !initExpr.Contains(".collect(Collectors.toCollection(ArrayList::new))")
                         && !initExpr.TrimEnd().EndsWith(".toArray()")
                         && !System.Text.RegularExpressions.Regex.IsMatch(initExpr.TrimEnd(), @"\.toArray\([^)]*\)$")

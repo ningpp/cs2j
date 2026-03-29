@@ -119,7 +119,7 @@ public class FieldTransformer : IMemberTransformer
                     {
                         context.AddImport("java.util.Arrays");
                         context.AddImport("java.util.stream.Collectors");
-                        javaField.Initializer = $"java.util.Arrays.stream({javaField.Initializer}).boxed().collect(java.util.stream.Collectors.toList())";
+                        javaField.Initializer = $"java.util.Arrays.stream({javaField.Initializer}).boxed().collect(Collectors.toList())";
                     }
                     else
                     {

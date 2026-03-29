@@ -12,7 +12,7 @@ public class TestLineSweeperCompatibilityRewriteTests
 
             import Microsoft.Msagl.Routing.Visibility.VisibilityEdge;
             import java.util.ArrayList;
-            import java.util.stream.Collectors;
+            import Collectors;
             import java.util.stream.StreamSupport;
 
             public class TestLineSweeper {

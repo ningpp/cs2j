@@ -27,7 +27,7 @@ public class RectanglePackingTestCompatibilityRewriteTests
 
         var output = ProjectConversionPipeline.ApplyCompatibilityRewritesForTesting("RectanglePackingTest.java", generated);
 
-        Assert.Contains("Assertions.assertFalse(isOverlapping(StreamSupport.stream(rectangles.spliterator(), false).map(RectangleToPack<Integer>::getRectangle).collect(java.util.stream.Collectors.toList())), \"There are overlaps between the packed rectangles\");", output);
+        Assert.Contains("Assertions.assertFalse(isOverlapping(StreamSupport.stream(rectangles.spliterator(), false).map(RectangleToPack<Integer>::getRectangle).collect(Collectors.toList())), \"There are overlaps between the packed rectangles\");", output);
         Assert.Contains("private static boolean isOverlapping(Iterable<Rectangle> rectangles)", output);
         Assert.DoesNotContain("private static boolean isOverlapping(Iterable<RectangleToPack<Integer>> rectangles)", output);
     }
@@ -68,7 +68,7 @@ public class RectanglePackingTestCompatibilityRewriteTests
 
             public class RectanglePackingTest {
                 public void test(ArrayList<RectangleToPack<Integer>> rectangles) {
-                    rectangles = new ArrayList<>(rectangles.stream().sorted(java.util.Comparator.comparing((RectangleToPack<int> x) -> UUID.newGuid())).collect(java.util.stream.Collectors.toList()));
+                    rectangles = new ArrayList<>(rectangles.stream().sorted(java.util.Comparator.comparing((RectangleToPack<int> x) -> UUID.newGuid())).collect(Collectors.toList()));
                 }
             }
             """;
@@ -97,7 +97,7 @@ public class RectanglePackingTestCompatibilityRewriteTests
                     }
                     var shapes = rectangles.stream()
                         .map(r -> new DebugCurve(CurveFactory.createRectangle(r.getRectangle())))
-                        .collect(java.util.stream.Collectors.toList());
+                        .collect(Collectors.toList());
                     LayoutAlgorithmSettings.getShowDebugCurvesEnumeration().apply(shapes);
                 }
             }
@@ -124,7 +124,7 @@ public class RectanglePackingTestCompatibilityRewriteTests
 
             public class RectanglePackingTest {
                 public void test(ArrayList<RectangleToPack<Integer>> rectangles) {
-                    Assertions.assertFalse(isOverlapping(StreamSupport.stream(rectangles.spliterator(), false).map(RectangleToPack<Integer>::getRectangle).collect(java.util.stream.Collectors.toList())), "There are overlaps between the packed rectangles");
+                    Assertions.assertFalse(isOverlapping(StreamSupport.stream(rectangles.spliterator(), false).map(RectangleToPack<Integer>::getRectangle).collect(Collectors.toList())), "There are overlaps between the packed rectangles");
                     RectanglePacking<Integer> rectanglePacking = new RectanglePacking<Integer>(rectangles, maxWidth, false);
                 }
 
@@ -136,7 +136,7 @@ public class RectanglePackingTestCompatibilityRewriteTests
 
         var output = ProjectConversionPipeline.ApplyCompatibilityRewritesForTesting("RectanglePackingTest.java", generated);
 
-        Assert.Contains("isOverlapping(StreamSupport.stream(rectangles.spliterator(), false).map(RectangleToPack<Integer>::getRectangle).collect(java.util.stream.Collectors.toList()))", output);
+        Assert.Contains("isOverlapping(StreamSupport.stream(rectangles.spliterator(), false).map(RectangleToPack<Integer>::getRectangle).collect(Collectors.toList()))", output);
         Assert.DoesNotContain("new RectanglePacking<Integer>(rectangles, maxWidth)", output);
         Assert.DoesNotContain("UUID.newGuid()", output);
     }

@@ -389,7 +389,7 @@ public class ArgumentTransformer
             {
                 context.AddImport("java.util.Arrays");
                 context.AddImport("java.util.stream.Collectors");
-                return $"java.util.Arrays.stream({transformedExpr}).boxed().collect(java.util.stream.Collectors.toList())";
+                return $"java.util.Arrays.stream({transformedExpr}).boxed().collect(Collectors.toList())";
             }
 
             // Reference type arrays: Arrays.asList() works directly

@@ -188,9 +188,9 @@ public static class ExpressionTransformerHelpers
             ".collect(Collectors.toCollection(LinkedList::new))",
             ".collect(Collectors.toCollection(HashSet::new))",
             ".collect(Collectors.toCollection LinkedHashSet::new)",
-            ".collect(java.util.stream.Collectors.toList())",
-            ".collect(java.util.stream.Collectors.toSet())",
-            ".collect(java.util.stream.Collectors.toCollection(ArrayList::new))"
+            ".collect(Collectors.toList())",
+            ".collect(Collectors.toSet())",
+            ".collect(Collectors.toCollection(ArrayList::new))"
         };
 
         foreach (var pattern in patterns)

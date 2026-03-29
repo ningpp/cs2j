@@ -1,4 +1,4 @@
-﻿using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Context;
 using System.Text.RegularExpressions;
 
 namespace CSharpToJava.Core.Pipeline;
@@ -162,8 +162,8 @@ public static class PostGenerationRewriteEngine
             code = code.Replace("subgraphTempl.NodeIdList.addRange(listOfNodes.split(' '));", "subgraphTempl.NodeIdList.addAll(Arrays.asList(listOfNodes.split(\" \")));", StringComparison.Ordinal);
             // Convert.ToBoolean now handled in InvocationExpressionTransformer
             code = code.Replace("getAssemblyQualifiedName()", "getName()", StringComparison.Ordinal);
-            code = code.Replace("setEdgeEnumeration(StreamSupport.stream(graph.getEdges().spliterator(), false).map(e -> e.getGeometryEdge()));", "setEdgeEnumeration(StreamSupport.stream(graph.getEdges().spliterator(), false).map(e -> e.getGeometryEdge()).collect(java.util.stream.Collectors.toList()));", StringComparison.Ordinal);
-            code = code.Replace(".where(it -> !endOfLines.contains(it))", ".stream().filter(it -> !endOfLines.contains(it)).collect(java.util.stream.Collectors.toList())", StringComparison.Ordinal);
+            code = code.Replace("setEdgeEnumeration(StreamSupport.stream(graph.getEdges().spliterator(), false).map(e -> e.getGeometryEdge()));", "setEdgeEnumeration(StreamSupport.stream(graph.getEdges().spliterator(), false).map(e -> e.getGeometryEdge()).collect(Collectors.toList()));", StringComparison.Ordinal);
+            code = code.Replace(".where(it -> !endOfLines.contains(it))", ".stream().filter(it -> !endOfLines.contains(it)).collect(Collectors.toList())", StringComparison.Ordinal);
             code = code.Replace("SvgGraphWriter.class.getAssembly().getName().getVersion()", "\"unknown\"", StringComparison.Ordinal);
             code = code.Replace("Arrays.stream(initialLayering).map(i -> i + 1).max(java.util.Comparator.naturalOrder()).orElseThrow()", "Arrays.stream(initialLayering).map(i -> i + 1).max().orElseThrow()", StringComparison.Ordinal);
             code = code.Replace("this.a = 255;", "this.a = (byte) 255;", StringComparison.Ordinal);
@@ -194,17 +194,16 @@ public static class PostGenerationRewriteEngine
             code = code.Replace("public void write(String fileName) {", "public void write(String fileName) throws Exception {", StringComparison.Ordinal);
             code = code.Replace("public static Graph read(String fileName) {", "public static Graph read(String fileName) throws Exception {", StringComparison.Ordinal);
             code = code.Replace("sw.close();", "/* StringWriter close not required */", StringComparison.Ordinal);
-            code = code.Replace("return GraphConnectedComponents.createComponents(Arrays.asList(originalToCopyNodeMap.values().stream().toArray(Node[]::new)), copiedEdges, nodeSeparation).collect(java.util.stream.Collectors.toList());", "return new ArrayList<>(StreamSupport.stream(GraphConnectedComponents.createComponents(Arrays.asList(originalToCopyNodeMap.values().stream().toArray(Node[]::new)), copiedEdges, nodeSeparation).spliterator(), false).toList());", StringComparison.Ordinal);
+            code = code.Replace("return GraphConnectedComponents.createComponents(Arrays.asList(originalToCopyNodeMap.values().stream().toArray(Node[]::new)), copiedEdges, nodeSeparation).collect(Collectors.toList());", "return new ArrayList<>(StreamSupport.stream(GraphConnectedComponents.createComponents(Arrays.asList(originalToCopyNodeMap.values().stream().toArray(Node[]::new)), copiedEdges, nodeSeparation).spliterator(), false).toList());", StringComparison.Ordinal);
             code = code.Replace(
                 "var newEdge = Edges.stream().allMatch(x -> (v1 != x.A || v2 != x.B) && (v1 != x.B || v2 != x.A));",
                 "boolean newEdge = true;\n        for (Twin x : Edges) {\n        if ((v1 == x.A && v2 == x.B) || (v1 == x.B && v2 == x.A)) {\n        newEdge = false;\n        break;\n        }\n        }",
                 StringComparison.Ordinal);
             code = code.Replace(
                 "this.edges = StreamSupport.stream(edges.spliterator(), false).filter(e -> e.getSource() != e.getTarget());",
-                "this.edges = StreamSupport.stream(edges.spliterator(), false).filter(e -> e.getSource() != e.getTarget()).collect(java.util.stream.Collectors.toList());",
+                "this.edges = StreamSupport.stream(edges.spliterator(), false).filter(e -> e.getSource() != e.getTarget()).collect(Collectors.toList());",
                 StringComparison.Ordinal);
-            code = code.Replace(".collect(Collectors.toList())", ".collect(java.util.stream.Collectors.toList())", StringComparison.Ordinal);
-            code = code.Replace(".collect(java.util.stream.Collectors.toList()).collect(java.util.stream.Collectors.toList())", ".collect(java.util.stream.Collectors.toList())", StringComparison.Ordinal);
+            // Collectors FQN 补丁已不需要 — java.util.stream.* 已通过通配符导入
             code = code.Replace("XmlTextReader.close();", "/* XmlTextReader close handled by owner */;", StringComparison.Ordinal);
             code = code.Replace("try { InputStream stream = FileHelper.openRead(fileName);", "try (InputStream stream = FileHelper.openRead(fileName)) {", StringComparison.Ordinal);
             code = code.Replace("try { TextReader reader = FileHelper.openText(fileName);", "try (TextReader reader = FileHelper.openText(fileName)) {", StringComparison.Ordinal);
@@ -224,7 +223,7 @@ public static class PostGenerationRewriteEngine
             code = code.Replace("blockRoot = layerInfo.nodeToBlockRoot.get(v);", "blockRoot.value = layerInfo.nodeToBlockRoot.get(v);", StringComparison.Ordinal);
             // List<Integer>.remove(int) 自动装箱 → 已在 InvocationExpressionTransformer 中处理
             code = code.Replace("for (LgNodeInfo t : neighb.collect(Collectors.toCollection(ArrayList::new)))", "for (LgNodeInfo t : neighb)", StringComparison.Ordinal);
-            code = code.Replace("for (LgNodeInfo t : neighb.collect(java.util.stream.Collectors.toList()))", "for (LgNodeInfo t : neighb)", StringComparison.Ordinal);
+            code = code.Replace("for (LgNodeInfo t : neighb.collect(Collectors.toList()))", "for (LgNodeInfo t : neighb)", StringComparison.Ordinal);
             code = code.Replace("for (int level : IntStream.range(settings.getMinConstraintLevel(), settings.getMinConstraintLevel() + settings.getMaxConstraintLevel() + 1).boxed()) {", "for (int level : IntStream.range(settings.getMinConstraintLevel(), settings.getMinConstraintLevel() + settings.getMaxConstraintLevel() + 1).toArray()) {", StringComparison.Ordinal);
             code = code.Replace("} else { settings.setMinConstraintLevel(2); }", "} else { addedNodes = new HashSet<Node>(); settings.setMinConstraintLevel(2); }", StringComparison.Ordinal);
             code = code.Replace("int countForTile = tileTable.get(tuple)++ + 1;", "int countForTile = tileTable.get(tuple) + 1;\n        tileTable.put(tuple, countForTile);", StringComparison.Ordinal);
@@ -232,9 +231,9 @@ public static class PostGenerationRewriteEngine
             code = code.Replace("getShowDebugCurves().invoke(", "getShowDebugCurves().apply(", StringComparison.Ordinal);
             // Debug.Fail / Trace.Fail now handled in InvocationExpressionTransformer
             code = Regex.Replace(code, @"new Edge\(([^,\n]+),\s*([^,\n]+),\s*(ConnectionToGraph\.\w+)\);", "new Edge($1, $2, $3, null);");
-            code = Regex.Replace(code, @"(?<!Collectors)\.toList\(\)", ".collect(java.util.stream.Collectors.toList())");
-            code = code.Replace(".collect(java.util.stream.Collectors.collect(java.util.stream.Collectors.toList()))", ".collect(java.util.stream.Collectors.toList())", StringComparison.Ordinal);
-            code = code.Replace("this.funcOfNodes = () -> StreamSupport.stream(funcOfLgNodes.get().spliterator(), false).map(n -> n.getGeometryNode());", "this.funcOfNodes = () -> StreamSupport.stream(funcOfLgNodes.get().spliterator(), false).map(n -> n.getGeometryNode()).collect(java.util.stream.Collectors.toList());", StringComparison.Ordinal);
+            code = Regex.Replace(code, @"(?<!Collectors)\.toList\(\)", ".collect(Collectors.toList())");
+            code = code.Replace(".collect(Collectors.collect(Collectors.toList()))", ".collect(Collectors.toList())", StringComparison.Ordinal);
+            code = code.Replace("this.funcOfNodes = () -> StreamSupport.stream(funcOfLgNodes.get().spliterator(), false).map(n -> n.getGeometryNode());", "this.funcOfNodes = () -> StreamSupport.stream(funcOfLgNodes.get().spliterator(), false).map(n -> n.getGeometryNode()).collect(Collectors.toList());", StringComparison.Ordinal);
             // throw 后死代码消除 → 已在 ClassTransformer.EndsWithTerminalStatement 中处理
             code = code.Replace("VisibilityEdge ve;\n        assert _pathRouter.findVertex(a).tryGetEdge(_pathRouter.findVertex(b), _veHolder1);\n        ObjectHolder<VisibilityEdge> _veHolder1 = new ObjectHolder<>();", "VisibilityEdge ve;\n        ObjectHolder<VisibilityEdge> _veHolder1 = new ObjectHolder<>();\n        assert _pathRouter.findVertex(a).tryGetEdge(_pathRouter.findVertex(b), _veHolder1);", StringComparison.Ordinal);
             code = code.Replace("Arrays.stream(layering).max(java.util.Comparator.naturalOrder()).orElseThrow()", "Arrays.stream(layering).max().orElseThrow()", StringComparison.Ordinal);
@@ -569,11 +568,11 @@ public static class PostGenerationRewriteEngine
             if (r.FileName != null && r.FileName.Contains("CdtTests", StringComparison.Ordinal))
             {
                 code = code.Replace(
-                    "new ArrayList<>(Arrays.stream(new SymmetricTuple[] { new SymmetricTuple<Point>(new Point(109, 202), new Point(506, 135)), new SymmetricTuple<Point>(new Point(139, 96), new Point(452, 96)) }).collect(java.util.stream.Collectors.toList()))",
+                    "new ArrayList<>(Arrays.stream(new SymmetricTuple[] { new SymmetricTuple<Point>(new Point(109, 202), new Point(506, 135)), new SymmetricTuple<Point>(new Point(139, 96), new Point(452, 96)) }).collect(Collectors.toList()))",
                     "new ArrayList<SymmetricTuple<Point>>(Arrays.asList(new SymmetricTuple<Point>(new Point(109, 202), new Point(506, 135)), new SymmetricTuple<Point>(new Point(139, 96), new Point(452, 96))))",
                     StringComparison.Ordinal);
                 code = code.Replace(
-                    "new ArrayList<>(Arrays.stream(cut).collect(java.util.stream.Collectors.toList()))",
+                    "new ArrayList<>(Arrays.stream(cut).collect(Collectors.toList()))",
                     "new ArrayList(Arrays.asList(cut))",
                     StringComparison.Ordinal);
             }
@@ -596,11 +595,11 @@ public static class PostGenerationRewriteEngine
             {
                 code = code.Replace(
                     "CollectionAssert.areEqual(expected, r);",
-                    "CollectionAssert.areEqual(Arrays.stream(expected).boxed().collect(java.util.stream.Collectors.toList()), r);",
+                    "CollectionAssert.areEqual(Arrays.stream(expected).boxed().collect(Collectors.toList()), r);",
                     StringComparison.Ordinal);
                 code = code.Replace(
                     "Method methodInfo = EdgeLabelPlacement.class.getMethod(\"GetPossibleSides\", BindingFlags.Static | BindingFlags.NonPublic);\n        return (Iterable<Double>)(methodInfo.invoke(null, new Object[] { side, derivative }));",
-                    "try {\n        java.lang.reflect.Method methodInfo = EdgeLabelPlacement.class.getDeclaredMethod(\"getPossibleSides\", Label.PlacementSide.class, Point.class);\n        methodInfo.setAccessible(true);\n        return Arrays.stream((double[])(methodInfo.invoke(null, side, derivative))).boxed().collect(java.util.stream.Collectors.toList());\n        } catch (ReflectiveOperationException e) {\n        throw new RuntimeException(e);\n        }",
+                    "try {\n        java.lang.reflect.Method methodInfo = EdgeLabelPlacement.class.getDeclaredMethod(\"getPossibleSides\", Label.PlacementSide.class, Point.class);\n        methodInfo.setAccessible(true);\n        return Arrays.stream((double[])(methodInfo.invoke(null, side, derivative))).boxed().collect(Collectors.toList());\n        } catch (ReflectiveOperationException e) {\n        throw new RuntimeException(e);\n        }",
                     StringComparison.Ordinal);
             }
 
@@ -711,11 +710,11 @@ public static class PostGenerationRewriteEngine
 
                 code = code.Replace(
                     "new HashSet<>(innerCluster.getNodes())",
-                    "StreamSupport.stream(innerCluster.getNodes().spliterator(), false).collect(java.util.stream.Collectors.toSet())",
+                    "StreamSupport.stream(innerCluster.getNodes().spliterator(), false).collect(Collectors.toSet())",
                     StringComparison.Ordinal);
                 code = code.Replace(
                     "new HashSet<>(graph.getNodes().stream().limit(4))",
-                    "graph.getNodes().stream().limit(4).collect(java.util.stream.Collectors.toSet())",
+                    "graph.getNodes().stream().limit(4).collect(Collectors.toSet())",
                     StringComparison.Ordinal);
             }
 
@@ -864,14 +863,14 @@ public static class PostGenerationRewriteEngine
                     {
                         code = code.Replace(
                             "isOverlapping(rectangles)",
-                            "isOverlapping(StreamSupport.stream(rectangles.spliterator(), false).map(RectangleToPack<Integer>::getRectangle).collect(java.util.stream.Collectors.toList()))",
+                            "isOverlapping(StreamSupport.stream(rectangles.spliterator(), false).map(RectangleToPack<Integer>::getRectangle).collect(Collectors.toList()))",
                             StringComparison.Ordinal);
                         code = code.Replace("new RectanglePacking<Integer>(rectangles, 3.0)", "new RectanglePacking<Integer>(rectangles, 3.0, false)", StringComparison.Ordinal);
                         code = code.Replace("new RectanglePacking<Integer>(rectangles, 2.0)", "new RectanglePacking<Integer>(rectangles, 2.0, false)", StringComparison.Ordinal);
                         code = code.Replace("new RectanglePacking<Integer>(rectangles, 3 * Scale)", "new RectanglePacking<Integer>(rectangles, 3 * Scale, false)", StringComparison.Ordinal);
                         code = code.Replace("new RectanglePacking<Integer>(rectangles, maxWidth)", "new RectanglePacking<Integer>(rectangles, maxWidth, false)", StringComparison.Ordinal);
                         code = code.Replace(
-                            "rectangles = new ArrayList<>(rectangles.stream().sorted(java.util.Comparator.comparing((RectangleToPack<int> x) -> UUID.newGuid())).collect(java.util.stream.Collectors.toList()));",
+                            "rectangles = new ArrayList<>(rectangles.stream().sorted(java.util.Comparator.comparing((RectangleToPack<int> x) -> UUID.newGuid())).collect(Collectors.toList()));",
                             "java.util.Collections.shuffle(rectangles);",
                             StringComparison.Ordinal);
                         code = Regex.Replace(
@@ -1080,7 +1079,7 @@ public static class PostGenerationRewriteEngine
             code = Regex.Replace(
                 code,
                 @"Stream<LgNodeInfo>\s+neighb\s*=\s*(getNeighborsOnLevel\([^;]+?\)\.stream\(\)\.sorted\(java\.util\.Comparator\.comparingDouble\(\(LgNodeInfo n\) -> n\.getZoomLevel\(\)\)\));",
-                "var neighb = $1.collect(java.util.stream.Collectors.toList());");
+                "var neighb = $1.collect(Collectors.toList());");
 
             code = Regex.Replace(
                 code,
@@ -1195,13 +1194,13 @@ public static class PostGenerationRewriteEngine
             code = Regex.Replace(
                 code,
                 @"CycleRemoval\.getFeedbackSet\((.*?)\)\.collect\((?:java\.util\.stream\.)?Collectors\.toList\(\)\)",
-                "StreamSupport.stream(CycleRemoval.getFeedbackSet($1).spliterator(), false).collect(java.util.stream.Collectors.toList())",
+                "StreamSupport.stream(CycleRemoval.getFeedbackSet($1).spliterator(), false).collect(Collectors.toList())",
                 RegexOptions.Singleline);
 
             code = Regex.Replace(
                 code,
                 @"CycleRemoval\.getFeedbackSetWithConstraints\((.*?)\)\.collect\((?:java\.util\.stream\.)?Collectors\.toList\(\)\)",
-                "StreamSupport.stream(CycleRemoval.getFeedbackSetWithConstraints($1).spliterator(), false).collect(java.util.stream.Collectors.toList())",
+                "StreamSupport.stream(CycleRemoval.getFeedbackSetWithConstraints($1).spliterator(), false).collect(Collectors.toList())",
                 RegexOptions.Singleline);
 
             code = code.Replace(".sorted(java.util.Comparator.comparing(e -> e.getLength())", ".sorted(java.util.Comparator.comparing((Microsoft.Msagl.Core.Layout.Edge e) -> e.getLength())", StringComparison.Ordinal);
@@ -1209,14 +1208,14 @@ public static class PostGenerationRewriteEngine
             code = code.Replace("for (VisibilityVertexRectilinear source : sources) {", "for (VisibilityVertex source : sources) {", StringComparison.Ordinal);
             code = code.Replace("for (VisibilityVertexRectilinear target : targets) {", "for (VisibilityVertex target : targets) {", StringComparison.Ordinal);
             code = code.Replace("VertexEntry lastEntry = ssstCalculator.getPathWithCost(sourceVertexEntries, source, sourceCostAdjustment, tempTargetEntries, target, targetCostAdjustment, adjustedBestCost);", "VertexEntry lastEntry = ssstCalculator.getPathWithCost(sourceVertexEntries, (VisibilityVertexRectilinear)source, sourceCostAdjustment, tempTargetEntries, (VisibilityVertexRectilinear)target, targetCostAdjustment, adjustedBestCost);", StringComparison.Ordinal);
-            code = code.Replace("for (AbstractMap.SimpleEntry<Path, LinkedPoint> pair : prevLocationPathOffsets.entrySet().stream().filter(pair -> !pathOffsets.containsKey(pair.getKey())).collect(Collectors.toCollection(ArrayList::new)))", "for (Map.Entry<Path, LinkedPoint> pair : prevLocationPathOffsets.entrySet().stream().filter(pair -> !pathOffsets.containsKey(pair.getKey())).collect(java.util.stream.Collectors.toList()))", StringComparison.Ordinal);
+            code = code.Replace("for (AbstractMap.SimpleEntry<Path, LinkedPoint> pair : prevLocationPathOffsets.entrySet().stream().filter(pair -> !pathOffsets.containsKey(pair.getKey())).collect(Collectors.toCollection(ArrayList::new)))", "for (Map.Entry<Path, LinkedPoint> pair : prevLocationPathOffsets.entrySet().stream().filter(pair -> !pathOffsets.containsKey(pair.getKey())).collect(Collectors.toList()))", StringComparison.Ordinal);
             code = code.Replace("for (AbstractMap.SimpleEntry<Double, LinkedPoint> pathLinkedPointBucket : colliniarBuckets)", "for (Map.Entry<Double, java.util.List<LinkedPoint>> pathLinkedPointBucket : colliniarBuckets)", StringComparison.Ordinal);
             code = code.Replace("refineCollinearBucket(pathLinkedPointBucket, projectionToDirection);", "refineCollinearBucket(pathLinkedPointBucket.getValue(), projectionToDirection);", StringComparison.Ordinal);
             code = code.Replace("boolean aIsInsideB, bIsInsideA;", "boolean aIsInsideB = false, bIsInsideA = false;", StringComparison.Ordinal);
             code = code.Replace("var incomingEdges = inDegreeLeftUnprocessed.get(edge.getTarget())--;", "var incomingEdges = inDegreeLeftUnprocessed.get(edge.getTarget());\n        inDegreeLeftUnprocessed.put(edge.getTarget(), incomingEdges - 1);", StringComparison.Ordinal);
             code = code.Replace("public class FreeSpaceFinder extends LineSweeperBase implements Comparator<AxisEdgesContainer> {", "public class FreeSpaceFinder extends LineSweeperBase {", StringComparison.Ordinal);
             code = code.Replace("edgeContainersTree = new RbTree<AxisEdgesContainer>(this);", "edgeContainersTree = new RbTree<AxisEdgesContainer>((x, y) -> compare(x, y));", StringComparison.Ordinal);
-            code = code.Replace(".collect(java.util.stream.Collectors.toList())).spliterator(), false).map(x -> (ICurve) x));", ".collect(java.util.stream.Collectors.toList())).spliterator(), false).map(x -> (ICurve) x).collect(java.util.stream.Collectors.toList()));", StringComparison.Ordinal);
+            code = code.Replace(".collect(Collectors.toList())).spliterator(), false).map(x -> (ICurve) x));", ".collect(Collectors.toList())).spliterator(), false).map(x -> (ICurve) x).collect(Collectors.toList()));", StringComparison.Ordinal);
             code = code.Replace("int[] _i = { i };\n        int[] _i = { i };", "int[] _i = { i };", StringComparison.Ordinal);
             code = code.Replace("var projectionToDir = (dir == Direction.East ? (PointProjection)((p -> p.X)) : (p -> p.Y));", "PointProjection projectionToDir = (dir == Direction.East ? (PointProjection)((p -> p.X)) : (PointProjection)(p -> p.Y));", StringComparison.Ordinal);
             code = code.Replace("var projectionToPerp = (getNudgingDirection() == Direction.East ? (PointProjection)(FreeSpaceFinder::minusY) : FreeSpaceFinder::x);", "PointProjection projectionToPerp = (getNudgingDirection() == Direction.East ? (PointProjection)(FreeSpaceFinder::minusY) : (PointProjection)(FreeSpaceFinder::x));", StringComparison.Ordinal);
@@ -1224,30 +1223,30 @@ public static class PostGenerationRewriteEngine
             code = Regex.Replace(
                 code,
                 @"StreamSupport\.stream\(path\.getPathPoints\(\)\.spliterator\(\), false\)\.skip\(1\)\.reduce\(ret, \(lp, p\) -> lp\.setNext\(new LinkedPoint\(p(?:\.clone\(\))?\)\), \(__accLeft, __accRight\) -> __accRight\);",
-                "LinkedPoint cur = ret;\n        for (Point p : StreamSupport.stream(path.getPathPoints().spliterator(), false).skip(1).collect(java.util.stream.Collectors.toList())) {\n        cur.setNext(new LinkedPoint(p));\n        cur = cur.getNext();\n        }");
+                "LinkedPoint cur = ret;\n        for (Point p : StreamSupport.stream(path.getPathPoints().spliterator(), false).skip(1).collect(Collectors.toList())) {\n        cur.setNext(new LinkedPoint(p));\n        cur = cur.getNext();\n        }");
             code = Regex.Replace(
                 code,
                 @"this\.setMaxVisibilitySegment\(obstacleTree\.createMaxVisibilitySegment\(this\.getVisibilityBorderIntersect\(\)(?:\.clone\(\))?, this\.getOutwardDirection\(\), /\* out \*/ this\.pointAndCrossingsList\)\);",
                 "ObjectHolder<PointAndCrossingsList> _pcl = new ObjectHolder<>(this.pointAndCrossingsList);\n        this.setMaxVisibilitySegment(obstacleTree.createMaxVisibilitySegment(this.getVisibilityBorderIntersect(), this.getOutwardDirection(), _pcl));\n        this.pointAndCrossingsList = _pcl.value;");
             code = code.Replace("toArray(AbstractMap.SimpleEntry<Point, FreePoint>[]::new)", "toArray(Map.Entry[]::new)", StringComparison.Ordinal);
             code = code.Replace("for (AbstractMap.SimpleEntry<Point, FreePoint> staleFreePair : staleFreePairs)", "for (Map.Entry<Point, FreePoint> staleFreePair : staleFreePairs)", StringComparison.Ordinal);
-            code = code.Replace("new Polyline(ConvexHull.calculateConvexHull(java.util.stream.Stream.concat(StreamSupport.stream(poly.spliterator(), false), Arrays.stream(stickingPointsArray).boxed()).collect(java.util.stream.Collectors.toList())))", "new Polyline(ConvexHull.calculateConvexHull(new ArrayList<Point>(java.util.stream.Stream.concat(StreamSupport.stream(poly.spliterator(), false), Arrays.stream(stickingPointsArray).boxed()).collect(java.util.stream.Collectors.toList()))))", StringComparison.Ordinal);
+            code = code.Replace("new Polyline(ConvexHull.calculateConvexHull(java.util.stream.Stream.concat(StreamSupport.stream(poly.spliterator(), false), Arrays.stream(stickingPointsArray).boxed()).collect(Collectors.toList())))", "new Polyline(ConvexHull.calculateConvexHull(new ArrayList<Point>(java.util.stream.Stream.concat(StreamSupport.stream(poly.spliterator(), false), Arrays.stream(stickingPointsArray).boxed()).collect(Collectors.toList()))))", StringComparison.Ordinal);
             code = code.Replace("Arrays.stream(stickingPointsArray).boxed()", "Arrays.stream(stickingPointsArray)", StringComparison.Ordinal);
-            code = code.Replace("var _coalesce6 = (this._edges != null ? this._edges.Select(e -> e.getEdgeGeometry()) : null);\n        return _coalesce6 != null ? _coalesce6 : Stream.<EdgeGeometry>empty();", "if (this._edges != null) {\n        return StreamSupport.stream(this._edges.spliterator(), false).map(e -> e.getEdgeGeometry()).collect(java.util.stream.Collectors.toList());\n        }\n        return Stream.<EdgeGeometry>empty().collect(java.util.stream.Collectors.toList());", StringComparison.Ordinal);
-            code = code.Replace("_edges.Select(e -> e.getEdgeGeometry())", "StreamSupport.stream(this._edges.spliterator(), false).map(e -> e.getEdgeGeometry()).collect(java.util.stream.Collectors.toList())", StringComparison.Ordinal);
+            code = code.Replace("var _coalesce6 = (this._edges != null ? this._edges.Select(e -> e.getEdgeGeometry()) : null);\n        return _coalesce6 != null ? _coalesce6 : Stream.<EdgeGeometry>empty();", "if (this._edges != null) {\n        return StreamSupport.stream(this._edges.spliterator(), false).map(e -> e.getEdgeGeometry()).collect(Collectors.toList());\n        }\n        return Stream.<EdgeGeometry>empty().collect(Collectors.toList());", StringComparison.Ordinal);
+            code = code.Replace("_edges.Select(e -> e.getEdgeGeometry())", "StreamSupport.stream(this._edges.spliterator(), false).map(e -> e.getEdgeGeometry()).collect(Collectors.toList())", StringComparison.Ordinal);
             code = code.Replace("for (AbstractMap.SimpleEntry<Set<Shape>, Microsoft.Msagl.Core.Layout.Edge> edgeGroup : Arrays.stream(_edges).collect(Collectors.groupingBy(this::edgePassport)).entrySet().stream())", "for (Map.Entry<Set<Shape>, java.util.List<Microsoft.Msagl.Core.Layout.Edge>> edgeGroup : Arrays.stream(_edges).collect(Collectors.groupingBy(this::edgePassport)).entrySet())", StringComparison.Ordinal);
             code = code.Replace("void routeEdgesWithTheSamePassport(AbstractMap.SimpleEntry<Set<Shape>, Microsoft.Msagl.Core.Layout.Edge> edgeGeometryGroup, InteractiveEdgeRouter interactiveEdgeRouter, Set<Shape> obstacleShapes)", "void routeEdgesWithTheSamePassport(Map.Entry<Set<Shape>, java.util.List<Microsoft.Msagl.Core.Layout.Edge>> edgeGeometryGroup, InteractiveEdgeRouter interactiveEdgeRouter, Set<Shape> obstacleShapes)", StringComparison.Ordinal);
             code = code.Replace("splitOnRegularAndMultiedges(edgeGeometryGroup, _regularEdgesHolder1, _multiEdgesHolder1);", "splitOnRegularAndMultiedges(edgeGeometryGroup.getValue(), _regularEdgesHolder1, _multiEdgesHolder1);", StringComparison.Ordinal);
             code = code.Replace("for (Microsoft.Msagl.Core.Layout.Edge eg : edgeGeometryGroup.collect(Collectors.toCollection(ArrayList::new)))", "for (Microsoft.Msagl.Core.Layout.Edge eg : edgeGeometryGroup.getValue())", StringComparison.Ordinal);
             code = code.Replace("Arrays.stream(HalfWidthArray).mapToDouble(x -> x).sum()", "Arrays.stream(HalfWidthArray).sum()", StringComparison.Ordinal);
             code = code.Replace("return boneEdge.setCrossedCdtEdges(threadBoneEdgeThroughCdt(boneEdge));", "boneEdge.setCrossedCdtEdges(threadBoneEdgeThroughCdt(boneEdge));\n        return boneEdge.getCrossedCdtEdges();", StringComparison.Ordinal);
-            code = code.Replace("var edges = new ArrayList<>(StreamSupport.stream((StreamSupport.stream(graph.getEdges().spliterator(), false)\n        .sorted(java.util.Comparator.comparing((Microsoft.Msagl.Core.Layout.Edge e) -> e.getLength())\n        .thenComparing(e -> rand.nextInt()))\n        .collect(java.util.stream.Collectors.toList())).spliterator(), false).collect(java.util.stream.Collectors.toList()));", "var edges = new ArrayList<Microsoft.Msagl.Core.Layout.Edge>(StreamSupport.stream(graph.getEdges().spliterator(), false).collect(java.util.stream.Collectors.toList()));", StringComparison.Ordinal);
+            code = code.Replace("var edges = new ArrayList<>(StreamSupport.stream((StreamSupport.stream(graph.getEdges().spliterator(), false)\n        .sorted(java.util.Comparator.comparing((Microsoft.Msagl.Core.Layout.Edge e) -> e.getLength())\n        .thenComparing(e -> rand.nextInt()))\n        .collect(Collectors.toList())).spliterator(), false).collect(Collectors.toList()));", "var edges = new ArrayList<Microsoft.Msagl.Core.Layout.Edge>(StreamSupport.stream(graph.getEdges().spliterator(), false).collect(Collectors.toList()));", StringComparison.Ordinal);
             code = Regex.Replace(code, @"int\[] _i = \{ i \};\s*int\[] _i = \{ i \};", "int[] _i = { i };");
             code = code.Replace("this.StreamSupport.stream", "StreamSupport.stream", StringComparison.Ordinal);
             code = code.Replace("return _coalesce6 != null ? _coalesce6 : Stream.<EdgeGeometry>empty();", "return _coalesce6 != null ? _coalesce6 : java.util.Collections.<EdgeGeometry>emptyList();", StringComparison.Ordinal);
             code = code.Replace("for (VisibilityEdge edge : edgesToFix.collect(Collectors.toCollection(ArrayList::new)))", "for (VisibilityEdge edge : edgesToFix)", StringComparison.Ordinal);
-            code = code.Replace("metroGraphData.getEdges()[edgeIndex].setCurve(new Polyline(gluedPolyline(StreamSupport.stream(poly.spliterator(), false).map(p -> metroGraphData.PointToStations.get(p)).toArray(Station[]::new), gluingMap).collect(java.util.stream.Collectors.toList())));", "metroGraphData.getEdges()[edgeIndex].setCurve(new Polyline(StreamSupport.stream(gluedPolyline(StreamSupport.stream(poly.spliterator(), false).map(p -> metroGraphData.PointToStations.get(p)).toArray(Station[]::new), gluingMap).spliterator(), false).collect(java.util.stream.Collectors.toList())));", StringComparison.Ordinal);
-            code = code.Replace("return ret.stream().collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new), list -> { Collections.reverse(list); return list; })).map(n -> n.Position).collect(java.util.stream.Collectors.toList());", "return ret.stream().collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new), list -> { Collections.reverse(list); return list; })).stream().map(n -> n.Position).collect(java.util.stream.Collectors.toList());", StringComparison.Ordinal);
+            code = code.Replace("metroGraphData.getEdges()[edgeIndex].setCurve(new Polyline(gluedPolyline(StreamSupport.stream(poly.spliterator(), false).map(p -> metroGraphData.PointToStations.get(p)).toArray(Station[]::new), gluingMap).collect(Collectors.toList())));", "metroGraphData.getEdges()[edgeIndex].setCurve(new Polyline(StreamSupport.stream(gluedPolyline(StreamSupport.stream(poly.spliterator(), false).map(p -> metroGraphData.PointToStations.get(p)).toArray(Station[]::new), gluingMap).spliterator(), false).collect(Collectors.toList())));", StringComparison.Ordinal);
+            code = code.Replace("return ret.stream().collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new), list -> { Collections.reverse(list); return list; })).map(n -> n.Position).collect(Collectors.toList());", "return ret.stream().collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new), list -> { Collections.reverse(list); return list; })).stream().map(n -> n.Position).collect(Collectors.toList());", StringComparison.Ordinal);
             code = code.Replace("for (Metroline metroline : abcPolylines) { polylineLength.get(metroline) -= ab + bc - ac; }", "for (Metroline metroline : abcPolylines) { polylineLength.put(metroline, polylineLength.get(metroline) - (ab + bc - ac)); }", StringComparison.Ordinal);
             code = code.Replace("glueEdge(keyValuePair);", "glueEdge(new AbstractMap.SimpleEntry<AbstractMap.SimpleEntry<Station, Station>, Point>(keyValuePair.getKey(), keyValuePair.getValue()));", StringComparison.Ordinal);
             code = Regex.Replace(code, @"(crossingsOfEdgeNodeA)\.exists\(", "$1.stream().anyMatch(");
@@ -1696,7 +1695,7 @@ public static class PostGenerationRewriteEngine
             @"StreamSupport\.stream\((\w+)\.spliterator\(\), false\)" +
             @"\.collect\(Collectors\.collectingAndThen\(Collectors\.toList\(\), _left -> \{ " +
             @"var _right = java\.util\.Arrays\.stream\((\w+)\)(?:\.boxed\(\))?" +
-            @"\.collect\(java\.util\.stream\.Collectors\.toList\(\)\); " +
+            @"\.collect\((?:java\.util\.stream\.)?Collectors\.toList\(\)\); " +
             @"return IntStream\.range\(0, Math\.min\(_left\.size\(\), _right\.size\(\)\)\)" +
             @"\.mapToObj\(_i -> \{ var (\w+) = _left\.get\(_i\); var (\w+) = _right\.get\(_i\); " +
             @"return new \w+\(\4, \5\); \}\); \}\)\)\) \{(.+?)\}",
@@ -1717,7 +1716,7 @@ public static class PostGenerationRewriteEngine
 
         var listVar = $"{param1}List";
         var replacement =
-            $"var {listVar} = StreamSupport.stream({collectionName}.spliterator(), false).collect(java.util.stream.Collectors.toList());\n" +
+            $"var {listVar} = StreamSupport.stream({collectionName}.spliterator(), false).collect(Collectors.toList());\n" +
             $"        for (int i = 0; i < Math.min({listVar}.size(), {arrayName}.length); i++) {{\n" +
             $"            var {param1} = {listVar}.get(i);\n" +
             $"            var {param2} = {arrayName}[i];\n" +

@@ -133,7 +133,7 @@ public class ArrayToListAssignmentTests
 
         // 基本类型数组需要使用 stream().boxed().collect() 进行装箱
         Assert.Contains("Arrays.stream(new int[] { 1, 2, 3 }).boxed()", java);
-        Assert.Contains(".collect(java.util.stream.Collectors.toList())", java);
+        Assert.Contains(".collect(Collectors.toList())", java);
     }
 
     [Fact]

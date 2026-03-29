@@ -365,7 +365,7 @@ public class ObjectCreationTransformer : IExpressionTransformer
         {
             context.AddImport("java.util.Arrays");
             context.AddImport("java.util.stream.Collectors");
-            return $"java.util.Arrays.stream({expr}).boxed().collect(java.util.stream.Collectors.toList())";
+            return $"java.util.Arrays.stream({expr}).boxed().collect(Collectors.toList())";
         }
 
         context.AddImport("java.util.Arrays");
