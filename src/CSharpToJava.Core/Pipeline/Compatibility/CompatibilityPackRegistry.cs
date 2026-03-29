@@ -32,21 +32,24 @@ public class CompatibilityPackRegistry
     }
 
     /// <summary>
+    /// 获取所有适用的 Pack（不生成文件）。
+    /// </summary>
+    public IReadOnlyList<ICompatibilityPack> GetApplicablePacks(IReadOnlyList<ConversionResult> convertedResults, string targetPackage)
+    {
+        var context = new CompatibilityPackContext(convertedResults, targetPackage);
+        return _packs.Where(pack => pack.IsApplicable(context)).ToList();
+    }
+
+    /// <summary>
     /// 根据已转换代码生成所有适用的兼容类。
     /// </summary>
     public List<ConversionResult> GenerateApplicable(List<ConversionResult> convertedResults, string targetPackage)
     {
-        var context = new CompatibilityPackContext(convertedResults, targetPackage);
         var results = new List<ConversionResult>();
-        var appliedPacks = new List<string>();
 
-        foreach (var pack in _packs)
+        foreach (var pack in GetApplicablePacks(convertedResults, targetPackage))
         {
-            if (pack.IsApplicable(context))
-            {
-                results.AddRange(pack.Generate(targetPackage));
-                appliedPacks.Add(pack.Id);
-            }
+            results.AddRange(pack.Generate(targetPackage));
         }
 
         return results;

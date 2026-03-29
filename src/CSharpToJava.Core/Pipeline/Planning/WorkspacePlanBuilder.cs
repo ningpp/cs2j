@@ -67,6 +67,49 @@ public sealed class WorkspacePlanBuilder
     ];
 
     /// <summary>
+    /// 从 Maven 坐标字符串构建外部依赖。
+    /// 约定格式为 groupId:artifactId:version。
+    /// </summary>
+    public static JavaDependency ExternalDependency(string coordinate, JavaDependencyScope scope = JavaDependencyScope.Compile)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(coordinate);
+
+        var parts = coordinate.Split(':');
+        if (parts.Length < 3)
+        {
+            throw new ArgumentException($"Unsupported Maven coordinate '{coordinate}'. Expected 'groupId:artifactId:version'.", nameof(coordinate));
+        }
+
+        return new JavaDependency
+        {
+            GroupId = parts[0],
+            ArtifactId = parts[1],
+            Version = string.Join(':', parts.Skip(2)),
+            Scope = scope,
+        };
+    }
+
+    /// <summary>
+    /// 合并并去重依赖，保持首个依赖的版本与顺序。
+    /// </summary>
+    public static IReadOnlyList<JavaDependency> MergeDependencies(IEnumerable<JavaDependency> dependencies)
+    {
+        var merged = new List<JavaDependency>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var dependency in dependencies)
+        {
+            var key = $"{dependency.GroupId}|{dependency.ArtifactId}|{dependency.Scope}|{dependency.IsInternal}";
+            if (seen.Add(key))
+            {
+                merged.Add(dependency);
+            }
+        }
+
+        return merged;
+    }
+
+    /// <summary>
     /// 从模块间依赖名称创建内部模块引用依赖。
     /// </summary>
     public static JavaDependency InternalModuleRef(string groupId, string moduleName, JavaDependencyScope scope = JavaDependencyScope.Compile) =>

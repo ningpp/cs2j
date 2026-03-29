@@ -20,6 +20,7 @@
 1. 明确 `GenerateModuleBuildFile` 的语义就是“生成子模块构建文件”，不再依赖 `plan.IsSingleModule` 推断。
 2. 为 single-module 和 multi-module 输出统一的 `cs2j-workspace-plan.json` manifest。
 3. 让 root POM、child POM、workspace manifest 都从同一份 `JavaWorkspacePlan` 派生，而不是分别在 CLI 里拼接。
+4. 从转换结果中回填模块级 `requiredCompatPacks`，并把 shared compatibility module 需要的外部依赖做聚合去重。
 
 ## 本批非目标
 
@@ -87,6 +88,7 @@ manifest 的目标不是替代 POM，而是提供一个：
 1. `GenerateModuleBuildFile` 在只有一个 module 的 plan 下也生成 child POM 形态。
 2. `JavaWorkspacePlan` 能稳定序列化成 JSON manifest。
 3. manifest 中保留模块依赖、scope 和 `requiredCompatPacks`。
+4. compatibility pack 需求可以从转换结果稳定推导，并映射到 shared compatibility module 依赖。
 
 ## 下一批衔接
 

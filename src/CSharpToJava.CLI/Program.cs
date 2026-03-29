@@ -199,9 +199,15 @@ class Program
             var results = await pipeline.ConvertProjectWithPartialMergeAsync(opts.Source, options);
             int successCount = 0;
             int failureCount = 0;
+            var planningResults = new List<ConversionResult>();
 
             foreach (var result in results)
             {
+                if (ShouldAnalyzeForCompatibilityPlanning(result))
+                {
+                    planningResults.Add(result);
+                }
+
                 if (result.FileName == null) continue;
 
                 if (TryWriteConvertedFile(result, opts.Source, outputRoot, out var outputPath))
@@ -225,7 +231,7 @@ class Program
 
             if (opts.GeneratePom)
             {
-                await WriteSingleModulePom(opts, includeTests: false);
+                await WriteSingleModulePom(opts, CreateSingleModulePlan(opts, includeTests: false, planningResults));
             }
 
             Console.WriteLine();
@@ -297,6 +303,7 @@ class Program
         int successCount = 0;
         int failureCount = 0;
         int copiedResourceCount = 0;
+        var planningResults = new List<ConversionResult>();
 
         foreach (var project in graph.ProjectsInTopologicalOrder)
         {
@@ -318,6 +325,11 @@ class Program
             var results = await pipeline.ConvertProjectWithPartialMergeAsync(project.ProjectDirectory, options, semanticContextDirs);
             foreach (var result in results)
             {
+                if (ShouldAnalyzeForCompatibilityPlanning(result))
+                {
+                    planningResults.Add(result);
+                }
+
                 if (result.FileName == null) continue;
 
                 if (TryWriteConvertedFile(result, project.ProjectDirectory, targetJavaRoot, out var outputPath))
@@ -360,7 +372,7 @@ class Program
 
         if (opts.GeneratePom)
         {
-            await WriteSingleModulePom(opts, includeTests: opts.IncludeTests);
+            await WriteSingleModulePom(opts, CreateSingleModulePlan(opts, opts.IncludeTests, planningResults));
         }
 
         Console.WriteLine();
@@ -405,6 +417,7 @@ class Program
 
         int successCount = 0;
         int failureCount = 0;
+        var planningResults = new List<ConversionResult>();
 
         foreach (var project in projects)
         {
@@ -432,6 +445,11 @@ class Program
 
             foreach (var result in results)
             {
+                if (ShouldAnalyzeForCompatibilityPlanning(result))
+                {
+                    planningResults.Add(result);
+                }
+
                 if (result.FileName == null) continue;
 
                 if (TryWriteConvertedFile(result, project.Directory, targetJavaRoot, out var outputPath))
@@ -456,7 +474,7 @@ class Program
 
         if (opts.GeneratePom)
         {
-            await WriteSingleModulePom(opts, includeTests: opts.IncludeTests);
+            await WriteSingleModulePom(opts, CreateSingleModulePlan(opts, opts.IncludeTests, planningResults));
         }
 
         Console.WriteLine();
@@ -489,8 +507,10 @@ class Program
 
         int successCount = 0;
         int failureCount = 0;
-        var moduleNames = new List<string> { sharedCompatibilityModuleName };
         var modulePlans = new List<JavaModulePlan>();
+        var sharedCompatPackIds = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+        var sharedCompatExternalDependencies = new List<JavaDependency>();
+        var convertedModuleCount = 1;
 
         // Emit compatibility module first.
         var compatModuleRoot = Path.Combine(opts.Destination, sharedCompatibilityModuleName);
@@ -511,25 +531,13 @@ class Program
             }
         }
 
-        if (opts.GeneratePom)
-        {
-            var compatPlan = new JavaModulePlan
-            {
-                ModuleName = sharedCompatibilityModuleName,
-                IsTestOnly = false,
-                Dependencies = WorkspacePlanBuilder.DefaultDependencies(),
-            };
-            modulePlans.Add(compatPlan);
-            await WriteMultiModulePom(opts, compatModuleRoot, compatPlan);
-        }
-
         // Convert each workspace project as its own module.
         foreach (var project in projects)
         {
             if (!opts.IncludeTests && project.IsTestProject) continue;
 
             var moduleName = project.Name;
-            moduleNames.Add(moduleName);
+            convertedModuleCount++;
             var moduleRoot = Path.Combine(opts.Destination, moduleName);
 
             var isTest = project.IsTestProject;
@@ -578,6 +586,14 @@ class Program
 
             if (opts.GeneratePom)
             {
+                var compatibilityRequirements = CompatibilityPackPlanner.Analyze(results, sharedCompatibilityPackage);
+                foreach (var packId in compatibilityRequirements.RequiredPackIds)
+                {
+                    sharedCompatPackIds.Add(packId);
+                }
+
+                sharedCompatExternalDependencies.AddRange(compatibilityRequirements.ExternalDependencies);
+
                 var deps = new List<JavaDependency>(WorkspacePlanBuilder.DefaultDependencies());
                 deps.Add(WorkspacePlanBuilder.InternalModuleRef(opts.MavenGroupId, sharedCompatibilityModuleName));
                 foreach (var refPath in project.ProjectReferences)
@@ -596,6 +612,7 @@ class Program
                     IsTestOnly = isTest,
                     SourceSets = isTest ? new JavaSourceSets { TestSources = ["test"] } : new JavaSourceSets(),
                     Dependencies = deps,
+                    RequiredCompatPacks = compatibilityRequirements.RequiredPackIds,
                 };
 
                 modulePlans.Add(modulePlan);
@@ -605,13 +622,25 @@ class Program
 
         if (opts.GeneratePom)
         {
+            var compatPlan = new JavaModulePlan
+            {
+                ModuleName = sharedCompatibilityModuleName,
+                IsTestOnly = false,
+                Dependencies = WorkspacePlanBuilder.MergeDependencies(
+                    WorkspacePlanBuilder.DefaultDependencies().Concat(sharedCompatExternalDependencies)),
+                RequiredCompatPacks = sharedCompatPackIds.ToList(),
+            };
+
+            modulePlans.Insert(0, compatPlan);
+            await WriteMultiModulePom(opts, compatModuleRoot, compatPlan);
+
             var workspacePlan = BuildWorkspacePlan(opts, modulePlans);
             await WriteParentPom(opts, workspacePlan);
             await WriteWorkspacePlanManifest(opts.Destination, workspacePlan);
         }
 
         Console.WriteLine();
-        Console.WriteLine($"Conversion complete (MSBuild): {successCount} succeeded, {failureCount} failed, modules={moduleNames.Count}");
+        Console.WriteLine($"Conversion complete (MSBuild): {successCount} succeeded, {failureCount} failed, modules={convertedModuleCount}");
 
         return failureCount > 0 ? 1 : 0;
     }
@@ -654,6 +683,8 @@ class Program
         int failureCount = 0;
         int copiedResourceCount = 0;
         var modulePlans = new List<JavaModulePlan>();
+        var sharedCompatPackIds = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+        var sharedCompatExternalDependencies = new List<JavaDependency>();
 
         var pipeline = new ConversionPipeline();
 
@@ -706,19 +737,10 @@ class Program
                 }
 
                 if (opts.GeneratePom)
-                {
-                    var compatPlan = new JavaModulePlan
-                    {
-                        ModuleName = module.Name,
-                        IsTestOnly = false,
-                        Dependencies = WorkspacePlanBuilder.DefaultDependencies(),
-                    };
-                    modulePlans.Add(compatPlan);
-                    await WriteMultiModulePom(opts, moduleRoot, compatPlan);
-                }
-
                 continue;
             }
+
+            var moduleResults = new List<ConversionResult>();
 
             foreach (var assignment in module.Assignments)
             {
@@ -733,6 +755,7 @@ class Program
 
                 var semanticContextDirs = GetReferencedProjectDirectories(assignment.Project, graph);
                 var results = await pipeline.ConvertProjectWithPartialMergeAsync(assignment.Project.ProjectDirectory, options, semanticContextDirs);
+                moduleResults.AddRange(results.Where(result => !string.IsNullOrEmpty(result.GeneratedCode)));
                 foreach (var result in results)
                 {
                     if (result.FileName == null) continue;
@@ -777,7 +800,18 @@ class Program
 
             if (opts.GeneratePom)
             {
-                var modulePlan = PlannedModuleToJavaModulePlan(module, opts.MavenGroupId);
+                var compatibilityRequirements = CompatibilityPackPlanner.Analyze(
+                    moduleResults,
+                    sharedCompatibilityPackage);
+
+                foreach (var packId in compatibilityRequirements.RequiredPackIds)
+                {
+                    sharedCompatPackIds.Add(packId);
+                }
+
+                sharedCompatExternalDependencies.AddRange(compatibilityRequirements.ExternalDependencies);
+
+                var modulePlan = PlannedModuleToJavaModulePlan(module, opts.MavenGroupId, compatibilityRequirements.RequiredPackIds);
                 modulePlans.Add(modulePlan);
                 await WriteMultiModulePom(opts, moduleRoot, modulePlan);
             }
@@ -785,6 +819,18 @@ class Program
 
         if (opts.GeneratePom)
         {
+            var compatPlan = new JavaModulePlan
+            {
+                ModuleName = compatModule.Name,
+                IsTestOnly = false,
+                Dependencies = WorkspacePlanBuilder.MergeDependencies(
+                    WorkspacePlanBuilder.DefaultDependencies().Concat(sharedCompatExternalDependencies)),
+                RequiredCompatPacks = sharedCompatPackIds.ToList(),
+            };
+
+            modulePlans.Insert(0, compatPlan);
+            await WriteMultiModulePom(opts, Path.Combine(opts.Destination, compatModule.Name), compatPlan);
+
             var workspacePlan = BuildWorkspacePlan(opts, modulePlans);
             await WriteParentPom(opts, workspacePlan);
             await WriteWorkspacePlanManifest(opts.Destination, workspacePlan);
@@ -1539,22 +1585,42 @@ class Program
         }
     }
 
-    private static async Task WriteSingleModulePom(ConvertProjectOptions opts, bool includeTests)
+    private static async Task WriteSingleModulePom(ConvertProjectOptions opts, JavaModulePlan modulePlan)
     {
-        var artifactId = new DirectoryInfo(opts.Destination).Name;
-        var plan = new WorkspacePlanBuilder()
-            .GroupId(opts.MavenGroupId)
-            .ArtifactId(artifactId)
-            .Version(opts.MavenVersion)
-            .JavaVersion(opts.JavaVersion)
-            .AddSingleModule(hasTests: includeTests)
-            .Build();
+        var plan = BuildWorkspacePlan(opts, [modulePlan]);
 
         var generator = new MavenPomGenerator();
         var pomContent = generator.GenerateRootBuildFile(plan);
         var pomPath = Path.Combine(opts.Destination, generator.BuildFileName);
         await File.WriteAllTextAsync(pomPath, pomContent);
         await WriteWorkspacePlanManifest(opts.Destination, plan);
+    }
+
+    private static JavaModulePlan CreateSingleModulePlan(
+        ConvertProjectOptions opts,
+        bool includeTests,
+        IReadOnlyList<ConversionResult> convertedResults)
+    {
+        var compatibilityRequirements = CompatibilityPackPlanner.Analyze(
+            convertedResults,
+            BuildSharedCompatibilityPackage(opts.MavenGroupId));
+
+        return new JavaModulePlan
+        {
+            ModuleName = new DirectoryInfo(opts.Destination).Name,
+            IsTestOnly = false,
+            SourceSets = includeTests ? new JavaSourceSets { TestSources = ["test"] } : new JavaSourceSets(),
+            Dependencies = WorkspacePlanBuilder.MergeDependencies(
+                WorkspacePlanBuilder.DefaultDependencies().Concat(compatibilityRequirements.ExternalDependencies)),
+            RequiredCompatPacks = compatibilityRequirements.RequiredPackIds,
+        };
+    }
+
+    private static bool ShouldAnalyzeForCompatibilityPlanning(ConversionResult result)
+    {
+        return result.Success
+            && !string.IsNullOrEmpty(result.GeneratedCode)
+            && !CompatibilityClassGenerator.IsCompatibilitySupportFile(result.FileName);
     }
 
     private static async Task WriteMultiModulePom(ConvertProjectOptions opts, string moduleRoot, JavaModulePlan modulePlan)
@@ -1598,7 +1664,7 @@ class Program
         await File.WriteAllTextAsync(manifestPath, serializer.Serialize(plan), new System.Text.UTF8Encoding(false));
     }
 
-    private static JavaModulePlan PlannedModuleToJavaModulePlan(PlannedModule module, string groupId)
+    private static JavaModulePlan PlannedModuleToJavaModulePlan(PlannedModule module, string groupId, IReadOnlyList<string>? requiredCompatPacks = null)
     {
         var deps = new List<JavaDependency>(WorkspacePlanBuilder.DefaultDependencies());
 
@@ -1620,6 +1686,7 @@ class Program
                 ? new JavaSourceSets { TestSources = ["test"] }
                 : new JavaSourceSets(),
             Dependencies = deps,
+            RequiredCompatPacks = requiredCompatPacks ?? [],
         };
     }
 

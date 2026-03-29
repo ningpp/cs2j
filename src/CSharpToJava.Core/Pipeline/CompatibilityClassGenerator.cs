@@ -10,6 +10,12 @@ namespace CSharpToJava.Core.Pipeline;
 public static class CompatibilityClassGenerator
 {
     internal const string MSTestCompatibilityPackage = "Microsoft.VisualStudio.TestTools.UnitTesting";
+    private static readonly Lazy<HashSet<string>> KnownCompatibilityFileNames = new(() =>
+        GenerateCompatibilitySupport("com.generated.compat", includeTestContext: true)
+            .Select(result => result.FileName)
+            .Where(fileName => !string.IsNullOrWhiteSpace(fileName))
+            .Cast<string>()
+            .ToHashSet(StringComparer.OrdinalIgnoreCase));
 
     public static List<ConversionResult> GenerateCompatibilitySupport(string compatibilityPackage, bool includeTestContext)
     {
@@ -22,6 +28,12 @@ public static class CompatibilityClassGenerator
         results.AddRange(GenerateRegexCompatibilityClasses(compatibilityPackage));
         results.AddRange(GenerateTraceCompatibilityClasses(compatibilityPackage));
         return results;
+    }
+
+    public static bool IsCompatibilitySupportFile(string? fileName)
+    {
+        return !string.IsNullOrWhiteSpace(fileName)
+            && KnownCompatibilityFileNames.Value.Contains(fileName);
     }
 
     /// <summary>

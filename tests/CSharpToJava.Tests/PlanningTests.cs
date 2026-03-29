@@ -1,4 +1,5 @@
 using System.Text.Json;
+using CSharpToJava.Core.Pipeline;
 using CSharpToJava.Core.Pipeline.Planning;
 
 namespace CSharpToJava.Tests;
@@ -92,5 +93,42 @@ public class PlanningTests
         Assert.Equal(2, dependencies.Count);
         Assert.Equal("test", dependencies[1].GetProperty("scope").GetString());
         Assert.True(dependencies[1].GetProperty("isInternal").GetBoolean());
+    }
+
+    [Fact]
+    public void CompatibilityPackPlanner_Analyze_ReturnsPackIdsAndExternalDependencies()
+    {
+        var requirements = CompatibilityPackPlanner.Analyze(
+            [
+                new ConversionResult
+                {
+                    Success = true,
+                    FileName = "Sample.java",
+                    GeneratedCode = "class Sample { JsonSerializerOptions options; Trace.writeLine(\"x\"); }",
+                }
+            ],
+            "com.example.compat");
+
+        Assert.Equal(new[] { "json", "trace" }, requirements.RequiredPackIds);
+        var dependency = Assert.Single(requirements.ExternalDependencies);
+        Assert.Equal("com.fasterxml.jackson.core", dependency.GroupId);
+        Assert.Equal("jackson-databind", dependency.ArtifactId);
+    }
+
+    [Fact]
+    public void WorkspacePlanBuilder_MergeDependencies_DeduplicatesByGroupArtifactAndScope()
+    {
+        var merged = WorkspacePlanBuilder.MergeDependencies(
+            WorkspacePlanBuilder.DefaultDependencies().Concat(
+            [
+                WorkspacePlanBuilder.ExternalDependency("com.fasterxml.jackson.core:jackson-databind:2.17.0"),
+                WorkspacePlanBuilder.ExternalDependency("org.slf4j:slf4j-api:2.0.17"),
+            ]));
+
+        Assert.Single(merged, dependency =>
+            dependency.GroupId == "com.fasterxml.jackson.core"
+            && dependency.ArtifactId == "jackson-databind"
+            && dependency.Scope == JavaDependencyScope.Compile);
+        Assert.Contains(merged, dependency => dependency.GroupId == "org.slf4j" && dependency.ArtifactId == "slf4j-api");
     }
 }
