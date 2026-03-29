@@ -1955,7 +1955,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                     concatReceiver = $"{concatReceiver}.boxed()";
                 }
 
-                var concatStream = $"java.util.stream.Stream.concat({concatReceiver}, {otherStream})";
+                var concatStream = $"Stream.concat({concatReceiver}, {otherStream})";
                 var concatType = context.SemanticModel?.GetTypeInfo(node).Type as INamedTypeSymbol;
                 bool returnsEnumerable = concatType?.Name == "IEnumerable"
                     && concatType.ContainingNamespace?.ToDisplayString().StartsWith("System") == true;
@@ -2099,8 +2099,8 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                             context.AddImport("java.util.Arrays");
                             string bodyStr = facade.Transform(smBodyExpr, context);
                             flatMapArg = smArr.ElementType.IsValueType
-                                ? $"{smParam} -> java.util.Arrays.stream({bodyStr}).boxed()"
-                                : $"{smParam} -> java.util.Arrays.stream({bodyStr})";
+                                ? $"{smParam} -> Arrays.stream({bodyStr}).boxed()"
+                                : $"{smParam} -> Arrays.stream({bodyStr})";
                         }
                         else if (ImplementsIEnumerable(bodyRetType))
                         {
@@ -2494,9 +2494,9 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 string zipOtherListExpr;
                 if (zipOtherType is IArrayTypeSymbol zipArrType2 && zipArrType2.ElementType.IsValueType
                     && context.MapType(zipArrType2.ElementType) is "int" or "long" or "double")
-                    zipOtherListExpr = $"java.util.Arrays.stream({zipOther}).boxed().collect(Collectors.toList())";
+                    zipOtherListExpr = $"Arrays.stream({zipOther}).boxed().collect(Collectors.toList())";
                 else if (zipOtherType is IArrayTypeSymbol)
-                    zipOtherListExpr = $"java.util.Arrays.stream({zipOther}).collect(Collectors.toList())";
+                    zipOtherListExpr = $"Arrays.stream({zipOther}).collect(Collectors.toList())";
                 else
                     zipOtherListExpr = zipOther;
                 if (TryGetTwoParamLambda(node.ArgumentList.Arguments[1].Expression, context, facade, out var zipP0, out var zipP1, out var zipBody))
@@ -2527,7 +2527,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                     otherStream = ExpressionTransformerHelpers.BuildStreamExpression(
                         otherArg, otherType, context, boxPrimitiveArrayElements: true);
                 }
-                return $"java.util.stream.Stream.concat({receiver}, {otherStream}).distinct()";
+                return $"Stream.concat({receiver}, {otherStream}).distinct()";
             }
 
             // Intersect(other) → filter elements whose value is in the set
@@ -2579,12 +2579,12 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 if (seqOtherType is IArrayTypeSymbol seqArr && seqArr.ElementType.IsValueType)
                 {
                     context.AddImport("java.util.Arrays");
-                    seqOtherList = $"java.util.Arrays.stream({seqOtherStr}).boxed().collect(Collectors.toList())";
+                    seqOtherList = $"Arrays.stream({seqOtherStr}).boxed().collect(Collectors.toList())";
                 }
                 else if (seqOtherType is IArrayTypeSymbol)
                 {
                     context.AddImport("java.util.Arrays");
-                    seqOtherList = $"java.util.Arrays.stream({seqOtherStr}).collect(Collectors.toList())";
+                    seqOtherList = $"Arrays.stream({seqOtherStr}).collect(Collectors.toList())";
                 }
                 else
                     seqOtherList = $"{seqOtherStr}.stream().collect(Collectors.toList())";
@@ -2681,7 +2681,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                         ubOther, ubOtherType, context, boxPrimitiveArrayElements: true);
                 }
                 var ubSel = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-                return $"java.util.stream.Stream.concat({receiver}, {ubOtherStream})"
+                return $"Stream.concat({receiver}, {ubOtherStream})"
                      + $".collect(Collectors.collectingAndThen("
                      + $"Collectors.groupingBy({ubSel}, java.util.LinkedHashMap::new, Collectors.toList()),"
                      + $" _m -> _m.values().stream().map(_list -> _list.get(0))))";
@@ -3574,8 +3574,8 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         if (otherType is IArrayTypeSymbol arrType)
         {
             if (arrType.ElementType.IsValueType)
-                return $"java.util.Arrays.stream({other}).boxed().collect(Collectors.toSet())";
-            return $"java.util.Arrays.stream({other}).collect(Collectors.toSet())";
+                return $"Arrays.stream({other}).boxed().collect(Collectors.toSet())";
+            return $"Arrays.stream({other}).collect(Collectors.toSet())";
         }
         return $"new HashSet<>({other})";
     }

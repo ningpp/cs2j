@@ -365,7 +365,7 @@ public class ObjectCreationTransformer : IExpressionTransformer
         {
             context.AddImport("java.util.Arrays");
             context.AddImport("java.util.stream.Collectors");
-            return $"java.util.Arrays.stream({expr}).boxed().collect(Collectors.toList())";
+            return $"Arrays.stream({expr}).boxed().collect(Collectors.toList())";
         }
 
         context.AddImport("java.util.Arrays");
@@ -398,7 +398,7 @@ public class ObjectCreationTransformer : IExpressionTransformer
         var trimmed = expr.Trim();
         return trimmed.StartsWith("Arrays.asList(", StringComparison.Ordinal)
             || trimmed.StartsWith("java.util.Arrays.asList(", StringComparison.Ordinal)
-            || trimmed.StartsWith("java.util.Arrays.stream(", StringComparison.Ordinal);
+            || trimmed.StartsWith("Arrays.stream(", StringComparison.Ordinal);
     }
 
     private static bool LooksLikeArrayMemberAccess(ExpressionSyntax expression)

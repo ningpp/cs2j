@@ -26,7 +26,7 @@ public class VarEnumerableStreamReassignmentTests
         Assert.True(result.Success, string.Join("\n", result.Diagnostics.Select(d => d.Message)));
 
         Assert.Contains("var l = StreamSupport.stream(a.spliterator(), false).map(x -> x + 1).collect(Collectors.toList());", result.GeneratedCode);
-        Assert.Contains("l = java.util.stream.Stream.concat", result.GeneratedCode);
+        Assert.Contains("l = Stream.concat", result.GeneratedCode);
         Assert.Contains("return l;", result.GeneratedCode);
     }
 }
