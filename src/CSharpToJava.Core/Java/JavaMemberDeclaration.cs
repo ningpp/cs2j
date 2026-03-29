@@ -65,6 +65,10 @@ public class JavaMethodDeclaration : JavaSyntaxNode
     public string? Body { get; set; }
     public bool IsBodyExpression { get; set; }
     /// <summary>
+    /// 结构化方法体（优先于 Body 字符串）。设置后 ToString 将使用结构化渲染。
+    /// </summary>
+    public JavaMethodBody? StructuredBody { get; set; }
+    /// <summary>
     /// Optional comment emitted verbatim on the line immediately before this method declaration.
     /// </summary>
     public string? LeadingComment { get; set; }
@@ -113,9 +117,20 @@ public class JavaMethodDeclaration : JavaSyntaxNode
         }
 
         // 方法体
-        if (Modifiers.HasFlag(JavaModifiers.Abstract) || Body == null)
+        if (Modifiers.HasFlag(JavaModifiers.Abstract) || (Body == null && StructuredBody == null))
         {
             sb.Append(';');
+        }
+        else if (StructuredBody != null)
+        {
+            // 结构化方法体优先
+            sb.AppendLine(" {");
+            var bodyStr = StructuredBody.ToString(indentation + "    ");
+            if (!string.IsNullOrEmpty(bodyStr))
+            {
+                sb.AppendLine(bodyStr);
+            }
+            sb.Append(indentation).Append('}');
         }
         else if (IsBodyExpression)
         {
@@ -157,6 +172,10 @@ public class JavaConstructorDeclaration : JavaSyntaxNode
     public string? Body { get; set; }
     public string? LeadingComment { get; set; }
     /// <summary>
+    /// 结构化方法体（优先于 Body 字符串）。设置后 ToString 将使用结构化渲染。
+    /// </summary>
+    public JavaMethodBody? StructuredBody { get; set; }
+    /// <summary>
     /// Optional super/this constructor call emitted as the first statement in the body.
     /// e.g. "super(a, b)" or "this(x)".
     /// </summary>
@@ -192,7 +211,22 @@ public class JavaConstructorDeclaration : JavaSyntaxNode
         }
 
         // 方法体
-        if (Body == null && Initializer == null)
+        if (StructuredBody != null)
+        {
+            // 结构化方法体优先
+            sb.AppendLine(" {");
+            if (!string.IsNullOrEmpty(Initializer))
+            {
+                sb.AppendLine($"{indentation}    {Initializer};");
+            }
+            var bodyStr = StructuredBody.ToString(indentation + "    ");
+            if (!string.IsNullOrEmpty(bodyStr))
+            {
+                sb.AppendLine(bodyStr);
+            }
+            sb.Append(indentation).Append('}');
+        }
+        else if (Body == null && Initializer == null)
         {
             sb.Append(';');
         }
