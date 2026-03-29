@@ -125,7 +125,8 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                     }
 
                     var containingTypeName = delegateInvoke.ContainingType.ToDisplayString();
-                    var javaMethod = context.TypeMappings.MapMethod(containingTypeName, "Invoke") ?? "apply";
+                    var javaMethod = context.TypeMappings.MapMethod(containingTypeName, "Invoke")
+                        ?? InferSamMethodName(delegateInvoke);
                     var delegateArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
                     // Use facade.Transform so properties are emitted as getXxx() rather than bare identifier.
                     // e.g. Sequence(m) where Sequence is a Func<int,double> property → getSequence().apply(m)
@@ -151,7 +152,8 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             if (symInfo.Symbol is IMethodSymbol { MethodKind: MethodKind.DelegateInvoke } delegateInvoke)
             {
                 var containingTypeName = delegateInvoke.ContainingType.ToDisplayString();
-                var javaMethod = context.TypeMappings.MapMethod(containingTypeName, "Invoke") ?? "apply";
+                var javaMethod = context.TypeMappings.MapMethod(containingTypeName, "Invoke")
+                    ?? InferSamMethodName(delegateInvoke);
                 var delegateArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
                 var delegateReceiver = facade.Transform(node.Expression, context);
                 return $"{delegateReceiver}.{javaMethod}({delegateArgs})";
@@ -554,7 +556,8 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 }
 
                 var containingTypeName = delegateInvoke.ContainingType.ToDisplayString();
-                var javaMethod = context.TypeMappings.MapMethod(containingTypeName, "Invoke") ?? "apply";
+                var javaMethod = context.TypeMappings.MapMethod(containingTypeName, "Invoke")
+                    ?? InferSamMethodName(delegateInvoke);
                 var delegateArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
 
                 // If the accessed member is a property, emit the Java getter call.
@@ -3196,6 +3199,18 @@ public class InvocationExpressionTransformer : IExpressionTransformer
 
         return true;
     }
+
+    /// <summary>
+    /// 根据委托签名推断 Java 函数式接口的 SAM 方法名。
+    /// 用于 TypeMappings 没有显式映射时的回退。
+    /// </summary>
+    private static string InferSamMethodName(IMethodSymbol delegateInvoke) => delegateInvoke switch
+    {
+        { ReturnsVoid: true, Parameters.Length: 0 } => "run",       // Runnable
+        { ReturnsVoid: true }                       => "accept",    // Consumer/BiConsumer
+        { Parameters.Length: 0 }                    => "get",       // Supplier
+        _                                           => "apply",     // Function/BiFunction
+    };
 
     /// <summary>
     /// Builds a Java Stream source expression for a LINQ receiver while preserving

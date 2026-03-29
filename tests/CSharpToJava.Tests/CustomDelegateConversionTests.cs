@@ -118,7 +118,7 @@ public class CustomDelegateConversionTests
 
         Assert.True(result.Success,
             $"Conversion failed:\n{string.Join("\n", result.Diagnostics.Select(d => d.Message))}");
-        Assert.Contains("fn.apply(value)", result.GeneratedCode);
+        Assert.Contains("fn.accept(value)", result.GeneratedCode);
         Assert.DoesNotContain("fn.invoke(", result.GeneratedCode);
     }
 
