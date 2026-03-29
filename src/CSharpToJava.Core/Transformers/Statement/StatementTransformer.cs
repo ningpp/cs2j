@@ -55,6 +55,23 @@ public class StatementTransformer : IStatementTransformer
         return string.Join("\n        ", statements);
     }
 
+    /// <summary>
+    /// 将块语法转换为结构化 JavaMethodBody（使用 JavaRawStatement 包装现有字符串输出）。
+    /// 这是从字符串输出过渡到结构化 IR 的桥梁方法。
+    /// </summary>
+    public Java.JavaMethodBody TransformBlockToStructuredBody(BlockSyntax block, ConversionContext context)
+    {
+        var body = new Java.JavaMethodBody();
+        if (block == null) return body;
+
+        var statements = TransformStatements(block.Statements, context);
+        foreach (var stmt in statements)
+        {
+            body.Statements.Add(new Java.JavaRawStatement(stmt));
+        }
+        return body;
+    }
+
     public List<string> TransformStatements(SyntaxList<StatementSyntax> statements, ConversionContext context)
     {
         var results = new List<string>();
