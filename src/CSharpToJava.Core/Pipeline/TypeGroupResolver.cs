@@ -26,7 +26,8 @@ public static class TypeGroupResolver
     public static ConversionResult? ConvertTypeGroup(
         PartialTypeGroup typeGroup,
         CSharpCompilation compilation,
-        ConversionContext context)
+        ConversionContext context,
+        IReadOnlyList<Java.JavaSyntaxRewriter>? irRewriters = null)
     {
         // 每次转换一个类型前清空导入集合，避免跨文件污染
         context.ClearImports();
@@ -35,11 +36,11 @@ public static class TypeGroupResolver
         {
             // Handle Enum types specially — EnumDeclarationSyntax is not TypeDeclarationSyntax
             if (typeGroup.TypeSymbol.TypeKind == TypeKind.Enum)
-                return ConvertEnumTypeGroup(typeGroup, compilation, context);
+                return ConvertEnumTypeGroup(typeGroup, compilation, context, irRewriters);
 
             // Handle Delegate types specially
             if (typeGroup.TypeSymbol.TypeKind == TypeKind.Delegate)
-                return ConvertDelegateTypeGroup(typeGroup, compilation, context);
+                return ConvertDelegateTypeGroup(typeGroup, compilation, context, irRewriters);
 
             // Check if we have any syntax nodes
             if (typeGroup.SyntaxNodes.Count == 0)
@@ -157,6 +158,13 @@ public static class TypeGroupResolver
                         sb.AppendLine($"import {imp};");
                     if (context.ImportedTypes.Count > 0)
                         sb.AppendLine();
+
+                    // IR 层后处理
+                    if (irRewriters != null)
+                    {
+                        foreach (var rewriter in irRewriters)
+                            rewriter.VisitTypeDeclaration(javaType);
+                    }
 
                     sb.AppendLine(javaType.ToString(""));
 
@@ -300,7 +308,8 @@ public static class TypeGroupResolver
     public static ConversionResult? ConvertEnumTypeGroup(
         PartialTypeGroup typeGroup,
         CSharpCompilation compilation,
-        ConversionContext context)
+        ConversionContext context,
+        IReadOnlyList<Java.JavaSyntaxRewriter>? irRewriters = null)
     {
         foreach (var syntaxRef in typeGroup.TypeSymbol.DeclaringSyntaxReferences)
         {
@@ -331,6 +340,13 @@ public static class TypeGroupResolver
                     foreach (var imp in context.ImportedTypes.OrderBy(x => x))
                         enumSb.AppendLine($"import {imp};");
                     enumSb.AppendLine();
+
+                    if (irRewriters != null)
+                    {
+                        foreach (var rewriter in irRewriters)
+                            rewriter.VisitTypeDeclaration(javaEnum);
+                    }
+
                     enumSb.Append(javaEnum.ToString(""));
 
                     return new ConversionResult
@@ -361,7 +377,8 @@ public static class TypeGroupResolver
     public static ConversionResult? ConvertDelegateTypeGroup(
         PartialTypeGroup typeGroup,
         CSharpCompilation compilation,
-        ConversionContext context)
+        ConversionContext context,
+        IReadOnlyList<Java.JavaSyntaxRewriter>? irRewriters = null)
     {
         foreach (var syntaxRef in typeGroup.TypeSymbol.DeclaringSyntaxReferences)
         {
@@ -394,6 +411,13 @@ public static class TypeGroupResolver
                     foreach (var imp in context.ImportedTypes.OrderBy(x => x))
                         delSb.AppendLine($"import {imp};");
                     delSb.AppendLine();
+
+                    if (irRewriters != null)
+                    {
+                        foreach (var rewriter in irRewriters)
+                            rewriter.VisitTypeDeclaration(javaInterface);
+                    }
+
                     delSb.Append(javaInterface.ToString(""));
 
                     return new ConversionResult

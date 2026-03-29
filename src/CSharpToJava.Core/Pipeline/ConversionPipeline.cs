@@ -64,10 +64,20 @@ public class ConversionPipeline
         path: "<global-usings>");
 
     private readonly List<IConversionPhase> _phases = new();
+    private readonly List<Java.JavaSyntaxRewriter> _irRewriters = new();
 
     public ConversionPipeline()
     {
         InitializePhases();
+    }
+
+    /// <summary>
+    /// 注册 IR 层后处理重写器。在 ToString 生成代码之前对结构化 Java IR 进行变换。
+    /// </summary>
+    public ConversionPipeline AddIRRewriter(Java.JavaSyntaxRewriter rewriter)
+    {
+        _irRewriters.Add(rewriter);
+        return this;
     }
 
     private void InitializePhases()
@@ -193,6 +203,12 @@ public class ConversionPipeline
 
             if (compilationUnit is Java.JavaCompilationUnit javaCompilation)
             {
+                // IR 层后处理：在 ToString 之前对结构化 IR 进行重写
+                foreach (var rewriter in _irRewriters)
+                {
+                    rewriter.VisitCompilationUnit(javaCompilation);
+                }
+
                 // Files with only attributes produce empty compilation units
                 // Treat them as successful but with minimal output
                 var code = javaCompilation.ToString("");

@@ -14,6 +14,7 @@ public class ProjectConversionPipeline
 {
     private readonly ConversionOptions _options;
     private readonly TypeMappingRegistry _typeMappings;
+    private readonly List<Java.JavaSyntaxRewriter> _irRewriters = new();
 
     /// <summary>
     /// 创建项目转换管道
@@ -22,6 +23,15 @@ public class ProjectConversionPipeline
     {
         _options = options;
         _typeMappings = new TypeMappingRegistry(options.TypeMappingConfigPath);
+    }
+
+    /// <summary>
+    /// 注册 IR 层后处理重写器。
+    /// </summary>
+    public ProjectConversionPipeline AddIRRewriter(Java.JavaSyntaxRewriter rewriter)
+    {
+        _irRewriters.Add(rewriter);
+        return this;
     }
 
     /// <summary>
@@ -84,7 +94,7 @@ public class ProjectConversionPipeline
                     }
                 }
 
-                var result = TypeGroupResolver.ConvertTypeGroup(typeGroup, compilation, context);
+                var result = TypeGroupResolver.ConvertTypeGroup(typeGroup, compilation, context, _irRewriters);
                 if (result != null)
                 {
                     results.Add(result);
@@ -160,7 +170,7 @@ public class ProjectConversionPipeline
                         continue;
                 }
 
-                var result = TypeGroupResolver.ConvertTypeGroup(typeGroup, compilation, context);
+                var result = TypeGroupResolver.ConvertTypeGroup(typeGroup, compilation, context, _irRewriters);
                 if (result != null)
                     results.Add(result);
             }
