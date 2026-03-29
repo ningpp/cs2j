@@ -1,6 +1,7 @@
 using CommandLine;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline;
+using CSharpToJava.Core.Pipeline.Planning;
 using CSharpToJava.TypeMapping;
 using CSharpToJava.Workspace;
 using System.Text.RegularExpressions;
@@ -212,11 +213,7 @@ class Program
 
             if (opts.GeneratePom)
             {
-                var artifactId = new DirectoryInfo(opts.Destination).Name;
-                var pomContent = GenerateMavenPom(artifactId, opts.MavenGroupId, opts.MavenVersion, opts.JavaVersion, includeTests: false);
-                var pomPath = Path.Combine(opts.Destination, "pom.xml");
-                await File.WriteAllTextAsync(pomPath, pomContent, new System.Text.UTF8Encoding(false));
-                Console.WriteLine($"Generated Maven pom.xml: {pomPath}");
+                await WriteSingleModulePom(opts, includeTests: false);
             }
 
             Console.WriteLine();
@@ -351,11 +348,7 @@ class Program
 
         if (opts.GeneratePom)
         {
-            var artifactId = new DirectoryInfo(opts.Destination).Name;
-            var pomContent = GenerateMavenPom(artifactId, opts.MavenGroupId, opts.MavenVersion, opts.JavaVersion, includeTests: opts.IncludeTests);
-            var pomPath = Path.Combine(opts.Destination, "pom.xml");
-            await File.WriteAllTextAsync(pomPath, pomContent, new System.Text.UTF8Encoding(false));
-            Console.WriteLine($"Generated Maven pom.xml: {pomPath}");
+            await WriteSingleModulePom(opts, includeTests: opts.IncludeTests);
         }
 
         Console.WriteLine();
@@ -451,11 +444,7 @@ class Program
 
         if (opts.GeneratePom)
         {
-            var artifactId = new DirectoryInfo(opts.Destination).Name;
-            var pomContent = GenerateMavenPom(artifactId, opts.MavenGroupId, opts.MavenVersion, opts.JavaVersion, includeTests: opts.IncludeTests);
-            var pomPath = Path.Combine(opts.Destination, "pom.xml");
-            await File.WriteAllTextAsync(pomPath, pomContent, new System.Text.UTF8Encoding(false));
-            Console.WriteLine($"Generated Maven pom.xml: {pomPath}");
+            await WriteSingleModulePom(opts, includeTests: opts.IncludeTests);
         }
 
         Console.WriteLine();
@@ -511,12 +500,26 @@ class Program
 
         if (opts.GeneratePom)
         {
-            var compatPom = GenerateChildModulePom(
-                new PlannedModule { Name = sharedCompatibilityModuleName, IsTestOnly = false },
-                opts.MavenGroupId, opts.MavenVersion, opts.JavaVersion,
-                new DirectoryInfo(opts.Destination).Name);
+            var compatPlan = new JavaModulePlan
+            {
+                ModuleName = sharedCompatibilityModuleName,
+                IsTestOnly = false,
+                Dependencies = WorkspacePlanBuilder.DefaultDependencies(),
+            };
+            var generator = new MavenPomGenerator();
+            var planBuilder = new WorkspacePlanBuilder()
+                .GroupId(opts.MavenGroupId)
+                .ArtifactId(new DirectoryInfo(opts.Destination).Name)
+                .Version(opts.MavenVersion)
+                .JavaVersion(opts.JavaVersion)
+                .AddModule(compatPlan);
+            // Modules will be added below; for now just write compat POM.
+            var tempPlan = planBuilder.Build();
+            // Write child POM for compat using a multi-module plan context.
+            // We'll rebuild the full plan after all modules are known.
             await File.WriteAllTextAsync(
-                Path.Combine(compatModuleRoot, "pom.xml"), compatPom,
+                Path.Combine(compatModuleRoot, "pom.xml"),
+                generator.GenerateModuleBuildFile(tempPlan, compatPlan),
                 new System.Text.UTF8Encoding(false));
         }
 
@@ -575,43 +578,33 @@ class Program
 
             if (opts.GeneratePom)
             {
-                var depNames = new List<string> { sharedCompatibilityModuleName };
+                var deps = new List<JavaDependency>(WorkspacePlanBuilder.DefaultDependencies());
+                deps.Add(WorkspacePlanBuilder.InternalModuleRef(opts.MavenGroupId, sharedCompatibilityModuleName));
                 foreach (var refPath in project.ProjectReferences)
                 {
                     var refProject = projects.FirstOrDefault(p =>
                         string.Equals(p.FilePath, refPath, StringComparison.OrdinalIgnoreCase));
                     if (refProject != null)
                     {
-                        depNames.Add(refProject.Name);
+                        deps.Add(WorkspacePlanBuilder.InternalModuleRef(opts.MavenGroupId, refProject.Name));
                     }
                 }
 
-                var planned = new PlannedModule
+                var modulePlan = new JavaModulePlan
                 {
-                    Name = moduleName,
+                    ModuleName = moduleName,
                     IsTestOnly = isTest,
+                    SourceSets = isTest ? new JavaSourceSets { TestSources = ["test"] } : new JavaSourceSets(),
+                    Dependencies = deps,
                 };
-                foreach (var dep in depNames) planned.CompileDependencies.Add(dep);
 
-                var modulePom = GenerateChildModulePom(
-                    planned, opts.MavenGroupId, opts.MavenVersion, opts.JavaVersion,
-                    new DirectoryInfo(opts.Destination).Name);
-                await File.WriteAllTextAsync(
-                    Path.Combine(moduleRoot, "pom.xml"), modulePom,
-                    new System.Text.UTF8Encoding(false));
+                await WriteMultiModulePom(opts, moduleRoot, modulePlan);
             }
         }
 
         if (opts.GeneratePom)
         {
-            var parentArtifactId = new DirectoryInfo(opts.Destination).Name;
-            var parentPom = GenerateParentPom(
-                parentArtifactId, opts.MavenGroupId, opts.MavenVersion, opts.JavaVersion,
-                moduleNames);
-            await File.WriteAllTextAsync(
-                Path.Combine(opts.Destination, "pom.xml"), parentPom,
-                new System.Text.UTF8Encoding(false));
-            Console.WriteLine($"Generated parent Maven pom.xml");
+            await WriteParentPom(opts, moduleNames);
         }
 
         Console.WriteLine();
@@ -710,14 +703,13 @@ class Program
 
                 if (opts.GeneratePom)
                 {
-                    var modulePom = GenerateChildModulePom(
-                        module,
-                        opts.MavenGroupId,
-                        opts.MavenVersion,
-                        opts.JavaVersion,
-                        new DirectoryInfo(opts.Destination).Name);
-                    var modulePomPath = Path.Combine(moduleRoot, "pom.xml");
-                    await File.WriteAllTextAsync(modulePomPath, modulePom, new System.Text.UTF8Encoding(false));
+                    var compatPlan = new JavaModulePlan
+                    {
+                        ModuleName = module.Name,
+                        IsTestOnly = false,
+                        Dependencies = WorkspacePlanBuilder.DefaultDependencies(),
+                    };
+                    await WriteMultiModulePom(opts, moduleRoot, compatPlan);
                 }
 
                 continue;
@@ -780,29 +772,14 @@ class Program
 
             if (opts.GeneratePom)
             {
-                var modulePom = GenerateChildModulePom(
-                    module,
-                    opts.MavenGroupId,
-                    opts.MavenVersion,
-                    opts.JavaVersion,
-                    new DirectoryInfo(opts.Destination).Name);
-                var modulePomPath = Path.Combine(moduleRoot, "pom.xml");
-                await File.WriteAllTextAsync(modulePomPath, modulePom, new System.Text.UTF8Encoding(false));
+                var modulePlan = PlannedModuleToJavaModulePlan(module, opts.MavenGroupId);
+                await WriteMultiModulePom(opts, moduleRoot, modulePlan);
             }
         }
 
         if (opts.GeneratePom)
         {
-            var parentArtifactId = new DirectoryInfo(opts.Destination).Name;
-            var parentPom = GenerateParentPom(
-                parentArtifactId,
-                opts.MavenGroupId,
-                opts.MavenVersion,
-                opts.JavaVersion,
-                modulesInBuildOrder.Select(m => m.Name).ToList());
-            var parentPomPath = Path.Combine(opts.Destination, "pom.xml");
-            await File.WriteAllTextAsync(parentPomPath, parentPom, new System.Text.UTF8Encoding(false));
-            Console.WriteLine($"Generated parent Maven pom.xml: {parentPomPath}");
+            await WriteParentPom(opts, modulesInBuildOrder.Select(m => m.Name).ToList());
         }
 
         Console.WriteLine();
@@ -1554,283 +1531,99 @@ class Program
         }
     }
 
-    private static string GenerateMavenPom(string artifactId, string groupId, string version, string javaVersion, bool includeTests)
+    private static async Task WriteSingleModulePom(ConvertProjectOptions opts, bool includeTests)
     {
-        int javaVer = int.Parse(javaVersion.Replace("Java", ""));
-        var testDependencies = includeTests
-            ? @"
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <version>5.11.4</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-params</artifactId>
-            <version>5.11.4</version>
-            <scope>test</scope>
-        </dependency>"
-            : string.Empty;
+        var artifactId = new DirectoryInfo(opts.Destination).Name;
+        var plan = new WorkspacePlanBuilder()
+            .GroupId(opts.MavenGroupId)
+            .ArtifactId(artifactId)
+            .Version(opts.MavenVersion)
+            .JavaVersion(opts.JavaVersion)
+            .AddSingleModule(hasTests: includeTests)
+            .Build();
 
-        var surefirePlugin = includeTests
-            ? @"
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.3.1</version>
-                <configuration>
-                    <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
-                    <forkedProcessTimeoutInSeconds>120</forkedProcessTimeoutInSeconds>
-                    <forkedProcessExitTimeoutInSeconds>120</forkedProcessExitTimeoutInSeconds>
-                    <systemPropertyVariables>
-                        <msagl.test.data.root>${msagl.test.data.root}</msagl.test.data.root>
-                    </systemPropertyVariables>
-                </configuration>
-            </plugin>"
-            : string.Empty;
-
-        return $@"<?xml version=""1.0"" encoding=""UTF-8""?>
-<project xmlns=""http://maven.apache.org/POM/4.0.0""
-    xmlns:xsi=""http://www.w3.org/2001/XMLSchema-instance""
-    xsi:schemaLocation=""http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"">
-
-    <modelVersion>4.0.0</modelVersion>
-    <groupId>{groupId}</groupId>
-    <artifactId>{artifactId}</artifactId>
-    <version>{version}</version>
-    <packaging>jar</packaging>
-
-    <properties>
-        <java.version>{javaVer}</java.version>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>${{java.version}}</maven.compiler.source>
-        <maven.compiler.target>${{java.version}}</maven.compiler.target>
-    </properties>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <configuration>
-                    <source>${{java.version}}</source>
-                    <target>${{java.version}}</target>
-                    <encoding>UTF-8</encoding>
-                    <maxerrs>1000000</maxerrs>
-                    <maxwarns>0</maxwarns>
-                    <compilerArgs>
-                        <arg>-Xmaxerrs</arg>
-                        <arg>1000000</arg>
-                    </compilerArgs>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>com.diffplug.spotless</groupId>
-                <artifactId>spotless-maven-plugin</artifactId>
-                <version>3.4.0</version>
-                <configuration>
-                    <java>
-                        <googleJavaFormat>
-                            <version>1.35.0</version>
-                            <style>GOOGLE</style>
-                            <reflowLongStrings>false</reflowLongStrings>
-                            <formatJavadoc>false</formatJavadoc>
-                        </googleJavaFormat>
-                    </java>
-                </configuration>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>apply</goal>
-                        </goals>
-                        <phase>process-sources</phase>
-                    </execution>
-                </executions>
-            </plugin>
-{surefirePlugin}
-        </plugins>
-    </build>
-
-    <dependencies>
-        <dependency>
-            <groupId>io.vavr</groupId>
-            <artifactId>vavr</artifactId>
-            <version>0.10.4</version>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <version>2.17.2</version>
-        </dependency>
-{testDependencies}
-    </dependencies>
-
-</project>
-";
+        var generator = new MavenPomGenerator();
+        var pomContent = generator.GenerateRootBuildFile(plan);
+        var pomPath = Path.Combine(opts.Destination, generator.BuildFileName);
+        await File.WriteAllTextAsync(pomPath, pomContent);
     }
 
-    private static string GenerateParentPom(
-        string artifactId,
-        string groupId,
-        string version,
-        string javaVersion,
-        IReadOnlyList<string> modules)
+    private static async Task WriteMultiModulePom(ConvertProjectOptions opts, string moduleRoot, JavaModulePlan modulePlan)
     {
-        int javaVer = int.Parse(javaVersion.Replace("Java", ""));
-        var moduleSection = string.Join(Environment.NewLine, modules.Select(m => $"        <module>{m}</module>"));
+        var parentArtifactId = new DirectoryInfo(opts.Destination).Name;
+        var plan = new WorkspacePlanBuilder()
+            .GroupId(opts.MavenGroupId)
+            .ArtifactId(parentArtifactId)
+            .Version(opts.MavenVersion)
+            .JavaVersion(opts.JavaVersion)
+            .AddModule(modulePlan)
+            .Build();
 
-        return $@"<?xml version=""1.0"" encoding=""UTF-8""?>
-<project xmlns=""http://maven.apache.org/POM/4.0.0""
-    xmlns:xsi=""http://www.w3.org/2001/XMLSchema-instance""
-    xsi:schemaLocation=""http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"">
-
-    <modelVersion>4.0.0</modelVersion>
-    <groupId>{groupId}</groupId>
-    <artifactId>{artifactId}</artifactId>
-    <version>{version}</version>
-    <packaging>pom</packaging>
-
-    <properties>
-        <java.version>{javaVer}</java.version>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>${{java.version}}</maven.compiler.source>
-        <maven.compiler.target>${{java.version}}</maven.compiler.target>
-    </properties>
-
-    <modules>
-{moduleSection}
-    </modules>
-
-</project>
-";
-    }
-
-    private static string GenerateChildModulePom(
-        PlannedModule module,
-        string groupId,
-        string version,
-        string javaVersion,
-        string parentArtifactId)
-    {
-        int javaVer = int.Parse(javaVersion.Replace("Java", ""));
-
-        var depLines = new List<string>
+        // 用 multi-module 路径：生成子模块 POM 时需要 2+ modules 以触发 child POM 模式
+        // 但 GenerateModuleBuildFile 只看 plan.IsSingleModule，所以再加一个占位
+        var multiPlan = new JavaWorkspacePlan
         {
-            @"        <dependency>
-            <groupId>io.vavr</groupId>
-            <artifactId>vavr</artifactId>
-            <version>0.10.4</version>
-        </dependency>",
-            @"        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <version>2.17.2</version>
-        </dependency>"
+            GroupId = plan.GroupId,
+            ArtifactId = plan.ArtifactId,
+            Version = plan.Version,
+            JavaVersion = plan.JavaVersion,
+            Modules = [modulePlan, modulePlan], // 保证 IsSingleModule == false
         };
+
+        var generator = new MavenPomGenerator();
+        var pomContent = generator.GenerateModuleBuildFile(multiPlan, modulePlan);
+        var pomPath = Path.Combine(moduleRoot, generator.BuildFileName);
+        await File.WriteAllTextAsync(pomPath, pomContent);
+    }
+
+    private static async Task WriteParentPom(ConvertProjectOptions opts, IReadOnlyList<string> moduleNames)
+    {
+        var parentArtifactId = new DirectoryInfo(opts.Destination).Name;
+        var builder = new WorkspacePlanBuilder()
+            .GroupId(opts.MavenGroupId)
+            .ArtifactId(parentArtifactId)
+            .Version(opts.MavenVersion)
+            .JavaVersion(opts.JavaVersion);
+
+        foreach (var name in moduleNames)
+        {
+            builder.AddModule(new JavaModulePlan
+            {
+                ModuleName = name,
+                IsTestOnly = false,
+            });
+        }
+
+        var plan = builder.Build();
+        var generator = new MavenPomGenerator();
+        var pomContent = generator.GenerateRootBuildFile(plan);
+        var pomPath = Path.Combine(opts.Destination, generator.BuildFileName);
+        await File.WriteAllTextAsync(pomPath, pomContent);
+    }
+
+    private static JavaModulePlan PlannedModuleToJavaModulePlan(PlannedModule module, string groupId)
+    {
+        var deps = new List<JavaDependency>(WorkspacePlanBuilder.DefaultDependencies());
 
         foreach (var dep in module.CompileDependencies.OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
         {
-            depLines.Add($@"        <dependency>
-            <groupId>{groupId}</groupId>
-            <artifactId>{dep}</artifactId>
-            <version>${{project.version}}</version>
-        </dependency>");
+            deps.Add(WorkspacePlanBuilder.InternalModuleRef(groupId, dep));
         }
 
         foreach (var dep in module.TestDependencies.OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
         {
-            depLines.Add($@"        <dependency>
-            <groupId>{groupId}</groupId>
-            <artifactId>{dep}</artifactId>
-            <version>${{project.version}}</version>
-            <scope>test</scope>
-        </dependency>");
+            deps.Add(WorkspacePlanBuilder.InternalModuleRef(groupId, dep, JavaDependencyScope.Test));
         }
 
-        if (module.HasTestSources)
+        return new JavaModulePlan
         {
-            depLines.Add(@"        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <version>5.11.4</version>
-            <scope>test</scope>
-        </dependency>");
-            depLines.Add(@"        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-params</artifactId>
-            <version>5.11.4</version>
-            <scope>test</scope>
-        </dependency>");
-        }
-
-        var skipModuleTests = false;
-
-        var surefirePlugin = module.HasTestSources
-            ? $@"
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.3.1</version>
-                <configuration>
-                    <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
-                    <enableAssertions>false</enableAssertions>
-                    <forkedProcessTimeoutInSeconds>120</forkedProcessTimeoutInSeconds>
-                    <forkedProcessExitTimeoutInSeconds>120</forkedProcessExitTimeoutInSeconds>
-                    <systemPropertyVariables>
-                        <msagl.test.data.root>${{msagl.test.data.root}}</msagl.test.data.root>
-                    </systemPropertyVariables>
-{(skipModuleTests ? "                    <skipTests>true</skipTests>" : string.Empty)}
-                </configuration>
-            </plugin>"
-            : string.Empty;
-
-        var deps = string.Join(Environment.NewLine, depLines);
-
-        return $@"<?xml version=""1.0"" encoding=""UTF-8""?>
-<project xmlns=""http://maven.apache.org/POM/4.0.0""
-    xmlns:xsi=""http://www.w3.org/2001/XMLSchema-instance""
-    xsi:schemaLocation=""http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"">
-
-    <modelVersion>4.0.0</modelVersion>
-
-    <parent>
-        <groupId>{groupId}</groupId>
-        <artifactId>{parentArtifactId}</artifactId>
-        <version>{version}</version>
-    </parent>
-
-    <artifactId>{module.Name}</artifactId>
-    <packaging>jar</packaging>
-
-    <properties>
-        <java.version>{javaVer}</java.version>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>${{java.version}}</maven.compiler.source>
-        <maven.compiler.target>${{java.version}}</maven.compiler.target>
-    </properties>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <configuration>
-                    <source>${{java.version}}</source>
-                    <target>${{java.version}}</target>
-                    <encoding>UTF-8</encoding>
-                </configuration>
-            </plugin>
-{surefirePlugin}
-        </plugins>
-    </build>
-
-    <dependencies>
-{deps}
-    </dependencies>
-
-</project>
-";
+            ModuleName = module.Name,
+            IsTestOnly = module.IsTestOnly,
+            SourceSets = module.HasTestSources
+                ? new JavaSourceSets { TestSources = ["test"] }
+                : new JavaSourceSets(),
+            Dependencies = deps,
+        };
     }
 
     private static string FormatDiagnostic(DiagnosticMessage diag)
