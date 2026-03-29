@@ -185,8 +185,9 @@ class Program
             var outputRoot = opts.GeneratePom
                 ? Path.Combine(opts.Destination, "src", "main", "java")
                 : opts.Destination;
+            var outputSession = OutputIncrementalWriteSession.Create(opts.Destination, opts.Source);
 
-            if (opts.Force && Directory.Exists(outputRoot))
+            if (opts.Force && Directory.Exists(outputRoot) && !outputSession.HasPreviousManifest)
             {
                 Directory.Delete(outputRoot, recursive: true);
             }
@@ -218,7 +219,7 @@ class Program
 
                 if (result.FileName == null) continue;
 
-                if (TryWriteConvertedFile(result, opts.Source, outputRoot, out var outputPath))
+                if (TryWriteConvertedFile(result, opts.Source, outputRoot, outputSession, out var outputPath))
                 {
                     successCount++;
                     if (opts.Verbose)
@@ -239,11 +240,12 @@ class Program
 
             if (opts.GeneratePom)
             {
-                await WriteSingleModulePom(opts, CreateSingleModulePlan(opts, includeTests: false, planningResults));
+                await WriteSingleModulePom(opts, CreateSingleModulePlan(opts, includeTests: false, planningResults), outputSession);
             }
 
-            var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries);
-            await WriteCanarySummarySnapshot(opts.Destination, opts.Source, results, passProfileSnapshot);
+            var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries, outputSession);
+            await WriteCanarySummarySnapshot(opts.Destination, opts.Source, results, passProfileSnapshot, outputSession);
+            await outputSession.SaveAsync();
 
             Console.WriteLine();
             Console.WriteLine($"Conversion complete: {successCount} succeeded, {failureCount} failed");
@@ -280,6 +282,7 @@ class Program
 
     private static async Task<int> ConvertFromProjectGraphSingleModule(ConvertProjectOptions opts, ConversionOptions options, ProjectGraph graph)
     {
+        var outputSession = OutputIncrementalWriteSession.Create(opts.Destination, opts.Source);
 
         var mainJavaRoot = opts.GeneratePom
             ? Path.Combine(opts.Destination, "src", "main", "java")
@@ -294,7 +297,7 @@ class Program
             ? Path.Combine(opts.Destination, "src", "test", "resources")
             : Path.Combine(opts.Destination, "test-resources");
 
-        if (opts.Force)
+        if (opts.Force && !outputSession.HasPreviousManifest)
         {
             DeleteIfExists(mainJavaRoot);
             DeleteIfExists(testJavaRoot);
@@ -347,7 +350,7 @@ class Program
 
                 if (result.FileName == null) continue;
 
-                if (TryWriteConvertedFile(result, project.ProjectDirectory, targetJavaRoot, out var outputPath))
+                if (TryWriteConvertedFile(result, project.ProjectDirectory, targetJavaRoot, outputSession, out var outputPath))
                 {
                     successCount++;
                     if (opts.Verbose)
@@ -369,14 +372,10 @@ class Program
             foreach (var resource in project.ResourceItems)
             {
                 var destination = Path.Combine(targetResourcesRoot, resource.RelativePath);
-                var destinationDir = Path.GetDirectoryName(destination);
-                if (!string.IsNullOrEmpty(destinationDir))
+                if (outputSession.CopyFile(resource.SourcePath, destination, OutputIncrementalEntryKind.CopiedResource))
                 {
-                    Directory.CreateDirectory(destinationDir);
+                    copiedResourceCount++;
                 }
-
-                File.Copy(resource.SourcePath, destination, overwrite: true);
-                copiedResourceCount++;
 
                 if (opts.Verbose)
                 {
@@ -387,11 +386,12 @@ class Program
 
         if (opts.GeneratePom)
         {
-            await WriteSingleModulePom(opts, CreateSingleModulePlan(opts, opts.IncludeTests, planningResults));
+            await WriteSingleModulePom(opts, CreateSingleModulePlan(opts, opts.IncludeTests, planningResults), outputSession);
         }
 
-        var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries);
-        await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot);
+        var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries, outputSession);
+        await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot, outputSession);
+        await outputSession.SaveAsync();
 
         Console.WriteLine();
         Console.WriteLine($"Conversion complete: {successCount} succeeded, {failureCount} failed, {copiedResourceCount} resources copied");
@@ -404,6 +404,7 @@ class Program
         ConversionOptions options,
         IReadOnlyList<WorkspaceProject> projects)
     {
+        var outputSession = OutputIncrementalWriteSession.Create(opts.Destination, opts.Source);
         var mainJavaRoot = opts.GeneratePom
             ? Path.Combine(opts.Destination, "src", "main", "java")
             : opts.Destination;
@@ -417,7 +418,7 @@ class Program
             ? Path.Combine(opts.Destination, "src", "test", "resources")
             : Path.Combine(opts.Destination, "test-resources");
 
-        if (opts.Force)
+        if (opts.Force && !outputSession.HasPreviousManifest)
         {
             DeleteIfExists(mainJavaRoot);
             DeleteIfExists(testJavaRoot);
@@ -474,7 +475,7 @@ class Program
 
                 if (result.FileName == null) continue;
 
-                if (TryWriteConvertedFile(result, project.Directory, targetJavaRoot, out var outputPath))
+                if (TryWriteConvertedFile(result, project.Directory, targetJavaRoot, outputSession, out var outputPath))
                 {
                     successCount++;
                     if (opts.Verbose)
@@ -496,11 +497,12 @@ class Program
 
         if (opts.GeneratePom)
         {
-            await WriteSingleModulePom(opts, CreateSingleModulePlan(opts, opts.IncludeTests, planningResults));
+            await WriteSingleModulePom(opts, CreateSingleModulePlan(opts, opts.IncludeTests, planningResults), outputSession);
         }
 
-        var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries);
-        await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot);
+        var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries, outputSession);
+        await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot, outputSession);
+        await outputSession.SaveAsync();
 
         Console.WriteLine();
         Console.WriteLine($"Conversion complete (MSBuild): {successCount} succeeded, {failureCount} failed");
@@ -513,6 +515,7 @@ class Program
         ConversionOptions options,
         IReadOnlyList<WorkspaceProject> projects)
     {
+        var outputSession = OutputIncrementalWriteSession.Create(opts.Destination, opts.Source);
         // Build module plan from workspace projects.
         var mainProjects = projects.Where(p => !p.IsTestProject).ToList();
         var testProjects = projects.Where(p => p.IsTestProject).ToList();
@@ -524,7 +527,7 @@ class Program
         options.EmitCompatibilityHelpers = false;
         options.SharedCompatibilityPackage = sharedCompatibilityPackage;
 
-        if (opts.Force && Directory.Exists(opts.Destination))
+        if (opts.Force && Directory.Exists(opts.Destination) && !outputSession.HasPreviousManifest)
         {
             Directory.Delete(opts.Destination, recursive: true);
             Directory.CreateDirectory(opts.Destination);
@@ -546,7 +549,7 @@ class Program
 
         foreach (var result in ProjectConversionPipeline.GenerateCompatibilitySupport(sharedCompatibilityPackage, opts.IncludeTests))
         {
-            if (TryWriteConvertedFile(result, opts.Source, compatJavaRoot, out var outputPath))
+            if (TryWriteConvertedFile(result, opts.Source, compatJavaRoot, outputSession, out var outputPath))
             {
                 successCount++;
                 if (opts.Verbose) Console.WriteLine($"Converted: {result.FileName} -> {outputPath}");
@@ -597,7 +600,7 @@ class Program
             foreach (var result in results)
             {
                 if (result.FileName == null) continue;
-                if (TryWriteConvertedFile(result, project.Directory, javaRoot, out var outputPath))
+                if (TryWriteConvertedFile(result, project.Directory, javaRoot, outputSession, out var outputPath))
                 {
                     successCount++;
                     if (opts.Verbose) Console.WriteLine($"Converted: {result.FileName} -> {outputPath}");
@@ -645,7 +648,7 @@ class Program
                 };
 
                 modulePlans.Add(modulePlan);
-                await WriteMultiModulePom(opts, moduleRoot, modulePlan);
+                await WriteMultiModulePom(opts, moduleRoot, modulePlan, outputSession);
             }
         }
 
@@ -661,15 +664,16 @@ class Program
             };
 
             modulePlans.Insert(0, compatPlan);
-            await WriteMultiModulePom(opts, compatModuleRoot, compatPlan);
+            await WriteMultiModulePom(opts, compatModuleRoot, compatPlan, outputSession);
 
             var workspacePlan = BuildWorkspacePlan(opts, modulePlans);
-            await WriteParentPom(opts, workspacePlan);
-            await WriteWorkspacePlanManifest(opts.Destination, workspacePlan);
+            await WriteParentPom(opts, workspacePlan, outputSession);
+            await WriteWorkspacePlanManifest(opts.Destination, workspacePlan, outputSession);
         }
 
-        var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries);
-        await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot);
+        var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries, outputSession);
+        await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot, outputSession);
+        await outputSession.SaveAsync();
 
         Console.WriteLine();
         Console.WriteLine($"Conversion complete (MSBuild): {successCount} succeeded, {failureCount} failed, modules={convertedModuleCount}");
@@ -704,8 +708,9 @@ class Program
 
         options.EmitCompatibilityHelpers = false;
         options.SharedCompatibilityPackage = sharedCompatibilityPackage;
+        var outputSession = OutputIncrementalWriteSession.Create(opts.Destination, opts.Source);
 
-        if (opts.Force && Directory.Exists(opts.Destination))
+        if (opts.Force && Directory.Exists(opts.Destination) && !outputSession.HasPreviousManifest)
         {
             Directory.Delete(opts.Destination, recursive: true);
             Directory.CreateDirectory(opts.Destination);
@@ -743,7 +748,7 @@ class Program
 
                 // Write JUnit Platform configuration with per-test timeout to prevent hangs
                 var junitPlatformProps = Path.Combine(testResourcesRoot, "junit-platform.properties");
-                File.WriteAllText(junitPlatformProps, "junit.jupiter.execution.timeout.default = 60s\n");
+                outputSession.WriteTextFile(junitPlatformProps, "junit.jupiter.execution.timeout.default = 60s\n", OutputIncrementalEntryKind.BuildFile);
             }
 
             if (opts.Verbose)
@@ -755,7 +760,7 @@ class Program
             {
                 foreach (var result in ProjectConversionPipeline.GenerateCompatibilitySupport(sharedCompatibilityPackage, opts.IncludeTests))
                 {
-                    if (TryWriteConvertedFile(result, opts.Source, mainJavaRoot, out var outputPath))
+                    if (TryWriteConvertedFile(result, opts.Source, mainJavaRoot, outputSession, out var outputPath))
                     {
                         successCount++;
                         if (opts.Verbose)
@@ -796,7 +801,7 @@ class Program
                 {
                     if (result.FileName == null) continue;
 
-                    if (TryWriteConvertedFile(result, assignment.Project.ProjectDirectory, targetJavaRoot, out var outputPath))
+                    if (TryWriteConvertedFile(result, assignment.Project.ProjectDirectory, targetJavaRoot, outputSession, out var outputPath))
                     {
                         successCount++;
                         if (opts.Verbose)
@@ -818,14 +823,10 @@ class Program
                 foreach (var resource in assignment.Project.ResourceItems)
                 {
                     var destination = Path.Combine(targetResourcesRoot, resource.RelativePath);
-                    var destinationDir = Path.GetDirectoryName(destination);
-                    if (!string.IsNullOrEmpty(destinationDir))
+                    if (outputSession.CopyFile(resource.SourcePath, destination, OutputIncrementalEntryKind.CopiedResource))
                     {
-                        Directory.CreateDirectory(destinationDir);
+                        copiedResourceCount++;
                     }
-
-                    File.Copy(resource.SourcePath, destination, overwrite: true);
-                    copiedResourceCount++;
 
                     if (opts.Verbose)
                     {
@@ -849,7 +850,7 @@ class Program
 
                 var modulePlan = PlannedModuleToJavaModulePlan(module, opts.MavenGroupId, compatibilityRequirements.RequiredPackIds);
                 modulePlans.Add(modulePlan);
-                await WriteMultiModulePom(opts, moduleRoot, modulePlan);
+                await WriteMultiModulePom(opts, moduleRoot, modulePlan, outputSession);
             }
         }
 
@@ -865,15 +866,16 @@ class Program
             };
 
             modulePlans.Insert(0, compatPlan);
-            await WriteMultiModulePom(opts, Path.Combine(opts.Destination, compatModule.Name), compatPlan);
+            await WriteMultiModulePom(opts, Path.Combine(opts.Destination, compatModule.Name), compatPlan, outputSession);
 
             var workspacePlan = BuildWorkspacePlan(opts, modulePlans);
-            await WriteParentPom(opts, workspacePlan);
-            await WriteWorkspacePlanManifest(opts.Destination, workspacePlan);
+            await WriteParentPom(opts, workspacePlan, outputSession);
+            await WriteWorkspacePlanManifest(opts.Destination, workspacePlan, outputSession);
         }
 
-        var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries);
-        await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot);
+        var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries, outputSession);
+        await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot, outputSession);
+        await outputSession.SaveAsync();
 
         Console.WriteLine();
         Console.WriteLine($"Conversion complete: {successCount} succeeded, {failureCount} failed, {copiedResourceCount} resources copied, modules={modulesInBuildOrder.Count}");
@@ -914,7 +916,12 @@ class Program
         }
     }
 
-    private static bool TryWriteConvertedFile(ConversionResult result, string sourceRoot, string outputRoot, out string outputPath)
+    private static bool TryWriteConvertedFile(
+        ConversionResult result,
+        string sourceRoot,
+        string outputRoot,
+        OutputIncrementalWriteSession outputSession,
+        out string outputPath)
     {
         outputPath = string.Empty;
 
@@ -942,12 +949,6 @@ class Program
                 ? Path.GetRelativePath(sourceRoot, result.FileName)
                 : result.FileName;
             outputPath = Path.Combine(outputRoot, Path.ChangeExtension(relativePath, ".java"));
-        }
-
-        var outputDir = Path.GetDirectoryName(outputPath);
-        if (!string.IsNullOrEmpty(outputDir))
-        {
-            Directory.CreateDirectory(outputDir);
         }
 
         var generatedCode = result.GeneratedCode
@@ -1455,7 +1456,7 @@ class Program
             generatedCode = generatedCode.Replace("uint.parseUint(", "Integer.parseUnsignedInt(", StringComparison.Ordinal);
         }
 
-        File.WriteAllText(outputPath, generatedCode, new System.Text.UTF8Encoding(false));
+        outputSession.WriteTextFile(outputPath, generatedCode, OutputIncrementalEntryKind.GeneratedSource);
         return true;
     }
 
@@ -1624,15 +1625,18 @@ class Program
         }
     }
 
-    private static async Task WriteSingleModulePom(ConvertProjectOptions opts, JavaModulePlan modulePlan)
+    private static Task WriteSingleModulePom(
+        ConvertProjectOptions opts,
+        JavaModulePlan modulePlan,
+        OutputIncrementalWriteSession outputSession)
     {
         var plan = BuildWorkspacePlan(opts, [modulePlan]);
 
         var generator = new MavenPomGenerator();
         var pomContent = generator.GenerateRootBuildFile(plan);
         var pomPath = Path.Combine(opts.Destination, generator.BuildFileName);
-        await File.WriteAllTextAsync(pomPath, pomContent);
-        await WriteWorkspacePlanManifest(opts.Destination, plan);
+        outputSession.WriteTextFile(pomPath, pomContent, OutputIncrementalEntryKind.BuildFile);
+        return WriteWorkspacePlanManifest(opts.Destination, plan, outputSession);
     }
 
     private static JavaModulePlan CreateSingleModulePlan(
@@ -1662,22 +1666,31 @@ class Program
             && !CompatibilityClassGenerator.IsCompatibilitySupportFile(result.FileName);
     }
 
-    private static async Task WriteMultiModulePom(ConvertProjectOptions opts, string moduleRoot, JavaModulePlan modulePlan)
+    private static Task WriteMultiModulePom(
+        ConvertProjectOptions opts,
+        string moduleRoot,
+        JavaModulePlan modulePlan,
+        OutputIncrementalWriteSession outputSession)
     {
         var plan = BuildWorkspacePlan(opts, [modulePlan]);
 
         var generator = new MavenPomGenerator();
         var pomContent = generator.GenerateModuleBuildFile(plan, modulePlan);
         var pomPath = Path.Combine(moduleRoot, generator.BuildFileName);
-        await File.WriteAllTextAsync(pomPath, pomContent);
+        outputSession.WriteTextFile(pomPath, pomContent, OutputIncrementalEntryKind.BuildFile);
+        return Task.CompletedTask;
     }
 
-    private static async Task WriteParentPom(ConvertProjectOptions opts, JavaWorkspacePlan plan)
+    private static Task WriteParentPom(
+        ConvertProjectOptions opts,
+        JavaWorkspacePlan plan,
+        OutputIncrementalWriteSession outputSession)
     {
         var generator = new MavenPomGenerator();
         var pomContent = generator.GenerateRootBuildFile(plan);
         var pomPath = Path.Combine(opts.Destination, generator.BuildFileName);
-        await File.WriteAllTextAsync(pomPath, pomContent);
+        outputSession.WriteTextFile(pomPath, pomContent, OutputIncrementalEntryKind.BuildFile);
+        return Task.CompletedTask;
     }
 
     private static JavaWorkspacePlan BuildWorkspacePlan(ConvertProjectOptions opts, IReadOnlyList<JavaModulePlan> modulePlans)
@@ -1696,42 +1709,51 @@ class Program
         return builder.Build();
     }
 
-    private static async Task WriteWorkspacePlanManifest(string destinationRoot, JavaWorkspacePlan plan)
+    private static Task WriteWorkspacePlanManifest(
+        string destinationRoot,
+        JavaWorkspacePlan plan,
+        OutputIncrementalWriteSession outputSession)
     {
         var serializer = new JavaWorkspacePlanJsonSerializer();
         var manifestPath = Path.Combine(destinationRoot, "cs2j-workspace-plan.json");
-        await File.WriteAllTextAsync(manifestPath, serializer.Serialize(plan), new System.Text.UTF8Encoding(false));
+        outputSession.WriteTextFile(manifestPath, serializer.Serialize(plan), OutputIncrementalEntryKind.WorkspaceManifest);
+        return Task.CompletedTask;
     }
 
-    private static async Task<PassProfileSnapshot?> WritePassProfileSnapshot(string destinationRoot, IReadOnlyList<PassProfileEntry> entries)
+    private static Task<PassProfileSnapshot?> WritePassProfileSnapshot(
+        string destinationRoot,
+        IReadOnlyList<PassProfileEntry> entries,
+        OutputIncrementalWriteSession outputSession)
     {
         if (entries.Count == 0)
         {
-            return null;
+            return Task.FromResult<PassProfileSnapshot?>(null);
         }
 
         var snapshot = PassProfileSnapshotBuilder.Build(entries);
         var serializer = new PassProfileSnapshotJsonSerializer();
         var snapshotPath = Path.Combine(destinationRoot, "cs2j-pass-profile.json");
-        await File.WriteAllTextAsync(snapshotPath, serializer.Serialize(snapshot), new System.Text.UTF8Encoding(false));
-        return snapshot;
+        outputSession.WriteTextFile(snapshotPath, serializer.Serialize(snapshot), OutputIncrementalEntryKind.PassProfile);
+        return Task.FromResult<PassProfileSnapshot?>(snapshot);
     }
 
-    private static async Task WriteCanarySummarySnapshot(
+    private static Task WriteCanarySummarySnapshot(
         string destinationRoot,
         string sourcePath,
         IReadOnlyList<ConversionResult> results,
-        PassProfileSnapshot? passProfileSnapshot)
+        PassProfileSnapshot? passProfileSnapshot,
+        OutputIncrementalWriteSession outputSession)
     {
         if (results.Count == 0)
         {
-            return;
+            return Task.CompletedTask;
         }
 
         var snapshot = CanarySummarySnapshotBuilder.Build(GetSourceName(sourcePath), sourcePath, results, passProfileSnapshot);
         var serializer = new CanarySummarySnapshotJsonSerializer();
         var summaryPath = Path.Combine(destinationRoot, "cs2j-canary-summary.json");
-        await File.WriteAllTextAsync(summaryPath, serializer.Serialize(snapshot), new System.Text.UTF8Encoding(false));
+        outputSession.WriteTextFile(summaryPath, serializer.Serialize(snapshot), OutputIncrementalEntryKind.CanarySummary);
+        return Task.CompletedTask;
     }
 
     private static void AddProjectPassProfileEntry(

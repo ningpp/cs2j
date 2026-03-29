@@ -284,4 +284,92 @@ public class PlanningTests
         Assert.Equal(2, passAggregate.EntryCount);
         Assert.Equal(4, passAggregate.TotalRewriteCount);
     }
+
+    [Fact]
+    public async Task OutputIncrementalWriteSession_SkipsUnchangedWrites_AndDeletesStaleOutputs()
+    {
+        var outputRoot = Path.Combine(Path.GetTempPath(), "cs2j-output-cache-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(outputRoot);
+
+        try
+        {
+            var generatedPath = Path.Combine(outputRoot, "src", "main", "java", "Sample.java");
+            var workspacePlanPath = Path.Combine(outputRoot, "cs2j-workspace-plan.json");
+            var serializer = new OutputIncrementalManifestJsonSerializer();
+
+            var firstSession = OutputIncrementalWriteSession.Create(outputRoot, @"C:\repos\demo");
+            Assert.False(firstSession.HasPreviousManifest);
+            Assert.True(firstSession.WriteTextFile(generatedPath, "class Sample {}", OutputIncrementalEntryKind.GeneratedSource));
+            Assert.True(firstSession.WriteTextFile(workspacePlanPath, "{\"modules\":[]}", OutputIncrementalEntryKind.WorkspaceManifest));
+            await firstSession.SaveAsync();
+
+            var sentinelTime = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            File.SetLastWriteTimeUtc(generatedPath, sentinelTime);
+
+            var secondSession = OutputIncrementalWriteSession.Create(outputRoot, @"C:\repos\demo");
+            Assert.True(secondSession.HasPreviousManifest);
+            Assert.False(secondSession.WriteTextFile(generatedPath, "class Sample {}", OutputIncrementalEntryKind.GeneratedSource));
+            await secondSession.SaveAsync();
+
+            Assert.Equal(sentinelTime, File.GetLastWriteTimeUtc(generatedPath));
+            Assert.False(File.Exists(workspacePlanPath));
+
+            var manifestPath = Path.Combine(outputRoot, OutputIncrementalWriteSession.ManifestFileName);
+            var manifest = serializer.Deserialize(await File.ReadAllTextAsync(manifestPath));
+            var entry = Assert.Single(Assert.IsType<OutputIncrementalManifest>(manifest).Entries);
+            Assert.Equal(Path.Combine("src", "main", "java", "Sample.java"), entry.RelativePath);
+            Assert.Equal(OutputIncrementalEntryKind.GeneratedSource, entry.Kind);
+        }
+        finally
+        {
+            if (Directory.Exists(outputRoot))
+            {
+                Directory.Delete(outputRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task OutputIncrementalWriteSession_CopyFile_RewritesWhenSourceChanges()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "cs2j-output-copy-" + Guid.NewGuid().ToString("N"));
+        var sourceRoot = Path.Combine(tempRoot, "source");
+        var outputRoot = Path.Combine(tempRoot, "out");
+        Directory.CreateDirectory(sourceRoot);
+        Directory.CreateDirectory(outputRoot);
+
+        try
+        {
+            var sourceFile = Path.Combine(sourceRoot, "data.json");
+            var outputFile = Path.Combine(outputRoot, "resources", "data.json");
+            await File.WriteAllTextAsync(sourceFile, "{\"value\":1}");
+
+            var firstSession = OutputIncrementalWriteSession.Create(outputRoot, sourceRoot);
+            Assert.True(firstSession.CopyFile(sourceFile, outputFile, OutputIncrementalEntryKind.CopiedResource));
+            await firstSession.SaveAsync();
+
+            var sentinelTime = new DateTime(2024, 2, 1, 0, 0, 0, DateTimeKind.Utc);
+            File.SetLastWriteTimeUtc(outputFile, sentinelTime);
+
+            var secondSession = OutputIncrementalWriteSession.Create(outputRoot, sourceRoot);
+            Assert.False(secondSession.CopyFile(sourceFile, outputFile, OutputIncrementalEntryKind.CopiedResource));
+            await secondSession.SaveAsync();
+            Assert.Equal(sentinelTime, File.GetLastWriteTimeUtc(outputFile));
+
+            await File.WriteAllTextAsync(sourceFile, "{\"value\":2}");
+
+            var thirdSession = OutputIncrementalWriteSession.Create(outputRoot, sourceRoot);
+            Assert.True(thirdSession.CopyFile(sourceFile, outputFile, OutputIncrementalEntryKind.CopiedResource));
+            await thirdSession.SaveAsync();
+
+            Assert.Equal("{\"value\":2}", await File.ReadAllTextAsync(outputFile));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, recursive: true);
+            }
+        }
+    }
 }
