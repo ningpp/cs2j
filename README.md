@@ -4,7 +4,7 @@ A C# to Java source code converter using Roslyn for parsing and semantic analysi
 
 ## Features
 
-- Convert C# code to Java with support for modern Java versions (8, 11, 17, 21, 25)
+- Convert C# code to Java with support for modern Java versions (25)
 - Type mapping configuration (JSON-driven)
 - LINQ-to-procedural code rewriting
 - Async/await translation (Task → CompletableFuture)
