@@ -1001,22 +1001,47 @@ JavaSyntaxNode (现有)
 
 ### 阶段 3：拆分 ConversionContext 并扩展 Java IR
 
+**状态：进行中** — ConversionContext 从 1,149 行降至 348 行，已提取 7 个独立类。
+
 **目标**：建立干净的服务/会话/局部状态边界，扩展 Java IR 以减少字符串级修补。
+
+**已完成的变更**：
+
+1. **Step 3.1**: 提取 `MethodConversionState`（方法级可变状态）和 `UsingAliasRegistry`（文件级别名管理）
+2. **Step 3.2**: 提取 `TypeMappingService`（~500 行类型映射核心逻辑）和 `JavaNaming`（静态命名工具）
+3. **Step 3.3**: 提取 `ConversionOptions`、`DiagnosticCollector`、`SynthesizedRecordStore`，JavaNaming 扩展类型擦除方法
+4. **Step 3.4**: 提取 `PartialTypeMergeStore`
+
+**提取的类总览**：
+
+| 新类 | 职责 | 步骤 |
+|------|------|------|
+| `MethodConversionState` | 方法级可变状态（pre/post 语句、ref holder、stream 变量） | 3.1 |
+| `UsingAliasRegistry` | 文件级 using alias 注册/解析 | 3.1 |
+| `TypeMappingService` | 全部类型映射逻辑、TypeCache、FlagsEnum 注册 | 3.2 |
+| `JavaNaming` | IsJavaKeyword/EscapeJavaKeyword/HasTypeErasureConflict | 3.2-3.3 |
+| `ConversionOptions` | 转换选项 + JavaVersion 枚举 | 3.3 |
+| `DiagnosticCollector` | 诊断收集（Error/Warning/Info） | 3.3 |
+| `SynthesizedRecordStore` | 匿名类型合成记录管理 | 3.3 |
+| `PartialTypeMergeStore` | partial 类型合并跟踪 | 3.4 |
 
 **交付物**：
 
-- `ConversionContext` 拆为 `TypeMappingService` + `ProjectConversionSession` + `MethodConversionState`
-- Java IR 扩展到支持 Statement 和 Expression 节点
-- 转换器输出结构化 Java IR，而非字符串
-- IR 层后处理替代字符串层后处理
+- ✅ `ConversionContext` 拆为多个独立职责类（348 行，含向后兼容 facade）
+- ✅ `MethodConversionState` 管理方法级状态
+- ✅ `TypeMappingService` 管理全部类型/命名空间映射
+- ⬜ Java IR 扩展到支持 Statement 和 Expression 节点
+- ⬜ 转换器输出结构化 Java IR，而非字符串
+- ⬜ IR 层后处理替代字符串层后处理
 
-**量化验收**：
+**量化进度**：
 
-| 指标 | 当前值 | 目标值 |
-|------|-------|-------|
-| `ConversionContext.cs` 行数 | 1,149 | ≤ 300（拆分后主文件） |
-| Java AST 行数 | 682 | ≥ 2,000 |
-| Replace() 调用总数 | 747 | ≤ 50 |
+| 指标 | 阶段 2 结果 | 当前值 | 目标值 |
+|------|-----------|-------|-------|
+| `ConversionContext.cs` 行数 | 1,149 | 348 | ≤ 300 |
+| Java AST 行数 | 682 | 682 | ≥ 2,000 |
+| Replace() 调用总数 | 501 | 501 | ≤ 50 |
+| 测试通过/失败 | 461/15 | 461/15 | 461/15 |
 
 ### 阶段 4：建立输出规划与兼容包体系
 
@@ -1055,13 +1080,13 @@ JavaSyntaxNode (现有)
 
 ### 架构健康指标
 
-| 指标 | 当前基线 | 阶段 0 结果 | 阶段 1 进度 | 最终目标 |
-|------|---------|-----------|-----------|---------|
-| `ProjectConversionPipeline.cs` 行数 | 4,697 | 145 ✅ | 145 | ≤ 300 |
-| PostGenerationRewriteEngine 补丁数 | 586 | 586 | 555（-31 消除 +2 提升为通用） | ≤ 50 |
-| `ConversionContext.cs` 行数 | 1,149 | 1,149 | 1,149 | ≤ 300（拆分后） |
-| Java AST 行数 | 682 | 682 | 682 | ≥ 2,000 |
-| 回归测试通过/失败 | 461/15 | 461/15 | 461/15 | 全部通过 |
+| 指标 | 当前基线 | 阶段 0 结果 | 阶段 1 进度 | 阶段 3 进度 | 最终目标 |
+|------|---------|-----------|-----------|-----------|---------|
+| `ProjectConversionPipeline.cs` 行数 | 4,697 | 145 ✅ | 145 | 145 | ≤ 300 |
+| PostGenerationRewriteEngine 补丁数 | 586 | 586 | 501（-85） | 501 | ≤ 50 |
+| `ConversionContext.cs` 行数 | 1,149 | 1,149 | 1,149 | 348（-801） | ≤ 300 |
+| Java AST 行数 | 682 | 682 | 682 | 682 | ≥ 2,000 |
+| 回归测试通过/失败 | 461/15 | 461/15 | 461/15 | 461/15 | 全部通过 |
 
 ### 功能指标
 
