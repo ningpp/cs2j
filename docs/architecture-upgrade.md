@@ -1042,8 +1042,8 @@ JavaSyntaxNode (现有)
 |------|-----------|-------|-------|
 | `ConversionContext.cs` 行数 | 1,149 | 221 | ≤ 300 ✅ |
 | Java AST 行数 | 682 | 2,029 | ≥ 2,000 ✅ |
-| Replace() 调用总数 | 501 | 505 | ≤ 50 |
-| 测试通过/失败 | 461/15 | 493/0 ✅ | 全部通过 |
+| Replace() 调用总数 | 501 | 440 | ≤ 50 |
+| 测试通过/失败 | 461/15 | 499/0 ✅ | 全部通过 |
 
 ### 阶段 4：建立输出规划与兼容包体系
 
@@ -1058,6 +1058,9 @@ JavaSyntaxNode (现有)
 - ✅ `ICompatibilityPack` 接口 + `CompatibilityPackRegistry` 注册表
 - ✅ `CompatibilityPackContext` 按需生成支持
 - ✅ 委托 SAM 方法推断（InferSamMethodName）
+- ✅ 原始流 Min/Max 智能处理（IntStream/DoubleStream/LongStream 使用无参数 min/max）
+- ✅ Select 原始流跨类型映射（mapToDouble/mapToLong/mapToObj 自动选择）
+- ✅ SelectMany 原始流自动 boxed（flatMap 返回非原始流时插入 .boxed()）
 - ⬜ 第三方依赖映射完善（Pack → Maven 依赖自动关联）
 - ⬜ CLI 层集成 WorkspacePlan + MavenPomGenerator 替代现有 POM 生成
 
@@ -1091,10 +1094,10 @@ JavaSyntaxNode (现有)
 | 指标 | 当前基线 | 阶段 0 结果 | 阶段 1 进度 | 阶段 3 进度 | 阶段 4 进度 | 最终目标 |
 |------|---------|-----------|-----------|-----------|-----------|---------|
 | `ProjectConversionPipeline.cs` 行数 | 4,697 | 145 ✅ | 145 | 145 | 145 | ≤ 300 |
-| PostGenerationRewriteEngine 补丁数 | 586 | 586 | 501（-85） | ~499 | 505 | ≤ 50 |
+| PostGenerationRewriteEngine 补丁数 | 586 | 586 | 501（-85） | ~499 | 440 | ≤ 50 |
 | `ConversionContext.cs` 行数 | 1,149 | 1,149 | 1,149 | 221 ✅ | 221 | ≤ 300 |
 | Java AST 行数 | 682 | 682 | 682 | 2,029 ✅ | 2,029 | ≥ 2,000 |
-| 回归测试通过/失败 | 461/15 | 461/15 | 461/15 | 474/0 ✅ | 493/0 ✅ | 全部通过 |
+| 回归测试通过/失败 | 461/15 | 461/15 | 461/15 | 474/0 ✅ | 499/0 ✅ | 全部通过 |
 
 ### 功能指标
 
