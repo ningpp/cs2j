@@ -1,9 +1,9 @@
 @echo off
 setlocal
 
-set "SOURCE_DIR=E:\agl-master\GraphLayout"
-if not exist "%SOURCE_DIR%" (
-    echo [ERROR] Source path not found: %SOURCE_DIR%
+set "SOURCE_PATH=E:\agl-master\GraphLayout\GraphLayout.sln"
+if not exist "%SOURCE_PATH%" (
+    echo [ERROR] Source path not found: %SOURCE_PATH%
     exit /b 1
 )
 
@@ -16,12 +16,12 @@ if not defined TIMESTAMP (
 set "OUTPUT_DIR=E:\agl-java-%TIMESTAMP%"
 set "SCRIPT_DIR=%~dp0"
 
-echo Source: %SOURCE_DIR%
+echo Source: %SOURCE_PATH%
 echo Output: %OUTPUT_DIR%
 echo.
 
 if /I "%~1"=="--print-only" (
-    echo dotnet run --project "src\CSharpToJava.CLI\CSharpToJava.CLI.csproj" --configuration Release -- convert-project -s "%SOURCE_DIR%" -d "%OUTPUT_DIR%" --mode multi-module --verbose
+    echo dotnet run --project "src\CSharpToJava.CLI\CSharpToJava.CLI.csproj" --configuration Release -- convert-project -s "%SOURCE_PATH%" -d "%OUTPUT_DIR%" --mode multi-module --verbose
     echo pushd "%OUTPUT_DIR%" ^>nul
     echo mvn clean package -e
     echo popd ^>nul
@@ -29,7 +29,7 @@ if /I "%~1"=="--print-only" (
 )
 
 pushd "%SCRIPT_DIR%" >nul
-dotnet run --project "src\CSharpToJava.CLI\CSharpToJava.CLI.csproj" --configuration Release -- convert-project -s "%SOURCE_DIR%" -d "%OUTPUT_DIR%" --mode multi-module --verbose
+dotnet run --project "src\CSharpToJava.CLI\CSharpToJava.CLI.csproj" --configuration Release -- convert-project -s "%SOURCE_PATH%" -d "%OUTPUT_DIR%" --mode multi-module --verbose
 set "EXIT_CODE=%ERRORLEVEL%"
 popd >nul
 

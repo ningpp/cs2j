@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
 namespace CSharpToJava.CLI;
@@ -38,15 +39,36 @@ internal static class ProjectDiscovery
     {
         projectFilePath = string.Empty;
 
-        if (File.Exists(source) && Path.GetExtension(source).Equals(".csproj", StringComparison.OrdinalIgnoreCase))
+        if (File.Exists(source))
         {
-            projectFilePath = Path.GetFullPath(source);
-            return true;
+            var extension = Path.GetExtension(source);
+            if (extension.Equals(".csproj", StringComparison.OrdinalIgnoreCase)
+                || extension.Equals(".sln", StringComparison.OrdinalIgnoreCase))
+            {
+                projectFilePath = Path.GetFullPath(source);
+                return true;
+            }
         }
 
         if (!Directory.Exists(source))
         {
             return false;
+        }
+
+        var topLevelSolutions = Directory.GetFiles(source, "*.sln", SearchOption.TopDirectoryOnly);
+        if (topLevelSolutions.Length == 1)
+        {
+            projectFilePath = Path.GetFullPath(topLevelSolutions[0]);
+            return true;
+        }
+
+        var sameName = Path.GetFileName(Path.GetFullPath(source).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        var preferredSolution = topLevelSolutions.FirstOrDefault(p =>
+            Path.GetFileNameWithoutExtension(p).Equals(sameName, StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrEmpty(preferredSolution))
+        {
+            projectFilePath = Path.GetFullPath(preferredSolution);
+            return true;
         }
 
         var topLevelProjects = Directory.GetFiles(source, "*.csproj", SearchOption.TopDirectoryOnly);
@@ -56,7 +78,6 @@ internal static class ProjectDiscovery
             return true;
         }
 
-        var sameName = Path.GetFileName(Path.GetFullPath(source).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
         var preferred = topLevelProjects.FirstOrDefault(p =>
             Path.GetFileNameWithoutExtension(p).Equals(sameName, StringComparison.OrdinalIgnoreCase));
         if (!string.IsNullOrEmpty(preferred))
@@ -70,16 +91,63 @@ internal static class ProjectDiscovery
 
     public static ProjectGraph LoadProjectGraph(string rootProjectPath)
     {
+        var resolvedRootPath = Path.GetFullPath(rootProjectPath);
         var projectMap = new Dictionary<string, DiscoveredProject>(StringComparer.OrdinalIgnoreCase);
-        LoadRecursive(Path.GetFullPath(rootProjectPath), projectMap);
+
+        if (Path.GetExtension(resolvedRootPath).Equals(".sln", StringComparison.OrdinalIgnoreCase))
+        {
+            foreach (var projectPath in GetSolutionProjectPaths(resolvedRootPath))
+            {
+                LoadRecursive(projectPath, projectMap);
+            }
+        }
+        else
+        {
+            LoadRecursive(resolvedRootPath, projectMap);
+        }
 
         var sorted = TopologicalSort(projectMap);
 
         return new ProjectGraph
         {
-            RootProjectPath = Path.GetFullPath(rootProjectPath),
+            RootProjectPath = resolvedRootPath,
             ProjectsInTopologicalOrder = sorted,
         };
+    }
+
+    private static IReadOnlyList<string> GetSolutionProjectPaths(string solutionPath)
+    {
+        if (!File.Exists(solutionPath))
+        {
+            return [];
+        }
+
+        var solutionDir = Path.GetDirectoryName(solutionPath) ?? string.Empty;
+        var projectPaths = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var line in File.ReadLines(solutionPath))
+        {
+            var match = Regex.Match(
+                line,
+                "^Project\\(\"[^\"]+\"\\)\\s*=\\s*\"[^\"]+\",\\s*\"([^\"]+\\.csproj)\",\\s*\"[^\"]+\"$",
+                RegexOptions.IgnoreCase);
+            if (!match.Success)
+            {
+                continue;
+            }
+
+            var relativeProjectPath = match.Groups[1].Value.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
+            var fullProjectPath = Path.GetFullPath(Path.Combine(solutionDir, relativeProjectPath));
+            if (!File.Exists(fullProjectPath) || !seen.Add(fullProjectPath))
+            {
+                continue;
+            }
+
+            projectPaths.Add(fullProjectPath);
+        }
+
+        return projectPaths;
     }
 
     private static void LoadRecursive(string projectPath, Dictionary<string, DiscoveredProject> projectMap)
