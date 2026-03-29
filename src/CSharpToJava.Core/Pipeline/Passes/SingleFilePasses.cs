@@ -104,7 +104,49 @@ public sealed class SingleFileUnsupportedDomainCheckPass : ICs2jPass<SingleFileP
         var diagnostics = UnsupportedDomainAnalyzer.AnalyzeSyntaxTree(state.SyntaxTree);
         foreach (var diagnostic in diagnostics)
         {
-            state.Context.Diagnostics.Error(diagnostic.Message, diagnostic.Location);
+            state.Context.Diagnostics.Error(diagnostic.Message, diagnostic.Location, diagnostic.Code, diagnostic.Category);
+        }
+
+        if (diagnostics.Any(diagnostic => diagnostic.Severity == Context.DiagnosticSeverity.Error))
+        {
+            state.BlockEmit = true;
+        }
+    }
+}
+
+public sealed class SingleFilePlatformBoundaryCheckPass : ICs2jPass<SingleFilePassState>
+{
+    public string Name => nameof(SingleFilePlatformBoundaryCheckPass);
+    public Cs2jPassStage Stage => Cs2jPassStage.Check;
+
+    public void Execute(SingleFilePassState state)
+    {
+        var semanticModel = state.Context.SemanticModel ?? state.Compilation.GetSemanticModel(state.SyntaxTree);
+        var diagnostics = PlatformBoundaryAnalyzer.AnalyzeSyntaxTree(state.SyntaxTree, semanticModel);
+        foreach (var diagnostic in diagnostics)
+        {
+            state.Context.Diagnostics.Error(diagnostic.Message, diagnostic.Location, diagnostic.Code, diagnostic.Category);
+        }
+
+        if (diagnostics.Any(diagnostic => diagnostic.Severity == Context.DiagnosticSeverity.Error))
+        {
+            state.BlockEmit = true;
+        }
+    }
+}
+
+public sealed class SingleFileNativeInteropCheckPass : ICs2jPass<SingleFilePassState>
+{
+    public string Name => nameof(SingleFileNativeInteropCheckPass);
+    public Cs2jPassStage Stage => Cs2jPassStage.Check;
+
+    public void Execute(SingleFilePassState state)
+    {
+        var semanticModel = state.Context.SemanticModel ?? state.Compilation.GetSemanticModel(state.SyntaxTree);
+        var diagnostics = NativeInteropAnalyzer.AnalyzeSyntaxTree(state.SyntaxTree, semanticModel);
+        foreach (var diagnostic in diagnostics)
+        {
+            state.Context.Diagnostics.Error(diagnostic.Message, diagnostic.Location, diagnostic.Code, diagnostic.Category);
         }
 
         if (diagnostics.Any(diagnostic => diagnostic.Severity == Context.DiagnosticSeverity.Error))

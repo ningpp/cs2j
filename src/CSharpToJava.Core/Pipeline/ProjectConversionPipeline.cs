@@ -112,6 +112,8 @@ public class ProjectConversionPipeline
             new ProjectLinqDesugarPass(),
             new ProjectCompilationCheckPass(),
             new ProjectUnsupportedDomainCheckPass(),
+            new ProjectPlatformBoundaryCheckPass(),
+            new ProjectNativeInteropCheckPass(),
             new ProjectPartialTypeNormalizationPass(),
             new ProjectTypeEmitPass(_irRewriters),
             new ProjectCompatibilityEmitPass(),

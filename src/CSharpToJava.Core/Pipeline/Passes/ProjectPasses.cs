@@ -35,6 +35,38 @@ public sealed class ProjectPassState
         }
     }
 
+    public void RecordBlockingDiagnostics(string filePath, IEnumerable<DiagnosticMessage> diagnostics)
+    {
+        var diagnosticList = diagnostics.ToList();
+        if (diagnosticList.Count == 0)
+        {
+            return;
+        }
+
+        RegisterFileDiagnostics(filePath, diagnosticList, blockEmit: true);
+
+        var normalizedPath = NormalizeFilePath(filePath);
+        var existingResult = Results.FirstOrDefault(result =>
+            string.Equals(NormalizeFilePath(result.FileName ?? string.Empty), normalizedPath, StringComparison.OrdinalIgnoreCase)
+            && string.IsNullOrEmpty(result.GeneratedCode));
+
+        if (existingResult == null)
+        {
+            Results.Add(new ConversionResult
+            {
+                Success = false,
+                FileName = filePath,
+                GeneratedCode = string.Empty,
+                Diagnostics = diagnosticList,
+            });
+            return;
+        }
+
+        existingResult.Success = false;
+        existingResult.GeneratedCode = string.Empty;
+        existingResult.Diagnostics = MergeDiagnostics(existingResult.Diagnostics, diagnosticList);
+    }
+
     public IReadOnlyList<DiagnosticMessage> GetDiagnosticsForPaths(IEnumerable<string> filePaths)
     {
         var diagnostics = new List<DiagnosticMessage>();
@@ -59,6 +91,30 @@ public sealed class ProjectPassState
         }
 
         return diagnostics;
+    }
+
+    private static IReadOnlyList<DiagnosticMessage> MergeDiagnostics(
+        IReadOnlyList<DiagnosticMessage> existingDiagnostics,
+        IReadOnlyList<DiagnosticMessage> incomingDiagnostics)
+    {
+        var merged = new List<DiagnosticMessage>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var diagnostic in existingDiagnostics.Concat(incomingDiagnostics))
+        {
+            if (seen.Add(CreateDiagnosticKey(diagnostic)))
+            {
+                merged.Add(diagnostic);
+            }
+        }
+
+        return merged;
+    }
+
+    private static string CreateDiagnosticKey(DiagnosticMessage diagnostic)
+    {
+        var span = diagnostic.Location?.GetLineSpan();
+        return $"{diagnostic.Code}|{diagnostic.Category}|{span?.Path}|{span?.StartLinePosition.Line}|{span?.StartLinePosition.Character}|{diagnostic.Severity}|{diagnostic.Message}";
     }
 
     private static string NormalizeFilePath(string filePath)
@@ -174,17 +230,72 @@ public sealed class ProjectUnsupportedDomainCheckPass : ICs2jPass<ProjectPassSta
 
             foreach (var diagnostic in diagnostics)
             {
-                state.Context.Diagnostics.Error(diagnostic.Message, diagnostic.Location);
+                state.Context.Diagnostics.Error(diagnostic.Message, diagnostic.Location, diagnostic.Code, diagnostic.Category);
             }
 
-            state.RegisterFileDiagnostics(syntaxTree.FilePath, diagnostics, blockEmit: true);
-            state.Results.Add(new ConversionResult
+            state.RecordBlockingDiagnostics(syntaxTree.FilePath, diagnostics);
+        }
+    }
+}
+
+public sealed class ProjectPlatformBoundaryCheckPass : ICs2jPass<ProjectPassState>
+{
+    public string Name => nameof(ProjectPlatformBoundaryCheckPass);
+    public Cs2jPassStage Stage => Cs2jPassStage.Check;
+
+    public void Execute(ProjectPassState state)
+    {
+        foreach (var syntaxTree in state.Compilation.SyntaxTrees)
+        {
+            if (string.IsNullOrWhiteSpace(syntaxTree.FilePath) || syntaxTree.FilePath.StartsWith("<", StringComparison.Ordinal))
             {
-                Success = false,
-                FileName = syntaxTree.FilePath,
-                GeneratedCode = string.Empty,
-                Diagnostics = diagnostics,
-            });
+                continue;
+            }
+
+            var semanticModel = state.Compilation.GetSemanticModel(syntaxTree);
+            var diagnostics = PlatformBoundaryAnalyzer.AnalyzeSyntaxTree(syntaxTree, semanticModel);
+            if (diagnostics.Count == 0)
+            {
+                continue;
+            }
+
+            foreach (var diagnostic in diagnostics)
+            {
+                state.Context.Diagnostics.Error(diagnostic.Message, diagnostic.Location, diagnostic.Code, diagnostic.Category);
+            }
+
+            state.RecordBlockingDiagnostics(syntaxTree.FilePath, diagnostics);
+        }
+    }
+}
+
+public sealed class ProjectNativeInteropCheckPass : ICs2jPass<ProjectPassState>
+{
+    public string Name => nameof(ProjectNativeInteropCheckPass);
+    public Cs2jPassStage Stage => Cs2jPassStage.Check;
+
+    public void Execute(ProjectPassState state)
+    {
+        foreach (var syntaxTree in state.Compilation.SyntaxTrees)
+        {
+            if (string.IsNullOrWhiteSpace(syntaxTree.FilePath) || syntaxTree.FilePath.StartsWith("<", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var semanticModel = state.Compilation.GetSemanticModel(syntaxTree);
+            var diagnostics = NativeInteropAnalyzer.AnalyzeSyntaxTree(syntaxTree, semanticModel);
+            if (diagnostics.Count == 0)
+            {
+                continue;
+            }
+
+            foreach (var diagnostic in diagnostics)
+            {
+                state.Context.Diagnostics.Error(diagnostic.Message, diagnostic.Location, diagnostic.Code, diagnostic.Category);
+            }
+
+            state.RecordBlockingDiagnostics(syntaxTree.FilePath, diagnostics);
         }
     }
 }

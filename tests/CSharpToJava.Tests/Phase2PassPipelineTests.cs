@@ -69,6 +69,8 @@ public class Phase2PassPipelineTests
                 "SingleFileLinqDesugarPass",
                 "SingleFileCompilationCheckPass",
                 "SingleFileUnsupportedDomainCheckPass",
+                "SingleFilePlatformBoundaryCheckPass",
+                "SingleFileNativeInteropCheckPass",
                 "SingleFileContextNormalizationPass",
                 "SingleFileJavaEmitPass",
             },
@@ -88,8 +90,25 @@ public class Phase2PassPipelineTests
 
         Assert.False(result.Success);
         Assert.Empty(result.GeneratedCode);
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Message.Contains("System.Windows.Forms", StringComparison.Ordinal));
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "CS2J3001" && diagnostic.Category == "unsupported-domain");
         Assert.Contains("SingleFileUnsupportedDomainCheckPass", result.PassMetrics.Select(metric => metric.Name));
+    }
+
+    [Fact]
+    public void ConversionPipeline_FailsPlatformBoundaryCheck_ForOperatingSystemProbe()
+    {
+        var pipeline = new ConversionPipeline();
+        var result = pipeline.Convert(new ConversionRequest
+        {
+            SourceCode = "using System; class Sample { bool IsWindows() { return OperatingSystem.IsWindows(); } }",
+            FileName = "Sample.cs",
+            Options = CreateOptions(),
+        });
+
+        Assert.False(result.Success);
+        Assert.Empty(result.GeneratedCode);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "CS2J3102" && diagnostic.Category == "platform-boundary");
+        Assert.Contains("SingleFilePlatformBoundaryCheckPass", result.PassMetrics.Select(metric => metric.Name));
     }
 
     [Fact]
@@ -112,6 +131,8 @@ public class Phase2PassPipelineTests
                 "ProjectLinqDesugarPass",
                 "ProjectCompilationCheckPass",
                 "ProjectUnsupportedDomainCheckPass",
+                "ProjectPlatformBoundaryCheckPass",
+                "ProjectNativeInteropCheckPass",
                 "ProjectPartialTypeNormalizationPass",
                 "ProjectTypeEmitPass",
                 "ProjectCompatibilityEmitPass",
@@ -159,8 +180,28 @@ public class Phase2PassPipelineTests
         var failureResult = Assert.Single(results);
         Assert.False(failureResult.Success);
         Assert.Empty(failureResult.GeneratedCode);
-        Assert.Contains(failureResult.Diagnostics, diagnostic => diagnostic.Message.Contains("System.Windows.Forms", StringComparison.Ordinal));
+        Assert.Contains(failureResult.Diagnostics, diagnostic => diagnostic.Code == "CS2J3001" && diagnostic.Category == "unsupported-domain");
         Assert.Contains("ProjectUnsupportedDomainCheckPass", failureResult.PassMetrics.Select(metric => metric.Name));
+    }
+
+    [Fact]
+    public async Task ProjectConversionPipeline_BlocksPlatformBoundaryFiles_WithFailureResult()
+    {
+        var pipeline = new ProjectConversionPipeline(CreateOptions());
+        var results = await pipeline.ConvertProjectAsync(new[]
+        {
+            new SourceFile
+            {
+                FilePath = "Platform.cs",
+                Content = "using System; class Sample { bool IsWindows() { return OperatingSystem.IsWindows(); } }",
+            }
+        });
+
+        var failureResult = Assert.Single(results);
+        Assert.False(failureResult.Success);
+        Assert.Empty(failureResult.GeneratedCode);
+        Assert.Contains(failureResult.Diagnostics, diagnostic => diagnostic.Code == "CS2J3102" && diagnostic.Category == "platform-boundary");
+        Assert.Contains("ProjectPlatformBoundaryCheckPass", failureResult.PassMetrics.Select(metric => metric.Name));
     }
 
     [Fact]
@@ -179,7 +220,29 @@ public class Phase2PassPipelineTests
         var failureResult = Assert.Single(results);
         Assert.False(failureResult.Success);
         Assert.Empty(failureResult.GeneratedCode);
-        Assert.Contains(failureResult.Diagnostics, diagnostic => diagnostic.Message.Contains("DllImport", StringComparison.Ordinal));
+        Assert.Contains(failureResult.Diagnostics, diagnostic => diagnostic.Code == "CS2J3201" && diagnostic.Category == "native-interop");
+        Assert.Contains("ProjectNativeInteropCheckPass", failureResult.PassMetrics.Select(metric => metric.Name));
+    }
+
+    [Fact]
+    public async Task ProjectConversionPipeline_MergesBlockingDiagnosticsAcrossBoundaryPasses()
+    {
+        var pipeline = new ProjectConversionPipeline(CreateOptions());
+        var results = await pipeline.ConvertProjectAsync(new[]
+        {
+            new SourceFile
+            {
+                FilePath = "Mixed.cs",
+                Content = "using System; using System.Runtime.InteropServices; class Sample { [DllImport(\"kernel32.dll\")] private static extern bool Beep(uint frequency, uint duration); bool IsWindows() { return OperatingSystem.IsWindows(); } }",
+            }
+        });
+
+        var failureResult = Assert.Single(results);
+        Assert.False(failureResult.Success);
+        Assert.Empty(failureResult.GeneratedCode);
+        Assert.Contains(failureResult.Diagnostics, diagnostic => diagnostic.Code == "CS2J3102");
+        Assert.Contains(failureResult.Diagnostics, diagnostic => diagnostic.Code == "CS2J3201");
+        Assert.Contains(failureResult.Diagnostics, diagnostic => diagnostic.Code == "CS2J3203");
     }
 
     private static ConversionOptions CreateOptions()

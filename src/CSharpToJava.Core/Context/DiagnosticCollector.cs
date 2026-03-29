@@ -11,19 +11,19 @@ public class DiagnosticCollector
 
     public IReadOnlyList<DiagnosticMessage> Messages => _messages;
 
-    public void Error(string message, Location? location = null)
+    public void Error(string message, Location? location = null, string? code = null, string? category = null)
     {
-        _messages.Add(new DiagnosticMessage(DiagnosticSeverity.Error, message, location));
+        _messages.Add(new DiagnosticMessage(DiagnosticSeverity.Error, message, location, code, category));
     }
 
-    public void Warning(string message, Location? location = null)
+    public void Warning(string message, Location? location = null, string? code = null, string? category = null)
     {
-        _messages.Add(new DiagnosticMessage(DiagnosticSeverity.Warning, message, location));
+        _messages.Add(new DiagnosticMessage(DiagnosticSeverity.Warning, message, location, code, category));
     }
 
-    public void Info(string message, Location? location = null)
+    public void Info(string message, Location? location = null, string? code = null, string? category = null)
     {
-        _messages.Add(new DiagnosticMessage(DiagnosticSeverity.Info, message, location));
+        _messages.Add(new DiagnosticMessage(DiagnosticSeverity.Info, message, location, code, category));
     }
 }
 
@@ -33,7 +33,9 @@ public class DiagnosticCollector
 public record DiagnosticMessage(
     DiagnosticSeverity Severity,
     string Message,
-    Location? Location
+    Location? Location,
+    string? Code = null,
+    string? Category = null
 );
 
 /// <summary>

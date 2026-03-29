@@ -1640,15 +1640,21 @@ class Program
 
     private static string FormatDiagnostic(DiagnosticMessage diag)
     {
+        var label = diag.Code != null
+            ? $"{diag.Code}{(diag.Category != null ? $" [{diag.Category}]" : string.Empty)}: "
+            : diag.Category != null
+                ? $"[{diag.Category}] "
+                : string.Empty;
+
         if (diag.Location == null || !diag.Location.IsInSource)
         {
-            return diag.Message;
+            return label + diag.Message;
         }
 
         var lineSpan = diag.Location.GetLineSpan();
         var line = lineSpan.StartLinePosition.Line + 1;
         var column = lineSpan.StartLinePosition.Character + 1;
-        return $"{diag.Message} ({lineSpan.Path}:{line}:{column})";
+        return $"{label}{diag.Message} ({lineSpan.Path}:{line}:{column})";
     }
 }
 
