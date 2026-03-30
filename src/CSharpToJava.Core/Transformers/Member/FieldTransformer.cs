@@ -120,7 +120,8 @@ public class FieldTransformer : IMemberTransformer
                     {
                         context.AddImport("java.util.Arrays");
                         context.AddImport("java.util.stream.Collectors");
-                        javaField.Initializer = $"Arrays.stream({javaField.Initializer}).boxed().collect(Collectors.toList())";
+                        context.AddImport("java.util.ArrayList");
+                        javaField.Initializer = $"Arrays.stream({javaField.Initializer}).boxed().collect(Collectors.toCollection(ArrayList::new))";
                     }
                     else
                     {

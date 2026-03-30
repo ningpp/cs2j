@@ -407,7 +407,7 @@ public class StatementTransformer : IStatementTransformer
 
             // Detect when a Stream expression is returned from a method that declares Iterable/IEnumerable.
             // C# LINQ expressions become Java Streams but IEnumerable<T> maps to Iterable<T>.
-            // Stream<T> does not implement Iterable<T>, so we need .collect(Collectors.toList()).
+            // Stream<T> does not implement Iterable<T>, so we need .collect(Collectors.toCollection(ArrayList::new)).
             var retExprType = context.SemanticModel?.GetTypeInfo(stmt.Expression).Type;
             bool isStreamReturn = retExprType is INamedTypeSymbol retNamed2 &&
                 (retNamed2.Name is "IEnumerable" or "IOrderedEnumerable" or "IQueryable") &&
@@ -446,7 +446,8 @@ public class StatementTransformer : IStatementTransformer
                 if (enclosingReturnsIterable && !alreadyCollected)
                 {
                     context.AddImport("java.util.stream.Collectors");
-                    expr = $"{expr}.collect(Collectors.toList())";
+                    context.AddImport("java.util.ArrayList");
+                    expr = $"{expr}.collect(Collectors.toCollection(ArrayList::new))";
                 }
             }
         }
@@ -928,7 +929,7 @@ public class StatementTransformer : IStatementTransformer
         }
 
         // Pre-process: StreamSupport.stream(...).toArray() used in foreach can't be iterated (Object[]).
-        // Convert to .collect(Collectors.toList()) so the list is Iterable<T> and foreach works.
+        // Convert to .collect(Collectors.toCollection(ArrayList::new)) so the list is Iterable<T> and foreach works.
         {
             var trimExpr = expression.TrimEnd();
             if (trimExpr.EndsWith(".toArray()") && trimExpr.Contains("StreamSupport.stream("))
@@ -943,9 +944,8 @@ public class StatementTransformer : IStatementTransformer
         // Collect to List to allow break/continue/return in the loop body.
         // Use EndsWith check to avoid double-collecting an already-collected stream:
         // the expression may contain inner .collect() calls (e.g. spliterator wrapping)
-        // but we only skip if the OUTERMOST call is already .collect(Collectors.toList()).
-        bool isStream = !expression.TrimEnd().EndsWith(".collect(Collectors.toList())")
-            && !expression.TrimEnd().EndsWith(".collect(Collectors.toCollection(ArrayList::new))")
+        // but we only skip if the OUTERMOST call is already .collect(Collectors.toCollection(ArrayList::new)).
+        bool isStream = !expression.TrimEnd().EndsWith(".collect(Collectors.toCollection(ArrayList::new))")
             && !System.Text.RegularExpressions.Regex.IsMatch(expression.TrimEnd(), @"\.collect\(.+\)$")
             && !expression.TrimEnd().EndsWith(".toArray()")
             && !System.Text.RegularExpressions.Regex.IsMatch(expression.TrimEnd(), @"\.toArray\([^)]+\)$")
@@ -1143,7 +1143,8 @@ public class StatementTransformer : IStatementTransformer
             if (needsCollect)
             {
                 context.AddImport("java.util.stream.Collectors");
-                srcExpr = $"{srcExpr}.collect(Collectors.toList())";
+                context.AddImport("java.util.ArrayList");
+                srcExpr = $"{srcExpr}.collect(Collectors.toCollection(ArrayList::new))";
             }
             if (i == froms.Count - 1)
             {
@@ -1631,13 +1632,14 @@ public class StatementTransformer : IStatementTransformer
 
                 // Fix K3: When the C# declared type is IEnumerable<T>/ICollection<T>/IList<T> (→ Java Iterable<T>)
                 // but the initializer ends with .toArray(T[]::new), the assignment would fail because
-                // T[] is NOT Iterable<T> in Java. Replace .toArray(T[]::new) with .collect(Collectors.toList()).
+                // T[] is NOT Iterable<T> in Java. Replace .toArray(T[]::new) with .collect(Collectors.toCollection(ArrayList::new)).
                 if ((javaType.StartsWith("Iterable<") || javaType.StartsWith("List<") || javaType.StartsWith("Collection<"))
                     && System.Text.RegularExpressions.Regex.IsMatch(initExpr.TrimEnd(), @"\.toArray\([^)]+::new\)$"))
                 {
                     initExpr = System.Text.RegularExpressions.Regex.Replace(
-                        initExpr.TrimEnd(), @"\.toArray\([^)]+::new\)$", ".collect(Collectors.toList())");
+                        initExpr.TrimEnd(), @"\.toArray\([^)]+::new\)$", ".collect(Collectors.toCollection(ArrayList::new))");
                     context.AddImport("java.util.stream.Collectors");
+                    context.AddImport("java.util.ArrayList");
                 }
 
                 // For locals mapped to Java "var" whose semantic type is IEnumerable/ICollection/IList,
@@ -1649,9 +1651,7 @@ public class StatementTransformer : IStatementTransformer
                     var localSym = context.SemanticModel.GetDeclaredSymbol(v) as ILocalSymbol;
                     bool semanticTypeIsEnumerableLike = localSym?.Type is INamedTypeSymbol localNamed
                         && localNamed.Name is "IEnumerable" or "IOrderedEnumerable" or "ICollection" or "IList";
-                    bool looksLikeStreamExpr = !initExpr.Contains(".collect(Collectors.toList())")
-                        && !initExpr.Contains(".collect(Collectors.toList())")
-                        && !initExpr.Contains(".collect(Collectors.toCollection(ArrayList::new))")
+                    bool looksLikeStreamExpr = !initExpr.Contains(".collect(Collectors.toCollection(ArrayList::new))")
                         && !initExpr.TrimEnd().EndsWith(".toArray()")
                         && !System.Text.RegularExpressions.Regex.IsMatch(initExpr.TrimEnd(), @"\.toArray\([^)]*\)$")
                         && (initExpr.Contains(".sorted(") || initExpr.Contains(".filter(") ||
@@ -1663,8 +1663,9 @@ public class StatementTransformer : IStatementTransformer
 
                     if (semanticTypeIsEnumerableLike && looksLikeStreamExpr)
                     {
-                        initExpr = $"{initExpr}.collect(Collectors.toList())";
+                        initExpr = $"{initExpr}.collect(Collectors.toCollection(ArrayList::new))";
                         context.AddImport("java.util.stream.Collectors");
+                        context.AddImport("java.util.ArrayList");
                     }
                 }
 
@@ -1672,8 +1673,7 @@ public class StatementTransformer : IStatementTransformer
                 // When the initializer is a Java stream expression (not already collected), register
                 // the variable name so TransformForEachStatement can detect it.
                 {
-                    bool initLooksLikeStream = !initExpr.Contains(".collect(Collectors.toList())")
-                        && !initExpr.Contains(".collect(Collectors.toCollection(ArrayList::new))")
+                    bool initLooksLikeStream = !initExpr.Contains(".collect(Collectors.toCollection(ArrayList::new))")
                         // If it ends with .toArray(...), the stream was already terminated to an array —
                         // the variable is T[], not a stream, so do NOT register it as a stream variable.
                         && !initExpr.TrimEnd().EndsWith(".toArray()")
