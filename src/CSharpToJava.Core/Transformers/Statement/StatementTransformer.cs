@@ -1667,6 +1667,22 @@ public class StatementTransformer : IStatementTransformer
                         context.AddImport("java.util.stream.Collectors");
                         context.AddImport("java.util.ArrayList");
                     }
+
+                    // C# arrays implement IEnumerable<T>/ICollection<T>/IList<T> implicitly.
+                    // When the declared C# type was IEnumerable<T> (→ javaType was "Iterable<T>",
+                    // then lowered to "var"), the initializer may be an array. Java arrays do NOT
+                    // implement Iterable, so we must wrap with Arrays.asList() / Arrays.stream().
+                    if (semanticTypeIsEnumerableLike
+                        && !initExpr.Contains("Arrays.asList(")
+                        && !initExpr.Contains("Arrays.stream(")
+                        && !initExpr.Contains(".collect("))
+                    {
+                        var initExprTypeInfo = context.SemanticModel.GetTypeInfo(v.Initializer!.Value);
+                        var arrayTypeSymbol = initExprTypeInfo.Type as IArrayTypeSymbol
+                            ?? initExprTypeInfo.ConvertedType as IArrayTypeSymbol;
+                        if (arrayTypeSymbol != null)
+                            initExpr = ObjectCreationTransformer.WrapArrayForCollectionArg(initExpr, arrayTypeSymbol, context);
+                    }
                 }
 
                 // Track stream-typed local variables for subsequent for-each statements.
