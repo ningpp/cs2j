@@ -707,6 +707,93 @@ public static class ExpressionTransformerHelpers
     }
 
     /// <summary>
+    /// Returns true if Java's <c>Arrays.stream()</c> supports this element type.
+    /// Java only has overloads for <c>int[]</c>, <c>long[]</c>, <c>double[]</c>, and <c>T[]</c> (reference).
+    /// <c>short[]</c>, <c>byte[]</c>, <c>char[]</c>, <c>float[]</c>, <c>boolean[]</c> are NOT supported.
+    /// C# structs map to Java classes, so their arrays are reference-type T[] in Java and ARE supported.
+    /// </summary>
+    public static bool IsArraysStreamSupported(IArrayTypeSymbol arrayType)
+    {
+        var st = arrayType.ElementType.SpecialType;
+        if (!IsPrimitiveSpecialTypeForArrayStream(st))
+            return true; // reference type, struct, or non-primitive → Java reference T[] always supported
+        return st is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Double;
+    }
+
+    /// <summary>
+    /// Builds a Java stream expression for a C# array expression.
+    /// Java <c>Arrays.stream()</c> only supports <c>int[]</c>, <c>long[]</c>, <c>double[]</c>, and <c>T[]</c>.
+    /// For unsupported C# primitive arrays (<c>short[]</c>, <c>byte[]</c>, <c>char[]</c>, <c>float[]</c>,
+    /// <c>boolean[]</c>), uses <c>IntStream.range</c>-based alternatives.
+    /// C# structs map to Java classes; their arrays use <c>Arrays.stream()</c> like any reference type.
+    /// </summary>
+    /// <param name="expr">The Java expression for the array.</param>
+    /// <param name="arrayType">The C# array type symbol.</param>
+    /// <param name="context">The conversion context (for imports).</param>
+    /// <param name="boxed">When true, produces a boxed <c>Stream&lt;T&gt;</c> (e.g. <c>Stream&lt;Integer&gt;</c>)
+    /// instead of a primitive stream (e.g. <c>IntStream</c>).</param>
+    public static string BuildArrayStreamExpression(
+        string expr, IArrayTypeSymbol arrayType, ConversionContext context, bool boxed = false)
+    {
+        var elemSt = arrayType.ElementType.SpecialType;
+
+        // Check if this is a C# primitive type that needs special handling
+        if (!IsPrimitiveSpecialTypeForArrayStream(elemSt))
+        {
+            // Not a primitive (reference type, struct, enum, etc.) → Java reference T[] always works
+            context.AddImport("java.util.Arrays");
+            return $"Arrays.stream({expr})";
+        }
+
+        if (elemSt is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Double)
+        {
+            // Supported primitive: Arrays.stream(expr) → IntStream/LongStream/DoubleStream
+            context.AddImport("java.util.Arrays");
+            return boxed ? $"Arrays.stream({expr}).boxed()" : $"Arrays.stream({expr})";
+        }
+
+        // Unsupported Java primitive: IntStream.range-based
+        context.AddImport("java.util.stream.IntStream");
+        if (boxed || elemSt == SpecialType.System_Boolean)
+            return $"IntStream.range(0, {expr}.length).mapToObj(i -> {expr}[i])";
+        if (elemSt == SpecialType.System_Single) // float → DoubleStream (widening)
+            return $"IntStream.range(0, {expr}.length).mapToDouble(i -> {expr}[i])";
+        // short, byte, char → IntStream (widening to int)
+        return $"IntStream.range(0, {expr}.length).map(i -> {expr}[i])";
+    }
+
+    /// <summary>
+    /// Builds a Java Collection expression for a C# array expression.
+    /// For C# primitive arrays, boxes elements and collects to ArrayList.
+    /// For reference-type or struct arrays, uses <c>Arrays.asList()</c>.
+    /// </summary>
+    public static string BuildArrayToCollectionExpression(
+        string expr, IArrayTypeSymbol arrayType, ConversionContext context)
+    {
+        if (IsPrimitiveSpecialTypeForArrayStream(arrayType.ElementType.SpecialType))
+        {
+            context.AddImport("java.util.stream.Collectors");
+            context.AddImport("java.util.ArrayList");
+            var stream = BuildArrayStreamExpression(expr, arrayType, context, boxed: true);
+            return $"{stream}.collect(Collectors.toCollection(ArrayList::new))";
+        }
+
+        context.AddImport("java.util.Arrays");
+        return $"Arrays.asList({expr})";
+    }
+
+    /// <summary>
+    /// Returns true if the given SpecialType is a C# primitive type that maps to a
+    /// Java primitive type. These are the types where Arrays.stream() support matters:
+    /// int, short, byte, long, double, float, boolean, char.
+    /// C# structs (SpecialType.None) do NOT match — they map to Java reference types.
+    /// </summary>
+    private static bool IsPrimitiveSpecialTypeForArrayStream(SpecialType st)
+        => st is SpecialType.System_Int32 or SpecialType.System_Int16 or SpecialType.System_Byte
+            or SpecialType.System_Int64 or SpecialType.System_Double or SpecialType.System_Single
+            or SpecialType.System_Boolean or SpecialType.System_Char;
+
+    /// <summary>
     /// Builds a Java stream source expression for the given C# collection/iterable expression.
     /// Priority: array → Arrays.stream | IGrouping → getValue().stream()
     ///           Dictionary → entrySet().stream() | Collection → .stream()
@@ -723,32 +810,7 @@ public static class ExpressionTransformerHelpers
     {
         if (receiverType is IArrayTypeSymbol arrayType)
         {
-            var elemSt = arrayType.ElementType.SpecialType;
-            // Java Arrays.stream only supports int[], long[], double[], and T[].
-            // short[], byte[], char[], float[], boolean[] are not supported; use IntStream.range-based alternatives.
-            if (arrayType.ElementType.IsValueType
-                && elemSt is not (SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Double))
-            {
-                context.AddImport("java.util.stream.IntStream");
-                if (elemSt == SpecialType.System_Single) // float → DoubleStream (widening) or Stream<Float> when boxing
-                {
-                    return boxPrimitiveArrayElements
-                        ? $"IntStream.range(0, {receiverExpr}.length).mapToObj(i -> {receiverExpr}[i])"
-                        : $"IntStream.range(0, {receiverExpr}.length).mapToDouble(i -> {receiverExpr}[i])";
-                }
-                if (elemSt == SpecialType.System_Boolean) // boolean → Stream<Boolean> (no BooleanStream in Java)
-                {
-                    return $"IntStream.range(0, {receiverExpr}.length).mapToObj(i -> {receiverExpr}[i])";
-                }
-                // short, byte, char → IntStream (widening to int) or Stream<Short/Byte/Character> when boxing
-                return boxPrimitiveArrayElements
-                    ? $"IntStream.range(0, {receiverExpr}.length).mapToObj(i -> {receiverExpr}[i])"
-                    : $"IntStream.range(0, {receiverExpr}.length).map(i -> {receiverExpr}[i])";
-            }
-            context.AddImport("java.util.Arrays");
-            return boxPrimitiveArrayElements && arrayType.ElementType.IsValueType
-                ? $"Arrays.stream({receiverExpr}).boxed()"
-                : $"Arrays.stream({receiverExpr})";
+            return BuildArrayStreamExpression(receiverExpr, arrayType, context, boxed: boxPrimitiveArrayElements);
         }
 
         if (preserveGroupingValueStream

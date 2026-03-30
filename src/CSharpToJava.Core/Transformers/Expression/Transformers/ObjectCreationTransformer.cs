@@ -362,24 +362,7 @@ public class ObjectCreationTransformer : IExpressionTransformer
     /// </summary>
     internal static string WrapArrayForCollectionArg(string expr, IArrayTypeSymbol arrayType, ConversionContext context)
     {
-        if (arrayType.ElementType.IsValueType && IsPrimitiveSpecialType(arrayType.ElementType.SpecialType))
-        {
-            context.AddImport("java.util.stream.Collectors");
-            context.AddImport("java.util.ArrayList");
-            var elemSt = arrayType.ElementType.SpecialType;
-            // Java Arrays.stream only supports int[], long[], double[], and T[].
-            // For other primitive arrays use IntStream.range-based approach.
-            if (elemSt is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Double)
-            {
-                context.AddImport("java.util.Arrays");
-                return $"Arrays.stream({expr}).boxed().collect(Collectors.toCollection(ArrayList::new))";
-            }
-            context.AddImport("java.util.stream.IntStream");
-            return $"IntStream.range(0, {expr}.length).mapToObj(i -> {expr}[i]).collect(Collectors.toCollection(ArrayList::new))";
-        }
-
-        context.AddImport("java.util.Arrays");
-        return $"Arrays.asList({expr})";
+        return ExpressionTransformerHelpers.BuildArrayToCollectionExpression(expr, arrayType, context);
     }
 
     private static bool IsPrimitiveSpecialType(SpecialType st)
@@ -409,7 +392,8 @@ public class ObjectCreationTransformer : IExpressionTransformer
         var trimmed = expr.Trim();
         return trimmed.StartsWith("Arrays.asList(", StringComparison.Ordinal)
             || trimmed.StartsWith("java.util.Arrays.asList(", StringComparison.Ordinal)
-            || trimmed.StartsWith("Arrays.stream(", StringComparison.Ordinal);
+            || trimmed.StartsWith("Arrays.stream(", StringComparison.Ordinal)
+            || trimmed.StartsWith("IntStream.range(", StringComparison.Ordinal);
     }
 
     private static bool LooksLikeArrayMemberAccess(ExpressionSyntax expression)
@@ -431,6 +415,7 @@ public class ObjectCreationTransformer : IExpressionTransformer
         bool streamLike = expr.Contains(".stream(", StringComparison.Ordinal)
             || expr.Contains("StreamSupport.stream(", StringComparison.Ordinal)
             || expr.Contains("Arrays.stream(", StringComparison.Ordinal)
+            || expr.Contains("IntStream.range(", StringComparison.Ordinal)
             || expr.Contains(".sorted(", StringComparison.Ordinal)
             || expr.Contains(".map(", StringComparison.Ordinal)
             || expr.Contains(".filter(", StringComparison.Ordinal)

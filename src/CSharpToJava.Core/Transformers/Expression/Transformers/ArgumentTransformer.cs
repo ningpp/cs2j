@@ -392,18 +392,7 @@ public class ArgumentTransformer
         if (argType is IArrayTypeSymbol argArrayType && paramType is INamedTypeSymbol paramNamed
             && IsEnumerableOrCollectionInterface(paramNamed))
         {
-            // Primitive arrays (int[], long[], double[]) need boxing for generics
-            if (argArrayType.ElementType.IsValueType && IsPrimitiveSpecialType(argArrayType.ElementType.SpecialType))
-            {
-                context.AddImport("java.util.Arrays");
-                context.AddImport("java.util.stream.Collectors");
-                context.AddImport("java.util.ArrayList");
-                return $"Arrays.stream({transformedExpr}).boxed().collect(Collectors.toCollection(ArrayList::new))";
-            }
-
-            // Reference type arrays: Arrays.asList() works directly
-            context.AddImport("java.util.Arrays");
-            return $"Arrays.asList({transformedExpr})";
+            return ExpressionTransformerHelpers.BuildArrayToCollectionExpression(transformedExpr, argArrayType, context);
         }
 
         // ── Case 2: IEnumerable (Iterable) argument → Java target needs Collection ──
