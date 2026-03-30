@@ -109,19 +109,26 @@ public class FieldTransformer : IMemberTransformer
                     && variable.Initializer.Value is ArrayCreationExpressionSyntax or ImplicitArrayCreationExpressionSyntax)
                 {
                     // Fallback when semantic model doesn't surface array type information.
+                    // Java Arrays.stream only supports int[], long[], double[], and T[].
                     if (javaField.Initializer.StartsWith("new int[", StringComparison.Ordinal)
                         || javaField.Initializer.StartsWith("new long[", StringComparison.Ordinal)
-                        || javaField.Initializer.StartsWith("new short[", StringComparison.Ordinal)
-                        || javaField.Initializer.StartsWith("new byte[", StringComparison.Ordinal)
-                        || javaField.Initializer.StartsWith("new float[", StringComparison.Ordinal)
-                        || javaField.Initializer.StartsWith("new double[", StringComparison.Ordinal)
-                        || javaField.Initializer.StartsWith("new boolean[", StringComparison.Ordinal)
-                        || javaField.Initializer.StartsWith("new char[", StringComparison.Ordinal))
+                        || javaField.Initializer.StartsWith("new double[", StringComparison.Ordinal))
                     {
                         context.AddImport("java.util.Arrays");
                         context.AddImport("java.util.stream.Collectors");
                         context.AddImport("java.util.ArrayList");
                         javaField.Initializer = $"Arrays.stream({javaField.Initializer}).boxed().collect(Collectors.toCollection(ArrayList::new))";
+                    }
+                    else if (javaField.Initializer.StartsWith("new short[", StringComparison.Ordinal)
+                        || javaField.Initializer.StartsWith("new byte[", StringComparison.Ordinal)
+                        || javaField.Initializer.StartsWith("new float[", StringComparison.Ordinal)
+                        || javaField.Initializer.StartsWith("new boolean[", StringComparison.Ordinal)
+                        || javaField.Initializer.StartsWith("new char[", StringComparison.Ordinal))
+                    {
+                        context.AddImport("java.util.stream.IntStream");
+                        context.AddImport("java.util.stream.Collectors");
+                        context.AddImport("java.util.ArrayList");
+                        javaField.Initializer = $"IntStream.range(0, {javaField.Initializer}.length).mapToObj(i -> {javaField.Initializer}[i]).collect(Collectors.toCollection(ArrayList::new))";
                     }
                     else
                     {

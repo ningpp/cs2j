@@ -812,12 +812,11 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             && node.ArgumentList.Arguments.Count == 0
             && methodSymbol?.ContainingType.ToDisplayString() == "System.Linq.Enumerable")
         {
-            // Check if receiver is an array - arrays don't have .iterator()
+            // Check if receiver is an array - simplest correct check is .length > 0
             var receiverType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
-            if (receiverType is IArrayTypeSymbol anyArrayType)
+            if (receiverType is IArrayTypeSymbol)
             {
-                context.AddImport("java.util.Arrays");
-                return $"Arrays.stream({receiver}).iterator().hasNext()";
+                return $"{receiver}.length > 0";
             }
             return $"{receiver}.iterator().hasNext()";
         }
@@ -855,9 +854,9 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return $"Arrays.sort({arrayArg}, {comparerArg})";
         }
 
-        // Fix: Array.ForEach(array, action) → Arrays.stream(array).forEach(action)
+        // Fix: Array.ForEach(array, action) → stream(array).forEach(action)
         // System.Array maps to "Object" in TypeMappings which has no static forEach method.
-        // Use Arrays.stream().forEach() to produce a valid expression (works in lambda bodies).
+        // Use centralized helper to produce correct stream for all array types.
         // Check both via semantic model and syntactic fallback (missing assembly reference).
         if (originalMethodName == "ForEach"
             && node.ArgumentList.Arguments.Count >= 2
@@ -870,8 +869,17 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         {
             var arrayArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var actionArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-            context.AddImport("java.util.Arrays");
-            return $"Arrays.stream({arrayArg}).forEach({actionArg})";
+            var foreachArrayType = context.SemanticModel?.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type as IArrayTypeSymbol;
+            string streamExpr;
+            if (foreachArrayType != null)
+                streamExpr = ExpressionTransformerHelpers.BuildArrayStreamExpression(arrayArg, foreachArrayType, context, boxed: true);
+            else
+            {
+                // Fallback when no type info: use Arrays.stream (reference types are expected)
+                context.AddImport("java.util.Arrays");
+                streamExpr = $"Arrays.stream({arrayArg})";
+            }
+            return $"{streamExpr}.forEach({actionArg})";
         }
 
         // Fix: Array.Copy overloads → System.arraycopy(...)
@@ -2224,11 +2232,10 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                         var bodyRetType = context.SemanticModel?.GetTypeInfo(smBodyExpr).Type;
                         if (bodyRetType is IArrayTypeSymbol smArr)
                         {
-                            context.AddImport("java.util.Arrays");
                             string bodyStr = facade.Transform(smBodyExpr, context);
-                            flatMapArg = smArr.ElementType.IsValueType
-                                ? $"{smParam} -> Arrays.stream({bodyStr}).boxed()"
-                                : $"{smParam} -> Arrays.stream({bodyStr})";
+                            var arrStream = ExpressionTransformerHelpers.BuildArrayStreamExpression(
+                                bodyStr, smArr, context, boxed: smArr.ElementType.IsValueType);
+                            flatMapArg = $"{smParam} -> {arrStream}";
                         }
                         else if (ImplementsIEnumerable(bodyRetType))
                         {
@@ -2623,11 +2630,8 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 var zipOther = facade.Transform(zipOtherArg0.Expression, context);
                 var zipOtherType = context.SemanticModel.GetTypeInfo(zipOtherArg0.Expression).Type;
                 string zipOtherListExpr;
-                if (zipOtherType is IArrayTypeSymbol zipArrType2 && zipArrType2.ElementType.IsValueType
-                    && context.MapType(zipArrType2.ElementType) is "int" or "long" or "double")
-                    zipOtherListExpr = $"Arrays.stream({zipOther}).boxed().collect(Collectors.toCollection(ArrayList::new))";
-                else if (zipOtherType is IArrayTypeSymbol)
-                    zipOtherListExpr = $"Arrays.stream({zipOther}).collect(Collectors.toCollection(ArrayList::new))";
+                if (zipOtherType is IArrayTypeSymbol zipArrType2)
+                    zipOtherListExpr = ExpressionTransformerHelpers.BuildArrayToCollectionExpression(zipOther, zipArrType2, context);
                 else
                     zipOtherListExpr = zipOther;
                 if (TryGetTwoParamLambda(node.ArgumentList.Arguments[1].Expression, context, facade, out var zipP0, out var zipP1, out var zipBody))
@@ -2670,7 +2674,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 var isectArg0 = node.ArgumentList.Arguments[0];
                 var isectOther = facade.Transform(isectArg0.Expression, context);
                 var isectOtherType = context.SemanticModel?.GetTypeInfo(isectArg0.Expression).Type;
-                string isectSet = BuildSetExprFromOther(isectOther, isectOtherType);
+                string isectSet = BuildSetExprFromOther(isectOther, isectOtherType, context);
                 return $"{receiver}.filter({isectSet}::contains)";
             }
 
@@ -2683,7 +2687,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 var exceptArg0 = node.ArgumentList.Arguments[0];
                 var exceptOther = facade.Transform(exceptArg0.Expression, context);
                 var exceptOtherType = context.SemanticModel?.GetTypeInfo(exceptArg0.Expression).Type;
-                string exceptSet = BuildSetExprFromOther(exceptOther, exceptOtherType);
+                string exceptSet = BuildSetExprFromOther(exceptOther, exceptOtherType, context);
                 return $"{receiver}.filter(x -> !{exceptSet}.contains(x))";
             }
 
@@ -2710,16 +2714,8 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 var seqOtherStr = facade.Transform(seqOtherArg0.Expression, context);
                 var seqOtherType = context.SemanticModel?.GetTypeInfo(seqOtherArg0.Expression).Type;
                 string seqOtherList;
-                if (seqOtherType is IArrayTypeSymbol seqArr && seqArr.ElementType.IsValueType)
-                {
-                    context.AddImport("java.util.Arrays");
-                    seqOtherList = $"Arrays.stream({seqOtherStr}).boxed().collect(Collectors.toCollection(ArrayList::new))";
-                }
-                else if (seqOtherType is IArrayTypeSymbol)
-                {
-                    context.AddImport("java.util.Arrays");
-                    seqOtherList = $"Arrays.stream({seqOtherStr}).collect(Collectors.toCollection(ArrayList::new))";
-                }
+                if (seqOtherType is IArrayTypeSymbol seqArr)
+                    seqOtherList = ExpressionTransformerHelpers.BuildArrayToCollectionExpression(seqOtherStr, seqArr, context);
                 else
                     seqOtherList = $"{seqOtherStr}.stream().collect(Collectors.toCollection(ArrayList::new))";
                 return $"{receiver}.collect(Collectors.toCollection(ArrayList::new)).equals({seqOtherList})";
@@ -2835,7 +2831,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 var ibOtherArg0 = node.ArgumentList.Arguments[0];
                 var ibOther = facade.Transform(ibOtherArg0.Expression, context);
                 var ibOtherType = context.SemanticModel.GetTypeInfo(ibOtherArg0.Expression).Type;
-                string ibSetExpr = BuildSetExprFromOther(ibOther, ibOtherType);
+                string ibSetExpr = BuildSetExprFromOther(ibOther, ibOtherType, context);
                 if (TryGetSingleParamLambda(node.ArgumentList.Arguments[1].Expression, context, facade, out var ibP, out var ibKeyBody))
                     return $"{receiver}.filter({ibP} -> {ibSetExpr}.contains({ibKeyBody}))";
                 var ibSel = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
@@ -2850,7 +2846,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 var ebOtherArg0 = node.ArgumentList.Arguments[0];
                 var ebOther = facade.Transform(ebOtherArg0.Expression, context);
                 var ebOtherType = context.SemanticModel.GetTypeInfo(ebOtherArg0.Expression).Type;
-                string ebSetExpr = BuildSetExprFromOther(ebOther, ebOtherType);
+                string ebSetExpr = BuildSetExprFromOther(ebOther, ebOtherType, context);
                 if (TryGetSingleParamLambda(node.ArgumentList.Arguments[1].Expression, context, facade, out var ebP, out var ebKeyBody))
                     return $"{receiver}.filter({ebP} -> !{ebSetExpr}.contains({ebKeyBody}))";
                 var ebSel = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
@@ -3245,6 +3241,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             || receiver.Contains(".sorted(", StringComparison.Ordinal)
             || receiver.EndsWith(".stream()", StringComparison.Ordinal)
             || receiver.Contains("Arrays.stream(", StringComparison.Ordinal)
+            || receiver.Contains("IntStream.range(", StringComparison.Ordinal)
             || receiver.Contains("StreamSupport.stream(", StringComparison.Ordinal);
     }
 
@@ -3711,13 +3708,13 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             });
     }
 
-    private static string BuildSetExprFromOther(string other, ITypeSymbol? otherType)
+    private static string BuildSetExprFromOther(string other, ITypeSymbol? otherType, ConversionContext context)
     {
         if (otherType is IArrayTypeSymbol arrType)
         {
-            if (arrType.ElementType.IsValueType)
-                return $"Arrays.stream({other}).boxed().collect(Collectors.toSet())";
-            return $"Arrays.stream({other}).collect(Collectors.toSet())";
+            var streamExpr = ExpressionTransformerHelpers.BuildArrayStreamExpression(
+                other, arrType, context, boxed: arrType.ElementType.IsValueType);
+            return $"{streamExpr}.collect(Collectors.toSet())";
         }
         return $"new HashSet<>({other})";
     }

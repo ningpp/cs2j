@@ -951,7 +951,7 @@ public class StatementTransformer : IStatementTransformer
             && !System.Text.RegularExpressions.Regex.IsMatch(expression.TrimEnd(), @"\.toArray\([^)]+\)$")
             && (
             expression.Contains("Stream.concat(") || expression.Contains("StreamSupport.stream(") ||
-            expression.Contains("Arrays.stream(") || expression.Contains(".stream()") ||
+            expression.Contains("Arrays.stream(") || expression.Contains("IntStream.range(") || expression.Contains(".stream()") ||
             expression.Contains(".map(") ||
             expression.Contains(".filter(") ||
             expression.Contains(".flatMap(") ||
@@ -1137,7 +1137,7 @@ public class StatementTransformer : IStatementTransformer
         {
             var (varName, javaType, srcExpr) = froms[i];
             // Wrap stream expressions in collect for the outer loops (inner loops can stay as-is if Iterable)
-            bool needsCollect = srcExpr.Contains("StreamSupport.stream(") || srcExpr.Contains("Arrays.stream(") ||
+            bool needsCollect = srcExpr.Contains("StreamSupport.stream(") || srcExpr.Contains("Arrays.stream(") || srcExpr.Contains("IntStream.range(") ||
                 (srcExpr.Contains(".map(") && !srcExpr.Contains(".collect(")) ||
                 (srcExpr.Contains(".filter(") && !srcExpr.Contains(".collect("));
             if (needsCollect)
@@ -1624,6 +1624,7 @@ public class StatementTransformer : IStatementTransformer
                     && IsJavaCollectionOrListType(javaType)
                     && !initExpr.Contains("Arrays.asList(")
                     && !initExpr.Contains("Arrays.stream(")
+                    && !initExpr.Contains("IntStream.range(")
                     && !initExpr.Contains(".collect("))
                 {
                     var initTypeInfo = context.SemanticModel.GetTypeInfo(v.Initializer.Value);
@@ -1660,6 +1661,7 @@ public class StatementTransformer : IStatementTransformer
                         && (initExpr.Contains(".sorted(") || initExpr.Contains(".filter(") ||
                             initExpr.Contains(".map(") || initExpr.Contains(".flatMap(") ||
                             initExpr.Contains("StreamSupport.stream(") || initExpr.Contains("Arrays.stream(") ||
+                            initExpr.Contains("IntStream.range(") ||
                             initExpr.Contains(".stream()") || initExpr.Contains("Stream.concat(") ||
                             initExpr.Contains(".distinct(") || initExpr.Contains(".limit(") ||
                             initExpr.Contains(".skip(") || initExpr.Contains(".peek("));
@@ -1678,6 +1680,7 @@ public class StatementTransformer : IStatementTransformer
                     if (semanticTypeIsEnumerableLike
                         && !initExpr.Contains("Arrays.asList(")
                         && !initExpr.Contains("Arrays.stream(")
+                        && !initExpr.Contains("IntStream.range(")
                         && !initExpr.Contains(".collect("))
                     {
                         var initExprTypeInfo = context.SemanticModel.GetTypeInfo(v.Initializer!.Value);
@@ -1700,6 +1703,7 @@ public class StatementTransformer : IStatementTransformer
                         && (initExpr.Contains(".sorted(") || initExpr.Contains(".filter(") ||
                             initExpr.Contains(".map(") || initExpr.Contains(".flatMap(") ||
                             initExpr.Contains("StreamSupport.stream(") || initExpr.Contains("Arrays.stream(") ||
+                            initExpr.Contains("IntStream.range(") ||
                             initExpr.Contains(".stream()") || initExpr.Contains("Stream.concat(") ||
                             initExpr.Contains(".distinct(") || initExpr.Contains(".limit(") ||
                             initExpr.Contains(".skip(") || initExpr.Contains(".peek("));

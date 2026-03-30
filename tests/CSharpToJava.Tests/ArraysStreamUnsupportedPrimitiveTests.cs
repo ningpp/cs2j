@@ -9,6 +9,7 @@ namespace CSharpToJava.Tests;
 /// Java's Arrays.stream only supports int[], long[], double[], and T[].
 /// It does NOT support short[], byte[], char[], float[], or boolean[].
 /// The converter must use IntStream.range-based alternatives for these types.
+/// All call sites that produce Arrays.stream must be unified through central helpers.
 /// </summary>
 public class ArraysStreamUnsupportedPrimitiveTests
 {
@@ -86,6 +87,24 @@ class Sample
         Assert.Contains("IntStream.range(", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void LinqOnBoolArray_UsesIntStreamRange_NotArraysStream()
+    {
+        var result = Convert(@"
+using System.Linq;
+class Sample
+{
+    void M(bool[] arr)
+    {
+        var x = arr.Where(v => v).ToArray();
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.DoesNotContain("Arrays.stream(arr)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("IntStream.range(", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     // ── IEnumerable assignment wrapping ───────────────────────────────────
 
     [Fact]
@@ -135,6 +154,88 @@ class Sample
     {
         IEnumerable<float> x = arr;
     }
+}");
+
+        Assert.True(result.Success);
+        Assert.DoesNotContain("Arrays.stream(arr)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("IntStream.range(", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    // ── Any() on arrays ──────────────────────────────────────────────────
+
+    [Fact]
+    public void AnyOnShortArray_UsesLength_NotArraysStream()
+    {
+        var result = Convert(@"
+using System.Linq;
+class Sample
+{
+    bool M(short[] arr) => arr.Any();
+}");
+
+        Assert.True(result.Success);
+        Assert.DoesNotContain("Arrays.stream(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("arr.length > 0", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnyOnIntArray_UsesLength_NotArraysStream()
+    {
+        var result = Convert(@"
+using System.Linq;
+class Sample
+{
+    bool M(int[] arr) => arr.Any();
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("arr.length > 0", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    // ── Array.ForEach ────────────────────────────────────────────────────
+
+    [Fact]
+    public void ArrayForEachOnShortArray_UsesIntStreamRange_NotArraysStream()
+    {
+        var result = Convert(@"
+using System;
+class Sample
+{
+    void M(short[] arr) { Array.ForEach(arr, x => Console.WriteLine(x)); }
+}");
+
+        Assert.True(result.Success);
+        Assert.DoesNotContain("Arrays.stream(arr)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("IntStream.range(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains(".forEach(", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ArrayForEachOnIntArray_StillUsesArraysStream()
+    {
+        var result = Convert(@"
+using System;
+class Sample
+{
+    void M(int[] arr) { Array.ForEach(arr, x => Console.WriteLine(x)); }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("Arrays.stream(arr)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains(".forEach(", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    // ── Method argument wrapping ─────────────────────────────────────────
+
+    [Fact]
+    public void MethodArgShortArray_ToIEnumerable_UsesIntStreamRange()
+    {
+        var result = Convert(@"
+using System.Collections.Generic;
+class Sample
+{
+    void Consume(IEnumerable<short> items) { }
+    void M(short[] arr) { Consume(arr); }
 }");
 
         Assert.True(result.Success);
@@ -210,6 +311,42 @@ class Sample
 
         Assert.True(result.Success);
         Assert.Contains("Arrays.stream(arr)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LinqOnStringArray_StillUsesArraysStream()
+    {
+        var result = Convert(@"
+using System.Linq;
+class Sample
+{
+    void M(string[] arr)
+    {
+        var x = arr.Where(v => v != null).ToArray();
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("Arrays.stream(arr)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    // ── No generated code should contain Arrays.stream(unsupported) patterns ──
+
+    [Fact]
+    public void GeneratedCode_NeverContains_ArraysStreamOnBoolArray()
+    {
+        // Any code that uses bool[] with LINQ or IEnumerable should NOT produce Arrays.stream(boolArr)
+        var result = Convert(@"
+using System.Linq;
+using System.Collections.Generic;
+class Sample
+{
+    bool M(bool[] arr) => arr.Any();
+    void N(bool[] arr) { IEnumerable<bool> x = arr; }
+}");
+
+        Assert.True(result.Success);
+        Assert.DoesNotContain("Arrays.stream(arr)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     private static ConversionResult Convert(string sourceCode)

@@ -183,24 +183,7 @@ public class TypeOperationTransformer : IExpressionTransformer
 
     private static string WrapArrayAsIterable(string expr, IArrayTypeSymbol arrayType, ConversionContext context)
     {
-        if (arrayType.ElementType.IsValueType && IsPrimitiveSpecialType(arrayType.ElementType.SpecialType))
-        {
-            context.AddImport("java.util.stream.Collectors");
-            context.AddImport("java.util.ArrayList");
-            var elemSt = arrayType.ElementType.SpecialType;
-            // Java Arrays.stream only supports int[], long[], double[], and T[].
-            // For other primitive arrays use IntStream.range-based approach.
-            if (elemSt is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Double)
-            {
-                context.AddImport("java.util.Arrays");
-                return $"Arrays.stream({expr}).boxed().collect(Collectors.toCollection(ArrayList::new))";
-            }
-            context.AddImport("java.util.stream.IntStream");
-            return $"IntStream.range(0, {expr}.length).mapToObj(i -> {expr}[i]).collect(Collectors.toCollection(ArrayList::new))";
-        }
-
-        context.AddImport("java.util.Arrays");
-        return $"Arrays.asList({expr})";
+        return ExpressionTransformerHelpers.BuildArrayToCollectionExpression(expr, arrayType, context);
     }
 
     private static bool IsPrimitiveSpecialType(SpecialType st)
