@@ -422,6 +422,22 @@ public class AssignmentTransformer : IExpressionTransformer
             rightStr = StructCloneHelper.CloneStructValueIfNeeded(rightNode, rightStr, rhsTypeForClone, context);
             var lhsType = context.SemanticModel.GetTypeInfo(leftNode).Type;
             rightStr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(rightNode, rightStr, lhsType, context);
+
+            // Fix: ArrayList<T> cannot be assigned from Java List<T> (interface) directly.
+            // When the C# LHS type is List<T> (→ ArrayList<T>) and the RHS type maps to List<T>
+            // (e.g. IList<T>, IReadOnlyList<T>), wrap RHS with new ArrayList<>(...).
+            if (lhsType != null && rhsTypeForClone != null
+                && !rightStr.StartsWith("new ArrayList", StringComparison.Ordinal))
+            {
+                var mappedLhs = context.MapType(lhsType);
+                var mappedRhs = context.MapType(rhsTypeForClone);
+                if ((mappedLhs == "ArrayList" || mappedLhs.StartsWith("ArrayList<"))
+                    && (mappedRhs == "List" || mappedRhs.StartsWith("List<")))
+                {
+                    context.AddImport("java.util.ArrayList");
+                    rightStr = $"new ArrayList<>({rightStr})";
+                }
+            }
         }
 
         return $"{left} {op} {rightStr}";

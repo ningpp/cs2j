@@ -1617,6 +1617,25 @@ public class StatementTransformer : IStatementTransformer
                 if (javaType.StartsWith("ArrayList<") && initExpr.Contains(".collect(Collectors.toList())"))
                     initExpr = $"new ArrayList<>({initExpr})";
 
+                // ArrayList<T> cannot be directly assigned from an expression whose C# type maps to Java List<T>
+                // interface (e.g. IList<T> → List<T>, IReadOnlyList<T> → List<T>). In Java, List<T> (interface)
+                // is not assignable to ArrayList<T> (concrete class). Wrap with new ArrayList<>(...).
+                if (javaType.StartsWith("ArrayList<")
+                    && !initExpr.StartsWith("new ArrayList")
+                    && context.SemanticModel != null)
+                {
+                    var initTypeInfo = context.SemanticModel.GetTypeInfo(v.Initializer.Value);
+                    if (initTypeInfo.Type != null)
+                    {
+                        var mappedInitType = context.MapType(initTypeInfo.Type);
+                        if (mappedInitType == "List" || mappedInitType.StartsWith("List<"))
+                        {
+                            context.AddImport("java.util.ArrayList");
+                            initExpr = $"new ArrayList<>({initExpr})";
+                        }
+                    }
+                }
+
                 // Fix: C# arrays implement IEnumerable/ICollection/IList, so assigning an array directly
                 // to IList<T>/ICollection<T> is valid C#. In Java, arrays are NOT Collection subtypes.
                 // When the declared Java type is a collection interface and the initializer is an array,
