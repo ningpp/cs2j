@@ -68,7 +68,6 @@ src/
 ├── CSharpToJava.Core/      # Core conversion engine (Roslyn-based)
 ├── CSharpToJava.CLI/       # Command-line interface
 ├── CSharpToJava.TypeMapping/   # Type mapping configuration
-└── CSharpToJava.Async/     # Async/await support
 
 tests/
 └── CSharpToJava.Tests/     # XUnit tests

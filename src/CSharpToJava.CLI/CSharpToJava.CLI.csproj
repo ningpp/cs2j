@@ -3,7 +3,6 @@
   <ItemGroup>
     <ProjectReference Include="..\CSharpToJava.Core\CSharpToJava.Core.csproj" />
     <ProjectReference Include="..\CSharpToJava.TypeMapping\CSharpToJava.TypeMapping.csproj" />
-    <ProjectReference Include="..\CSharpToJava.Async\CSharpToJava.Async.csproj" />
     <ProjectReference Include="..\CSharpToJava.Workspace\CSharpToJava.Workspace.csproj" />
   </ItemGroup>
 
