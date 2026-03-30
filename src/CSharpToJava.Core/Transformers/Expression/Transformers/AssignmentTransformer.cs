@@ -115,6 +115,18 @@ public class AssignmentTransformer : IExpressionTransformer
         {
             if (context.SemanticModel?.GetSymbolInfo(leftNode).Symbol is IPropertySymbol prop)
             {
+                // If this property assignment is used as a sub-expression (not a standalone statement),
+                // the setter call would return void in Java which is invalid as a value.
+                // Exception: explicit setter methods generate a direct field write (this.field = value)
+                // which IS a valid Java value expression, so no hoisting needed in that case.
+                bool inExplicitSetter = IsInExplicitSetterMethod(prop, context)
+                    && propMa.Expression is ThisExpressionSyntax;
+                if (!inExplicitSetter && node.Parent is not ExpressionStatementSyntax)
+                {
+                    // Hoist: emit setter as a pre-statement and return the temp variable holding the value.
+                    return HoistChainedPropertyAssignment(node, context);
+                }
+
                 var receiver = facade.Transform(propMa.Expression, context);
                 if (prop.Name == "Capacity"
                     && prop.ContainingType?.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.List<T>")
@@ -146,8 +158,7 @@ public class AssignmentTransformer : IExpressionTransformer
 
                 // Avoid recursion when an explicit SetX(...) method assigns to property X.
                 // In that case we need a direct backing-field write, not a setter call.
-                if (IsInExplicitSetterMethod(prop, context)
-                    && propMa.Expression is ThisExpressionSyntax)
+                if (inExplicitSetter)
                 {
                     string fieldName = char.ToLowerInvariant(prop.Name[0]) + prop.Name[1..];
                     return $"this.{fieldName} = {right}";
@@ -267,6 +278,17 @@ public class AssignmentTransformer : IExpressionTransformer
         {
             if (context.SemanticModel?.GetSymbolInfo(leftNode).Symbol is IPropertySymbol bareIdentProp)
             {
+                // If this property assignment is used as a sub-expression (not a standalone statement),
+                // the setter call would return void in Java which is invalid as a value.
+                // Exception: explicit setter methods generate a direct field write (this.field = value)
+                // which IS a valid Java value expression, so no hoisting needed in that case.
+                bool bareInExplicitSetter = IsInExplicitSetterMethod(bareIdentProp, context);
+                if (!bareInExplicitSetter && node.Parent is not ExpressionStatementSyntax)
+                {
+                    // Hoist: emit setter as a pre-statement and return the temp variable holding the value.
+                    return HoistChainedPropertyAssignment(node, context);
+                }
+
                 if (bareIdentProp.Name == "Capacity"
                     && bareIdentProp.ContainingType?.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.List<T>")
                 {
@@ -293,7 +315,7 @@ public class AssignmentTransformer : IExpressionTransformer
                     right = ExpressionTransformerHelpers.AdaptExpressionToTargetType(rightNode, right, propType, context);
                 }
 
-                if (IsInExplicitSetterMethod(bareIdentProp, context))
+                if (bareInExplicitSetter)
                 {
                     string fieldName = char.ToLowerInvariant(bareIdentProp.Name[0]) + bareIdentProp.Name[1..];
                     return $"this.{fieldName} = {right}";
