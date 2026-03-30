@@ -723,6 +723,28 @@ public static class ExpressionTransformerHelpers
     {
         if (receiverType is IArrayTypeSymbol arrayType)
         {
+            var elemSt = arrayType.ElementType.SpecialType;
+            // Java Arrays.stream only supports int[], long[], double[], and T[].
+            // short[], byte[], char[], float[], boolean[] are not supported; use IntStream.range-based alternatives.
+            if (arrayType.ElementType.IsValueType
+                && elemSt is not (SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Double))
+            {
+                context.AddImport("java.util.stream.IntStream");
+                if (elemSt == SpecialType.System_Single) // float → DoubleStream (widening) or Stream<Float> when boxing
+                {
+                    return boxPrimitiveArrayElements
+                        ? $"IntStream.range(0, {receiverExpr}.length).mapToObj(i -> {receiverExpr}[i])"
+                        : $"IntStream.range(0, {receiverExpr}.length).mapToDouble(i -> {receiverExpr}[i])";
+                }
+                if (elemSt == SpecialType.System_Boolean) // boolean → Stream<Boolean> (no BooleanStream in Java)
+                {
+                    return $"IntStream.range(0, {receiverExpr}.length).mapToObj(i -> {receiverExpr}[i])";
+                }
+                // short, byte, char → IntStream (widening to int) or Stream<Short/Byte/Character> when boxing
+                return boxPrimitiveArrayElements
+                    ? $"IntStream.range(0, {receiverExpr}.length).mapToObj(i -> {receiverExpr}[i])"
+                    : $"IntStream.range(0, {receiverExpr}.length).map(i -> {receiverExpr}[i])";
+            }
             context.AddImport("java.util.Arrays");
             return boxPrimitiveArrayElements && arrayType.ElementType.IsValueType
                 ? $"Arrays.stream({receiverExpr}).boxed()"

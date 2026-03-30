@@ -364,10 +364,18 @@ public class ObjectCreationTransformer : IExpressionTransformer
     {
         if (arrayType.ElementType.IsValueType && IsPrimitiveSpecialType(arrayType.ElementType.SpecialType))
         {
-            context.AddImport("java.util.Arrays");
             context.AddImport("java.util.stream.Collectors");
             context.AddImport("java.util.ArrayList");
-            return $"Arrays.stream({expr}).boxed().collect(Collectors.toCollection(ArrayList::new))";
+            var elemSt = arrayType.ElementType.SpecialType;
+            // Java Arrays.stream only supports int[], long[], double[], and T[].
+            // For other primitive arrays use IntStream.range-based approach.
+            if (elemSt is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Double)
+            {
+                context.AddImport("java.util.Arrays");
+                return $"Arrays.stream({expr}).boxed().collect(Collectors.toCollection(ArrayList::new))";
+            }
+            context.AddImport("java.util.stream.IntStream");
+            return $"IntStream.range(0, {expr}.length).mapToObj(i -> {expr}[i]).collect(Collectors.toCollection(ArrayList::new))";
         }
 
         context.AddImport("java.util.Arrays");

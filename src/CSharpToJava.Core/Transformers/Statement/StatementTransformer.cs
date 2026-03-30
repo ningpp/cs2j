@@ -1602,7 +1602,10 @@ public class StatementTransformer : IStatementTransformer
                         && !initExpr.Contains(".mapToDouble(") && !initExpr.Contains(".mapToInt(") && !initExpr.Contains(".mapToLong("))
                     {
                         // The method returns T[] in Java (boxed array, e.g. Integer[]); use Arrays.stream() to unbox.
-                        context.AddImport("java.util.Arrays");
+                        // Java Arrays.stream only supports int[], long[], double[] for primitive arrays.
+                        // float[] and boolean[] have no direct stream unboxing support; leave as-is.
+                        if (javaType is "int[]" or "long[]" or "double[]")
+                            context.AddImport("java.util.Arrays");
                         initExpr = javaType switch
                         {
                             "int[]" => $"Arrays.stream({initExpr}).mapToInt(Integer::intValue).toArray()",
