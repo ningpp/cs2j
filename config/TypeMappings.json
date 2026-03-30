@@ -107,9 +107,9 @@
                          },
                          {
                              "csharp":  "System.Collections.Generic.List`1",
-                             "java":  "List",
+                             "java":  "ArrayList",
                              "imports":  [
-                                             "java.util.List"
+                                             "java.util.ArrayList"
                                          ]
                          },
                          {

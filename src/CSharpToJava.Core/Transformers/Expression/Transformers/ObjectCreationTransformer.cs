@@ -54,7 +54,6 @@ public class ObjectCreationTransformer : IExpressionTransformer
         if (typeInfo.HasValue && typeInfo.Value.Type != null)
         {
             var typeName = context.MapType(typeInfo.Value.Type);
-            typeName = MapToConcreteTypeForInstantiation(typeName, context);
             return TransformObjectCreationWithArgs(typeName, node.ArgumentList, context);
         }
         return "new Object()";
@@ -81,10 +80,6 @@ public class ObjectCreationTransformer : IExpressionTransformer
                 ? context.MapTypeFromSyntax(typeSyntax)
                 : "Object";
         }
-
-        // Java interface types cannot be instantiated. Map to concrete implementations.
-        // E.g., C# new List<T>() maps to List<T> (Java interface) but must instantiate ArrayList<T>.
-        typeName = MapToConcreteTypeForInstantiation(typeName, context);
 
         // Java cannot instantiate a type parameter directly (new T()).
         // For C# where T : ICollection<...>, new() we map to ArrayList and cast.
@@ -292,28 +287,6 @@ public class ObjectCreationTransformer : IExpressionTransformer
     }
 
     /// <summary>
-    /// Maps Java interface type names to their concrete implementations for object instantiation.
-    /// In Java, interfaces like <c>List</c> cannot be instantiated directly; the <c>new</c>
-    /// expression must use a concrete class such as <c>ArrayList</c>.
-    /// </summary>
-    private static string MapToConcreteTypeForInstantiation(string typeName, ConversionContext context)
-    {
-        var angleIndex = typeName.IndexOf('<');
-        var bare = angleIndex >= 0 ? typeName[..angleIndex] : typeName;
-        string? concreteType = bare switch
-        {
-            "List" => "ArrayList",
-            _ => null
-        };
-        if (concreteType == null) return typeName;
-
-        context.AddImport($"java.util.{concreteType}");
-        return angleIndex >= 0
-            ? concreteType + typeName[angleIndex..]
-            : concreteType;
-    }
-
-    /// <summary>
     /// Returns true when <paramref name="typeName"/> is a Java concrete collection class whose
     /// constructor accepts a <c>Collection</c> parameter (e.g. ArrayList, HashSet, TreeSet …).
     /// </summary>
@@ -331,7 +304,7 @@ public class ObjectCreationTransformer : IExpressionTransformer
     /// When the constructor symbol is unavailable, scan each argument for array types.
     /// Any array argument passed to a Java collection constructor must be wrapped:
     ///   • reference-type arrays  → Arrays.asList(expr)
-    ///   • primitive arrays       → Arrays.stream(expr).boxed().collect(Collectors.toList())
+    ///   • primitive arrays       → Arrays.stream(expr).boxed().collect(Collectors.toCollection(ArrayList::new))
     /// Returns the updated comma-separated argument string.
     /// </summary>
     private static string CoerceArrayArgsForCollectionCtor(
@@ -393,7 +366,8 @@ public class ObjectCreationTransformer : IExpressionTransformer
         {
             context.AddImport("java.util.Arrays");
             context.AddImport("java.util.stream.Collectors");
-            return $"Arrays.stream({expr}).boxed().collect(Collectors.toList())";
+            context.AddImport("java.util.ArrayList");
+            return $"Arrays.stream({expr}).boxed().collect(Collectors.toCollection(ArrayList::new))";
         }
 
         context.AddImport("java.util.Arrays");
@@ -418,7 +392,8 @@ public class ObjectCreationTransformer : IExpressionTransformer
             return transformedArgs;
 
         context.AddImport("java.util.stream.Collectors");
-        return $"{expr}.collect(Collectors.toList())";
+        context.AddImport("java.util.ArrayList");
+        return $"{expr}.collect(Collectors.toCollection(ArrayList::new))";
     }
 
     private static bool IsArrayAlreadyWrappedForCollectionArg(string expr)

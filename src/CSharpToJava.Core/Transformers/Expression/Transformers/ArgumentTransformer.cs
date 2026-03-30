@@ -389,7 +389,8 @@ public class ArgumentTransformer
             {
                 context.AddImport("java.util.Arrays");
                 context.AddImport("java.util.stream.Collectors");
-                return $"Arrays.stream({transformedExpr}).boxed().collect(Collectors.toList())";
+                context.AddImport("java.util.ArrayList");
+                return $"Arrays.stream({transformedExpr}).boxed().collect(Collectors.toCollection(ArrayList::new))";
             }
 
             // Reference type arrays: Arrays.asList() works directly
@@ -452,7 +453,7 @@ public class ArgumentTransformer
                     {
                         return transformedExpr;
                     }
-                    return $"{transformedExpr}.collect(Collectors.toList())";
+                    return $"{transformedExpr}.collect(Collectors.toCollection(ArrayList::new))";
                 }
                 return $"StreamSupport.stream({transformedExpr}.spliterator(), false).collect(Collectors.toCollection(ArrayList::new))";
             }
@@ -637,9 +638,10 @@ public class ArgumentTransformer
             return transformedExpr;
 
         context.AddImport("java.util.stream.Collectors");
+        context.AddImport("java.util.ArrayList");
         if (transformedExpr.Contains(".collect(", StringComparison.Ordinal))
             return transformedExpr;
 
-        return $"{transformedExpr}.collect(Collectors.toList())";
+        return $"{transformedExpr}.collect(Collectors.toCollection(ArrayList::new))";
     }
 }

@@ -606,21 +606,17 @@ public static class ExpressionTransformerHelpers
     }
 
     /// <summary>
-    /// Strips ".collect(Collectors.toList())" or similar from a stream expression.
+    /// Strips ".collect(Collectors.toCollection(ArrayList::new))" or similar from a stream expression.
     /// </summary>
     public static string StripCollect(string target)
     {
         var patterns = new[]
         {
-            ".collect(Collectors.toList())",
-            ".collect(Collectors.toSet())",
             ".collect(Collectors.toCollection(ArrayList::new))",
+            ".collect(Collectors.toSet())",
             ".collect(Collectors.toCollection(LinkedList::new))",
             ".collect(Collectors.toCollection(HashSet::new))",
-            ".collect(Collectors.toCollection LinkedHashSet::new)",
-            ".collect(Collectors.toList())",
-            ".collect(Collectors.toSet())",
-            ".collect(Collectors.toCollection(ArrayList::new))"
+            ".collect(Collectors.toCollection(LinkedHashSet::new))"
         };
 
         foreach (var pattern in patterns)
@@ -647,9 +643,8 @@ public static class ExpressionTransformerHelpers
     /// </summary>
     public static bool IsAlreadyCollectedCore(string t)
     {
-        return t.Contains(".collect(Collectors.toList())") ||
+        return t.Contains(".collect(Collectors.toCollection(ArrayList::new))") ||
                t.Contains(".collect(Collectors.toSet())") ||
-               t.Contains(".collect(Collectors.toCollection(ArrayList::new))") ||
                t.Contains(".collect(Collectors.toCollection(LinkedList::new))") ||
                t.Contains(".collect(Collectors.toCollection(HashSet::new))") ||
                t.Contains(".collect(Collectors.toCollection(LinkedHashSet::new))");

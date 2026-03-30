@@ -172,7 +172,8 @@ public class TypeOperationTransformer : IExpressionTransformer
         {
             context.AddImport("java.util.Arrays");
             context.AddImport("java.util.stream.Collectors");
-            return $"Arrays.stream({expr}).boxed().collect(Collectors.toList())";
+            context.AddImport("java.util.ArrayList");
+            return $"Arrays.stream({expr}).boxed().collect(Collectors.toCollection(ArrayList::new))";
         }
 
         context.AddImport("java.util.Arrays");
