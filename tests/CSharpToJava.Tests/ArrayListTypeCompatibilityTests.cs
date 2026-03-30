@@ -5,14 +5,55 @@ namespace CSharpToJava.Tests;
 
 /// <summary>
 /// Tests for issue #3: incompatible types - java.util.List cannot be converted to java.util.ArrayList.
-/// C# allows assigning IList&lt;T&gt; (or IReadOnlyList&lt;T&gt;) to a List&lt;T&gt; variable, but in Java
-/// List&lt;T&gt; (interface) is not assignable to ArrayList&lt;T&gt; (concrete class).
-/// The converter must wrap such assignments with new ArrayList&lt;&gt;(...).
+/// Root cause: C# List&lt;T&gt; was mapped to Java ArrayList (concrete class) for type declarations,
+/// while IList&lt;T&gt; / IReadOnlyList&lt;T&gt; mapped to List (interface). This created type mismatches.
+/// Fix: Map C# List&lt;T&gt; to Java List (interface) for type references, and use ArrayList only
+/// for object instantiation (new expressions).
 /// </summary>
 public class ArrayListTypeCompatibilityTests
 {
     [Fact]
-    public void LocalDeclaration_WrapsWithNewArrayList_WhenAssignedFromIListMethod()
+    public void ListDeclaration_MapsToJavaListInterface_NotArrayList()
+    {
+        var result = Convert(@"
+using System.Collections.Generic;
+
+class Sample
+{
+    void M()
+    {
+        List<string> items = new List<string>();
+    }
+}");
+
+        Assert.True(result.Success);
+        // Variable type should be List<String> (Java interface), not ArrayList<String>
+        Assert.Contains("List<String> items = new ArrayList<String>()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NewListExpression_MapsToNewArrayList()
+    {
+        var result = Convert(@"
+using System.Collections.Generic;
+
+class Sample
+{
+    List<string> GetList()
+    {
+        return new List<string>();
+    }
+}");
+
+        Assert.True(result.Success);
+        // new List<T>() must map to new ArrayList<T>() (List is an interface in Java)
+        Assert.Contains("new ArrayList<String>()", result.GeneratedCode, StringComparison.Ordinal);
+        // Return type should be List<String> (interface)
+        Assert.Contains("List<String> getList()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LocalDeclaration_AssignableFromIListMethod_NoWrapperNeeded()
     {
         var result = Convert(@"
 using System.Collections.Generic;
@@ -28,11 +69,13 @@ class Sample
 }");
 
         Assert.True(result.Success);
-        Assert.Contains("new ArrayList<>(getItems())", result.GeneratedCode, StringComparison.Ordinal);
+        // With root cause fix, both sides are List<String> — no wrapping needed
+        Assert.DoesNotContain("new ArrayList<>(getItems())", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("getItems()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void LocalDeclaration_WrapsWithNewArrayList_WhenAssignedFromIReadOnlyListMethod()
+    public void LocalDeclaration_AssignableFromIReadOnlyListMethod_NoWrapperNeeded()
     {
         var result = Convert(@"
 using System.Collections.Generic;
@@ -48,32 +91,13 @@ class Sample
 }");
 
         Assert.True(result.Success);
-        Assert.Contains("new ArrayList<>(getItems())", result.GeneratedCode, StringComparison.Ordinal);
+        // With root cause fix, both sides are List<String> — no wrapping needed
+        Assert.DoesNotContain("new ArrayList<>(getItems())", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("getItems()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Assignment_WrapsWithNewArrayList_WhenAssignedFromIListMethod()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-
-class Sample
-{
-    IList<string> GetItems() { return new List<string>(); }
-
-    void M()
-    {
-        List<string> items = new List<string>();
-        items = GetItems();
-    }
-}");
-
-        Assert.True(result.Success);
-        Assert.Contains("items = new ArrayList<>(getItems())", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void FieldAssignment_WrapsWithNewArrayList_WhenAssignedFromIListMethod()
+    public void FieldAssignment_AssignableFromIListMethod_NoWrapperNeeded()
     {
         var result = Convert(@"
 using System.Collections.Generic;
@@ -90,11 +114,29 @@ class Sample
 }");
 
         Assert.True(result.Success);
-        Assert.Contains("_field = new ArrayList<>(getItems())", result.GeneratedCode, StringComparison.Ordinal);
+        // Field type is List<String>, method returns List<String> — compatible
+        Assert.Contains("_field = getItems()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("new ArrayList<>(getItems())", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void LocalDeclaration_DoesNotDoubleWrap_WhenAlreadyNewArrayList()
+    public void FieldDeclaration_MapsToJavaListInterface()
+    {
+        var result = Convert(@"
+using System.Collections.Generic;
+
+class Sample
+{
+    private List<string> _field;
+}");
+
+        Assert.True(result.Success);
+        // Field type should be List<String>, not ArrayList<String>
+        Assert.Contains("List<String> _field", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CollectionInitializer_UsesArrayListForInstantiation()
     {
         var result = Convert(@"
 using System.Collections.Generic;
@@ -103,36 +145,13 @@ class Sample
 {
     void M()
     {
-        List<string> items = new List<string>();
+        List<string> items = new List<string> { ""a"", ""b"" };
     }
 }");
 
         Assert.True(result.Success);
-        // Should not contain double-wrapping like new ArrayList<>(new ArrayList<>())
-        Assert.DoesNotContain("new ArrayList<>(new ArrayList<>", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void LocalDeclaration_DoesNotDoubleWrap_WhenManuallyWrappedInConstructor()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-
-class Sample
-{
-    IList<string> GetItems() { return new List<string>(); }
-
-    void M()
-    {
-        // Developer explicitly constructs List<string> from IList<string> - should not double-wrap
-        List<string> items = new List<string>(GetItems());
-    }
-}");
-
-        Assert.True(result.Success);
-        // Should produce new ArrayList<>(getItems()) or new ArrayList<>(new ArrayList<>(getItems()))
-        // but NOT new ArrayList<>(new ArrayList<>(new ArrayList<>(getItems())))
-        Assert.DoesNotContain("new ArrayList<>(new ArrayList<>(new ArrayList<>", result.GeneratedCode, StringComparison.Ordinal);
+        // Instantiation should use ArrayList, even though the type reference is List
+        Assert.Contains("new ArrayList<String>", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     private static ConversionResult Convert(string sourceCode)
