@@ -1965,33 +1965,50 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             }
 
             // Sum → mapToInt/mapToLong/mapToDouble + sum()
+            // Java constraint: IntStream.mapToInt / DoubleStream.mapToDouble / LongStream.mapToLong
+            // don't exist — when the receiver is already the matching primitive stream, use map()
+            // for the selector form and skip the mapping entirely for the identity form.
             if (originalMethodName == "Sum")
             {
-                var mapMethod = "mapToInt";
+                var sumTargetCat = "int";
                 if (methodSymbol.ReturnType != null)
                 {
                     var retType = methodSymbol.ReturnType.SpecialType;
                     if (retType == SpecialType.System_Int64)
-                        mapMethod = "mapToLong";
+                        sumTargetCat = "long";
                     else if (retType is SpecialType.System_Double or SpecialType.System_Single or SpecialType.System_Decimal)
-                        mapMethod = "mapToDouble";
+                        sumTargetCat = "double";
                 }
+                var sumReceiverCat = DetectReceiverPrimitiveStreamCategory(memberAccess, receiver, context);
                 if (node.ArgumentList.Arguments.Count > 0)
                 {
                     var sumArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                    return $"{receiver}.{mapMethod}({sumArg}).sum()";
+                    var sumMapOp = (sumReceiverCat == sumTargetCat)
+                        ? "map"
+                        : sumTargetCat switch { "int" => "mapToInt", "long" => "mapToLong", "double" => "mapToDouble", _ => "map" };
+                    return $"{receiver}.{sumMapOp}({sumArg}).sum()";
                 }
+                if (sumReceiverCat != "")
+                    return $"{receiver}.sum()";
+                var mapMethod = sumTargetCat switch { "int" => "mapToInt", "long" => "mapToLong", "double" => "mapToDouble", _ => "mapToInt" };
                 return $"{receiver}.{mapMethod}(x -> x).sum()";
             }
 
             // Average → mapToDouble + average().orElse(0)
+            // All primitive streams (IntStream/LongStream/DoubleStream) have .average(),
+            // so skip mapToDouble when the receiver is already any primitive stream.
+            // For the selector form, use map() if receiver is already DoubleStream.
             if (originalMethodName == "Average")
             {
+                var avgReceiverCat = DetectReceiverPrimitiveStreamCategory(memberAccess, receiver, context);
                 if (node.ArgumentList.Arguments.Count > 0)
                 {
                     var avgArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                    return $"{receiver}.mapToDouble({avgArg}).average().orElse(0)";
+                    var avgMapOp = (avgReceiverCat == "double") ? "map" : "mapToDouble";
+                    return $"{receiver}.{avgMapOp}({avgArg}).average().orElse(0)";
                 }
+                if (avgReceiverCat != "")
+                    return $"{receiver}.average().orElse(0)";
                 return $"{receiver}.mapToDouble(x -> x).average().orElse(0)";
             }
 
@@ -2475,7 +2492,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
 
                 // Min(selector) / Max(selector)
                 var selArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                var mapOp = GetPrimitiveMapOperation(retSpec, memberAccess, context);
+                var mapOp = GetPrimitiveMapOperation(retSpec, memberAccess, receiver, context);
                 if (mapOp != null)
                     return $"{receiver}.{mapOp}({selArg}).{op}().orElseThrow()";
                 return $"{receiver}.map({selArg}).{op}(java.util.Comparator.naturalOrder()).orElseThrow()";
@@ -2484,7 +2501,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             // ToArray() → typed toArray() based on element type
             if (originalMethodName == "ToArray")
             {
-                return TransformToArrayWithElementType(receiver, methodSymbol, node, context);
+                return TransformToArrayWithElementType(receiver, methodSymbol, node, memberAccess, context);
             }
 
             // ToHashSet() → collect(Collectors.toSet())
@@ -3261,6 +3278,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         string receiver,
         IMethodSymbol? methodSymbol,
         InvocationExpressionSyntax node,
+        MemberAccessExpressionSyntax memberAccess,
         ConversionContext context)
     {
         // Try to determine the element type from the LINQ method's receiver (IEnumerable<T>)
@@ -3290,7 +3308,15 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return $"{receiver}.toArray()";
 
         // Primitive types: use mapToInt/mapToLong/mapToDouble + toArray() → returns int[]/long[]/double[]
+        // If the receiver is already the matching primitive stream, just .toArray() directly.
         var specialType = elementType.SpecialType;
+        var toArrTargetCat = PrimitiveStreamCategory(specialType);
+        if (toArrTargetCat != "")
+        {
+            var toArrReceiverCat = DetectReceiverPrimitiveStreamCategory(memberAccess, receiver, context);
+            if (toArrReceiverCat == toArrTargetCat)
+                return $"{receiver}.toArray()";
+        }
         if (specialType is SpecialType.System_Int32 or SpecialType.System_Int16 or SpecialType.System_Byte)
         {
             return $"{receiver}.mapToInt(Integer::intValue).toArray()";
@@ -3450,6 +3476,45 @@ public class InvocationExpressionTransformer : IExpressionTransformer
     };
 
     /// <summary>
+    /// Detects whether the Java receiver is a primitive stream (IntStream, LongStream, DoubleStream)
+    /// and returns its category ("int", "long", "double"), or "" if it's an object Stream&lt;T&gt;.
+    /// Checks both the direct C# array element type and the generated Java receiver string
+    /// (for chained LINQ where the C# type is IEnumerable&lt;T&gt;).
+    /// </summary>
+    private static string DetectReceiverPrimitiveStreamCategory(
+        MemberAccessExpressionSyntax memberAccess,
+        string receiver,
+        ConversionContext context)
+    {
+        var csType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+
+        // Direct receiver is a primitive array → Arrays.stream produces matching primitive stream
+        if (csType is IArrayTypeSymbol arr)
+        {
+            var cat = PrimitiveStreamCategory(arr.ElementType.SpecialType);
+            if (cat != "") return cat;
+        }
+
+        // Chained LINQ: C# type is IEnumerable<T>, but Java receiver is still a primitive stream.
+        // Verify the element type IS a primitive and the receiver hasn't been boxed.
+        if (csType is INamedTypeSymbol named
+            && named.TypeArguments.Length > 0
+            && PrimitiveStreamCategory(named.TypeArguments[0].SpecialType) != ""
+            && !receiver.Contains(".boxed()", StringComparison.Ordinal)
+            && !receiver.Contains(".mapToObj(", StringComparison.Ordinal))
+        {
+            if (receiver.StartsWith("Arrays.stream(", StringComparison.Ordinal)
+                || receiver.Contains("IntStream.range(", StringComparison.Ordinal)
+                || receiver.Contains("IntStream.rangeClosed(", StringComparison.Ordinal))
+            {
+                return PrimitiveStreamCategory(named.TypeArguments[0].SpecialType);
+            }
+        }
+
+        return "";
+    }
+
+    /// <summary>
     /// Determines whether the current LINQ receiver represents a Java primitive stream
     /// (IntStream, DoubleStream, LongStream) so that parameterless min()/max() can be used.
     /// Checks both the C# receiver type (primitive array → Arrays.stream produces primitive stream)
@@ -3502,6 +3567,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
     private static string? GetPrimitiveMapOperation(
         SpecialType returnSpecialType,
         MemberAccessExpressionSyntax memberAccess,
+        string receiver,
         ConversionContext context)
     {
         var category = PrimitiveStreamCategory(returnSpecialType);
@@ -3516,11 +3582,10 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             _ => "map"
         };
 
-        // If the direct C# source is a primitive array of the same category,
-        // the Java receiver is already the matching primitive stream → use map() instead.
+        // If the receiver is already the matching primitive stream, use map() instead.
         // (IntStream.mapToInt / DoubleStream.mapToDouble / LongStream.mapToLong don't exist.)
-        var csType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
-        if (csType is IArrayTypeSymbol arr && PrimitiveStreamCategory(arr.ElementType.SpecialType) == category)
+        var receiverCat = DetectReceiverPrimitiveStreamCategory(memberAccess, receiver, context);
+        if (receiverCat == category)
             mapOp = "map";
 
         return mapOp;

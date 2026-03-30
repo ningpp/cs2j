@@ -410,6 +410,100 @@ class Sample
         Assert.DoesNotContain("Arrays.stream(arr)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    // ── Primitive stream identity mapping avoidance ────────────────────────
+    // Java API: IntStream.mapToInt / DoubleStream.mapToDouble / LongStream.mapToLong don't exist.
+
+    [Fact]
+    public void SumOnDoubleArray_NoMapToDouble_Identity()
+    {
+        var result = Convert(@"
+using System.Linq;
+class Sample
+{
+    double M(double[] arr) => arr.Sum();
+}");
+
+        Assert.True(result.Success);
+        Assert.DoesNotContain("mapToDouble", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains(".sum()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SumOnIntArray_NoMapToInt_Identity()
+    {
+        var result = Convert(@"
+using System.Linq;
+class Sample
+{
+    int M(int[] arr) => arr.Sum();
+}");
+
+        Assert.True(result.Success);
+        Assert.DoesNotContain("mapToInt", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains(".sum()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AverageOnDoubleArray_NoMapToDouble_Identity()
+    {
+        var result = Convert(@"
+using System.Linq;
+class Sample
+{
+    double M(double[] arr) => (double)arr.Average();
+}");
+
+        Assert.True(result.Success);
+        Assert.DoesNotContain("mapToDouble", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains(".average()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AverageOnIntArray_NoMapToDouble_Identity()
+    {
+        var result = Convert(@"
+using System.Linq;
+class Sample
+{
+    double M(int[] arr) => arr.Average();
+}");
+
+        Assert.True(result.Success);
+        // IntStream already has average() — no need for mapToDouble identity
+        Assert.DoesNotContain("mapToDouble(x -> x)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains(".average()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ToArrayOnIntStream_NoMapToInt_Identity()
+    {
+        var result = Convert(@"
+using System.Linq;
+class Sample
+{
+    int[] M(int[] arr) => arr.Where(x => x > 0).ToArray();
+}");
+
+        Assert.True(result.Success);
+        Assert.DoesNotContain("mapToInt", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains(".toArray()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ToArrayOnDoubleStream_NoMapToDouble_Identity()
+    {
+        var result = Convert(@"
+using System.Linq;
+class Sample
+{
+    double[] M(double[] arr) => arr.Where(x => x > 0).ToArray();
+}");
+
+        Assert.True(result.Success);
+        Assert.DoesNotContain("mapToDouble", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains(".toArray()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
