@@ -11,7 +11,7 @@ namespace CSharpToJava.Tests;
 public class PredefinedTypeStaticMethodTests
 {
     [Fact]
-    public void ConversionPipeline_StringIsNullOrEmpty_GeneratesNullOrIsEmptyCheck()
+    public void ConversionPipeline_StringIsNullOrEmpty_GeneratesStringHelperCall()
     {
         var result = Convert(@"
 class Sample
@@ -23,9 +23,8 @@ class Sample
 }");
 
         Assert.True(result.Success);
-        Assert.Contains("(s == null || s.isEmpty())", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("String.isNullOrEmpty", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("StringHelper.isNullOrEmpty", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("StringHelper.isNullOrEmpty(s)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("(s == null || s.isEmpty())", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]

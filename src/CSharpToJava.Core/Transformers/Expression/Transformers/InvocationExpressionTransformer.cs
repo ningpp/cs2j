@@ -624,12 +624,12 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 return $"String.format({formatArgs})";
             }
 
-            // string.IsNullOrEmpty(s) → (s == null || s.isEmpty())
+            // string.IsNullOrEmpty(s) → StringHelper.isNullOrEmpty(s)
             if (primTypeSyntax.Keyword.Text == "string" && originalMethodName == "IsNullOrEmpty"
                 && node.ArgumentList.Arguments.Count >= 1)
             {
                 var valueExpr = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                return $"({valueExpr} == null || {valueExpr}.isEmpty())";
+                return $"StringHelper.isNullOrEmpty({valueExpr})";
             }
 
             // string.IsNullOrWhiteSpace(s) → StringHelper.isNullOrWhiteSpace(s)
@@ -1483,14 +1483,14 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         // that was already prepended; use 0 for standard instance calls.
         int argStartIndex = isExtensionInStaticPath ? 1 : 0;
 
-        // Fallback: String.IsNullOrEmpty(s) -> (s == null || s.isEmpty())
+        // Fallback: String.IsNullOrEmpty(s) -> StringHelper.isNullOrEmpty(s)
         bool isStringIsNullOrEmpty = originalMethodName == "IsNullOrEmpty"
             && node.ArgumentList.Arguments.Count - argStartIndex >= 1
             && IsSystemStringMethod(methodSymbol, memberAccess.Expression, context);
         if (isStringIsNullOrEmpty)
         {
             var valueExpr = facade.Transform(node.ArgumentList.Arguments[argStartIndex].Expression, context);
-            return $"({valueExpr} == null || {valueExpr}.isEmpty())";
+            return $"StringHelper.isNullOrEmpty({valueExpr})";
         }
 
         // Fallback: String.IsNullOrWhiteSpace(s) -> StringHelper.isNullOrWhiteSpace(s)
