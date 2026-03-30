@@ -1782,6 +1782,26 @@
                                "javaMethod":  "apply"
                            },
                            {
+                               "type":  "System.Predicate`1",
+                               "method":  "Invoke",
+                               "javaMethod":  "test"
+                           },
+                           {
+                               "type":  "System.Comparison`1",
+                               "method":  "Invoke",
+                               "javaMethod":  "compare"
+                           },
+                           {
+                               "type":  "System.EventHandler",
+                               "method":  "Invoke",
+                               "javaMethod":  "accept"
+                           },
+                           {
+                               "type":  "System.EventHandler`1",
+                               "method":  "Invoke",
+                               "javaMethod":  "accept"
+                           },
+                           {
                                "type":  "System.Collections.Generic.IEnumerator`1",
                                "method":  "MoveNext",
                                "javaMethod":  "hasNext"

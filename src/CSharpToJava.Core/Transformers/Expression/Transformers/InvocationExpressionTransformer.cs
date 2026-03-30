@@ -3428,14 +3428,10 @@ public class InvocationExpressionTransformer : IExpressionTransformer
     /// <summary>
     /// 根据委托签名推断 Java 函数式接口的 SAM 方法名。
     /// 用于 TypeMappings 没有显式映射时的回退。
+    /// Delegates to DelegateTransformer.InferSamMethodName to keep declaration and call sites in sync.
     /// </summary>
-    private static string InferSamMethodName(IMethodSymbol delegateInvoke) => delegateInvoke switch
-    {
-        { ReturnsVoid: true, Parameters.Length: 0 } => "run",       // Runnable
-        { ReturnsVoid: true }                       => "accept",    // Consumer/BiConsumer
-        { Parameters.Length: 0 }                    => "get",       // Supplier
-        _                                           => "apply",     // Function/BiFunction
-    };
+    private static string InferSamMethodName(IMethodSymbol delegateInvoke) =>
+        Type.DelegateTransformer.InferSamMethodName(delegateInvoke.ReturnsVoid, delegateInvoke.Parameters.Length);
 
     /// <summary>
     /// Returns the primitive-stream category ("int", "long", "double") for a C# SpecialType,

@@ -25,10 +25,39 @@ public class DelegateTransformer : IDelegateTransformer
         // Mark as @FunctionalInterface
         javaInterface.Annotations.Add(new JavaAnnotation("FunctionalInterface"));
 
+        // Build the single abstract method first (needed for type parameter filtering).
+        var returnType = GetReturnType(node, context);
+        var paramCount = node.ParameterList?.Parameters.Count ?? 0;
+        bool isVoid = node.ReturnType is PredefinedTypeSyntax predefined2 &&
+                      predefined2.Keyword.IsKind(SyntaxKind.VoidKeyword);
+
+        // SAM method name must match InferSamMethodName in InvocationExpressionTransformer
+        // so that declarations and call sites agree on the method name.
+        var samMethodName = InferSamMethodName(isVoid, paramCount);
+
+        var invokeMethod = new JavaMethodDeclaration
+        {
+            Name = samMethodName,
+            Modifiers = JavaModifiers.None, // interface methods are implicitly public abstract
+            ReturnType = returnType,
+        };
+
+        foreach (var param in node.ParameterList?.Parameters ?? Enumerable.Empty<ParameterSyntax>())
+        {
+            var (javaType, isVarArgs) = ResolveParamType(param, context);
+            var paramName = ConversionContext.EscapeJavaKeyword(param.Identifier.Text);
+            invokeMethod.Parameters.Add(new JavaParameter(javaType, paramName) { IsVarArgs = isVarArgs });
+        }
+
+        // Collect type names referenced by the delegate signature (return type + parameters)
+        // to filter out enclosing type parameters that are not actually used.
+        var referencedTypeNames = CollectReferencedTypeNames(node, context);
+
         // Handle type parameters (generic delegates)
         var allTypeParams = new List<string>();
 
-        // 1. Enclosing class type parameters
+        // 1. Enclosing class type parameters — only include those actually referenced
+        //    by the delegate's return type or parameter types.
         var sym = context.SemanticModel?.GetDeclaredSymbol(node) as INamedTypeSymbol;
         if (sym != null)
         {
@@ -37,7 +66,9 @@ public class DelegateTransformer : IDelegateTransformer
             while (cur != null)
             {
                 enclosingParams.InsertRange(0, cur.TypeParameters
-                    .Where(tp => !allTypeParams.Contains(tp.Name) && enclosingParams.All(ep => ep.Name != tp.Name))
+                    .Where(tp => referencedTypeNames.Contains(tp.Name)
+                                 && !allTypeParams.Contains(tp.Name)
+                                 && enclosingParams.All(ep => ep.Name != tp.Name))
                     .Select(tp => new JavaTypeParameter(tp.Name)));
                 cur = cur.ContainingType;
             }
@@ -60,26 +91,66 @@ public class DelegateTransformer : IDelegateTransformer
         // Propagate type parameter constraints
         ApplyTypeParameterConstraints(node, javaInterface, context);
 
-        // Build the single abstract method "apply".
-        // Must match the fallback method name used in InvocationExpressionTransformer
-        // for custom delegate invocations (DelegateInvoke with no TypeMappings entry → "apply").
-        var invokeMethod = new JavaMethodDeclaration
-        {
-            Name = "apply",
-            Modifiers = JavaModifiers.None, // interface methods are implicitly public abstract
-            ReturnType = GetReturnType(node, context),
-        };
-
-        foreach (var param in node.ParameterList?.Parameters ?? Enumerable.Empty<ParameterSyntax>())
-        {
-            var (javaType, isVarArgs) = ResolveParamType(param, context);
-            var paramName = ConversionContext.EscapeJavaKeyword(param.Identifier.Text);
-            invokeMethod.Parameters.Add(new JavaParameter(javaType, paramName) { IsVarArgs = isVarArgs });
-        }
-
         javaInterface.Methods.Add(invokeMethod);
 
         return javaInterface;
+    }
+
+    /// <summary>
+    /// Infer the Java SAM method name from delegate signature shape.
+    /// This MUST stay in sync with InferSamMethodName in InvocationExpressionTransformer.
+    /// </summary>
+    internal static string InferSamMethodName(bool returnsVoid, int parameterCount) => (returnsVoid, parameterCount) switch
+    {
+        (true, 0) => "run",       // Runnable
+        (true, _) => "accept",    // Consumer/BiConsumer
+        (false, 0) => "get",      // Supplier
+        _ => "apply",             // Function/BiFunction
+    };
+
+    /// <summary>
+    /// Collect all type-parameter-like names that appear in the delegate's return type
+    /// and parameter types. Used to filter out enclosing type parameters that are not
+    /// actually referenced.
+    /// </summary>
+    private static HashSet<string> CollectReferencedTypeNames(DelegateDeclarationSyntax node, ConversionContext context)
+    {
+        var names = new HashSet<string>();
+        CollectTypeNames(node.ReturnType, names);
+        foreach (var param in node.ParameterList?.Parameters ?? Enumerable.Empty<ParameterSyntax>())
+        {
+            if (param.Type != null)
+                CollectTypeNames(param.Type, names);
+        }
+        return names;
+    }
+
+    private static void CollectTypeNames(TypeSyntax type, HashSet<string> names)
+    {
+        switch (type)
+        {
+            case IdentifierNameSyntax id:
+                names.Add(id.Identifier.Text);
+                break;
+            case GenericNameSyntax generic:
+                names.Add(generic.Identifier.Text);
+                foreach (var arg in generic.TypeArgumentList.Arguments)
+                    CollectTypeNames(arg, names);
+                break;
+            case ArrayTypeSyntax array:
+                CollectTypeNames(array.ElementType, names);
+                break;
+            case NullableTypeSyntax nullable:
+                CollectTypeNames(nullable.ElementType, names);
+                break;
+            case QualifiedNameSyntax qualified:
+                CollectTypeNames(qualified.Right, names);
+                break;
+            case TupleTypeSyntax tuple:
+                foreach (var element in tuple.Elements)
+                    CollectTypeNames(element.Type, names);
+                break;
+        }
     }
 
     private (string javaType, bool isVarArgs) ResolveParamType(ParameterSyntax param, ConversionContext context)

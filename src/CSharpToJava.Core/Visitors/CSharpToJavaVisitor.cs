@@ -57,6 +57,15 @@ public class CSharpToJavaVisitor : CSharpSyntaxVisitor<JavaSyntaxNode?>
                     compilation.TypeDeclarations.Add(enumDeclNode);
                 }
             }
+            else if (member is DelegateDeclarationSyntax delegateDecl)
+            {
+                var delegateTransformer = _factory.CreateDelegateTransformer();
+                var javaDelegate = delegateTransformer.TransformDelegate(delegateDecl, _context);
+                if (javaDelegate != null)
+                {
+                    compilation.TypeDeclarations.Add(javaDelegate);
+                }
+            }
         }
 
         // Flush imports accumulated during type-body visitation (fields, methods, parameters).
