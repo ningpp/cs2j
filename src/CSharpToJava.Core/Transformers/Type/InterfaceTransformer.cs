@@ -200,6 +200,12 @@ public class InterfaceTransformer : ITypeTransformer
                     je.Modifiers |= JavaModifiers.Static;
                     javaInterface.NestedTypes.Add(je);
                 }
+                else if (nestedEnumResult is JavaClassDeclaration jcEnum)
+                {
+                    // [Flags] enums generate a JavaClassDeclaration (int constants class)
+                    jcEnum.Modifiers |= JavaModifiers.Static;
+                    javaInterface.NestedTypes.Add(jcEnum);
+                }
                 break;
         }
     }

@@ -147,7 +147,8 @@ public class EnumTransformer : ITypeTransformer
             // Java enums cannot have plain integer ordinals assigned at the call site.
             // Use a constructor-based value field pattern:
             //   enum Status { Open(10), Closed(20); private final int value; ... }
-            int nextVal = 0;
+            long nextVal = 0;
+            bool nextValValid = true; // false when we can't compute the next auto-increment value
             foreach (var member in enumDecl.Members)
             {
                 if (member is EnumMemberDeclarationSyntax enumMember)
@@ -155,17 +156,34 @@ public class EnumTransformer : ITypeTransformer
                     string valStr;
                     if (enumMember.EqualsValue != null)
                     {
+                        var rawValue = enumMember.EqualsValue.Value.ToString().Trim();
                         valStr = TransformEnumValueExpression(enumMember.EqualsValue.Value);
-                        int.TryParse(valStr, out nextVal);
+                        // Try to track the numeric value for auto-increment of subsequent members
+                        if (rawValue.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+                        {
+                            nextValValid = long.TryParse(rawValue.Substring(2), NumberStyles.HexNumber, null, out nextVal);
+                        }
+                        else
+                        {
+                            nextValValid = long.TryParse(valStr.TrimEnd('L', 'l'), out nextVal);
+                        }
                     }
                     else
                     {
-                        valStr = nextVal.ToString();
+                        valStr = nextValValid ? nextVal.ToString() : nextVal.ToString();
                     }
                     javaEnum.Values.Add($"{enumMember.Identifier.Text}({valStr})");
-                    nextVal++;
+                    if (nextValValid) nextVal++;
                 }
             }
+
+            // Register so that cast sites know to use getValue()/fromValue() instead of ordinal()/values()[]
+            context.RegisterExplicitValueEnum(enumDecl.Identifier.Text);
+            var fqn = string.IsNullOrEmpty(context.CurrentNamespace)
+                ? enumDecl.Identifier.Text
+                : $"{context.CurrentNamespace}.{enumDecl.Identifier.Text}";
+            if (fqn != enumDecl.Identifier.Text)
+                context.RegisterExplicitValueEnum(fqn);
 
             // Add private final int value field
             javaEnum.Fields.Add(new JavaFieldDeclaration
@@ -193,6 +211,17 @@ public class EnumTransformer : ITypeTransformer
                 Modifiers = JavaModifiers.Public,
                 Body = "return value;"
             });
+
+            // Add fromValue() reverse lookup for int → enum casts
+            var enumName = enumDecl.Identifier.Text;
+            javaEnum.Methods.Add(new JavaMethodDeclaration
+            {
+                ReturnType = enumName,
+                Name = "fromValue",
+                Modifiers = JavaModifiers.Public | JavaModifiers.Static,
+                Body = $"for ({enumName} e : values()) {{ if (e.value == v) return e; }}\n        throw new IllegalArgumentException(\"No enum constant with value \" + v);"
+            });
+            javaEnum.Methods.Last().Parameters.Add(new JavaParameter("int", "v"));
         }
         else
         {

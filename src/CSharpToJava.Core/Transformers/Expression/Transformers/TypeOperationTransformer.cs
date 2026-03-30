@@ -68,17 +68,23 @@ public class TypeOperationTransformer : IExpressionTransformer
 
         // C# numeric -> enum cast: (MyEnum)i
         // Java cannot cast int to enum directly; map by ordinal index instead.
+        // For enums with explicit values, use fromValue() instead of values()[] to avoid AIOOBE.
         if (targetSymbol?.TypeKind == TypeKind.Enum
             && context.SemanticModel != null
             && targetType is not ("int" or "long" or "short" or "byte" or "double" or "float"))
         {
             var sourceType = context.SemanticModel.GetTypeInfo(node.Expression).Type;
             if (sourceType?.TypeKind != TypeKind.Enum)
+            {
+                if (IsExplicitValueEnum(targetSymbol, context))
+                    return $"{targetType}.fromValue((int)({expression}))";
                 return $"{targetType}.values()[(int)({expression})]";
+            }
         }
 
         // C# enum -> numeric cast: (int)myEnum
         // Java enums cannot be cast to numeric primitives; use ordinal() and widen/narrow as needed.
+        // For enums with explicit values, use getValue() instead of ordinal().
         if (context.SemanticModel != null)
         {
             var sourceType = context.SemanticModel.GetTypeInfo(node.Expression).Type;
@@ -93,9 +99,10 @@ public class TypeOperationTransformer : IExpressionTransformer
                         : $"({targetType})({expression})";
                 }
 
+                var accessor = IsExplicitValueEnum(sourceType, context) ? "getValue()" : "ordinal()";
                 return targetType == "int"
-                    ? $"{expression}.ordinal()"
-                    : $"({targetType})({expression}.ordinal())";
+                    ? $"{expression}.{accessor}"
+                    : $"({targetType})({expression}.{accessor})";
             }
         }
 
@@ -158,6 +165,14 @@ public class TypeOperationTransformer : IExpressionTransformer
     private static bool IsJavaNumericType(string javaType)
         => javaType is "int" or "long" or "short" or "byte" or "double" or "float"
             or "Integer" or "Long" or "Short" or "Byte" or "Double" or "Float";
+
+    private static bool IsExplicitValueEnum(ITypeSymbol? typeSymbol, ConversionContext context)
+    {
+        if (typeSymbol is not INamedTypeSymbol named || named.TypeKind != TypeKind.Enum)
+            return false;
+        return context.IsExplicitValueEnum(named.Name)
+            || context.IsExplicitValueEnum(named.ToDisplayString());
+    }
 
     private static bool IsIterableLikeJavaType(string mappedType)
     {

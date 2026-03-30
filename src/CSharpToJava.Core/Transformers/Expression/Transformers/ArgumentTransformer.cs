@@ -367,6 +367,7 @@ public class ArgumentTransformer
 
         // Enum parameter + integral argument: map ordinal to enum constant.
         // C# allows passing 0 / int where enum is expected in some contexts; Java requires explicit enum value.
+        // For enums with explicit values, use fromValue() instead of values()[] to avoid AIOOBE.
         if (paramType.TypeKind == TypeKind.Enum
             && argType.TypeKind != TypeKind.Enum
             && argType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int16
@@ -375,7 +376,14 @@ public class ArgumentTransformer
         {
             var javaEnumType = context.MapType(paramType);
             if (!string.IsNullOrWhiteSpace(javaEnumType))
-                return $"{javaEnumType}.values()[(int)({transformedExpr})]";
+            {
+                bool isExplicit = paramType is INamedTypeSymbol namedParam
+                    && (context.IsExplicitValueEnum(namedParam.Name)
+                        || context.IsExplicitValueEnum(namedParam.ToDisplayString()));
+                return isExplicit
+                    ? $"{javaEnumType}.fromValue((int)({transformedExpr}))"
+                    : $"{javaEnumType}.values()[(int)({transformedExpr})]";
+            }
         }
 
         // ── Case 1: Array argument → parameter expects IEnumerable/ICollection/IList ──

@@ -245,6 +245,24 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         var originalMethodName = memberAccess.Name.Identifier.Text;
         var earlyMethodSymbol = context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol;
 
+        // C# Enum.HasFlag(flag) → Java bitwise check: (receiver & argument) != 0
+        // [Flags] enums are mapped to int in Java, so bitwise operations are valid.
+        if (originalMethodName == "HasFlag" && node.ArgumentList.Arguments.Count == 1
+            && context.SemanticModel != null)
+        {
+            var receiverType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type;
+            if (receiverType?.TypeKind == TypeKind.Enum
+                && (receiverType is INamedTypeSymbol namedHasFlag
+                    && (namedHasFlag.GetAttributes().Any(a =>
+                            a.AttributeClass?.ToDisplayString() is "System.FlagsAttribute")
+                        || context.IsFlagsEnum(namedHasFlag.Name)
+                        || context.IsFlagsEnum(namedHasFlag.ToDisplayString()))))
+            {
+                var flagArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"(({receiver} & {flagArg}) != 0)";
+            }
+        }
+
         if (originalMethodName == "ReferenceEquals" && node.ArgumentList.Arguments.Count == 2)
         {
             var leftArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);

@@ -27,6 +27,12 @@ public class TypeMappingService
     /// </summary>
     private static readonly HashSet<string> _flagsEnumNames = new(StringComparer.Ordinal);
 
+    /// <summary>
+    /// Enum names that have explicit integer values (need getValue()/fromValue() instead of ordinal()/values()[]).
+    /// Static to survive across files.
+    /// </summary>
+    private static readonly HashSet<string> _explicitValueEnumNames = new(StringComparer.Ordinal);
+
     public TypeMappingService(
         ConversionOptions options,
         TypeMapping.TypeMappingRegistry typeMappings,
@@ -47,6 +53,9 @@ public class TypeMappingService
 
     public void RegisterFlagsEnum(string enumName) => _flagsEnumNames.Add(enumName);
     public bool IsFlagsEnum(string enumName) => _flagsEnumNames.Contains(enumName);
+
+    public void RegisterExplicitValueEnum(string enumName) => _explicitValueEnumNames.Add(enumName);
+    public bool IsExplicitValueEnum(string enumName) => _explicitValueEnumNames.Contains(enumName);
 
     /// <summary>
     /// Clear per-file caches (TypeCache). Called before each file conversion.

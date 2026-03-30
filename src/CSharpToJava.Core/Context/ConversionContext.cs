@@ -91,6 +91,9 @@ public class ConversionContext
     public void RegisterFlagsEnum(string enumName) => TypeMapper.RegisterFlagsEnum(enumName);
     public bool IsFlagsEnum(string enumName) => TypeMapper.IsFlagsEnum(enumName);
 
+    public void RegisterExplicitValueEnum(string enumName) => TypeMapper.RegisterExplicitValueEnum(enumName);
+    public bool IsExplicitValueEnum(string enumName) => TypeMapper.IsExplicitValueEnum(enumName);
+
     // ─── Facade methods delegating to MethodState for backward compatibility ───
 
     public void AddPreStatement(string statement) => MethodState.AddPreStatement(statement);

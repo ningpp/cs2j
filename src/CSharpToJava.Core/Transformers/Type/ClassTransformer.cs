@@ -1130,6 +1130,12 @@ public class ClassTransformer : ITypeTransformer
                     je.Modifiers |= JavaModifiers.Static; // nested enums are static
                     javaClass.NestedTypes.Add(je);
                 }
+                else if (nestedEnumResult is JavaClassDeclaration jcEnum)
+                {
+                    // [Flags] enums generate a JavaClassDeclaration (int constants class)
+                    jcEnum.Modifiers |= JavaModifiers.Static;
+                    javaClass.NestedTypes.Add(jcEnum);
+                }
                 break;
 
             case EventFieldDeclarationSyntax eventFieldDecl:
