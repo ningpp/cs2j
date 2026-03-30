@@ -1,7 +1,6 @@
 <Solution>
   <Project Path="src\CSharpToJava.TypeMapping\CSharpToJava.TypeMapping.csproj" Id="a1b2c3d4-e5f6-4a5b-8c7d-1a2b3c4d5e6f" Type="Microsoft.VisualStudio.Project" />
   <Project Path="src\CSharpToJava.Core\CSharpToJava.Core.csproj" Id="b2c3d4e5-f6a7-4b5c-9d8e-2b3c4d5e6f7a" Type="Microsoft.VisualStudio.Project" />
-  <Project Path="src\CSharpToJava.LINQ\CSharpToJava.LINQ.csproj" Id="c3d4e5f6-a7b8-4c6d-0e9f-3c4d5e6f7a8b" Type="Microsoft.VisualStudio.Project" />
   <Project Path="src\CSharpToJava.Async\CSharpToJava.Async.csproj" Id="d4e5f6a7-b8c9-4d7e-1f0a-4d5e6f7a8b9c" Type="Microsoft.VisualStudio.Project" />
   <Project Path="src\CSharpToJava.CLI\CSharpToJava.CLI.csproj" Id="e5f6a7b8-c9d0-4e8f-2a1b-5e6f7a8b9c0d" Type="Microsoft.VisualStudio.Project" />
   <Project Path="src\CSharpToJava.Workspace\CSharpToJava.Workspace.csproj" Id="a1b2c3d4-e5f6-4a5b-8c7d-2a3b4c5d6e7f" Type="Microsoft.VisualStudio.Project" />
@@ -9,7 +8,6 @@
   <Folder Id="9a8b7c6d-5e4f-4a3b-2c1d-0f9e8d7c6b5a" Name="/src/" Path="/src/">
     <ProjectRef Id="a1b2c3d4-e5f6-4a5b-8c7d-1a2b3c4d5e6f" />
     <ProjectRef Id="b2c3d4e5-f6a7-4b5c-9d8e-2b3c4d5e6f7a" />
-    <ProjectRef Id="c3d4e5f6-a7b8-4c6d-0e9f-3c4d5e6f7a8b" />
     <ProjectRef Id="d4e5f6a7-b8c9-4d7e-1f0a-4d5e6f7a8b9c" />
     <ProjectRef Id="e5f6a7b8-c9d0-4e8f-2a1b-5e6f7a8b9c0d" />
     <ProjectRef Id="a1b2c3d4-e5f6-4a5b-8c7d-2a3b4c5d6e7f" />

@@ -51,7 +51,6 @@ CSharpToJavaConverter/
 │   ├── CSharpToJava.Core/          # Core conversion engine (Roslyn-based)
 │   ├── CSharpToJava.CLI/           # Command-line interface
 │   ├── CSharpToJava.TypeMapping/   # Type mapping configuration (JSON-driven)
-│   ├── CSharpToJava.LINQ/          # LINQ-to-procedural conversion (preprocessor)
 │   └── CSharpToJava.Async/         # Async/await support (Task -> CompletableFuture)
 ├── tests/
 │   └── CSharpToJava.Tests/         # XUnit tests
