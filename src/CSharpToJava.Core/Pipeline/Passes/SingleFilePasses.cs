@@ -44,9 +44,36 @@ public sealed class SingleFileLinqDesugarPass : ICs2jPass<SingleFilePassState>, 
 
         try
         {
+            // Phase 1: Desugar LINQ query expressions (from…in…where…select) to
+            // equivalent method-call chains (Where/Select/OrderBy/GroupBy).
+            // This is purely syntactic and requires no semantic model.
+            var desugarer = new LinqQueryDesugarer();
+            var desugaredRoot = (CompilationUnitSyntax)desugarer.Visit(state.SyntaxTree.GetRoot());
+            RewriteCount += desugarer.DesugaredCount;
+
+            if (desugarer.DesugaredCount > 0)
+            {
+                // Rebuild the compilation and semantic model so that the LinqRewriter
+                // in Phase 2 can resolve the desugared method calls (Where/Select/…).
+                state.SyntaxTree = state.SyntaxTree.WithRootAndOptions(desugaredRoot, state.SyntaxTree.Options);
+                state.Compilation = CSharpCompilation.Create(
+                    state.Compilation.AssemblyName ?? "TempAssembly",
+                    new[] { state.SyntaxTree, ConversionPipeline.GlobalUsingsTree },
+                    state.Compilation.References,
+                    state.Compilation.Options);
+                state.Library = Cs2jLibraryFactory.CreateSingleFile(
+                    desugaredRoot.ToFullString(),
+                    state.Request.FileName,
+                    state.SyntaxTree,
+                    state.Compilation);
+                state.Context.SemanticModel = state.Library.PrimaryCompilation?.GetSemanticModel(state.SyntaxTree)
+                    ?? state.Compilation.GetSemanticModel(state.SyntaxTree);
+            }
+
+            // Phase 2: Rewrite LINQ method-call chains to procedural loops.
             var rewriter = new LinqRewriter(state.Context.SemanticModel, state.Request.Options);
             var rewrittenRoot = (CompilationUnitSyntax)rewriter.Visit(state.SyntaxTree.GetRoot());
-            RewriteCount = rewriter.RewrittenLinqQueries;
+            RewriteCount += rewriter.RewrittenLinqQueries;
             state.SyntaxTree = state.SyntaxTree.WithRootAndOptions(rewrittenRoot, state.SyntaxTree.Options);
 
             foreach (var skipped in rewriter.SkippedLinqChains)

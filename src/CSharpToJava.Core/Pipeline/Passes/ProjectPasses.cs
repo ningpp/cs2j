@@ -155,6 +155,32 @@ public sealed class ProjectLinqDesugarPass : ICs2jPass<ProjectPassState>, ICs2jP
             return;
         }
 
+        var originalTrees = state.Compilation.SyntaxTrees.ToList();
+
+        // Phase 1: Desugar LINQ query expressions (from…in…where…select) to
+        // method-call chains (Where/Select/OrderBy/GroupBy).
+        // This is purely syntactic — no semantic model required.
+        var desugarResults = ProjectPassParallelism.RunDeterministic(
+            originalTrees,
+            state.Context.Options.EnableParallelProjectPasses,
+            syntaxTree => DesugarSyntaxTree(syntaxTree));
+
+        int totalDesugared = desugarResults.Sum(r => r.RewriteCount);
+        RewriteCount += totalDesugared;
+
+        if (totalDesugared > 0)
+        {
+            // Rebuild the compilation with the desugared trees so that the
+            // LinqRewriter in Phase 2 can resolve the desugared method calls.
+            var newCompilation = state.Compilation;
+            for (int i = 0; i < originalTrees.Count; i++)
+            {
+                newCompilation = newCompilation.ReplaceSyntaxTree(originalTrees[i], desugarResults[i].SyntaxTree);
+            }
+            state.Compilation = newCompilation;
+        }
+
+        // Phase 2: Rewrite LINQ method-call chains to procedural loops.
         var rewriteResults = ProjectPassParallelism.RunDeterministic(
             state.Compilation.SyntaxTrees.ToList(),
             state.Context.Options.EnableParallelProjectPasses,
@@ -187,6 +213,44 @@ public sealed class ProjectLinqDesugarPass : ICs2jPass<ProjectPassState>, ICs2jP
             isTestProject: primaryProject?.IsTestProject ?? false,
             libraryName: state.Library.Name);
         state.Context.ProjectCompilation = state.Compilation;
+    }
+
+    private static ProjectLinqRewriteResult DesugarSyntaxTree(SyntaxTree syntaxTree)
+    {
+        if (string.IsNullOrWhiteSpace(syntaxTree.FilePath) || syntaxTree.FilePath.StartsWith("<", StringComparison.Ordinal))
+        {
+            return new ProjectLinqRewriteResult
+            {
+                SyntaxTree = syntaxTree,
+                Warnings = [],
+                RewriteCount = 0,
+            };
+        }
+
+        try
+        {
+            var desugarer = new LinqQueryDesugarer();
+            var desugaredRoot = desugarer.Visit(syntaxTree.GetRoot());
+            var desugaredTree = desugaredRoot is CompilationUnitSyntax desugaredCompUnit
+                ? syntaxTree.WithRootAndOptions(desugaredCompUnit, syntaxTree.Options)
+                : syntaxTree;
+
+            return new ProjectLinqRewriteResult
+            {
+                SyntaxTree = desugaredTree,
+                Warnings = [],
+                RewriteCount = desugarer.DesugaredCount,
+            };
+        }
+        catch (Exception ex)
+        {
+            return new ProjectLinqRewriteResult
+            {
+                SyntaxTree = syntaxTree,
+                Warnings = [$"LINQ query desugar skipped in '{Path.GetFileName(syntaxTree.FilePath)}': {ex.Message}"],
+                RewriteCount = 0,
+            };
+        }
     }
 
     private static ProjectLinqRewriteResult RewriteSyntaxTree(ProjectPassState state, SyntaxTree syntaxTree)
