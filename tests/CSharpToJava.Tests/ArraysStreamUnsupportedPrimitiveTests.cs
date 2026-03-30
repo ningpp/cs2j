@@ -330,6 +330,67 @@ class Sample
         Assert.Contains("Arrays.stream(arr)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    // ── Reference-type arrays must NOT use mapToObj / boxed ────────────────
+
+    [Fact]
+    public void SelectOnReferenceTypeArray_UsesMap_NotMapToObj()
+    {
+        var result = Convert(@"
+using System.Linq;
+class Edge { public string Name { get; set; } }
+class Sample
+{
+    void M(Edge[] edges)
+    {
+        var names = edges.Select(e => e.Name).ToArray();
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("Arrays.stream(edges)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains(".map(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("mapToObj", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ChainedLinqOnReferenceTypeArray_UsesMap_NotMapToObj()
+    {
+        var result = Convert(@"
+using System.Linq;
+class Edge { public string Name { get; set; } public bool Active { get; set; } }
+class Sample
+{
+    void M(Edge[] edges)
+    {
+        var names = edges.Where(e => e.Active).Select(e => e.Name).ToArray();
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("Arrays.stream(edges)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains(".map(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("mapToObj", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".boxed()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SelectOnIntArray_ReturningObject_UsesMapToObj()
+    {
+        // int[] → IntStream; Select producing string → mapToObj is CORRECT here
+        var result = Convert(@"
+using System.Linq;
+class Sample
+{
+    void M(int[] arr)
+    {
+        var strs = arr.Select(x => x.ToString()).ToArray();
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("mapToObj", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     // ── No generated code should contain Arrays.stream(unsupported) patterns ──
 
     [Fact]

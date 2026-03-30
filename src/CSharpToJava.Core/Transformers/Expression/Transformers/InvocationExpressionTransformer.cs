@@ -2176,7 +2176,10 @@ public class InvocationExpressionTransformer : IExpressionTransformer
 
                 // Chained LINQ: receiver is IEnumerable<int>, not int[].
                 // Detect via receiver string if it's still a primitive stream pipeline.
+                // Guard: the source element type (TypeArguments[0]) must be a Java primitive.
+                // Arrays.stream(T[]) for reference T produces Stream<T>, not IntStream.
                 if (!selectOnPrimitiveStream && methodSymbol.TypeArguments.Length >= 2
+                    && PrimitiveStreamCategory(methodSymbol.TypeArguments[0].SpecialType) != ""
                     && (receiver.StartsWith("Arrays.stream(", StringComparison.Ordinal)
                         || receiver.Contains("IntStream.range(", StringComparison.Ordinal))
                     && !receiver.Contains(".boxed()", StringComparison.Ordinal)
@@ -2286,12 +2289,15 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                     if (!smNeedsBoxed && smReceiverType is not IArrayTypeSymbol)
                     {
                         // For chained LINQ (receiver is IEnumerable<int>, not int[]),
-                        // check receiver string for primitive stream indicators
-                        smNeedsBoxed = (receiver.StartsWith("Arrays.stream(", StringComparison.Ordinal)
-                            || receiver.Contains("IntStream.range(", StringComparison.Ordinal))
+                        // check receiver string for primitive stream indicators.
+                        // Guard: the source element type (TypeArguments[0]) must be a Java primitive.
+                        // Arrays.stream(T[]) for reference T produces Stream<T>, not IntStream.
+                        smNeedsBoxed = methodSymbol.TypeArguments.Length >= 2
+                            && PrimitiveStreamCategory(methodSymbol.TypeArguments[0].SpecialType) != ""
+                            && (receiver.StartsWith("Arrays.stream(", StringComparison.Ordinal)
+                                || receiver.Contains("IntStream.range(", StringComparison.Ordinal))
                             && !receiver.Contains(".boxed()", StringComparison.Ordinal)
                             && !receiver.Contains(".mapToObj(", StringComparison.Ordinal)
-                            && methodSymbol.TypeArguments.Length >= 2
                             && PrimitiveStreamCategory(methodSymbol.TypeArguments[1].SpecialType) == "";
                     }
                     var boxedInsert = smNeedsBoxed ? ".boxed()" : "";
@@ -3466,6 +3472,14 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         // Chained LINQ (e.g. arr.Select(...).Max()): receiver type is IEnumerable<T>,
         // but the Java string reveals it originated from a primitive stream source.
         // Exclude .boxed() and .mapToObj() which convert back to boxed Stream<T>.
+        // Also exclude reference-type element sources — Arrays.stream(T[]) for reference T
+        // produces Stream<T>, not a primitive stream.
+        if (csType is INamedTypeSymbol named
+            && named.TypeArguments.Length > 0
+            && PrimitiveStreamCategory(named.TypeArguments[0].SpecialType) == "")
+        {
+            return false;
+        }
         if ((receiver.StartsWith("Arrays.stream(", StringComparison.Ordinal)
                 || receiver.Contains("IntStream.range(", StringComparison.Ordinal)
                 || receiver.Contains("IntStream.rangeClosed(", StringComparison.Ordinal))
