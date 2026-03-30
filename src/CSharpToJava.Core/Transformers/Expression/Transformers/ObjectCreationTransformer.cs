@@ -54,6 +54,7 @@ public class ObjectCreationTransformer : IExpressionTransformer
         if (typeInfo.HasValue && typeInfo.Value.Type != null)
         {
             var typeName = context.MapType(typeInfo.Value.Type);
+            typeName = MapToConcreteTypeForInstantiation(typeName, context);
             return TransformObjectCreationWithArgs(typeName, node.ArgumentList, context);
         }
         return "new Object()";
@@ -80,6 +81,10 @@ public class ObjectCreationTransformer : IExpressionTransformer
                 ? context.MapTypeFromSyntax(typeSyntax)
                 : "Object";
         }
+
+        // Java interface types cannot be instantiated. Map to concrete implementations.
+        // E.g., C# new List<T>() maps to List<T> (Java interface) but must instantiate ArrayList<T>.
+        typeName = MapToConcreteTypeForInstantiation(typeName, context);
 
         // Java cannot instantiate a type parameter directly (new T()).
         // For C# where T : ICollection<...>, new() we map to ArrayList and cast.
@@ -284,6 +289,28 @@ public class ObjectCreationTransformer : IExpressionTransformer
             or "java.util.function.Consumer" or "java.util.function.BiConsumer"
             or "java.util.function.Predicate" or "java.util.function.Supplier"
             or "java.lang.Runnable" or "java.util.Comparator";
+    }
+
+    /// <summary>
+    /// Maps Java interface type names to their concrete implementations for object instantiation.
+    /// In Java, interfaces like <c>List</c> cannot be instantiated directly; the <c>new</c>
+    /// expression must use a concrete class such as <c>ArrayList</c>.
+    /// </summary>
+    private static string MapToConcreteTypeForInstantiation(string typeName, ConversionContext context)
+    {
+        var angleIndex = typeName.IndexOf('<');
+        var bare = angleIndex >= 0 ? typeName[..angleIndex] : typeName;
+        string? concreteType = bare switch
+        {
+            "List" => "ArrayList",
+            _ => null
+        };
+        if (concreteType == null) return typeName;
+
+        context.AddImport($"java.util.{concreteType}");
+        return angleIndex >= 0
+            ? concreteType + typeName[angleIndex..]
+            : concreteType;
     }
 
     /// <summary>
