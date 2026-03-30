@@ -143,7 +143,12 @@ namespace CSharpToJava.Core.LinqRewrite
                     var lastNode = node;
                     while (c.Expression is MemberAccessExpressionSyntax)
                     {
-                        c = ((MemberAccessExpressionSyntax)c.Expression).Expression as InvocationExpressionSyntax;
+                        // Strip parentheses: desugared query expressions may be wrapped in
+                        // parentheses like (values.Where(x => x > 0)).Any(), so we need to
+                        // look through them to chain LINQ methods correctly.
+                        ExpressionSyntax receiverExpr = ((MemberAccessExpressionSyntax)c.Expression).Expression;
+                        while (receiverExpr is ParenthesizedExpressionSyntax paren) receiverExpr = paren.Expression;
+                        c = receiverExpr as InvocationExpressionSyntax;
                         if (c != null && IsSupportedMethod(c))
                         {
                             chain.Add(new LinqStep(GetMethodFullName(c), c.ArgumentList.Arguments.Select(x => x.Expression).ToList(), c));
@@ -208,6 +213,10 @@ namespace CSharpToJava.Core.LinqRewrite
                         .Select(x => CreateVariableCapture(x, flowsOut)) ?? Enumerable.Empty<VariableCapture>();
 
                     var collection = ((MemberAccessExpressionSyntax)lastNode.Expression).Expression;
+                    // Strip parentheses from the collection expression (may appear after
+                    // query desugaring: e.g. (values.Where(…)).Select(…)).
+                    while (collection is ParenthesizedExpressionSyntax collectionParen)
+                        collection = collectionParen.Expression;
 
                     if (!CanUseRecordsForAnonymousTypes && IsAnonymousType(semantic.GetTypeInfo(collection).Type)) return null;
 
@@ -740,11 +749,11 @@ namespace CSharpToJava.Core.LinqRewrite
 
         public override SyntaxNode VisitQueryExpression(QueryExpressionSyntax node)
         {
-            // Desugaring creates synthetic InvocationExpressionSyntax nodes via SyntaxFactory.
-            // These nodes are NOT in the semantic model's syntax tree, so any call to
-            // semantic.GetSymbolInfo / GetTypeInfo / AnalyzeDataFlow on them throws.
-            // Fall through to base visitor; QueryExpressionTransformer handles query syntax
-            // during the main Java conversion phase.
+            // LINQ query expressions are desugared to method-call chains
+            // (Where/Select/OrderBy/GroupBy) by LinqQueryDesugarer before this
+            // rewriter runs.  Any query expressions that reach here were not
+            // desugared (e.g. complex cases with let/join/into) and are handled
+            // by QueryExpressionTransformer during the Java emit phase.
             return base.VisitQueryExpression(node);
         }
 
