@@ -69,6 +69,11 @@ public class StructTransformer : ITypeTransformer
                     // Skip MarshalByRefObject - it doesn't exist in Java
                     if (iface.Name != "MarshalByRefObject" && iface.ToDisplayString() != "System.MarshalByRefObject")
                     {
+                        // Skip IEquatable<T> — Java has no equivalent interface; the Equals(T)
+                        // method is preserved as a normal public method.
+                        if (iface.OriginalDefinition.ToDisplayString() == "System.IEquatable<T>")
+                            continue;
+
                         javaClass.ImplementedTypes.Add(context.MapType(iface));
                     }
                 }
@@ -127,6 +132,17 @@ public class StructTransformer : ITypeTransformer
 
         // Fix 6: If an equals() method was generated but hashCode() is absent, emit a hashCode().
         AddHashCodeIfMissing(javaClass, context);
+
+        // Generate equals(Object) override when operator== was converted to valueEquals
+        // but no explicit equals(Object) override exists.
+        AddEqualsOverrideIfMissing(javaClass, context);
+
+        // Generate toString() for better debugging when no explicit override exists.
+        AddToStringIfMissing(javaClass);
+
+        // When struct has comparison operators (lessThan/greaterThan), add Comparable<T>
+        // bridge method if body references .compareTo(), mirroring ClassTransformer behavior.
+        AddComparableBridgeMethods(javaClass);
 
         // Fix 4: C# structs always have an implicit zero-arg constructor. Emit one for Java
         // when there are explicit parameterised constructors but no no-arg constructor.
@@ -438,6 +454,115 @@ public class StructTransformer : ITypeTransformer
         javaClass.Methods.Add(hashCodeMethod);
     }
 
+    /// <summary>
+    /// When operator== was converted to a static valueEquals() method but no explicit
+    /// equals(Object) override exists, generate one that delegates to valueEquals().
+    /// This is required for Java collections and equality checks to work correctly.
+    /// </summary>
+    private static void AddEqualsOverrideIfMissing(JavaClassDeclaration javaClass, ConversionContext context)
+    {
+        bool hasValueEquals = javaClass.Methods.Any(m =>
+            m.Name == "valueEquals" && (m.Modifiers & JavaModifiers.Static) != 0);
+        if (!hasValueEquals)
+            return;
+
+        bool hasEqualsObject = javaClass.Methods.Any(m =>
+            m.Name == "equals" && m.Parameters.Count == 1 && m.Parameters[0].Type == "Object");
+        if (hasEqualsObject)
+            return;
+
+        string className = javaClass.Name;
+        var equalsMethod = new JavaMethodDeclaration
+        {
+            Name = "equals",
+            ReturnType = "boolean",
+            Modifiers = JavaModifiers.Public,
+            Body = $"if (this == o) return true;\n" +
+                   $"        if (!(o instanceof {className} other)) return false;\n" +
+                   $"        return {className}.valueEquals(this, other);"
+        };
+        equalsMethod.Parameters.Add(new JavaParameter("Object", "o"));
+        equalsMethod.Annotations.Add(new JavaAnnotation("Override"));
+        javaClass.Methods.Add(equalsMethod);
+        context.AddImport("java.util.Objects");
+    }
+
+    /// <summary>
+    /// Generate a toString() method for structs when no explicit override exists.
+    /// Includes all instance field values for easier debugging.
+    /// </summary>
+    private static void AddToStringIfMissing(JavaClassDeclaration javaClass)
+    {
+        bool hasToString = javaClass.Methods.Any(m => m.Name == "toString" && m.Parameters.Count == 0);
+        if (hasToString)
+            return;
+
+        var instanceFields = javaClass.Fields
+            .Where(f => (f.Modifiers & JavaModifiers.Static) == 0)
+            .ToList();
+
+        string className = javaClass.Name;
+        string body;
+        if (instanceFields.Count == 0)
+        {
+            body = $"return \"{className}{{}}\";";
+        }
+        else
+        {
+            var fieldParts = string.Join(" + \", \" + ",
+                instanceFields.Select(f => $"\"{f.Name}=\" + {f.Name}"));
+            body = $"return \"{className}{{\" + {fieldParts} + \"}}\";";
+        }
+
+        var toStringMethod = new JavaMethodDeclaration
+        {
+            Name = "toString",
+            ReturnType = "String",
+            Modifiers = JavaModifiers.Public,
+            Body = body
+        };
+        toStringMethod.Annotations.Add(new JavaAnnotation("Override"));
+        javaClass.Methods.Add(toStringMethod);
+    }
+
+    /// <summary>
+    /// When struct has comparison operators (lessThan/greaterThan) and a method body
+    /// references .compareTo(), synthesize a compareTo() method and add Comparable&lt;T&gt;.
+    /// Mirrors ClassTransformer.AddComparableBridgeMethods logic.
+    /// </summary>
+    private static void AddComparableBridgeMethods(JavaClassDeclaration javaClass)
+    {
+        bool hasCompareTo = javaClass.Methods.Any(m => m.Name == "compareTo" && m.Parameters.Count == 1);
+        if (hasCompareTo) return;
+
+        bool bodyCallsCompareTo = javaClass.Methods.Any(m =>
+            m.Body != null && m.Body.Contains(".compareTo("));
+        if (!bodyCallsCompareTo) return;
+
+        var lessThanMethod = javaClass.Methods.FirstOrDefault(m =>
+            m.Name == "lessThan"
+            && m.Parameters.Count == 2
+            && (m.Modifiers & JavaModifiers.Static) != 0
+            && m.Parameters[0].Type == javaClass.Name);
+        if (lessThanMethod == null) return;
+
+        string className = javaClass.Name;
+        string elemType = lessThanMethod.Parameters[0].Type;
+
+        if (!javaClass.ImplementedTypes.Any(t => t == "Comparable" || t.StartsWith("Comparable<")))
+            javaClass.ImplementedTypes.Add($"Comparable<{className}>");
+
+        var compareTo = new JavaMethodDeclaration
+        {
+            Modifiers = JavaModifiers.Public,
+            ReturnType = "int",
+            Name = "compareTo",
+            Body = $"if ({className}.lessThan(this, other)) return -1;\n        if ({className}.lessThan(other, this)) return 1;\n        return 0;"
+        };
+        compareTo.Parameters.Add(new JavaParameter(elemType, "other"));
+        javaClass.Methods.Add(compareTo);
+    }
+
     private JavaModifiers ConvertModifiers(SyntaxTokenList modifiers)
     {
         JavaModifiers result = JavaModifiers.None;
@@ -563,6 +688,73 @@ public class StructTransformer : ITypeTransformer
                 else if (ctor is JavaStaticInitializerBlock staticInitBlock)
                 {
                     javaClass.StaticInitializers.Add(staticInitBlock);
+                }
+                break;
+
+            // ── Nested type declarations (mirroring ClassTransformer.ProcessMember) ──
+
+            case StructDeclarationSyntax nestedStruct:
+                var nestedStructTransformer = new StructTransformer();
+                var nestedStructResult = nestedStructTransformer.Transform(nestedStruct, context);
+                if (nestedStructResult is JavaClassDeclaration jcs)
+                {
+                    jcs.Modifiers |= JavaModifiers.Static;
+                    javaClass.NestedTypes.Add(jcs);
+                }
+                break;
+
+            case ClassDeclarationSyntax nestedClass:
+                var nestedClassTransformer = factory.CreateClassTransformer();
+                var nestedClassResult = nestedClassTransformer.Transform(nestedClass, context);
+                if (nestedClassResult is JavaClassDeclaration jcn)
+                {
+                    jcn.Modifiers |= JavaModifiers.Static;
+                    javaClass.NestedTypes.Add(jcn);
+                }
+                break;
+
+            case EnumDeclarationSyntax nestedEnum:
+                var enumTransformer = new Transformers.Type.EnumTransformer();
+                var nestedEnumResult = enumTransformer.TransformEnum(nestedEnum, context);
+                if (nestedEnumResult is JavaEnumDeclaration je)
+                {
+                    je.Modifiers |= JavaModifiers.Static;
+                    javaClass.NestedTypes.Add(je);
+                }
+                else if (nestedEnumResult is JavaClassDeclaration jcEnum)
+                {
+                    // [Flags] enums generate a JavaClassDeclaration (int constants class)
+                    jcEnum.Modifiers |= JavaModifiers.Static;
+                    javaClass.NestedTypes.Add(jcEnum);
+                }
+                break;
+
+            case InterfaceDeclarationSyntax nestedInterface:
+                var nestedIfaceTransformer = factory.CreateInterfaceTransformer();
+                var nestedIfaceResult = nestedIfaceTransformer.Transform(nestedInterface, context);
+                if (nestedIfaceResult is JavaInterfaceDeclaration ji)
+                {
+                    ji.Modifiers |= JavaModifiers.Static;
+                    javaClass.NestedTypes.Add(ji);
+                }
+                break;
+
+            case DelegateDeclarationSyntax nestedDelegate:
+                var delegateTransformer = new Transformers.Type.DelegateTransformer();
+                var nestedDelegateResult = delegateTransformer.TransformDelegate(nestedDelegate, context);
+                if (nestedDelegateResult != null)
+                {
+                    javaClass.NestedTypes.Add(nestedDelegateResult);
+                }
+                break;
+
+            case EventFieldDeclarationSyntax eventFieldDecl:
+                var eventFieldTransformer = new Transformers.Member.EventFieldTransformer();
+                var eventMembers = eventFieldTransformer.TransformEvent(eventFieldDecl, context);
+                foreach (var em in eventMembers)
+                {
+                    if (em is JavaFieldDeclaration ef && !javaClass.Fields.Any(f => f.Name == ef.Name)) javaClass.Fields.Add(ef);
+                    if (em is JavaMethodDeclaration emm) ClassTransformer.AddMethodIfNotDuplicateInternal(javaClass, emm);
                 }
                 break;
         }

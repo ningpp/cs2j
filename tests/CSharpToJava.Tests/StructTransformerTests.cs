@@ -259,6 +259,254 @@ public struct Outer
         Assert.Contains("this.Data != null ? this.Data.clone() : null", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    // ── Nested type declarations inside struct ──────────────────────────────────
+
+    [Fact]
+    public void Struct_NestedStruct_GeneratedAsStaticClass()
+    {
+        var result = Convert(@"
+public struct Outer
+{
+    public struct Inner
+    {
+        public int Value;
+    }
+    public Inner Data;
+}");
+
+        Assert.True(result.Success);
+        // Nested struct should be generated as a static class inside the outer class
+        Assert.Contains("public static class Inner implements Cloneable", result.GeneratedCode, StringComparison.Ordinal);
+        // Nested struct should have its own clone method
+        Assert.Contains("Inner clone()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Struct_NestedEnum_GeneratedAsStaticEnum()
+    {
+        var result = Convert(@"
+public struct Direction
+{
+    public enum Axis { X, Y, Z }
+    public Axis CurrentAxis;
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("static enum Axis", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Struct_NestedClass_GeneratedAsStaticClass()
+    {
+        var result = Convert(@"
+public struct Container
+{
+    public class Builder
+    {
+        public int BuildCount;
+    }
+    public int Value;
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("public static class Builder", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Struct_DeeplyNestedStruct_ThreeLevels()
+    {
+        var result = Convert(@"
+public struct Level1
+{
+    public struct Level2
+    {
+        public struct Level3
+        {
+            public int Value;
+        }
+        public Level3 Inner;
+    }
+    public Level2 Middle;
+}");
+
+        Assert.True(result.Success);
+        // All three levels should be present
+        Assert.Contains("class Level1", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("static class Level2", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("static class Level3", result.GeneratedCode, StringComparison.Ordinal);
+        // Deep nesting should have clone support
+        Assert.Contains("Level3 clone()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    // ── Operator overloading ────────────────────────────────────────────────────
+
+    [Fact]
+    public void Struct_OperatorOverloads_GenerateStaticMethods()
+    {
+        var result = Convert(@"
+public struct Vec2
+{
+    public float X, Y;
+    public Vec2(float x, float y) { X = x; Y = y; }
+    public static Vec2 operator +(Vec2 a, Vec2 b) => new Vec2(a.X + b.X, a.Y + b.Y);
+    public static Vec2 operator -(Vec2 a, Vec2 b) => new Vec2(a.X - b.X, a.Y - b.Y);
+    public static Vec2 operator *(Vec2 v, float s) => new Vec2(v.X * s, v.Y * s);
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("public static Vec2 add(Vec2 a, Vec2 b)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("public static Vec2 subtract(Vec2 a, Vec2 b)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("public static Vec2 multiply(Vec2 v, float s)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Struct_UnaryOperator_GeneratesStaticMethod()
+    {
+        var result = Convert(@"
+public struct Vec2
+{
+    public float X, Y;
+    public Vec2(float x, float y) { X = x; Y = y; }
+    public static Vec2 operator -(Vec2 v) => new Vec2(-v.X, -v.Y);
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("public static Vec2 negate(Vec2 v)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Struct_OperatorUsage_GeneratesStaticMethodCalls()
+    {
+        var result = Convert(@"
+public struct Vec2
+{
+    public float X, Y;
+    public Vec2(float x, float y) { X = x; Y = y; }
+    public static Vec2 operator +(Vec2 a, Vec2 b) => new Vec2(a.X + b.X, a.Y + b.Y);
+    public static Vec2 operator -(Vec2 v) => new Vec2(-v.X, -v.Y);
+}
+class User
+{
+    void Test()
+    {
+        var a = new Vec2(1, 2);
+        var b = new Vec2(3, 4);
+        var c = a + b;
+        var d = -a;
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("Vec2.add(a, b)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Vec2.negate(a)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Struct_EqualityOperator_GeneratesValueEquals()
+    {
+        var result = Convert(@"
+public struct Point
+{
+    public int X, Y;
+    public static bool operator ==(Point a, Point b) => a.X == b.X && a.Y == b.Y;
+    public static bool operator !=(Point a, Point b) => !(a == b);
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("public static boolean valueEquals(Point a, Point b)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("public static boolean notEquals(Point a, Point b)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Struct_ConversionOperators_GenerateStaticMethods()
+    {
+        var result = Convert(@"
+public struct Temperature
+{
+    public double Celsius;
+    public Temperature(double c) { Celsius = c; }
+    public static implicit operator double(Temperature t) => t.Celsius;
+    public static explicit operator Temperature(double d) => new Temperature(d);
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("public static double toDouble(Temperature t)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("public static Temperature toTemperature(double d)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    // ── IEquatable<T> removal ───────────────────────────────────────────────────
+
+    [Fact]
+    public void Struct_IEquatable_NotInImplementsList()
+    {
+        var result = Convert(@"
+using System;
+public struct Point : IEquatable<Point>
+{
+    public int X, Y;
+    public bool Equals(Point other) => X == other.X && Y == other.Y;
+    public override bool Equals(object obj) => obj is Point p && Equals(p);
+    public override int GetHashCode() => HashCode.Combine(X, Y);
+}");
+
+        Assert.True(result.Success);
+        // IEquatable<T> doesn't exist in Java — should not appear in implements
+        Assert.DoesNotContain("IEquatable", result.GeneratedCode, StringComparison.Ordinal);
+        // But the Equals(Point) method should still be present as a regular method
+        Assert.Contains("boolean equals(Point other)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    // ── Auto-generated equals/toString ──────────────────────────────────────────
+
+    [Fact]
+    public void Struct_ValueEquals_GeneratesEqualsObjectOverride()
+    {
+        var result = Convert(@"
+public struct Point
+{
+    public int X, Y;
+    public static bool operator ==(Point a, Point b) => a.X == b.X && a.Y == b.Y;
+    public static bool operator !=(Point a, Point b) => !(a == b);
+}");
+
+        Assert.True(result.Success);
+        // Should auto-generate equals(Object) that delegates to valueEquals
+        Assert.Contains("@Override", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("equals(Object o)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("valueEquals(this, other)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Struct_ToString_AutoGenerated()
+    {
+        var result = Convert(@"
+public struct Point
+{
+    public int X, Y;
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("toString()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Point{", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Struct_ExplicitToString_NotOverridden()
+    {
+        var result = Convert(@"
+public struct Point
+{
+    public int X, Y;
+    public override string ToString() => $""({X}, {Y})"";
+}");
+
+        Assert.True(result.Success);
+        // The explicit toString should be present
+        Assert.Contains("toString()", result.GeneratedCode, StringComparison.Ordinal);
+        // Should NOT contain the auto-generated pattern "Point{"
+        Assert.DoesNotContain("Point{", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
