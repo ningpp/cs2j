@@ -412,27 +412,20 @@ public class TypeOperationTransformer : IExpressionTransformer
 
     private string TransformDefault(DefaultExpressionSyntax node, ConversionContext context)
     {
-        if (node.Type != null)
+        // DefaultExpressionSyntax is the default(Type) form — it always has a Type.
+        // The bare 'default' literal is handled by TransformDefaultLiteral.
+        var typeInfo = context.SemanticModel?.GetTypeInfo(node.Type);
+        string typeName;
+        if (typeInfo.HasValue && typeInfo.Value.Type != null)
         {
-            // Get the type
-            var typeInfo = context.SemanticModel?.GetTypeInfo(node.Type);
-            string typeName;
-            if (typeInfo.HasValue && typeInfo.Value.Type != null)
-            {
-                typeName = context.MapType(typeInfo.Value.Type);
-            }
-            else
-            {
-                typeName = context.MapTypeFromSyntax(node.Type);
-            }
-
-            return GetDefaultValueForType(typeName, typeInfo?.Type);
+            typeName = context.MapType(typeInfo.Value.Type);
         }
         else
         {
-            // default literal (C# 7.1+) - infer from context
-            return "/* TODO: default literal */ null";
+            typeName = context.MapTypeFromSyntax(node.Type);
         }
+
+        return GetDefaultValueForType(typeName, typeInfo?.Type);
     }
 
     /// <summary>
