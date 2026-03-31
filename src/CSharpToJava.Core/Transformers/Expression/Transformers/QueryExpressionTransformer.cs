@@ -60,6 +60,7 @@ public class QueryExpressionTransformer : IExpressionTransformer
 
                 case OrderByClauseSyntax orderBy:
                     // Fix 6: chain multiple sort keys into a single Comparator
+                    context.AddImport("java.util.Comparator");
                     var orderings = orderBy.Orderings;
                     var orderLambdaParam = BuildTypedLambdaParameter(fromClauseType, rangeVar, context, orderings[0].Expression);
                     var firstKey = facade.Transform(orderings[0].Expression, context);
@@ -94,6 +95,7 @@ public class QueryExpressionTransformer : IExpressionTransformer
 
                 case JoinClauseSyntax join when join.Into == null:
                     // Fix 1: regular equi-join via flatMap + filter on equality
+                    context.AddImport("java.util.Objects");
                     var joinVar = ConversionContext.EscapeJavaKeyword(join.Identifier.Text);
                     var joinInExpr = facade.Transform(join.InExpression, context);
                     var joinInType = context.SemanticModel?.GetTypeInfo(join.InExpression).Type;
@@ -109,6 +111,7 @@ public class QueryExpressionTransformer : IExpressionTransformer
                     // GroupJoin pattern: join y in src on x equals y into g
                     // Typically followed by: from y in g.DefaultIfEmpty()
                     // Together these form a LEFT OUTER JOIN.
+                    context.AddImport("java.util.Objects");
                     var capturedOuter = rangeVar;
                     var intoId = ConversionContext.EscapeJavaKeyword(joinInto.Into.Identifier.Text);
                     var jiVar = ConversionContext.EscapeJavaKeyword(joinInto.Identifier.Text);
@@ -217,6 +220,7 @@ public class QueryExpressionTransformer : IExpressionTransformer
                         sb.Append($"\n    .filter({rangeVar} -> {contCond})");
                         break;
                     case OrderByClauseSyntax contOrderBy:
+                        context.AddImport("java.util.Comparator");
                         var contOrderings = contOrderBy.Orderings;
                         var contLambdaParam = BuildTypedLambdaParameter(null, rangeVar, context, contOrderings[0].Expression);
                         var contFirstKey = facade.Transform(contOrderings[0].Expression, context);
