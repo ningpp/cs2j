@@ -107,6 +107,12 @@ public class TypeMappingService
 
     private string MapTypeInternal(ITypeSymbol typeSymbol)
     {
+        // IErrorTypeSymbol is returned by the semantic model when a type cannot be resolved
+        // (e.g. due to missing project references). Return "Object" instead of empty string
+        // to avoid generating invalid Java like "ObjectHolder<>".
+        if (typeSymbol is IErrorTypeSymbol)
+            return "Object";
+
         // Nullable value types
         if (typeSymbol.OriginalDefinition?.SpecialType == SpecialType.System_Nullable_T
             || typeSymbol.OriginalDefinition?.ToDisplayString() == "System.Nullable")

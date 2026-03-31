@@ -223,9 +223,23 @@ public class ArgumentTransformer
                 if (context.SemanticModel != null)
                 {
                     var typeInfo = context.SemanticModel.GetTypeInfo(ident);
-                    if (typeInfo.Type != null)
+                    if (typeInfo.Type != null && typeInfo.Type is not IErrorTypeSymbol)
                         javaType = context.MapType(typeInfo.Type);
                 }
+                // Fallback to parameter type when expression type is unresolved
+                if (javaType == "Object" && parameterSymbol != null)
+                {
+                    if (parameterSymbol.Type is not IErrorTypeSymbol)
+                        javaType = context.MapType(parameterSymbol.Type);
+                    else
+                    {
+                        var syntaxRef = parameterSymbol.DeclaringSyntaxReferences.FirstOrDefault();
+                        if (syntaxRef?.GetSyntax() is ParameterSyntax paramSyntax && paramSyntax.Type != null)
+                            javaType = context.MapTypeFromSyntax(paramSyntax.Type);
+                    }
+                }
+                if (string.IsNullOrEmpty(javaType))
+                    javaType = "Object";
                 var holderType = DelegateTransformer.GetHolderType(javaType);
                 var holderInit = GetHolderInstantiation(holderType);
                 context.AddPreStatement($"{holderType} {holderName} = {holderInit}");
@@ -276,9 +290,27 @@ public class ArgumentTransformer
                 if (context.SemanticModel != null)
                 {
                     var typeInfo = context.SemanticModel.GetTypeInfo(refIdent);
-                    if (typeInfo.Type != null)
+                    // Use the argument's type if it is not an error type (unresolved reference);
+                    // if it is an error type, fall through to the parameterSymbol fallback below.
+                    if (typeInfo.Type != null && typeInfo.Type is not IErrorTypeSymbol)
                         javaType = context.MapType(typeInfo.Type);
                 }
+                // If the argument type is unresolved, fall back to the callee's parameter type.
+                // First try the semantic type; if that is also an error, recover from the parameter's
+                // declaring syntax (e.g. "double" keyword) via MapTypeFromSyntax.
+                if (javaType == "Object" && parameterSymbol != null)
+                {
+                    if (parameterSymbol.Type is not IErrorTypeSymbol)
+                        javaType = context.MapType(parameterSymbol.Type);
+                    else
+                    {
+                        var syntaxRef = parameterSymbol.DeclaringSyntaxReferences.FirstOrDefault();
+                        if (syntaxRef?.GetSyntax() is ParameterSyntax paramSyntax && paramSyntax.Type != null)
+                            javaType = context.MapTypeFromSyntax(paramSyntax.Type);
+                    }
+                }
+                if (string.IsNullOrEmpty(javaType))
+                    javaType = "Object";
                 var refHolderType = DelegateTransformer.GetHolderType(javaType);
                 var refHolderInit = refHolderType.StartsWith("ObjectHolder<")
                     ? $"new ObjectHolder<>({varName})"
@@ -299,9 +331,23 @@ public class ArgumentTransformer
                 if (context.SemanticModel != null)
                 {
                     var typeInfo = context.SemanticModel.GetTypeInfo(arg.Expression);
-                    if (typeInfo.Type != null)
+                    if (typeInfo.Type != null && typeInfo.Type is not IErrorTypeSymbol)
                         javaType = context.MapType(typeInfo.Type);
                 }
+                // Fallback to parameter type when expression type is unresolved
+                if (javaType == "Object" && parameterSymbol != null)
+                {
+                    if (parameterSymbol.Type is not IErrorTypeSymbol)
+                        javaType = context.MapType(parameterSymbol.Type);
+                    else
+                    {
+                        var syntaxRef = parameterSymbol.DeclaringSyntaxReferences.FirstOrDefault();
+                        if (syntaxRef?.GetSyntax() is ParameterSyntax paramSyntax && paramSyntax.Type != null)
+                            javaType = context.MapTypeFromSyntax(paramSyntax.Type);
+                    }
+                }
+                if (string.IsNullOrEmpty(javaType))
+                    javaType = "Object";
 
                 var holderType = DelegateTransformer.GetHolderType(javaType);
                 var holderInit = holderType.StartsWith("ObjectHolder<")

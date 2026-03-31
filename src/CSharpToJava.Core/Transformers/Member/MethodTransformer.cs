@@ -482,7 +482,10 @@ public class MethodTransformer : IMemberTransformer
     private JavaParameter? ConvertParameter(ParameterSyntax param, ConversionContext context)
     {
         var typeInfo = context.SemanticModel?.GetTypeInfo(param.Type!);
-        var javaType = typeInfo.HasValue && typeInfo.Value.Type != null
+        // Use the semantic type when it's valid; fall back to syntax-based mapping when the
+        // semantic model returns an IErrorTypeSymbol (e.g. unresolved project references) so
+        // that primitive types like 'double' still map to the correct primitive holder type.
+        var javaType = typeInfo.HasValue && typeInfo.Value.Type != null && typeInfo.Value.Type is not IErrorTypeSymbol
             ? context.MapType(typeInfo.Value.Type)
             : context.MapTypeFromSyntax(param.Type!);
 

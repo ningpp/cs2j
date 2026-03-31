@@ -251,6 +251,10 @@ public class DelegateTransformer : IDelegateTransformer
             "char" => "CharHolder",
             "short" => "ShortHolder",
             "byte" => "ByteHolder",
+            // Safety net: empty javaType can occur when the semantic model returns an
+            // IErrorTypeSymbol for an unresolved type; fall back to Object to avoid
+            // generating invalid Java like "ObjectHolder<>".
+            _ when string.IsNullOrEmpty(javaType) => "ObjectHolder<Object>",
             _ => $"ObjectHolder<{javaType}>"
         };
     }
