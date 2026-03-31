@@ -792,9 +792,19 @@ public class ClassTransformer : ITypeTransformer
         if (addMethod != null)
         {
             addMethod.ReturnType = "boolean";
-            var trimmedBody = (addMethod.Body ?? "").TrimEnd();
+            var trimmedBody = (addMethod.Body ?? addMethod.StructuredBody?.ToBodyString() ?? "").TrimEnd();
             if (!EndsWithTerminalStatement(trimmedBody))
-                addMethod.Body = trimmedBody + "\nreturn true;";
+            {
+                if (addMethod.StructuredBody != null)
+                {
+                    addMethod.StructuredBody.Statements.Add(
+                        new CSharpToJava.Core.Java.JavaRawStatement("return true;"));
+                }
+                else
+                {
+                    addMethod.Body = trimmedBody + "\nreturn true;";
+                }
+            }
         }
 
         // Java Collection uses Object parameter for contains/remove after erasure.

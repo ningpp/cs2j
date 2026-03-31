@@ -321,4 +321,137 @@ class Sample {
         // Should use List.of(node) or similar
         Assert.DoesNotContain("Arrays.asList(new int[]", code);
     }
+
+    // Error 01: Missing return statement when ICollection.Add (void) → Collection.add (boolean)
+    [Fact]
+    public void Error01_MissingReturnInVoidToBooleanBridge()
+    {
+        var r = Convert(@"
+using System.Collections.Generic;
+class MySet<T> : ICollection<T> {
+    private HashSet<T> inner = new HashSet<T>();
+    public int Count => inner.Count;
+    public bool IsReadOnly => false;
+    public void Add(T item) { inner.Add(item); }
+    public void Clear() { inner.Clear(); }
+    public bool Contains(T item) { return inner.Contains(item); }
+    public void CopyTo(T[] array, int index) { }
+    public bool Remove(T item) { return inner.Remove(item); }
+    public IEnumerator<T> GetEnumerator() { return inner.GetEnumerator(); }
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() { return GetEnumerator(); }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        // If "boolean add" method exists, it must have a return statement
+        if (code.Contains("boolean add("))
+        {
+            var addMethodIdx = code.IndexOf("boolean add(");
+            var bodyStart = code.IndexOf('{', addMethodIdx);
+            var bodyEnd = code.IndexOf('}', bodyStart + 1);
+            var body = code.Substring(bodyStart, bodyEnd - bodyStart + 1);
+            Assert.Contains("return", body);
+        }
+    }
+
+    // Error 11: Node[] cannot convert to Iterable<Node>
+    [Fact]
+    public void Error11_ReferenceArrayToIterable()
+    {
+        var r = Convert(@"
+using System.Collections.Generic;
+class Node { }
+class Container {
+    private Node[] items = new Node[0];
+    public IEnumerable<Node> Nodes { get { return items; } }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        // Node[] can't be directly returned as Iterable<Node>
+        // Should wrap with Arrays.asList() or similar
+        Assert.DoesNotMatch(@"return\s+items\s*;", code);
+    }
+
+    // Error 16: Delegate invocation - .Invoke() → functional interface method
+    [Fact]
+    public void Error16_DelegateInvocation()
+    {
+        var r = Convert(@"
+using System;
+class Sample {
+    Action<string> handler;
+    Func<int, string> converter;
+    void Test() {
+        handler(""hello"");
+        var result = converter(42);
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        // Delegate invocation should use .accept() for Action and .apply() for Func
+        Assert.DoesNotContain(".Invoke(", code);
+        Assert.DoesNotContain(".invoke(", code);
+    }
+
+    // Error 17: Stopwatch API mapping
+    [Fact]
+    public void Error17_StopwatchApi()
+    {
+        var r = Convert(@"
+using System.Diagnostics;
+class Timer {
+    long freq;
+    long startTime;
+    void Init() {
+        freq = Stopwatch.Frequency;
+        startTime = Stopwatch.GetTimestamp();
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        // Should map to System.nanoTime() or similar, not StopwatchHelper
+        Assert.DoesNotContain("StopwatchHelper", code);
+    }
+
+    // Error 24d: List<int>[] array creation
+    [Fact]
+    public void Error24d_ListArrayCreation()
+    {
+        var r = Convert(@"
+using System.Collections.Generic;
+class Sample {
+    void M() {
+        List<int>[] layers = new List<int>[5];
+        layers[0] = new List<int>();
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        // Should create array directly, not use Arrays.asList
+        Assert.DoesNotContain("Arrays.asList(new ArrayList", code);
+    }
+
+    // Error 24e: Array.spliterator() - arrays don't have instance spliterator
+    [Fact]
+    public void Error24e_ArraySpliterator()
+    {
+        var r = Convert(@"
+using System;
+using System.Threading.Tasks;
+class Sample {
+    string[] items;
+    void M() {
+        Parallel.ForEach(items, item => Console.WriteLine(item));
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        // arrays don't have .spliterator() instance method
+        Assert.DoesNotContain("items.spliterator()", code);
+    }
 }
