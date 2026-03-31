@@ -76,6 +76,11 @@ public static class AnonymousTypeRecordSynthesizer
         var record = new SynthesizedRecordInfo(recordName, fields, structuralKey);
         context.RegisterSynthesizedRecord(record);
 
+        // Re-fetch the record after registration because Register() may have renamed it
+        // to avoid name collisions with previously registered records.
+        if (context.TryGetSynthesizedRecord(structuralKey, out var registered) && registered != null)
+            record = registered;
+
         var ctorCall = BuildConstructorCall(record, node, transformExpression);
         return (record, ctorCall);
     }
@@ -123,8 +128,8 @@ public static class AnonymousTypeRecordSynthesizer
                 }
             }
 
-            // camelCase field name for Java convention
-            var fieldName = ToCamelCase(ConversionContext.EscapeJavaKeyword(name));
+            // camelCase field name for Java convention, then escape Java keywords
+            var fieldName = ConversionContext.EscapeJavaKeyword(ToCamelCase(name));
             fields.Add(new SynthesizedRecordField(fieldName, javaType));
         }
         return fields;
