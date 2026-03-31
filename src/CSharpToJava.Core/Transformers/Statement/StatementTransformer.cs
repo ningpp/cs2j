@@ -400,8 +400,23 @@ public class StatementTransformer : IStatementTransformer
                     retNamed.Name is "IList" or "ICollection" or "List" or "Collection"
                         or "IEnumerable" or "Iterable")
                 {
-                    expr = $"Arrays.asList({expr})";
-                    context.AddImport("java.util.Arrays");
+                    // Primitive arrays (int[], double[], etc.) can't use Arrays.asList() directly
+                    // because Arrays.asList(int[]) returns List<int[]>, not List<Integer>.
+                    if (arrayType.ElementType.SpecialType is
+                        SpecialType.System_Int32 or SpecialType.System_Int64 or
+                        SpecialType.System_Double or SpecialType.System_Single or
+                        SpecialType.System_Boolean or SpecialType.System_Byte or
+                        SpecialType.System_Int16 or SpecialType.System_Char)
+                    {
+                        expr = $"Arrays.stream({expr}).boxed().collect(java.util.stream.Collectors.toList())";
+                        context.AddImport("java.util.Arrays");
+                        context.AddImport("java.util.stream.Collectors");
+                    }
+                    else
+                    {
+                        expr = $"Arrays.asList({expr})";
+                        context.AddImport("java.util.Arrays");
+                    }
                 }
             }
 
