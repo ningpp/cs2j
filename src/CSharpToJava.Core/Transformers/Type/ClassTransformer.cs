@@ -607,8 +607,10 @@ public class ClassTransformer : ITypeTransformer
     {
         // Also trigger when any method body uses memberwiseClone() — C#'s MemberwiseClone()
         // is available on all objects, not just ICloneable implementors.
+        // Check both Body (string) and StructuredBody (IR) since either may contain the call.
         bool bodyCallsMemberwiseClone = javaClass.Methods.Any(m =>
-            m.Body != null && m.Body.Contains("memberwiseClone()"));
+            (m.Body != null && m.Body.Contains("memberwiseClone()"))
+            || (m.StructuredBody != null && m.StructuredBody.ToBodyString().Contains("memberwiseClone(")));
 
         bool needsClone = javaClass.ImplementedTypes.Any(t => t == "Cloneable")
             || bodyCallsMemberwiseClone;
