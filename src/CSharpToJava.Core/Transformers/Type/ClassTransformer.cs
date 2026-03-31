@@ -911,6 +911,31 @@ public class ClassTransformer : ITypeTransformer
                 setMethod.Body = $"{elemType} _setOldValue_ = this.get({indexParam});\n" + setMethod.Body.TrimEnd() + $"\nreturn _setOldValue_;";
         }
 
+        // Fix: remove(int) void → T remove(int) { T _old = this.get(index); ...; return _old; }
+        // C# IList<T>.RemoveAt(int) returns void; Java List<T>.remove(int) returns T.
+        var removeIntMethod = javaClass.Methods.FirstOrDefault(m =>
+            m.Name == "remove" && m.Parameters.Count == 1 &&
+            m.Parameters[0].Type == "int" && m.ReturnType == "void");
+        if (removeIntMethod != null)
+        {
+            string indexParam = removeIntMethod.Parameters[0].Name ?? "index";
+            removeIntMethod.ReturnType = elemType;
+            var body = removeIntMethod.Body ?? removeIntMethod.StructuredBody?.ToBodyString() ?? "";
+            if (!EndsWithTerminalStatement(body.TrimEnd()))
+            {
+                if (removeIntMethod.Body != null)
+                    removeIntMethod.Body = $"{elemType} _removeOldValue_ = this.get({indexParam});\n" + removeIntMethod.Body.TrimEnd() + $"\nreturn _removeOldValue_;";
+                else if (removeIntMethod.StructuredBody != null)
+                {
+                    // Prepend and append to structured body via raw statements
+                    removeIntMethod.StructuredBody.Statements.Insert(0,
+                        new CSharpToJava.Core.Java.JavaRawStatement($"{elemType} _removeOldValue_ = this.get({indexParam});"));
+                    removeIntMethod.StructuredBody.Statements.Add(
+                        new CSharpToJava.Core.Java.JavaRawStatement($"return _removeOldValue_;"));
+                }
+            }
+        }
+
         // Add size() bridge if missing (AbstractList.size() is abstract)
         if (!javaClass.Methods.Any(m => m.Name == "size" && m.Parameters.Count == 0))
         {
