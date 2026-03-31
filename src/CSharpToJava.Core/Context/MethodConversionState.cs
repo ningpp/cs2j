@@ -13,7 +13,9 @@ public class MethodConversionState
 
     public void AddPreStatement(string statement)
     {
-        _pendingPreStatements.Add(statement);
+        // Avoid duplicate pre-statements (e.g. closure variable hoisting for the same variable)
+        if (!_pendingPreStatements.Contains(statement))
+            _pendingPreStatements.Add(statement);
     }
 
     public IReadOnlyList<string> DrainPreStatements()

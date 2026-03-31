@@ -537,4 +537,68 @@ class MyIterator : IEnumerator<string> {
         Assert.Contains("next()", code);
         Assert.Contains("hasNext()", code);
     }
+
+    // Error 12: out parameter should use Holder.value for assignment
+    [Fact]
+    public void Error12_OutParameterHolderValue()
+    {
+        var r = Convert(@"
+using System.Collections.Generic;
+class Sample {
+    bool TryGet(string key, out int value) {
+        var dict = new Dictionary<string, int>();
+        if (dict.TryGetValue(key, out value)) {
+            return true;
+        }
+        value = -1;
+        return false;
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        // Assignments to out param should use .value
+        Assert.Contains(".value", code);
+    }
+
+    // Error 19a: duplicate closure variable declaration
+    [Fact]
+    public void Error19a_DuplicateClosureVariable()
+    {
+        var r = Convert(@"
+using System.Collections.Generic;
+using System.Linq;
+class Sample {
+    void M() {
+        int i = 0;
+        var list = new List<int> { 1, 2, 3 };
+        var result = list.Select(x => x + i++).ToList();
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        // Should NOT have duplicate _i declarations
+        var count = System.Text.RegularExpressions.Regex.Matches(code, @"int\[\]\s+_i\s*=").Count;
+        Assert.True(count <= 1, $"Expected at most 1 _i declaration but found {count}");
+    }
+
+    // Error 19b: var with lambda should use explicit type
+    [Fact]
+    public void Error19b_VarWithLambda()
+    {
+        var r = Convert(@"
+using System;
+class Sample {
+    void M() {
+        Func<int, int> doubler = x => x * 2;
+        var result = doubler(5);
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        // Lambda assignment should NOT use var (Java can't infer lambda type with var)
+        Assert.DoesNotContain("var doubler", code);
+    }
 }
