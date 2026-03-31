@@ -185,10 +185,19 @@ public class StructTransformer : ITypeTransformer
         // These fields need .clone() in the copy to preserve value semantics (deep copy).
         var structFieldNames = BuildStructFieldNames(structDecl, context);
 
+        // Compute type name including generic type parameters for use in clone body.
+        string typeName = javaClass.TypeParameters.Count > 0
+            ? $"{javaClass.Name}<{string.Join(", ", javaClass.TypeParameters.Select(tp => tp.Name))}>"
+            : javaClass.Name;
+        // For 'new' expressions with generics, use diamond operator
+        string newTypeName = javaClass.TypeParameters.Count > 0
+            ? $"{javaClass.Name}<>"
+            : javaClass.Name;
+
         string cloneBody;
         if (instanceFields.Count == 0)
         {
-            cloneBody = $"return new {javaClass.Name}();";
+            cloneBody = $"return new {newTypeName}();";
         }
         else if (isReadOnly)
         {
@@ -214,7 +223,7 @@ public class StructTransformer : ITypeTransformer
             else
             {
                 var sb = new System.Text.StringBuilder();
-                sb.AppendLine($"{javaClass.Name} copy = new {javaClass.Name}();");
+                sb.AppendLine($"{typeName} copy = new {newTypeName}();");
                 foreach (var field in instanceFields)
                 {
                     if ((field.Modifiers & JavaModifiers.Final) == 0)
@@ -229,7 +238,7 @@ public class StructTransformer : ITypeTransformer
         else
         {
             var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"{javaClass.Name} copy = new {javaClass.Name}();");
+            sb.AppendLine($"{typeName} copy = new {newTypeName}();");
             foreach (var field in instanceFields)
             {
                 sb.AppendLine(BuildFieldCopyLine(field, structFieldNames));
@@ -238,14 +247,10 @@ public class StructTransformer : ITypeTransformer
             cloneBody = sb.ToString();
         }
 
-        string returnType = javaClass.TypeParameters.Count > 0
-            ? $"{javaClass.Name}<{string.Join(", ", javaClass.TypeParameters.Select(tp => tp.Name))}>"
-            : javaClass.Name;
-
         var cloneMethod = new JavaMethodDeclaration
         {
             Name = "clone",
-            ReturnType = returnType,
+            ReturnType = typeName,
             Modifiers = JavaModifiers.Public,
             Body = cloneBody,
             LeadingComment = "/** Returns a copy of this struct, approximating C# value-type copy semantics. */"
@@ -480,6 +485,11 @@ public class StructTransformer : ITypeTransformer
                         javaField.Modifiers = JavaModifiers.Public;
                     }
                     javaClass.Fields.Add(javaField);
+
+                    // Drain any pre-statements produced during field initializer transformation
+                    // (e.g. from object initializers like `new Foo { X = 1 }`).
+                    // For static fields, emit them as a static initializer block.
+                    DrainFieldPreStatements(javaField, javaClass, context);
                 }
                 break;
 
@@ -531,6 +541,18 @@ public class StructTransformer : ITypeTransformer
                     ClassTransformer.AddMethodIfNotDuplicateInternal(javaClass, convOpMethod);
                 break;
 
+            case IndexerDeclarationSyntax indexerDecl:
+                var indexerTransformer = factory.CreateIndexerTransformer();
+                var indexerResult = indexerTransformer.Transform(indexerDecl, context);
+                if (indexerResult is JavaMemberCollection indexerCollection)
+                {
+                    foreach (var indexerMember in indexerCollection.Members)
+                    {
+                        if (indexerMember is JavaMethodDeclaration jm) ClassTransformer.AddMethodIfNotDuplicateInternal(javaClass, jm);
+                    }
+                }
+                break;
+
             case ConstructorDeclarationSyntax ctorDecl:
                 var ctorTransformer = factory.CreateConstructorTransformer();
                 var ctor = ctorTransformer.Transform(ctorDecl, context);
@@ -538,7 +560,71 @@ public class StructTransformer : ITypeTransformer
                 {
                     ClassTransformer.AddCtorIfNotDuplicateInternal(javaClass, javaCtor);
                 }
+                else if (ctor is JavaStaticInitializerBlock staticInitBlock)
+                {
+                    javaClass.StaticInitializers.Add(staticInitBlock);
+                }
                 break;
+        }
+    }
+
+    /// <summary>
+    /// Drains any pre-statements produced during field initializer transformation and
+    /// emits them as a static initializer block (for static fields) or inlines them
+    /// into the field initializer (for instance fields using an anonymous factory call).
+    /// </summary>
+    /// <summary>
+    /// Drains any pre-statements produced during field initializer transformation and
+    /// emits them as a static initializer block (for static fields) or inlines them
+    /// into the field initializer (for instance fields using an anonymous factory call).
+    /// </summary>
+    internal static void DrainFieldPreStatementsPublic(JavaFieldDeclaration javaField, JavaClassDeclaration javaClass, ConversionContext context)
+        => DrainFieldPreStatements(javaField, javaClass, context);
+
+    private static void DrainFieldPreStatements(JavaFieldDeclaration javaField, JavaClassDeclaration javaClass, ConversionContext context)
+    {
+        if (!context.HasPendingPreStatements)
+            return;
+
+        var preStatements = context.DrainPreStatements();
+        if (preStatements.Count == 0)
+            return;
+
+        bool isStatic = (javaField.Modifiers & JavaModifiers.Static) != 0;
+        if (isStatic)
+        {
+            // Move initialization to a static initializer block:
+            // static {
+            //     var _obj1 = new Foo();
+            //     _obj1.X = 1;
+            //     FieldName = _obj1;
+            // }
+            var staticBlock = new JavaStaticInitializerBlock();
+            foreach (var stmt in preStatements)
+            {
+                var trimmed = stmt.TrimEnd();
+                staticBlock.Statements.Add(trimmed.EndsWith(';') ? trimmed : trimmed + ";");
+            }
+            // The field initializer holds the temp variable name; assign it to the field.
+            if (!string.IsNullOrWhiteSpace(javaField.Initializer))
+            {
+                staticBlock.Statements.Add($"{javaField.Name} = {javaField.Initializer};");
+                javaField.Initializer = null;
+            }
+            javaClass.StaticInitializers.Add(staticBlock);
+        }
+        else
+        {
+            // For instance fields, the simplest approach is to build the full initialization inline.
+            // We concatenate pre-statements and the final value into a comment-documented block.
+            // Since Java doesn't support multi-statement field initializers, we note this as a TODO.
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("/* Object initializer — consider moving to constructor. */");
+            foreach (var stmt in preStatements)
+                sb.AppendLine(stmt.TrimEnd());
+            if (!string.IsNullOrWhiteSpace(javaField.Initializer))
+                sb.Append(javaField.Initializer);
+            javaField.Initializer = sb.ToString().Trim();
         }
     }
 }

@@ -24,6 +24,7 @@ public class TypeOperationTransformer : IExpressionTransformer
             SyntaxKind.AsExpression,
             SyntaxKind.TypeOfExpression,
             SyntaxKind.DefaultExpression,
+            SyntaxKind.DefaultLiteralExpression,
             SyntaxKind.CheckedExpression,
             SyntaxKind.UncheckedExpression,
             SyntaxKind.SizeOfExpression
@@ -42,6 +43,7 @@ public class TypeOperationTransformer : IExpressionTransformer
             SyntaxKind.AsExpression => TransformAs((BinaryExpressionSyntax)node, context),
             SyntaxKind.TypeOfExpression => TransformTypeOf((TypeOfExpressionSyntax)node, context),
             SyntaxKind.DefaultExpression => TransformDefault((DefaultExpressionSyntax)node, context),
+            SyntaxKind.DefaultLiteralExpression => TransformDefaultLiteral(node, context),
             SyntaxKind.CheckedExpression => TransformChecked((CheckedExpressionSyntax)node, context),
             SyntaxKind.UncheckedExpression => TransformUnchecked((CheckedExpressionSyntax)node, context),
             SyntaxKind.SizeOfExpression => TransformSizeOf((SizeOfExpressionSyntax)node, context),
@@ -424,34 +426,61 @@ public class TypeOperationTransformer : IExpressionTransformer
                 typeName = context.MapTypeFromSyntax(node.Type);
             }
 
-            // C#: default(Type)  → Java default values
-            var defaultValue = typeName switch
-            {
-                "int" => "0",
-                "long" => "0L",
-                "short" => "(short)0",
-                "byte" => "(byte)0",
-                "float" => "0.0f",
-                "double" => "0.0",
-                "boolean" => "false",
-                "char" => "'\\0'",
-                _ => null
-            };
-
-            if (defaultValue != null)
-                return defaultValue;
-
-            // For user-defined structs/value types, emit new T().
-            if (typeInfo.HasValue && typeInfo.Value.Type is INamedTypeSymbol { TypeKind: TypeKind.Struct })
-                return $"new {typeName}()";
-
-            return "null"; // Reference types default to null
+            return GetDefaultValueForType(typeName, typeInfo?.Type);
         }
         else
         {
             // default literal (C# 7.1+) - infer from context
             return "/* TODO: default literal */ null";
         }
+    }
+
+    /// <summary>
+    /// Handles the bare 'default' literal (C# 7.1+), inferring the target type from
+    /// the semantic model's ConvertedType (the type the expression is being assigned to).
+    /// </summary>
+    private string TransformDefaultLiteral(ExpressionSyntax node, ConversionContext context)
+    {
+        // Use ConvertedType to infer the target type from the assignment/declaration context
+        var typeInfo = context.SemanticModel?.GetTypeInfo(node);
+        var targetType = typeInfo?.ConvertedType ?? typeInfo?.Type;
+
+        if (targetType != null)
+        {
+            var typeName = context.MapType(targetType);
+            return GetDefaultValueForType(typeName, targetType);
+        }
+
+        return "null";
+    }
+
+    /// <summary>
+    /// Returns the Java default value for a given mapped type name and optional type symbol.
+    /// Primitives get their zero values, structs get new T(), reference types get null.
+    /// </summary>
+    private static string GetDefaultValueForType(string typeName, ITypeSymbol? typeSymbol)
+    {
+        var defaultValue = typeName switch
+        {
+            "int" => "0",
+            "long" => "0L",
+            "short" => "(short)0",
+            "byte" => "(byte)0",
+            "float" => "0.0f",
+            "double" => "0.0",
+            "boolean" => "false",
+            "char" => "'\\0'",
+            _ => null
+        };
+
+        if (defaultValue != null)
+            return defaultValue;
+
+        // For user-defined structs/value types, emit new T().
+        if (typeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Struct })
+            return $"new {typeName}()";
+
+        return "null"; // Reference types default to null
     }
 
     private string TransformChecked(CheckedExpressionSyntax node, ConversionContext context)
