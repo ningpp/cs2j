@@ -169,8 +169,17 @@ jobs:
               return [...new Set(errors)];
             }
 
-            function fenced(text, lang) {
-              const trimmed = text ? text.slice(0, 65000) : '(empty)';
+            const ERROR_SECTION_LIMIT = 12000;
+            const LOG_SECTION_LIMIT = 8000;
+
+            function fenced(text, lang, maxLength = ERROR_SECTION_LIMIT) {
+              const source = text || '(empty)';
+              if (source.length <= maxLength) {
+                return `\`\`\`${lang}\n${source}\n\`\`\``;
+              }
+
+              const notice = `\n... [truncated ${source.length - maxLength} characters; see workflow logs for full output]`;
+              const trimmed = source.slice(0, Math.max(0, maxLength - notice.length)) + notice;
               return `\`\`\`${lang}\n${trimmed}\n\`\`\``;
             }
 
@@ -196,6 +205,7 @@ jobs:
             body += `**Solution path / 方案路径：** ${{ github.event.inputs.solution_path }}\n`;
             body += `**Java output dir / Java 输出目录：** ${{ github.event.inputs.java_output_dir }}\n`;
             body += `**Timestamp / 运行时间：** ${new Date().toISOString()}\n\n`;
+            body += `**Workflow run / 工作流运行：** ${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}\n\n`;
 
             // ── error summary ────────────────────────────────────────────────
             if (totalErrors === 0) {
@@ -205,24 +215,24 @@ jobs:
 
               if (convertErrors.length > 0) {
                 body += `#### Conversion errors / 转换阶段错误 (${convertErrors.length})\n\n`;
-                body += fenced(convertErrors.join('\n\n---\n\n'), 'text');
+                body += fenced(convertErrors.join('\n\n---\n\n'), 'text', ERROR_SECTION_LIMIT);
                 body += '\n\n';
               }
 
               if (mavenErrors.length > 0) {
                 body += `#### Maven build errors / Maven 构建错误 (${mavenErrors.length})\n\n`;
-                body += fenced(mavenErrors.join('\n\n---\n\n'), 'text');
+                body += fenced(mavenErrors.join('\n\n---\n\n'), 'text', ERROR_SECTION_LIMIT);
                 body += '\n\n';
               }
             }
 
             // ── full logs (truncated) ────────────────────────────────────────
             body += `<details>\n<summary>📋 Full conversion log / 完整转换日志</summary>\n\n`;
-            body += fenced(convertText, 'text');
+            body += fenced(convertText, 'text', LOG_SECTION_LIMIT);
             body += `\n\n</details>\n\n`;
 
             body += `<details>\n<summary>📋 Full Maven log / 完整 Maven 日志</summary>\n\n`;
-            body += fenced(mavenText, 'text');
+            body += fenced(mavenText, 'text', LOG_SECTION_LIMIT);
             body += `\n\n</details>\n`;
 
             // ── determine label and title ────────────────────────────────────
