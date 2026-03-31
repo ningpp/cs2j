@@ -507,6 +507,145 @@ public struct Point
         Assert.DoesNotContain("Point{", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    // ── this = expr expansion ───────────────────────────────────────────────────
+
+    [Fact]
+    public void Struct_ThisAssignDefault_ExpandsToFieldReset()
+    {
+        var result = Convert(@"
+public struct MutablePoint
+{
+    public int X, Y;
+    public void Reset()
+    {
+        this = default;
+    }
+}");
+
+        Assert.True(result.Success);
+        // Should NOT contain 'this = ' (invalid Java)
+        Assert.DoesNotContain("this = ", result.GeneratedCode, StringComparison.Ordinal);
+        // Should contain field-by-field zero-initialization
+        Assert.Contains("this.X = 0", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("this.Y = 0", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Struct_ThisAssignOther_ExpandsToFieldCopy()
+    {
+        var result = Convert(@"
+public struct MutablePoint
+{
+    public int X, Y;
+    public void SetTo(MutablePoint other)
+    {
+        this = other;
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.DoesNotContain("this = ", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("this.X = other.X", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("this.Y = other.Y", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Struct_ThisAssignDefault_StructFields_InitializedNotNull()
+    {
+        var result = Convert(@"
+public struct Vec2 { public float X, Y; }
+public struct Rect
+{
+    public Vec2 Min;
+    public Vec2 Max;
+    public void Reset()
+    {
+        this = default;
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.DoesNotContain("this = ", result.GeneratedCode, StringComparison.Ordinal);
+        // Struct-typed fields should be initialized to new instances, not null
+        Assert.Contains("this.Min = new Vec2()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("this.Max = new Vec2()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    // ── Struct field initialization in default ctor ─────────────────────────────
+
+    [Fact]
+    public void Struct_WithStructField_DefaultCtorInitializesField()
+    {
+        var result = Convert(@"
+public struct Inner { public int Value; }
+public struct Outer
+{
+    public Inner Data;
+    public int Count;
+}");
+
+        Assert.True(result.Success);
+        // Should generate explicit default ctor that initializes Inner Data
+        Assert.Contains("this.Data = new Inner()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Struct_WithStructFieldAndExplicitCtor_DefaultCtorAlsoInitializes()
+    {
+        var result = Convert(@"
+public struct Inner { public int Value; }
+public struct Wrapper
+{
+    public Inner Info;
+    public int Count;
+    public Wrapper(int count)
+    {
+        Count = count;
+        Info = new Inner();
+    }
+}");
+
+        Assert.True(result.Success);
+        // Should have both ctors
+        Assert.Contains("public Wrapper()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("public Wrapper(int count)", result.GeneratedCode, StringComparison.Ordinal);
+        // Default ctor should initialize struct fields
+        Assert.Contains("this.Info = new Inner()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Struct_NestedStructFields_AllInitializedInDefaultCtor()
+    {
+        var result = Convert(@"
+public struct Vec2 { public float X, Y; }
+public struct Transform
+{
+    public Vec2 Position;
+    public Vec2 Scale;
+    public float Rotation;
+}");
+
+        Assert.True(result.Success);
+        // Both struct-typed fields should be initialized
+        Assert.Contains("this.Position = new Vec2()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("this.Scale = new Vec2()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Struct_WithoutStructFields_NoExplicitDefaultCtor()
+    {
+        var result = Convert(@"
+public struct Simple
+{
+    public int X, Y;
+}");
+
+        Assert.True(result.Success);
+        // No need for explicit default ctor when there are no struct fields
+        // (Java's default ctor will zero-initialize primitive fields)
+        Assert.DoesNotContain("public Simple()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

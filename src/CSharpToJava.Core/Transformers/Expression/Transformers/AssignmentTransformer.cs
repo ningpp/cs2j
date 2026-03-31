@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers;
 using CSharpToJava.Core.Transformers.Expression.Utilities;
 
@@ -59,6 +60,13 @@ public class AssignmentTransformer : IExpressionTransformer
         var facade = ExpressionTransformerFacade.Instance;
         var leftNode = node.Left;
         var rightNode = node.Right;
+
+        // Fix: `this = expr` in C# struct methods — Java can't assign to `this`.
+        // Expand to field-by-field copy from the RHS value.
+        if (op == "=" && leftNode is ThisExpressionSyntax && context.CurrentType is Java.JavaClassDeclaration { IsConvertedFromStruct: true } structClass)
+        {
+            return ExpandThisAssignment(structClass, rightNode, context);
+        }
 
         // Fix 4: Detect event += / -= using semantic model → listener methods
         if ((op == "+=" || op == "-=") && leftNode is MemberAccessExpressionSyntax evtMa)
@@ -688,5 +696,122 @@ public class AssignmentTransformer : IExpressionTransformer
         // Check namespace - should be from System.Collections.Generic
         var ns = type.ContainingNamespace?.ToDisplayString() ?? type.OriginalDefinition?.ContainingNamespace?.ToDisplayString();
         return ns != null && ns.StartsWith("System.Collections.Generic");
+    }
+
+    /// <summary>
+    /// Expands <c>this = expr</c> (valid in C# struct methods) to field-by-field copy,
+    /// since Java doesn't allow assigning to <c>this</c>.
+    /// Generates: <c>StructType _tmp = expr; this.field1 = _tmp.field1; this.field2 = _tmp.field2; ...</c>
+    /// </summary>
+    private string ExpandThisAssignment(JavaClassDeclaration structClass, ExpressionSyntax rhsNode, ConversionContext context)
+    {
+        var facade = ExpressionTransformerFacade.Instance;
+        var rhs = facade.Transform(rhsNode, context);
+
+        var instanceFields = structClass.Fields
+            .Where(f => (f.Modifiers & JavaModifiers.Static) == 0)
+            .ToList();
+
+        if (instanceFields.Count == 0)
+            return $"/* this = {rhs}; — no instance fields to copy */";
+
+        // Determine if the RHS is a simple expression that can be inlined without a temp variable,
+        // or if it needs to be evaluated once into a temp.
+        bool rhsIsSimple = rhsNode is IdentifierNameSyntax or ThisExpressionSyntax;
+
+        // For `this = default` or `this = new StructType()`, generate direct zero-initialization
+        bool rhsIsDefault = rhsNode is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.DefaultLiteralExpression }
+            || rhsNode is DefaultExpressionSyntax
+            || rhsNode is ObjectCreationExpressionSyntax ocr && ocr.ArgumentList?.Arguments.Count == 0 && ocr.Initializer == null
+            || rhsNode is ImplicitObjectCreationExpressionSyntax iocr && iocr.ArgumentList?.Arguments.Count == 0 && iocr.Initializer == null;
+
+        if (rhsIsDefault)
+        {
+            // Build a set of struct-typed field names for proper default initialization.
+            // In C#, struct-typed fields default to new StructType(), NOT null.
+            var structFieldNames = GetStructFieldNames(context);
+
+            // Just reset all fields to defaults
+            var lines = new List<string>();
+            foreach (var field in instanceFields)
+            {
+                if (structFieldNames.Contains(field.Name))
+                    lines.Add($"this.{field.Name} = new {field.Type}()");
+                else
+                    lines.Add($"this.{field.Name} = {GetJavaFieldDefault(field.Type)}");
+            }
+            // Use pre-statements for all but the last line (the last is the "expression" return)
+            for (int i = 0; i < lines.Count - 1; i++)
+                context.AddPreStatement(lines[i] + ";");
+            return lines[^1];
+        }
+
+        if (rhsIsSimple)
+        {
+            // Inline: this.f1 = src.f1; this.f2 = src.f2; ...
+            var lines = new List<string>();
+            foreach (var field in instanceFields)
+                lines.Add($"this.{field.Name} = {rhs}.{field.Name}");
+            for (int i = 0; i < lines.Count - 1; i++)
+                context.AddPreStatement(lines[i] + ";");
+            return lines[^1];
+        }
+        else
+        {
+            // Use temp variable: StructType _tmp = expr; this.f1 = _tmp.f1; ...
+            var tmpName = "_thisAssignTmp";
+            context.AddPreStatement($"{structClass.Name} {tmpName} = {rhs};");
+            var lines = new List<string>();
+            foreach (var field in instanceFields)
+                lines.Add($"this.{field.Name} = {tmpName}.{field.Name}");
+            for (int i = 0; i < lines.Count - 1; i++)
+                context.AddPreStatement(lines[i] + ";");
+            return lines[^1];
+        }
+    }
+
+    private static string GetJavaFieldDefault(string javaType)
+    {
+        string t = javaType.Trim();
+        return t switch
+        {
+            "boolean" => "false",
+            "byte" => "(byte)0",
+            "short" => "(short)0",
+            "int" => "0",
+            "long" => "0L",
+            "float" => "0.0f",
+            "double" => "0.0d",
+            "char" => "'\\0'",
+            _ => "null"
+        };
+    }
+
+    /// <summary>
+    /// Gets the set of field names in the enclosing struct type whose C# type is a user-defined struct.
+    /// Used by ExpandThisAssignment to determine which fields need new StructType() instead of null
+    /// when doing <c>this = default</c>.
+    /// </summary>
+    private static HashSet<string> GetStructFieldNames(ConversionContext context)
+    {
+        var result = new HashSet<string>();
+        if (context.SemanticModel == null || context.CurrentMethod == null)
+            return result;
+
+        var containingType = context.CurrentMethod.ContainingType;
+        if (containingType == null || containingType.TypeKind != TypeKind.Struct)
+            return result;
+
+        foreach (var member in containingType.GetMembers())
+        {
+            if (member is IFieldSymbol field
+                && !field.IsStatic
+                && StructCloneHelper.IsUserDefinedStruct(field.Type))
+            {
+                result.Add(ConversionContext.EscapeJavaKeyword(field.Name));
+            }
+        }
+
+        return result;
     }
 }
