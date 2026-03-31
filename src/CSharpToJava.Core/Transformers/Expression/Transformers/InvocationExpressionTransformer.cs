@@ -1035,6 +1035,14 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             }
 
             context.AddImport("java.util.stream.StreamSupport");
+            // Arrays don't have .spliterator() instance method in Java.
+            // Use Arrays.spliterator(arr) for arrays, source.spliterator() for collections.
+            var sourceArgType = context.SemanticModel?.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type;
+            if (sourceArgType is IArrayTypeSymbol)
+            {
+                context.AddImport("java.util.Arrays");
+                return $"StreamSupport.stream(Arrays.spliterator({sourceExpr}), true).forEach({actionExpr})";
+            }
             return $"StreamSupport.stream({sourceExpr}.spliterator(), true).forEach({actionExpr})";
         }
 
