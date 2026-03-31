@@ -571,12 +571,7 @@ public class StructTransformer : ITypeTransformer
     /// <summary>
     /// Drains any pre-statements produced during field initializer transformation and
     /// emits them as a static initializer block (for static fields) or inlines them
-    /// into the field initializer (for instance fields using an anonymous factory call).
-    /// </summary>
-    /// <summary>
-    /// Drains any pre-statements produced during field initializer transformation and
-    /// emits them as a static initializer block (for static fields) or inlines them
-    /// into the field initializer (for instance fields using an anonymous factory call).
+    /// into the field initializer (for instance fields).
     /// </summary>
     internal static void DrainFieldPreStatementsPublic(JavaFieldDeclaration javaField, JavaClassDeclaration javaClass, ConversionContext context)
         => DrainFieldPreStatements(javaField, javaClass, context);
