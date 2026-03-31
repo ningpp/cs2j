@@ -1817,6 +1817,9 @@ public class StatementTransformer : IStatementTransformer
     /// </summary>
     private static bool IsJavaCollectionOrListType(string javaType)
     {
+        // An array of collections (e.g. ArrayList<Integer>[]) is NOT itself a collection type.
+        if (javaType.TrimEnd().EndsWith("[]"))
+            return false;
         var bare = javaType.Contains('<') ? javaType[..javaType.IndexOf('<')] : javaType;
         return bare is "List" or "Collection" or "ArrayList" or "HashSet" or "TreeSet"
             or "LinkedList" or "LinkedHashSet" or "ArrayDeque" or "Stack" or "Vector"
