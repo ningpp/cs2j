@@ -454,4 +454,87 @@ class Sample {
         // arrays don't have .spliterator() instance method
         Assert.DoesNotContain("items.spliterator()", code);
     }
+
+    // Error 13: Property setter used with ++ (post-increment on getter result)
+    [Fact]
+    public void Error13_PostIncrementOnProperty()
+    {
+        var r = Convert(@"
+class Settings { public int Iterations { get; set; } }
+class Sample {
+    void M(Settings s) {
+        s.Iterations++;
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        // Should NOT produce s.getIterations()++ which is invalid Java
+        Assert.DoesNotContain("getIterations()++", code);
+        // Should use setIterations
+        Assert.Contains("setIterations", code);
+    }
+
+    // Error 13b: Map indexer post-increment
+    [Fact]
+    public void Error13b_MapIndexerPostIncrement()
+    {
+        var r = Convert(@"
+using System.Collections.Generic;
+class Sample {
+    void M() {
+        Dictionary<string, int> degree = new Dictionary<string, int>();
+        degree[""key""]++;
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        // Should NOT produce degree.get("key")++ which is invalid Java
+        Assert.DoesNotContain(".get(\"key\")++", code);
+        // Should use merge or put pattern
+        Assert.True(code.Contains("merge") || code.Contains("put"));
+    }
+
+    // Error 11: Array returned as IEnumerable<T>
+    [Fact]
+    public void Error11_ArrayReturnedAsIterable()
+    {
+        var r = Convert(@"
+using System.Collections.Generic;
+class Sample {
+    int[] data = new int[5];
+    IEnumerable<int> GetData() {
+        return data;
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        // Should wrap array to Iterable somehow (Arrays.asList, Arrays.stream, etc.)
+        Assert.DoesNotContain("return data;", code);
+    }
+
+    // Error 04: IEnumerator<T> → Iterator<T> missing next()/hasNext()
+    [Fact]
+    public void Error04_EnumeratorToIterator()
+    {
+        var r = Convert(@"
+using System.Collections;
+using System.Collections.Generic;
+class MyIterator : IEnumerator<string> {
+    private string _current;
+    public string Current => _current;
+    object IEnumerator.Current => _current;
+    public bool MoveNext() { return false; }
+    public void Reset() { }
+    public void Dispose() { }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        // Should have next() and hasNext() methods
+        Assert.Contains("next()", code);
+        Assert.Contains("hasNext()", code);
+    }
 }
