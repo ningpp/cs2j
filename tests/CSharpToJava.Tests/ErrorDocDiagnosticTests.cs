@@ -665,4 +665,58 @@ class Sample {
         // Sort with comparator lambda should compile
         Assert.Contains("sort(", code);
     }
+
+    // Error 15: AddRange after LINQ collect should not re-collect
+    [Fact]
+    public void Error15_AddRangeAfterCollect()
+    {
+        var r = Convert(@"
+using System.Collections.Generic;
+using System.Linq;
+class Node {
+    public IEnumerable<Node> OutEdges;
+    public IEnumerable<Node> InEdges;
+    public int Id;
+}
+class Sample {
+    void M(Node ni) {
+        var neighb = ni.OutEdges.Where(e => e.Id > 0).Select(e => e).ToList();
+        neighb.AddRange(ni.InEdges.Where(e => e.Id > 0).Select(e => e));
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        // AddRange should become addAll(), not .collect() on ArrayList
+        Assert.Contains("addAll(", code);
+        // neighb should not have .collect() called on it
+        Assert.DoesNotContain("neighb.collect(", code);
+    }
+
+    // Error 20: Double Comparator inheritance
+    [Fact]
+    public void Error20_DoubleComparatorInheritance()
+    {
+        // This is a fundamental Java limitation (type erasure prevents implementing
+        // the same generic interface with different type arguments in a class hierarchy).
+        // Test that the converter at least doesn't crash and generates valid Java.
+        var r = Convert(@"
+using System;
+using System.Collections.Generic;
+abstract class BaseClass : IComparer<string> {
+    public int Compare(string x, string y) => string.Compare(x, y);
+}
+class Derived : BaseClass, IComparer<int> {
+    public int Compare(int x, int y) => x - y;
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        Assert.Contains("class Derived", code);
+        // Verify the helper method was generated to avoid type erasure conflict
+        Assert.Contains("asIntegerComparer", code);
+        // Derived should not have 'implements Comparator<Integer>' in its declaration line
+        var derivedLine = code.Split('\n').FirstOrDefault(l => l.Contains("class Derived")) ?? "";
+        Assert.DoesNotContain("Comparator<Integer>", derivedLine);
+    }
 }

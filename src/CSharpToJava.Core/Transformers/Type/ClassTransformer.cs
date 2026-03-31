@@ -98,7 +98,52 @@ public class ClassTransformer : ITypeTransformer
                     // Only substitute when the class does NOT declare ICollection members itself.
                     if (iface.Name == "ICollection" && iface.ContainingNamespace?.ToString()?.StartsWith("System") == true && !hasICollectionImpl)
                         mappedIface = mappedIface.Replace("Collection", "Iterable");
-                    javaClass.ImplementedTypes.Add(mappedIface);
+
+                    // Check for Java type-erasure conflict: if a base class already implements the same
+                    // generic interface with different type arguments (e.g. Comparator<String> in parent,
+                    // Comparator<Integer> in child), Java forbids this due to type erasure. Extract the
+                    // conflicting interface to a factory method instead.
+                    bool hasErasureConflict = false;
+                    if (iface.IsGenericType)
+                    {
+                        var origDef = iface.OriginalDefinition;
+                        hasErasureConflict = mergedType.TypeSymbol.AllInterfaces.Any(
+                            other => other.IsGenericType
+                                && SymbolEqualityComparer.Default.Equals(other.OriginalDefinition, origDef)
+                                && !SymbolEqualityComparer.Default.Equals(other, iface));
+                    }
+                    if (hasErasureConflict)
+                    {
+                        // Extract to a helper method: Comparator<Integer> asIntegerComparator() { return (a,b) -> this.compare(a,b); }
+                        var rawIfaceName = iface.Name.StartsWith("I") ? iface.Name.Substring(1) : iface.Name;
+                        var typeArg = iface.TypeArguments.Length > 0 ? context.MapType(iface.TypeArguments[0]) : "Object";
+                        // Use boxed type name for method naming (int → Integer, etc.)
+                        typeArg = typeArg switch
+                        {
+                            "int" => "Integer",
+                            "long" => "Long",
+                            "double" => "Double",
+                            "float" => "Float",
+                            "boolean" => "Boolean",
+                            "char" => "Character",
+                            "byte" => "Byte",
+                            "short" => "Short",
+                            _ => typeArg
+                        };
+                        var methodName = $"as{typeArg}{rawIfaceName}";
+                        javaClass.Methods.Add(new JavaMethodDeclaration
+                        {
+                            Name = methodName,
+                            ReturnType = mappedIface,
+                            Modifiers = JavaModifiers.Public,
+                            Body = $"return this::compare;"
+                        });
+                        // Don't add to ImplementedTypes — skip it
+                    }
+                    else
+                    {
+                        javaClass.ImplementedTypes.Add(mappedIface);
+                    }
                 }
             }
         }
@@ -256,7 +301,53 @@ public class ClassTransformer : ITypeTransformer
                         namedIface.ContainingNamespace?.ToString()?.StartsWith("System") == true &&
                         !hasICollectionImpl)
                         mappedIface = mappedIface.Replace("Collection", "Iterable");
-                    javaClass.ImplementedTypes.Add(mappedIface);
+
+                    // Check for Java type-erasure conflict: if a base class already implements the same
+                    // generic interface with different type arguments, extract to a helper method instead.
+                    bool hasErasureConflict = false;
+                    if (resolvedType is INamedTypeSymbol namedIfaceForErasure
+                        && namedIfaceForErasure.IsGenericType
+                        && classSymbol != null)
+                    {
+                        // Use AllInterfaces (includes inherited interfaces) to detect duplicates
+                        // with the same OriginalDefinition but different type arguments.
+                        var origDef = namedIfaceForErasure.OriginalDefinition;
+                        hasErasureConflict = classSymbol.AllInterfaces.Any(
+                            iface => iface.IsGenericType
+                                && SymbolEqualityComparer.Default.Equals(iface.OriginalDefinition, origDef)
+                                && !SymbolEqualityComparer.Default.Equals(iface, namedIfaceForErasure));
+                    }
+
+                    if (hasErasureConflict && resolvedType is INamedTypeSymbol conflictIface)
+                    {
+                        var rawIfaceName = conflictIface.Name.StartsWith("I") ? conflictIface.Name.Substring(1) : conflictIface.Name;
+                        var typeArg = conflictIface.TypeArguments.Length > 0 ? context.MapType(conflictIface.TypeArguments[0]) : "Object";
+                        // Use boxed type name for method naming (int → Integer, etc.)
+                        typeArg = typeArg switch
+                        {
+                            "int" => "Integer",
+                            "long" => "Long",
+                            "double" => "Double",
+                            "float" => "Float",
+                            "boolean" => "Boolean",
+                            "char" => "Character",
+                            "byte" => "Byte",
+                            "short" => "Short",
+                            _ => typeArg
+                        };
+                        var methodName = $"as{typeArg}{rawIfaceName}";
+                        javaClass.Methods.Add(new JavaMethodDeclaration
+                        {
+                            Name = methodName,
+                            ReturnType = mappedIface,
+                            Modifiers = JavaModifiers.Public,
+                            Body = $"return this::compare;"
+                        });
+                    }
+                    else
+                    {
+                        javaClass.ImplementedTypes.Add(mappedIface);
+                    }
                 }
             }
         }
