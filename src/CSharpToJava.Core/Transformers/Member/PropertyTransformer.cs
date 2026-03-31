@@ -43,7 +43,11 @@ public class PropertyTransformer : IMemberTransformer
         var setAccessor = propDecl.AccessorList?.Accessors.FirstOrDefault(a => a.IsKind(SyntaxKind.SetAccessorDeclaration) || a.IsKind(SyntaxKind.InitAccessorDeclaration));
 
         // 处理自动属性 vs 显式属性
-        var isAutoProperty = getAccessor?.Body == null
+        // Expression-bodied properties (e.g. public int X => expr;) are NOT auto-properties —
+        // they have no backing field and should only produce a getter method.
+        var isExpressionBodiedProperty = propDecl.ExpressionBody != null;
+        var isAutoProperty = !isExpressionBodiedProperty
+                          && getAccessor?.Body == null
                           && getAccessor?.ExpressionBody == null
                           && (setAccessor == null
                               || (setAccessor.Body == null && setAccessor.ExpressionBody == null));
@@ -113,10 +117,12 @@ public class PropertyTransformer : IMemberTransformer
                 ReturnType = propType,
                 Modifiers = getterModifiers,
                 LeadingComment = propertyComments,
-                Body = getAccessor?.ExpressionBody != null
-                    ? Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(getAccessor.ExpressionBody.Expression, context)
-                    : $"return {fieldName};",
-                IsBodyExpression = getAccessor?.ExpressionBody != null
+                Body = isExpressionBodiedProperty
+                    ? Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(propDecl.ExpressionBody!.Expression, context)
+                    : getAccessor?.ExpressionBody != null
+                        ? Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(getAccessor.ExpressionBody.Expression, context)
+                        : $"return {fieldName};",
+                IsBodyExpression = isExpressionBodiedProperty || getAccessor?.ExpressionBody != null
             };
 
             // 处理显式 getter 主体

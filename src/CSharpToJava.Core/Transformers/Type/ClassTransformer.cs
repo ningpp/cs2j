@@ -991,7 +991,14 @@ public class ClassTransformer : ITypeTransformer
             case FieldDeclarationSyntax fieldDecl:
                 var fieldTransformer = new Transformers.Member.FieldTransformer();
                 foreach (var javaField in fieldTransformer.TransformAll(fieldDecl, context))
+                {
                     javaClass.Fields.Add(javaField);
+
+                    // Drain any pre-statements produced during field initializer transformation
+                    // (e.g. from object initializers like `new Foo { X = 1 }`).
+                    // For static fields, emit them as a static initializer block.
+                    StructTransformer.DrainFieldPreStatementsPublic(javaField, javaClass, context);
+                }
                 break;
 
             case PropertyDeclarationSyntax propDecl:
