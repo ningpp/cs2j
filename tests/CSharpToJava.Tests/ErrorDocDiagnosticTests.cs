@@ -239,4 +239,86 @@ class Sample {
         // Java var cannot infer lambda types. Should use explicit Function<Integer, Integer> or similar
         Assert.DoesNotContain("var f = ", code);
     }
+
+    // Error 11: Array → Iterable return
+    [Fact]
+    public void Error11_ArrayReturn_AsIterable()
+    {
+        var r = Convert(@"
+using System.Collections.Generic;
+class Sample {
+    private string[] items;
+    public IEnumerable<string> GetItems() { return items; }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        // Returning an array where Iterable expected needs wrapping
+        bool hasAsList = code.Contains("Arrays.asList(");
+        bool hasListOf = code.Contains("List.of(");
+        Assert.True(hasAsList || hasListOf,
+            $"Array→Iterable return should be wrapped. Got: {code}");
+    }
+
+    // Error 20: Double Comparator inheritance
+    [Fact]
+    public void Error20_DoubleComparator()
+    {
+        var r = Convert(@"
+using System;
+using System.Collections.Generic;
+class Base : IComparer<int> {
+    public int Compare(int x, int y) { return x - y; }
+}
+class Child : Base, IComparer<string> {
+    public int Compare(string x, string y) { return string.Compare(x, y); }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        // Java can't implement Comparator<Integer> and Comparator<String> on same class
+        // Should either not implement both or use adapter pattern
+        // For now, just verify no compilation-breaking code is generated
+        Assert.DoesNotContain("Comparator<Integer>, Comparator<String>", code);
+    }
+
+    // Error 21: Generic array creation
+    [Fact]
+    public void Error21_GenericArrayCreation()
+    {
+        var r = Convert(@"
+using System.Collections.Generic;
+using System.Linq;
+class Sample {
+    void M(Dictionary<string, int> dict) {
+        var arr = dict.Where(kv => kv.Value > 0).ToArray();
+        foreach (var item in arr) { }
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        // Should NOT use generic array creation like SimpleEntry<String,Integer>[]::new
+        // (AbstractMap.SimpleEntry<String,Integer> in variable declarations / for-each is valid Java)
+        Assert.DoesNotMatch(@"toArray\([^)]*<[^)]*>::new\)", code);
+    }
+
+    // Error 24a: int[] wrapped as Iterable<Integer>
+    [Fact]
+    public void Error24a_IntArrayToIterableInteger()
+    {
+        var r = Convert(@"
+using System.Collections.Generic;
+class Sample {
+    IEnumerable<int> GetItem(int node) {
+        return new int[] { node };
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        // Arrays.asList(new int[]{node}) would return List<int[]>
+        // Should use List.of(node) or similar
+        Assert.DoesNotContain("Arrays.asList(new int[]", code);
+    }
 }

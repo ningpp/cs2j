@@ -3475,7 +3475,10 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         }
         if (!string.IsNullOrEmpty(javaType) && javaType != "Object")
         {
-            return $"{receiver}.toArray({javaType}[]::new)";
+            // Java cannot create generic arrays (e.g. SimpleEntry<String,Integer>[]::new is illegal).
+            // Strip type parameters to use the raw type in the array constructor reference.
+            var arrayTypeRef = javaType.Contains('<') ? javaType.Substring(0, javaType.IndexOf('<')) : javaType;
+            return $"{receiver}.toArray({arrayTypeRef}[]::new)";
         }
 
         return $"{receiver}.toArray()";
@@ -3503,7 +3506,11 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         }
         var javaType = context.MapType(elementType);
         if (!string.IsNullOrEmpty(javaType) && javaType != "Object")
-            return $"{receiver}.toArray({javaType}[]::new)";
+        {
+            // Strip generic type parameters — Java cannot create generic arrays.
+            var arrayTypeRef = javaType.Contains('<') ? javaType.Substring(0, javaType.IndexOf('<')) : javaType;
+            return $"{receiver}.toArray({arrayTypeRef}[]::new)";
+        }
 
         return $"{receiver}.toArray()";
     }
