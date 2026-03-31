@@ -90,6 +90,11 @@ public class JavaClassDeclaration : JavaTypeDeclaration
     public List<JavaTypeDeclaration> NestedTypes { get; } = new();
     public bool IsRecord { get; set; }
     /// <summary>
+    /// True when this class was converted from a C# struct. Used by AssignmentTransformer
+    /// to expand <c>this = expr</c> to field-by-field copy (Java can't assign to <c>this</c>).
+    /// </summary>
+    public bool IsConvertedFromStruct { get; set; }
+    /// <summary>
     /// Positional component list for Java records. Populated by RecordTransformer when IsRecord is true.
     /// </summary>
     public List<JavaRecordComponent> RecordComponents { get; } = new();

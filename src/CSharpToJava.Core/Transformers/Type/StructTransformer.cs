@@ -28,7 +28,8 @@ public class StructTransformer : ITypeTransformer
         var javaClass = new JavaClassDeclaration
         {
             Name = structDecl.Identifier.Text,
-            Modifiers = ConvertModifiers(structDecl.Modifiers)
+            Modifiers = ConvertModifiers(structDecl.Modifiers),
+            IsConvertedFromStruct = true
         };
         var structSymbol = context.SemanticModel?.GetDeclaredSymbol(structDecl);
         var convertedComments = context.GetDeclarationComments(structDecl, structSymbol).ToCombinedComment();
@@ -146,17 +147,33 @@ public class StructTransformer : ITypeTransformer
 
         // Fix 4: C# structs always have an implicit zero-arg constructor. Emit one for Java
         // when there are explicit parameterised constructors but no no-arg constructor.
+        // Also: always emit an explicit default ctor when struct has struct-typed instance fields,
+        // because in C#, `default(Outer)` initializes struct fields to their defaults (not null),
+        // but Java's implicit no-arg ctor leaves reference fields as null.
+        var structFieldNamesForCtor = BuildStructFieldNames(structDecl, context);
         bool hasExplicitCtors = javaClass.Constructors.Any(c => c.Parameters.Count > 0);
         bool hasNoArgCtor = javaClass.Constructors.Any(c => c.Parameters.Count == 0);
-        if (hasExplicitCtors && !hasNoArgCtor)
+        bool hasStructFieldsNeedingInit = javaClass.Fields.Any(f =>
+            (f.Modifiers & JavaModifiers.Static) == 0 && structFieldNamesForCtor.Contains(f.Name));
+
+        if ((hasExplicitCtors && !hasNoArgCtor) || (!hasNoArgCtor && hasStructFieldsNeedingInit))
         {
             var bodyLines = new List<string>();
             foreach (var field in javaClass.Fields)
             {
                 bool isInstance = (field.Modifiers & JavaModifiers.Static) == 0;
+                if (!isInstance) continue;
+
                 bool isFinal = (field.Modifiers & JavaModifiers.Final) != 0;
                 bool hasInitializer = !string.IsNullOrWhiteSpace(field.Initializer);
-                if (isInstance && isFinal && !hasInitializer)
+
+                if (structFieldNamesForCtor.Contains(field.Name) && !hasInitializer)
+                {
+                    // Struct-typed field: initialize to new StructType() to match C# value semantics.
+                    // In C#, struct fields are always zero-initialized, never null.
+                    bodyLines.Add($"this.{field.Name} = new {field.Type}();");
+                }
+                else if (isFinal && !hasInitializer)
                 {
                     bodyLines.Add($"this.{field.Name} = {GetJavaDefaultValue(field.Type)};");
                 }
