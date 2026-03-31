@@ -758,7 +758,10 @@ class Sample {
 }");
         _out.WriteLine(r.GeneratedCode ?? "FAILED");
         Assert.True(r.Success);
-        // Just verify it doesn't crash; type mapping for Process is a config issue
+        var code = r.GeneratedCode ?? "";
+        // Process type name should be preserved (not degraded to Object)
+        Assert.Contains("Process", code);
+        Assert.DoesNotContain("new Object()", code);
     }
 
     // Error 20: Double Comparator inheritance

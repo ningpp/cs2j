@@ -526,6 +526,20 @@
                                          ]
                          },
                          {
+                             "csharp":  "System.Diagnostics.Process",
+                             "java":  "Process",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
+                             "csharp":  "System.Diagnostics.ProcessStartInfo",
+                             "java":  "ProcessBuilder",
+                             "imports":  [
+
+                                         ]
+                         },
+                         {
                              "csharp":  "System.Collections.Queue",
                              "java":  "ArrayDeque\u003cObject\u003e",
                              "imports":  [
@@ -2416,6 +2430,16 @@
                                "type":  "System.Diagnostics.Debug",
                                "method":  "WriteLine",
                                "javaMethod":  "out.println"
+                           },
+                           {
+                               "type":  "System.Diagnostics.Process",
+                               "method":  "WaitForExit",
+                               "javaMethod":  "waitFor"
+                           },
+                           {
+                               "type":  "System.Diagnostics.Process",
+                               "method":  "Start",
+                               "javaMethod":  "start"
                            },
                            {
                                "type":  "System.Diagnostics.Debug",
