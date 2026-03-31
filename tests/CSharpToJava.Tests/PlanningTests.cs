@@ -485,10 +485,12 @@ public class PlanningTests
         {
             var sourceFile = Path.Combine(tempRoot, "Program.cs");
             var mappingFile = Path.Combine(tempRoot, "TypeMappings.json");
+            var templateFile = Path.Combine(tempRoot, ".gitignore");
             var toolFile = Path.Combine(tempRoot, "tool.dll");
 
             await File.WriteAllTextAsync(sourceFile, "class Program {}\n");
             await File.WriteAllTextAsync(mappingFile, "{}\n");
+            await File.WriteAllTextAsync(templateFile, "target/\n");
             await File.WriteAllTextAsync(toolFile, "tool-binary-placeholder\n");
 
             var snapshot = InputFingerprintSnapshotBuilder.Build(new InputFingerprintBuildRequest
@@ -497,6 +499,7 @@ public class PlanningTests
                 SourcePath = tempRoot,
                 InputFilePaths = [sourceFile],
                 OptionTokens = ["mode=multi-module", "include-tests=true"],
+                TemplateFilePaths = [templateFile],
                 ToolAssemblyPaths = [toolFile],
                 MappingConfigPath = mappingFile,
             });
@@ -507,6 +510,7 @@ public class PlanningTests
             Assert.True(snapshot.Matches(roundTripped));
             Assert.Contains(snapshot.Entries, entry => entry.Kind == InputFingerprintEntryKind.SourceInput && entry.Path == Path.GetFullPath(sourceFile));
             Assert.Contains(snapshot.Entries, entry => entry.Kind == InputFingerprintEntryKind.MappingConfiguration && entry.Path == Path.GetFullPath(mappingFile));
+            Assert.Contains(snapshot.Entries, entry => entry.Kind == InputFingerprintEntryKind.TemplateAsset && entry.Path == Path.GetFullPath(templateFile));
             Assert.Contains(snapshot.Entries, entry => entry.Kind == InputFingerprintEntryKind.ToolAssembly && entry.Path == Path.GetFullPath(toolFile));
         }
         finally

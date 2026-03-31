@@ -7,13 +7,7 @@ if not exist "%SOURCE_PATH%" (
     exit /b 1
 )
 
-for /f %%I in ('powershell -NoProfile -Command "(Get-Date).ToString(\"yyyyMMdd-HHmmss\")"') do set "TIMESTAMP=%%I"
-if not defined TIMESTAMP (
-    echo [ERROR] Failed to generate timestamp.
-    exit /b 1
-)
-
-set "OUTPUT_DIR=E:\agl-java-%TIMESTAMP%"
+set "OUTPUT_DIR=E:\agl-java"
 set "SCRIPT_DIR=%~dp0"
 
 echo Source: %SOURCE_PATH%

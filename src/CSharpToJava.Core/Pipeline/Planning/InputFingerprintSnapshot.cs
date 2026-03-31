@@ -9,6 +9,7 @@ public enum InputFingerprintEntryKind
 {
     SourceInput,
     MappingConfiguration,
+    TemplateAsset,
     ToolAssembly,
 }
 
@@ -25,6 +26,7 @@ public sealed class InputFingerprintBuildRequest
     public required string SourcePath { get; init; }
     public IReadOnlyList<string> InputFilePaths { get; init; } = [];
     public IReadOnlyList<string> OptionTokens { get; init; } = [];
+    public IReadOnlyList<string> TemplateFilePaths { get; init; } = [];
     public IReadOnlyList<string> ToolAssemblyPaths { get; init; } = [];
     public string? MappingConfigPath { get; init; }
 }
@@ -92,6 +94,15 @@ public static class InputFingerprintSnapshotBuilder
         if (!string.IsNullOrWhiteSpace(request.MappingConfigPath) && File.Exists(request.MappingConfigPath))
         {
             entries.Add(CreateEntry(Path.GetFullPath(request.MappingConfigPath), InputFingerprintEntryKind.MappingConfiguration));
+        }
+
+        foreach (var templateFilePath in request.TemplateFilePaths
+                     .Where(File.Exists)
+                     .Select(Path.GetFullPath)
+                     .Distinct(StringComparer.OrdinalIgnoreCase)
+                     .OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+        {
+            entries.Add(CreateEntry(templateFilePath, InputFingerprintEntryKind.TemplateAsset));
         }
 
         foreach (var toolAssemblyPath in request.ToolAssemblyPaths

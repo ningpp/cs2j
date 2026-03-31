@@ -39,6 +39,16 @@ public class ConversionResult
 /// </summary>
 public class ConversionPipeline
 {
+    private static readonly HashSet<string> IgnoredDirectoryNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".git",
+        ".vs",
+        ".idea",
+        "bin",
+        "obj",
+        "node_modules",
+    };
+
     /// <summary>
     /// A synthetic syntax tree that contributes global using directives to every compilation,
     /// mirroring the default C# project template implicit usings.
@@ -181,7 +191,7 @@ public class ConversionPipeline
         var results = new List<ConversionResult>();
 
         // 查找所有 .cs 文件
-        var csFiles = Directory.GetFiles(projectPath, "*.cs", SearchOption.AllDirectories);
+        var csFiles = EnumerateCSharpFiles(projectPath);
 
         foreach (var file in csFiles)
         {
@@ -227,7 +237,7 @@ public class ConversionPipeline
 
         // 查找所有 .cs 文件
         var primaryProjectPath = Path.GetFullPath(projectPath);
-        var csFiles = Directory.GetFiles(primaryProjectPath, "*.cs", SearchOption.AllDirectories);
+        var csFiles = EnumerateCSharpFiles(primaryProjectPath);
 
         var allSourceFiles = new HashSet<string>(csFiles, StringComparer.OrdinalIgnoreCase);
         if (additionalSemanticProjectPaths != null)
@@ -245,7 +255,7 @@ public class ConversionPipeline
                     continue;
                 }
 
-                foreach (var extraFile in Directory.GetFiles(fullExtra, "*.cs", SearchOption.AllDirectories))
+                foreach (var extraFile in EnumerateCSharpFiles(fullExtra))
                 {
                     allSourceFiles.Add(extraFile);
                 }
@@ -288,6 +298,41 @@ public class ConversionPipeline
         var results = await pipeline.ConvertProjectAsync(sourceFiles, emitFilePaths);
         LastProjectPassMetrics = pipeline.LastPassMetrics.ToList();
         return results;
+    }
+
+    private static List<string> EnumerateCSharpFiles(string rootPath)
+    {
+        var fullRootPath = Path.GetFullPath(rootPath);
+        if (!Directory.Exists(fullRootPath))
+        {
+            return [];
+        }
+
+        var files = new List<string>();
+        var pendingDirectories = new Stack<string>();
+        pendingDirectories.Push(fullRootPath);
+
+        while (pendingDirectories.Count > 0)
+        {
+            var currentDirectory = pendingDirectories.Pop();
+
+            foreach (var file in Directory.EnumerateFiles(currentDirectory, "*.cs", SearchOption.TopDirectoryOnly))
+            {
+                files.Add(Path.GetFullPath(file));
+            }
+
+            foreach (var subDirectory in Directory.EnumerateDirectories(currentDirectory, "*", SearchOption.TopDirectoryOnly))
+            {
+                if (IgnoredDirectoryNames.Contains(Path.GetFileName(subDirectory)))
+                {
+                    continue;
+                }
+
+                pendingDirectories.Push(subDirectory);
+            }
+        }
+
+        return files;
     }
 
     private IReadOnlyList<ICs2jPass<SingleFilePassState>> CreateSingleFilePasses()

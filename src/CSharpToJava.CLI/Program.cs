@@ -277,6 +277,7 @@ class Program
                 await WriteSingleModulePom(opts, CreateSingleModulePlan(opts, includeTests: false, planningResults), outputSession);
             }
 
+            GeneratedProjectAssets.WriteRootFiles(opts.Destination, outputSession);
             var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries, outputSession);
             await WriteCanarySummarySnapshot(opts.Destination, opts.Source, results, passProfileSnapshot, outputSession);
             WriteInputFingerprintSnapshot(opts.Destination, manualInputFingerprintSnapshot, outputSession);
@@ -431,6 +432,7 @@ class Program
             await WriteSingleModulePom(opts, CreateSingleModulePlan(opts, opts.IncludeTests, planningResults), outputSession);
         }
 
+        GeneratedProjectAssets.WriteRootFiles(opts.Destination, outputSession);
         var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries, outputSession);
         await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot, outputSession);
         WriteInputFingerprintSnapshot(opts.Destination, inputFingerprintSnapshot, outputSession);
@@ -544,6 +546,7 @@ class Program
             await WriteSingleModulePom(opts, CreateSingleModulePlan(opts, opts.IncludeTests, planningResults), outputSession);
         }
 
+        GeneratedProjectAssets.WriteRootFiles(opts.Destination, outputSession);
         var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries, outputSession);
         await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot, outputSession);
         WriteInputFingerprintSnapshot(opts.Destination, inputFingerprintSnapshot, outputSession);
@@ -721,6 +724,7 @@ class Program
             await WriteWorkspacePlanManifest(opts.Destination, workspacePlan, outputSession);
         }
 
+        GeneratedProjectAssets.WriteRootFiles(opts.Destination, outputSession);
         var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries, outputSession);
         await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot, outputSession);
         WriteInputFingerprintSnapshot(opts.Destination, inputFingerprintSnapshot, outputSession);
@@ -935,6 +939,7 @@ class Program
             await WriteWorkspacePlanManifest(opts.Destination, workspacePlan, outputSession);
         }
 
+        GeneratedProjectAssets.WriteRootFiles(opts.Destination, outputSession);
         var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries, outputSession);
         await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot, outputSession);
         WriteInputFingerprintSnapshot(opts.Destination, inputFingerprintSnapshot, outputSession);
@@ -2026,6 +2031,7 @@ class Program
             SourcePath = opts.Source,
             InputFilePaths = inputFiles,
             OptionTokens = GetProjectConversionOptionTokens(opts),
+            TemplateFilePaths = GeneratedProjectAssets.GetTemplateAssetPaths(),
             ToolAssemblyPaths = GetToolAssemblyPaths(),
             MappingConfigPath = opts.MappingConfig,
         });
