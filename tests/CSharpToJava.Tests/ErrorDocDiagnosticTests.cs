@@ -43,8 +43,8 @@ class Settings {
         Assert.Contains("super.clone()", code);
     }
 
-    // Error 22: Math.Sign → Integer.signum (not yet fixed)
-    [Fact(Skip = "Awaiting fix")]
+    // Error 22: Math.Sign → Integer.signum
+    [Fact]
     public void Error22_MathSign_MapsCorrectly()
     {
         var r = Convert(@"

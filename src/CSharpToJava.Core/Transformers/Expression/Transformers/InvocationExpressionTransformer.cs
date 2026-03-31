@@ -1127,6 +1127,37 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             }
         }
 
+        // Fix: Math.Sign(value) → Integer.signum(value) for int args, (int)Math.signum(value) otherwise.
+        // C# Math.Sign always returns int regardless of input type.
+        // Java Math.signum(double) returns double, Math.signum(float) returns float — NOT int.
+        // Java Integer.signum(int) returns int and is the correct mapping for int arguments.
+        if (originalMethodName == "Sign"
+            && node.ArgumentList.Arguments.Count == 1
+            && (methodSymbol?.ContainingType.ToDisplayString() is "System.Math" or "System.MathF"
+                || (methodSymbol == null && ExpressionTransformerHelpers.StaticReceiverMatches(
+                    memberAccess.Expression,
+                    context,
+                    "Math",
+                    "MathF",
+                    "System.Math",
+                    "System.MathF"))))
+        {
+            var signArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var argType = context.SemanticModel?.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type;
+            if (argType?.SpecialType == Microsoft.CodeAnalysis.SpecialType.System_Int32
+                || argType?.SpecialType == Microsoft.CodeAnalysis.SpecialType.System_Int64
+                || argType?.SpecialType == Microsoft.CodeAnalysis.SpecialType.System_Int16
+                || argType?.SpecialType == Microsoft.CodeAnalysis.SpecialType.System_SByte)
+            {
+                // Integer.signum(int) returns int — direct match
+                return argType.SpecialType == Microsoft.CodeAnalysis.SpecialType.System_Int64
+                    ? $"Long.signum({signArg})"
+                    : $"Integer.signum({signArg})";
+            }
+            // For float/double, cast the result to int to match C# signature
+            return $"(int)Math.signum({signArg})";
+        }
+
         // Fix: Math.Round(value, digits) → BigDecimal.valueOf(value).setScale(digits, RoundingMode.HALF_UP).doubleValue()
         // Java's Math.round() only accepts exactly 1 argument; there is no two-argument overload.
         // Directly mapping C# Math.Round(x, n) → Math.round(x, n) causes a Java compile error:
