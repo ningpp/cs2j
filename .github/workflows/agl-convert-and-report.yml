@@ -1,0 +1,243 @@
+name: Convert agl-master to Java and Report Errors
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_repo:
+        description: 'Private source repository (e.g. https://github.com/owner/agl-master)'
+        required: true
+        default: 'https://github.com/ningpp/agl-master'
+      solution_path:
+        description: 'Relative path to solution file or directory inside the cloned repo'
+        required: false
+        default: 'GraphLayout/GraphLayout.sln'
+      java_output_dir:
+        description: 'Directory name for the generated Java project (under $RUNNER_TEMP)'
+        required: false
+        default: 'agl-java'
+
+jobs:
+  convert-and-build:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+
+    steps:
+      # ── 1. Check out the cs2j converter tool ──────────────────────────────
+      - name: Checkout cs2j
+        uses: actions/checkout@v4
+        with:
+          path: cs2j
+
+      # ── 2. Set up .NET SDK ────────────────────────────────────────────────
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      # ── 3. Set up Java 25 ────────────────────────────────────────────────
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+          java-package: 'jdk'
+
+      # ── 4. Set up Maven ───────────────────────────────────────────────────
+      - name: Set up Maven
+        uses: stCarolas/setup-maven@v5
+        with:
+          maven-version: '3.9.9'
+
+      # ── 5. Clone the private agl-master repository ────────────────────────
+      - name: Clone agl-master
+        env:
+          SOURCE_REPO: ${{ github.event.inputs.source_repo }}
+          AGL_PAT: ${{ secrets.AGL_MASTER_PAT }}
+        run: |
+          # Inject PAT into the URL for private repos
+          if [ -n "$AGL_PAT" ]; then
+            AUTHED_URL="${SOURCE_REPO/https:\/\//https://x-access-token:${AGL_PAT}@}"
+          else
+            AUTHED_URL="$SOURCE_REPO"
+          fi
+          git clone --depth 1 "$AUTHED_URL" "$RUNNER_TEMP/agl-master"
+
+      # ── 6. Build the cs2j converter ───────────────────────────────────────
+      - name: Build cs2j
+        run: |
+          cd cs2j
+          dotnet restore
+          dotnet build --configuration Release --no-restore -v minimal
+
+      # ── 7. Convert C# project → Java ─────────────────────────────────────
+      - name: Convert C# project to Java
+        id: convert
+        run: |
+          SOURCE="${RUNNER_TEMP}/agl-master/${{ github.event.inputs.solution_path }}"
+          OUTPUT="${RUNNER_TEMP}/${{ github.event.inputs.java_output_dir }}"
+          mkdir -p "$OUTPUT"
+
+          echo "SOURCE=$SOURCE" >> "$GITHUB_ENV"
+          echo "JAVA_OUTPUT=$OUTPUT" >> "$GITHUB_ENV"
+
+          CONVERT_LOG="${RUNNER_TEMP}/convert.log"
+
+          set +e
+          cd cs2j
+          dotnet run \
+            --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj \
+            --configuration Release \
+            -- convert-project \
+              -s "$SOURCE" \
+              -d "$OUTPUT" \
+              --mode multi-module \
+              --verbose \
+              2>&1 | tee "$CONVERT_LOG"
+          CONVERT_EXIT=$?
+          set -e
+
+          echo "convert_exit=$CONVERT_EXIT" >> "$GITHUB_OUTPUT"
+          echo "convert_log=$CONVERT_LOG"   >> "$GITHUB_OUTPUT"
+
+          if [ "$CONVERT_EXIT" -ne 0 ]; then
+            echo "::warning::Conversion step exited with code $CONVERT_EXIT"
+          fi
+
+      # ── 8. Run Maven build ────────────────────────────────────────────────
+      - name: Maven build
+        id: maven
+        run: |
+          MVN_LOG="${RUNNER_TEMP}/mvn.log"
+
+          set +e
+          cd "${RUNNER_TEMP}/${{ github.event.inputs.java_output_dir }}"
+          mvn clean package -e 2>&1 | tee "$MVN_LOG"
+          MVN_EXIT=$?
+          set -e
+
+          echo "mvn_exit=$MVN_EXIT"   >> "$GITHUB_OUTPUT"
+          echo "mvn_log=$MVN_LOG"     >> "$GITHUB_OUTPUT"
+
+          if [ "$MVN_EXIT" -ne 0 ]; then
+            echo "::warning::Maven build exited with code $MVN_EXIT"
+          fi
+
+      # ── 9. Create GitHub issue with error report ──────────────────────────
+      - name: Create error report issue
+        if: ${{ always() }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs   = require('fs');
+            const path = require('path');
+
+            const convertExit = '${{ steps.convert.outputs.convert_exit }}';
+            const mavenExit   = '${{ steps.maven.outputs.mvn_exit }}';
+            const convertLog  = '${{ steps.convert.outputs.convert_log }}';
+            const mavenLog    = '${{ steps.maven.outputs.mvn_log }}';
+
+            // ── helpers ─────────────────────────────────────────────────────
+            function readLog(filePath) {
+              if (!filePath || !fs.existsSync(filePath)) return '';
+              return fs.readFileSync(filePath, 'utf8');
+            }
+
+            function extractErrors(text) {
+              if (!text) return [];
+              const lines = text.split('\n');
+              const errors = [];
+              for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                // Maven: [ERROR] / [FATAL], javac: error:, converter diagnostics
+                if (/\[ERROR\]|\[FATAL\]|error:|ERROR|Exception in thread/i.test(line)) {
+                  // grab up to 5 lines of context (stack traces etc.)
+                  let block = [line];
+                  for (let j = 1; j <= 5 && i + j < lines.length; j++) {
+                    const next = lines[i + j];
+                    if (/^\s+at |^\s+\.\.\.|Caused by:/i.test(next)) {
+                      block.push(next);
+                    } else {
+                      break;
+                    }
+                  }
+                  errors.push(block.join('\n'));
+                }
+              }
+              // Deduplicate
+              return [...new Set(errors)];
+            }
+
+            function fenced(text, lang) {
+              const trimmed = text ? text.slice(0, 65000) : '(empty)';
+              return `\`\`\`${lang}\n${trimmed}\n\`\`\``;
+            }
+
+            // ── build issue body ────────────────────────────────────────────
+            const convertText = readLog(convertLog);
+            const mavenText   = readLog(mavenLog);
+
+            const convertErrors = extractErrors(convertText);
+            const mavenErrors   = extractErrors(mavenText);
+
+            const allErrors = [...convertErrors, ...mavenErrors];
+            const totalErrors = allErrors.length;
+
+            const statusEmoji = (code) => code === '0' ? '✅' : '❌';
+
+            let body = `## 🔄 agl-master → Java Conversion & Build Report / 转换与构建报告\n\n`;
+            body += `| Step / 步骤 | Exit Code / 退出码 | Status / 状态 |\n`;
+            body += `|-------------|-------------------|---------------|\n`;
+            body += `| C# → Java conversion / 转换 | \`${convertExit || 'N/A'}\` | ${statusEmoji(convertExit)} |\n`;
+            body += `| Maven build / 构建 | \`${mavenExit || 'N/A'}\` | ${statusEmoji(mavenExit)} |\n\n`;
+
+            body += `**Source repo / 源仓库：** ${{ github.event.inputs.source_repo }}\n`;
+            body += `**Solution path / 方案路径：** ${{ github.event.inputs.solution_path }}\n`;
+            body += `**Java output dir / Java 输出目录：** ${{ github.event.inputs.java_output_dir }}\n`;
+            body += `**Timestamp / 运行时间：** ${new Date().toISOString()}\n\n`;
+
+            // ── error summary ────────────────────────────────────────────────
+            if (totalErrors === 0) {
+              body += `### ✅ No errors found / 未发现错误\n\n`;
+            } else {
+              body += `### ❌ ${totalErrors} error(s) found / 发现 ${totalErrors} 条错误\n\n`;
+
+              if (convertErrors.length > 0) {
+                body += `#### Conversion errors / 转换阶段错误 (${convertErrors.length})\n\n`;
+                body += fenced(convertErrors.join('\n\n---\n\n'), 'text');
+                body += '\n\n';
+              }
+
+              if (mavenErrors.length > 0) {
+                body += `#### Maven build errors / Maven 构建错误 (${mavenErrors.length})\n\n`;
+                body += fenced(mavenErrors.join('\n\n---\n\n'), 'text');
+                body += '\n\n';
+              }
+            }
+
+            // ── full logs (truncated) ────────────────────────────────────────
+            body += `<details>\n<summary>📋 Full conversion log / 完整转换日志</summary>\n\n`;
+            body += fenced(convertText, 'text');
+            body += `\n\n</details>\n\n`;
+
+            body += `<details>\n<summary>📋 Full Maven log / 完整 Maven 日志</summary>\n\n`;
+            body += fenced(mavenText, 'text');
+            body += `\n\n</details>\n`;
+
+            // ── determine label and title ────────────────────────────────────
+            const hasFailure = convertExit !== '0' || mavenExit !== '0';
+            const titlePrefix = hasFailure ? '❌ [agl-master]' : '✅ [agl-master]';
+            const title = `${titlePrefix} Java conversion & build report - ${new Date().toISOString().slice(0, 10)}`;
+
+            // ── create issue ─────────────────────────────────────────────────
+            const { data: issue } = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              title,
+              body,
+              labels: hasFailure ? ['conversion-error'] : ['conversion-success'],
+            });
+
+            console.log(`Issue created: ${issue.html_url}`);
+            core.summary.addLink('Created Issue', issue.html_url);
