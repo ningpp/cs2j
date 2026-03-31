@@ -74,6 +74,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             {
                 var leftArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
                 var rightArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                context.AddImport("java.util.Objects");
                 return $"Objects.equals({leftArg}, {rightArg})";
             }
 
@@ -405,6 +406,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
         {
             var leftArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var rightArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            context.AddImport("java.util.Objects");
             return $"Objects.equals({leftArg}, {rightArg})";
         }
 
@@ -435,6 +437,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             && IsSystemStringType(stringEqualsReceiverType))
         {
             var arg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            context.AddImport("java.util.Objects");
             return $"Objects.equals({receiver}, {arg})";
         }
 
@@ -1838,6 +1841,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             // two separate .sorted() calls.
             if (originalMethodName is "OrderBy" or "ThenBy")
             {
+                context.AddImport("java.util.Comparator");
                 var sortArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, argStartIndex);
                 if (string.IsNullOrEmpty(sortArgs))
                     return $"{receiver}.sorted()";
@@ -1914,6 +1918,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             // OrderByDescending/ThenByDescending → sorted(Comparator.reverseOrder()) or .reversed()
             if (originalMethodName is "OrderByDescending" or "ThenByDescending")
             {
+                context.AddImport("java.util.Comparator");
                 var sortArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, argStartIndex);
                 if (string.IsNullOrEmpty(sortArgs))
                     return $"{receiver}.sorted(java.util.Comparator.reverseOrder())";
@@ -2068,6 +2073,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 {
                     return $"{receiver}.collect(Collectors.toSet()).contains({valArg})";
                 }
+                context.AddImport("java.util.Objects");
                 return $"{receiver}.anyMatch(_item -> Objects.equals(_item, {valArg}))";
             }
 
@@ -2512,13 +2518,13 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 return $"{receiver}.collect(Collectors.toSet())";
             }
 
-            // Reverse() → collect to list, reverse, return
+            // Reverse() → collect to list, reverse, re-stream
             if (originalMethodName == "Reverse")
             {
                 context.AddImport("java.util.stream.Collectors");
                 context.AddImport("java.util.ArrayList");
                 context.AddImport("java.util.Collections");
-                return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new), list -> {{ Collections.reverse(list); return list; }}))";
+                return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new), list -> {{ Collections.reverse(list); return list.stream(); }}))";
             }
 
             // Append(item) → Stream.concat(stream, Stream.of(item))
@@ -2879,6 +2885,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             // Join(inner, outerKey, innerKey, resultSelector) → flatMap + filter + map
             if (originalMethodName == "Join" && node.ArgumentList.Arguments.Count >= 4)
             {
+                context.AddImport("java.util.Objects");
                 var jInnerArg0 = node.ArgumentList.Arguments[0];
                 var jInner = facade.Transform(jInnerArg0.Expression, context);
                 var jInnerType = context.SemanticModel.GetTypeInfo(jInnerArg0.Expression).Type;
@@ -2907,6 +2914,7 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             {
                 context.AddImport("java.util.stream.Collectors");
                 context.AddImport("java.util.ArrayList");
+                context.AddImport("java.util.Objects");
                 var gjInnerArg0 = node.ArgumentList.Arguments[0];
                 var gjInner = facade.Transform(gjInnerArg0.Expression, context);
                 var gjInnerType = context.SemanticModel.GetTypeInfo(gjInnerArg0.Expression).Type;
