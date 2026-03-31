@@ -979,10 +979,19 @@ public class StatementTransformer : IStatementTransformer
         // Fallback: if the foreach expression is a locally-declared variable that was registered
         // as stream-typed in TransformLocalDeclaration, treat it as a stream here too.
         // This handles cases where the SemanticModel is unavailable or the type is not in System.Linq.
+        //
+        // Root cause of issue #10: StreamLocalVariables does not track scope — a variable name added
+        // to the set in one block persists for the rest of the method. When the same variable name is
+        // reused in a sibling scope with an array type (Point[]), the foreach must NOT collect it,
+        // because arrays are directly iterable in Java. Fix: exclude IArrayTypeSymbol from stream treatment.
         if (!isStream && context.StreamLocalVariables.Contains(expression.Trim()))
         {
-            bool exprIsCollectionLike = exprTypeInfo is INamedTypeSymbol exprNamedType
-                && exprNamedType.Name is "IEnumerable" or "ICollection" or "IList" or "List" or "Collection" or "Iterable";
+            bool exprIsCollectionLike =
+                // Named collection/iterable interfaces are already collections, not streams
+                (exprTypeInfo is INamedTypeSymbol exprNamedType &&
+                    exprNamedType.Name is "IEnumerable" or "ICollection" or "IList" or "List" or "Collection" or "Iterable")
+                // Arrays are directly iterable in Java (T[] supports for-each without stream wrapping)
+                || exprTypeInfo is IArrayTypeSymbol;
             if (!exprIsCollectionLike)
                 isStream = true;
         }
@@ -1694,6 +1703,8 @@ public class StatementTransformer : IStatementTransformer
                 // Track stream-typed local variables for subsequent for-each statements.
                 // When the initializer is a Java stream expression (not already collected), register
                 // the variable name so TransformForEachStatement can detect it.
+                // Guard: never register array-typed variables (T[]) as streams — arrays are
+                // directly iterable in Java and must not be collected in for-each loops.
                 {
                     bool initLooksLikeStream = !initExpr.Contains(".collect(Collectors.toCollection(ArrayList::new))")
                         // If it ends with .toArray(...), the stream was already terminated to an array —
@@ -1707,7 +1718,17 @@ public class StatementTransformer : IStatementTransformer
                             initExpr.Contains(".stream()") || initExpr.Contains("Stream.concat(") ||
                             initExpr.Contains(".distinct(") || initExpr.Contains(".limit(") ||
                             initExpr.Contains(".skip(") || initExpr.Contains(".peek("));
-                    if (initLooksLikeStream)
+                    // Do NOT register if the variable's Java type is an array (e.g. Point[]).
+                    // Arrays are directly iterable in Java; they are never Java streams.
+                    bool isArrayJavaType = javaType.EndsWith("[]");
+                    // Also check via semantic model: if the variable's C# type is an array, skip registration.
+                    bool isSemanticArrayType = false;
+                    if (context.SemanticModel != null)
+                    {
+                        var localSymForStream = context.SemanticModel.GetDeclaredSymbol(v) as ILocalSymbol;
+                        isSemanticArrayType = localSymForStream?.Type is IArrayTypeSymbol;
+                    }
+                    if (initLooksLikeStream && !isArrayJavaType && !isSemanticArrayType)
                         context.StreamLocalVariables.Add(v.Identifier.Text);
                 }
                 // Struct value copy: In C# struct assignment copies the value; in Java it copies the reference.
