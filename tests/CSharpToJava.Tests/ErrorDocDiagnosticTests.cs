@@ -561,6 +561,28 @@ class Sample {
         Assert.Contains(".value", code);
     }
 
+    // Error 12b: out member.field should use Holder pattern
+    [Fact]
+    public void Error12b_OutMemberFieldHolder()
+    {
+        var r = Convert(@"
+class Data { public int[] items; }
+class Sample {
+    void Fill(out int[] arr) { arr = new int[] { 1, 2, 3 }; }
+    void M() {
+        var data = new Data();
+        Fill(out data.items);
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        // Should use Holder for out member access, not /* out */
+        Assert.DoesNotContain("/* out */", code);
+        Assert.Contains("Holder", code);
+        Assert.Contains(".value", code);
+    }
+
     // Error 19a: duplicate closure variable declaration
     [Fact]
     public void Error19a_DuplicateClosureVariable()
