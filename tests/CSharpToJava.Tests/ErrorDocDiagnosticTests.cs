@@ -601,4 +601,46 @@ class Sample {
         // Lambda assignment should NOT use var (Java can't infer lambda type with var)
         Assert.DoesNotContain("var doubler", code);
     }
+
+    // Error 16b: Delegate invocation with fields
+    [Fact]
+    public void Error16b_DelegateFieldInvocation()
+    {
+        var r = Convert(@"
+using System;
+class Sample {
+    Action<string> callback;
+    Func<int, string> converter;
+    void M() {
+        callback(""hello"");
+        var result = converter(42);
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        // Should use .accept() for Action, .apply() for Func — NOT .invoke()
+        Assert.DoesNotContain(".invoke(", code);
+        Assert.DoesNotContain(".Invoke(", code);
+    }
+
+    // Error 03: Lambda in ambiguous constructor context should be cast
+    [Fact]
+    public void Error03_LambdaComparatorCast()
+    {
+        var r = Convert(@"
+using System;
+using System.Collections.Generic;
+class Sample {
+    void M() {
+        var list = new List<int>();
+        list.Sort((a, b) => a.CompareTo(b));
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        // Sort with comparator lambda should compile
+        Assert.Contains("sort(", code);
+    }
 }
