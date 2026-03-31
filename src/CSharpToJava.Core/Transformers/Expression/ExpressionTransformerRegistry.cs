@@ -57,6 +57,8 @@ public static class ExpressionTransformerRegistry
                     var typeSymbol = ctx.SemanticModel?.GetTypeInfo(decl.Type).Type
                         ?? ctx.SemanticModel?.GetTypeInfo(decl).Type;
                     var javaType = typeSymbol != null ? ctx.MapType(typeSymbol) : "Object";
+                    if (string.IsNullOrEmpty(javaType))
+                        javaType = "Object";
 
                     var holderType = DelegateTransformer.GetHolderType(javaType);
                     var holderInit = holderType.StartsWith("ObjectHolder<", StringComparison.Ordinal)

@@ -159,6 +159,46 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 var delegateReceiver = facade.Transform(node.Expression, context);
                 return $"{delegateReceiver}.{javaMethod}({delegateArgs})";
             }
+
+            // Fallback: GetSymbolInfo failed (e.g. unresolved project references), but the
+            // expression type may still be a delegate — check GetTypeInfo on the expression itself.
+            var exprTypeInfo = context.SemanticModel.GetTypeInfo(node.Expression);
+            if (exprTypeInfo.Type is INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType)
+            {
+                var invokeMethod = delegateType.DelegateInvokeMethod;
+                if (invokeMethod != null)
+                {
+                    var containingTypeName = delegateType.ToDisplayString();
+                    var javaMethod = context.TypeMappings.MapMethod(containingTypeName, "Invoke")
+                        ?? InferSamMethodName(invokeMethod);
+                    var delegateArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                    var delegateReceiver = facade.Transform(node.Expression, context);
+                    return $"{delegateReceiver}.{javaMethod}({delegateArgs})";
+                }
+            }
+        }
+
+        // When the invocation expression is a complex expression (element-access, method-call result,
+        // etc.) and the semantic model cannot resolve the delegate type (e.g. due to missing project
+        // references), calling it directly as `expr(args)` is invalid Java syntax.
+        // Apply a structural heuristic: use the Java SAM method name inferred from argument count
+        // and whether the result is used in a value context.
+        if (node.Expression is not IdentifierNameSyntax
+            and not MemberAccessExpressionSyntax
+            and not GenericNameSyntax)
+        {
+            int argCount = node.ArgumentList.Arguments.Count;
+            bool isStatementContext = node.Parent is ExpressionStatementSyntax;
+            string samMethod = isStatementContext
+                ? (argCount == 0 ? "run" : "accept")  // void: Runnable.run / Consumer.accept
+                : (argCount == 0 ? "get" : "apply");  // value: Supplier.get / Function.apply
+            var delegateArgs3 = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+            var delegateReceiver3 = facade.Transform(node.Expression, context);
+            context.Diagnostics.Warning(
+                $"Delegate invocation via complex expression '{node.Expression}'; " +
+                $"delegate type could not be resolved — using heuristic SAM method '.{samMethod}()'",
+                node.GetLocation());
+            return $"{delegateReceiver3}.{samMethod}({delegateArgs3})";
         }
 
         var target = facade.Transform(node.Expression, context);
