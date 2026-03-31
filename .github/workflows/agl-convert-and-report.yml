@@ -54,7 +54,7 @@ jobs:
       - name: Clone agl-master
         env:
           SOURCE_REPO: ${{ github.event.inputs.source_repo }}
-          AGL_PAT: ${{ secrets.AGL_MASTER_PAT }}
+          AGL_PAT: ${{ secrets.AGL_PAT }}
         run: |
           # Inject PAT into the URL for private repos
           if [ -n "$AGL_PAT" ]; then
