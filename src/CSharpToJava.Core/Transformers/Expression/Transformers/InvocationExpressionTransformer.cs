@@ -2237,6 +2237,47 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                 }
                 if (node.ArgumentList.Arguments.Count == 1)
                 {
+                    // Check for indexed overload: SelectMany((item, index) => ...)
+                    var smArgExpr = node.ArgumentList.Arguments[0].Expression;
+                    if (TryGetTwoParamLambda(smArgExpr, context, facade, out var smIdxP0, out var smIdxP1, out var smIdxBody))
+                    {
+                        // SelectMany((item, i) => body): collect to list, IntStream.range for index, flatMap each
+                        context.AddImport("java.util.stream.IntStream");
+                        context.AddImport("java.util.stream.Collectors");
+                        context.AddImport("java.util.ArrayList");
+                        // Determine if the inner body returns something we need to stream
+                        ExpressionSyntax? smIdxBodyExpr = smArgExpr switch
+                        {
+                            ParenthesizedLambdaExpressionSyntax pl => pl.ExpressionBody,
+                            _ => null
+                        };
+                        var smIdxBodyRetType = smIdxBodyExpr != null
+                            ? context.SemanticModel?.GetTypeInfo(smIdxBodyExpr).Type
+                            : null;
+                        string innerStreamExpr;
+                        if (smIdxBodyRetType is IArrayTypeSymbol smIdxArr)
+                        {
+                            var arrStream = ExpressionTransformerHelpers.BuildArrayStreamExpression(
+                                smIdxBody, smIdxArr, context, boxed: smIdxArr.ElementType.IsValueType);
+                            innerStreamExpr = arrStream;
+                        }
+                        else if (smIdxBodyRetType != null && ImplementsIEnumerable(smIdxBodyRetType))
+                        {
+                            innerStreamExpr = BuildStreamReceiverExpression(
+                                smIdxBody, smIdxBodyRetType, context,
+                                boxPrimitiveArrayElements: false, preserveGroupingValueStream: false);
+                        }
+                        else
+                        {
+                            // Assume the body already returns a stream-compatible expression
+                            innerStreamExpr = smIdxBody;
+                        }
+                        return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new),"
+                             + $" _src -> IntStream.range(0, _src.size())"
+                             + $".mapToObj(_i -> {{ var {smIdxP0} = _src.get(_i); int {smIdxP1} = _i; return {innerStreamExpr}; }})"
+                             + $".flatMap(java.util.function.Function.identity())))";
+                    }
+
                     // When the selector returns an array, flatMap needs Arrays.stream() wrapping.
                     string flatMapArg;
                     var smArg = node.ArgumentList.Arguments[0];
@@ -2663,16 +2704,28 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                     zipOtherListExpr = ExpressionTransformerHelpers.BuildArrayToCollectionExpression(zipOther, zipArrType2, context);
                 else
                     zipOtherListExpr = zipOther;
+
+                // When the receiver is a primitive stream (e.g. IntStream from Arrays.stream(int[])),
+                // we must .boxed() before .collect() since IntStream.collect() has a different signature
+                // (Supplier, ObjIntConsumer, BiConsumer) and does not accept Collector<T,A,R>.
+                var zipReceiver = receiver;
+                var zipReceiverType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                if (zipReceiverType is IArrayTypeSymbol zipSrcArr
+                    && PrimitiveStreamCategory(zipSrcArr.ElementType.SpecialType) != "")
+                {
+                    zipReceiver = $"{receiver}.boxed()";
+                }
+
                 if (TryGetTwoParamLambda(node.ArgumentList.Arguments[1].Expression, context, facade, out var zipP0, out var zipP1, out var zipBody))
                 {
-                    return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new),"
+                    return $"{zipReceiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new),"
                          + $" _left -> {{ var _right = {zipOtherListExpr};"
                          + $" return IntStream.range(0, Math.min(_left.size(), _right.size()))"
                          + $".mapToObj(_i -> {{ var {zipP0} = _left.get(_i); var {zipP1} = _right.get(_i); return {zipBody}; }}); }}))";
                 }
                 // Fallback: no two-param lambda recognised
                 var zipSel = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-                return $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new),"
+                return $"{zipReceiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(ArrayList::new),"
                      + $" _left -> {{ var _right = {zipOtherListExpr};"
                      + $" return IntStream.range(0, Math.min(_left.size(), _right.size())).mapToObj(_i -> _left.get(_i)); }}))";
             }
@@ -3273,7 +3326,10 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             || receiver.EndsWith(".stream()", StringComparison.Ordinal)
             || receiver.Contains("Arrays.stream(", StringComparison.Ordinal)
             || receiver.Contains("IntStream.range(", StringComparison.Ordinal)
-            || receiver.Contains("StreamSupport.stream(", StringComparison.Ordinal);
+            || receiver.Contains("StreamSupport.stream(", StringComparison.Ordinal)
+            // Zip / indexed Select / indexed Where use collectingAndThen to produce a
+            // stream via IntStream.range().mapToObj(); the outer result IS a stream.
+            || receiver.Contains(".collect(Collectors.collectingAndThen(", StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -3438,6 +3494,11 @@ public class InvocationExpressionTransformer : IExpressionTransformer
     private static bool LooksLikeMaterializedCollectionExpression(string receiverExpr)
     {
         if (string.IsNullOrWhiteSpace(receiverExpr))
+            return false;
+
+        // collectingAndThen produces a stream (the finisher returns a stream), not a collection.
+        // Must NOT be detected as materialized.
+        if (receiverExpr.Contains(".collect(Collectors.collectingAndThen(", StringComparison.Ordinal))
             return false;
 
         return receiverExpr.Contains(".collect(Collectors.toCollection(ArrayList::new))", StringComparison.Ordinal)
