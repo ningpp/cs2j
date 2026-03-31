@@ -36,6 +36,7 @@ public class AssignmentTransformer : IExpressionTransformer
 
     private static readonly Lazy<AssignmentTransformer> _instance = new(() => new());
     public static AssignmentTransformer Instance => _instance.Value;
+    private static int _thisAssignCounter;
 
     public string Transform(ExpressionSyntax node, ConversionContext context)
         => node.Kind() switch
@@ -717,7 +718,7 @@ public class AssignmentTransformer : IExpressionTransformer
 
         // Determine if the RHS is a simple expression that can be inlined without a temp variable,
         // or if it needs to be evaluated once into a temp.
-        bool rhsIsSimple = rhsNode is IdentifierNameSyntax or ThisExpressionSyntax;
+        bool rhsIsSimple = rhsNode is IdentifierNameSyntax or ThisExpressionSyntax or MemberAccessExpressionSyntax;
 
         // For `this = default` or `this = new StructType()`, generate direct zero-initialization
         bool rhsIsDefault = rhsNode is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.DefaultLiteralExpression }
@@ -759,7 +760,7 @@ public class AssignmentTransformer : IExpressionTransformer
         else
         {
             // Use temp variable: StructType _tmp = expr; this.f1 = _tmp.f1; ...
-            var tmpName = "_thisAssignTmp";
+            var tmpName = $"_thisAssignTmp{Interlocked.Increment(ref _thisAssignCounter)}";
             context.AddPreStatement($"{structClass.Name} {tmpName} = {rhs};");
             var lines = new List<string>();
             foreach (var field in instanceFields)
