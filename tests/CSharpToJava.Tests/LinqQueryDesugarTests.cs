@@ -251,6 +251,113 @@ class Sample {
     }
 
     // ─────────────────────────────────────────────────────────────────────
+    // Terminal methods: ToList, ToArray, Select+ToList
+    // ─────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void MethodSyntax_WhereToList_ProducesProceduralCode_WhenStreamApiDisabled()
+    {
+        const string source = @"
+using System.Collections.Generic;
+using System.Linq;
+class Sample {
+    List<int> GetPositives(List<int> values) {
+        return values.Where(v => v > 0).ToList();
+    }
+}";
+        var result = ConvertProcedural(source);
+
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.DoesNotContain(".stream()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Collectors", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("for (", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("ProceduralLinq", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MethodSyntax_SelectToList_ProducesProceduralCode_WhenStreamApiDisabled()
+    {
+        const string source = @"
+using System.Collections.Generic;
+using System.Linq;
+class Sample {
+    List<string> Project(List<int> values) {
+        return values.Select(v => v.ToString()).ToList();
+    }
+}";
+        var result = ConvertProcedural(source);
+
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.DoesNotContain(".stream()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Collectors", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("for (", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MethodSyntax_WhereToArray_ProducesProceduralCode_WhenStreamApiDisabled()
+    {
+        const string source = @"
+using System.Collections.Generic;
+using System.Linq;
+class Sample {
+    int[] GetPositives(List<int> values) {
+        return values.Where(v => v > 0).ToArray();
+    }
+}";
+        var result = ConvertProcedural(source);
+
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("for (", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("ProceduralLinq", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void QuerySyntax_WhereToList_ProducesProceduralCode_WhenStreamApiDisabled()
+    {
+        const string source = @"
+using System.Collections.Generic;
+using System.Linq;
+class Sample {
+    List<int> GetPositives(List<int> values) {
+        return (from v in values where v > 0 select v).ToList();
+    }
+}";
+        var result = ConvertProcedural(source);
+
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.DoesNotContain(".stream()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Collectors", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("for (", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void QuerySyntax_WhereToList_MatchesMethodChain_WhenStreamApiDisabled()
+    {
+        const string querySource = @"
+using System.Collections.Generic;
+using System.Linq;
+class Sample {
+    List<int> GetPositives(List<int> values) {
+        return (from v in values where v > 0 select v).ToList();
+    }
+}";
+        const string methodSource = @"
+using System.Collections.Generic;
+using System.Linq;
+class Sample {
+    List<int> GetPositives(List<int> values) {
+        return values.Where(v => v > 0).ToList();
+    }
+}";
+        var queryResult = ConvertProcedural(querySource);
+        var methodResult = ConvertProcedural(methodSource);
+
+        Assert.True(queryResult.Success, queryResult.GeneratedCode);
+        Assert.True(methodResult.Success, methodResult.GeneratedCode);
+        Assert.Equal(queryResult.GeneratedCode, methodResult.GeneratedCode);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
     // Helpers
     // ─────────────────────────────────────────────────────────────────────
 
