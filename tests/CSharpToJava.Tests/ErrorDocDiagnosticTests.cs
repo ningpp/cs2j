@@ -787,4 +787,92 @@ class Derived : BaseClass, IComparer<int> {
         var derivedLine = code.Split('\n').FirstOrDefault(l => l.Contains("class Derived")) ?? "";
         Assert.DoesNotContain("Comparator<Integer>", derivedLine);
     }
+
+    // Error 15b: SelectMany chain should produce flatMap, not .collect() on intermediate
+    [Fact]
+    public void Error15b_SelectManyChain()
+    {
+        var r = Convert(@"
+using System.Collections.Generic;
+using System.Linq;
+class Graph {
+    public IEnumerable<Edge> Edges;
+}
+class Edge { public int Weight; }
+class Sample {
+    void M(List<Graph> graphs) {
+        var allEdges = graphs.SelectMany(g => g.Edges).ToList();
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        Assert.Contains("flatMap(", code);
+        // Should not have .collect() called on a non-stream type
+        Assert.DoesNotContain(".collect(Collectors.toCollection(ArrayList::new)).collect(", code);
+    }
+
+    // Error 15c: GroupBy then access values should not call .stream() on scalar
+    [Fact]
+    public void Error15c_GroupByValues()
+    {
+        var r = Convert(@"
+using System.Collections.Generic;
+using System.Linq;
+class Item { public string Category; public int Value; }
+class Sample {
+    void M(List<Item> items) {
+        var groups = items.GroupBy(i => i.Category);
+        foreach (var g in groups) {
+            var sum = g.Sum(i => i.Value);
+        }
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        // GroupBy should produce a reasonable output (Collectors.groupingBy or similar)
+        Assert.DoesNotContain(".stream().stream()", code);
+    }
+
+    // Error 08b: Object initializer with unmapped .NET type should preserve type name
+    [Fact]
+    public void Error08b_UnmappedTypeFallback()
+    {
+        // When a type has no mapping, it should keep the original type name, not degrade to Object
+        var r = Convert(@"
+class Sample {
+    void M() {
+        var x = new SomeUnknownConfig();
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        // Even unmapped types should preserve the type name
+        Assert.Contains("SomeUnknownConfig", code);
+        Assert.DoesNotContain("new Object()", code);
+    }
+
+    // Error 06b: Constructor call with LINQ result should add cast if ambiguous
+    [Fact]
+    public void Error06b_ConstructorWithLinqResult()
+    {
+        var r = Convert(@"
+using System.Collections.Generic;
+using System.Linq;
+class TreeNode<T> {
+    public TreeNode(IEnumerable<T> children) { }
+    public TreeNode(TreeNode<T> singleChild) { }
+}
+class Sample {
+    void M(List<int> data) {
+        var node = new TreeNode<int>(data.Where(x => x > 0).Select(x => x));
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        Assert.Contains("new TreeNode", code);
+    }
 }
