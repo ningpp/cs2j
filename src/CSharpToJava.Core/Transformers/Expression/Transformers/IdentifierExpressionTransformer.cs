@@ -331,6 +331,17 @@ public class IdentifierExpressionTransformer : IExpressionTransformer
         if (target == "String" && memberName == "Empty")
             return "\"\"";
 
+        // Fix: Stopwatch.Frequency → 1_000_000_000L (Java uses nanosecond precision via System.nanoTime)
+        if (memberName == "Frequency"
+            && ExpressionTransformerHelpers.StaticReceiverMatches(
+                node.Expression,
+                context,
+                "Stopwatch",
+                "System.Diagnostics.Stopwatch"))
+        {
+            return "1_000_000_000L";
+        }
+
         // Fallback for unresolved method-group symbol: Parallel.Invoke used as delegate value.
         if (memberName == "Invoke"
             && ExpressionTransformerHelpers.StaticReceiverMatches(

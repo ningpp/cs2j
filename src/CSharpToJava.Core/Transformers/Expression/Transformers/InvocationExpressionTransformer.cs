@@ -1127,6 +1127,21 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             }
         }
 
+        // Fix: Stopwatch.GetTimestamp() → System.nanoTime()
+        // C# Stopwatch.GetTimestamp() returns a high-resolution timestamp in ticks.
+        // Java System.nanoTime() is the closest equivalent (nanosecond precision).
+        if (originalMethodName == "GetTimestamp"
+            && node.ArgumentList.Arguments.Count == 0
+            && (methodSymbol?.ContainingType.ToDisplayString() == "System.Diagnostics.Stopwatch"
+                || (methodSymbol == null && ExpressionTransformerHelpers.StaticReceiverMatches(
+                    memberAccess.Expression,
+                    context,
+                    "Stopwatch",
+                    "System.Diagnostics.Stopwatch"))))
+        {
+            return "System.nanoTime()";
+        }
+
         // Fix: Math.Sign(value) → Integer.signum(value) for int args, (int)Math.signum(value) otherwise.
         // C# Math.Sign always returns int regardless of input type.
         // Java Math.signum(double) returns double, Math.signum(float) returns float — NOT int.
