@@ -81,6 +81,17 @@ public class QueryExpressionTransformer : IExpressionTransformer
                     var innerVar = ConversionContext.EscapeJavaKeyword(additionalFrom.Identifier.Text);
                     var innerSrc = facade.Transform(additionalFrom.Expression, context);
                     var innerSrcType = context.SemanticModel?.GetTypeInfo(additionalFrom.Expression).Type;
+                    // If the current stream is a primitive stream (e.g. IntStream from int[]),
+                    // we must .boxed() before .flatMap() which expects Function<T, Stream<R>>.
+                    if (fromClauseType is IArrayTypeSymbol prevArr
+                        && prevArr.ElementType.SpecialType is
+                            SpecialType.System_Int32 or SpecialType.System_Int16 or SpecialType.System_Byte
+                            or SpecialType.System_UInt32 or SpecialType.System_UInt16 or SpecialType.System_SByte
+                            or SpecialType.System_Int64 or SpecialType.System_UInt64
+                            or SpecialType.System_Double or SpecialType.System_Single or SpecialType.System_Decimal)
+                    {
+                        sb.Append("\n    .boxed()");
+                    }
                     sb.Append($"\n    .flatMap({rangeVar} -> {ExpressionTransformerHelpers.BuildStreamExpression(innerSrc, innerSrcType, context)})");
                     rangeVar = innerVar;
                     break;
