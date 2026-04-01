@@ -996,6 +996,19 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             return $"Arrays.fill({arrayArg}, {indexArg}, {endArg}, {defaultValue})";
         }
 
+        // List<T>.Exists(predicate) → list.stream().anyMatch(predicate)
+        // List<T>.TrueForAll(predicate) → list.stream().allMatch(predicate)
+        // Java ArrayList has no direct Exists/TrueForAll methods.
+        if (originalMethodName is "Exists" or "TrueForAll"
+            && node.ArgumentList.Arguments.Count == 1
+            && methodSymbol?.ContainingType.Name == "List"
+            && methodSymbol.ContainingType.ContainingNamespace?.ToString()?.StartsWith("System") == true)
+        {
+            var pred = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var matchMethod = originalMethodName == "Exists" ? "anyMatch" : "allMatch";
+            return $"{receiver}.stream().{matchMethod}({pred})";
+        }
+
         // System.Threading.Tasks.Parallel.ForEach(source, [options,] action)
         // → StreamSupport.stream(source.spliterator(), true).forEach(action)
         // This preserves compilability in Java while keeping parallel intent.
@@ -2466,13 +2479,19 @@ public class InvocationExpressionTransformer : IExpressionTransformer
                     // Fallback: string-based heuristic when semantic info is incomplete.
                     // If receiver looks like a primitive IntStream (Arrays.stream on int[])
                     // and flatMapArg returns a reference stream, we need .boxed().
+                    // Guard: only apply when source element type is a primitive, or when
+                    // we have no semantic info. Without this, Arrays.stream(ReferenceType[])
+                    // would incorrectly get .boxed() since it produces Stream<T>, not IntStream.
                     if (!smNeedsBoxed
                         && !receiver.Contains(".boxed()", StringComparison.Ordinal)
                         && !receiver.Contains(".mapToObj(", StringComparison.Ordinal)
                         && (receiver.StartsWith("Arrays.stream(", StringComparison.Ordinal)
                             || receiver.Contains("IntStream.range(", StringComparison.Ordinal))
                         && (flatMapArg.Contains(".stream()", StringComparison.Ordinal)
-                            || flatMapArg.Contains("StreamSupport.stream(", StringComparison.Ordinal)))
+                            || flatMapArg.Contains("StreamSupport.stream(", StringComparison.Ordinal))
+                        && (methodSymbol == null
+                            || methodSymbol.TypeArguments.Length < 1
+                            || PrimitiveStreamCategory(methodSymbol.TypeArguments[0].SpecialType) != ""))
                     {
                         smNeedsBoxed = true;
                     }
