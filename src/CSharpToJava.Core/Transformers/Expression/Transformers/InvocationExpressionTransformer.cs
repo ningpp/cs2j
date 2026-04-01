@@ -178,6 +178,22 @@ public class InvocationExpressionTransformer : IExpressionTransformer
             }
         }
 
+        // Explicit .Invoke() on a delegate when semantic analysis cannot resolve the delegate type.
+        // In C#, delegate.Invoke(args) is always valid. In Java, the method depends on the functional
+        // interface — we use a heuristic based on argument count and value/statement context.
+        if (node.Expression is MemberAccessExpressionSyntax explicitInvokeMa
+            && explicitInvokeMa.Name.Identifier.Text == "Invoke")
+        {
+            int argCount = node.ArgumentList.Arguments.Count;
+            bool isStatementContext = node.Parent is ExpressionStatementSyntax;
+            string samMethod = isStatementContext
+                ? (argCount == 0 ? "run" : "accept")
+                : (argCount == 0 ? "get" : "apply");
+            var delegateArgs4 = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+            var delegateReceiver4 = facade.Transform(explicitInvokeMa.Expression, context);
+            return $"{delegateReceiver4}.{samMethod}({delegateArgs4})";
+        }
+
         // When the invocation expression is a complex expression (element-access, method-call result,
         // etc.) and the semantic model cannot resolve the delegate type (e.g. due to missing project
         // references), calling it directly as `expr(args)` is invalid Java syntax.
